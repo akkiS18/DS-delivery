@@ -11,7 +11,7 @@ export type OperatorAction = 'SENT' | 'NO_TAXI';
 export type CurrentTaxiStatus = 'SCHEDULED' | 'SENDING' | 'REQUESTED' | 'CANCELLATION_PENDING' | 'ASSIGNED' | 'DECLINED' | 'NEEDS_HELP';
 
 export function operatorTransition(status: CurrentTaxiStatus, action: OperatorAction): 'ASSIGNED' | 'DECLINED' {
-  if (status !== 'REQUESTED' && status !== 'CANCELLATION_PENDING') throw new Error('TAKSI_SOROVI_ESKIRGAN');
+  if (status !== 'REQUESTED' && status !== 'CANCELLATION_PENDING' && status !== 'NEEDS_HELP') throw new Error('TAKSI_SOROVI_ESKIRGAN');
   return action === 'SENT' ? 'ASSIGNED' : 'DECLINED';
 }
 

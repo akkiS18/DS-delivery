@@ -12,7 +12,7 @@ export function registerTaxiHandlers<C extends Context>(bot: Telegraf<C>): void 
       return;
     }
     const rows = await db.taxiDispatch.findMany({
-      where: { taxiCompanyId: company.id, status: { in: ['REQUESTED', 'CANCELLATION_PENDING', 'ASSIGNED'] } },
+      where: { taxiCompanyId: company.id, status: { in: ['REQUESTED', 'CANCELLATION_PENDING', 'NEEDS_HELP', 'ASSIGNED'] } },
       orderBy: [{ createdAt: 'desc' }], take: 12,
       include: { order: { select: { number: true } } },
     });
@@ -40,7 +40,7 @@ export function registerTaxiHandlers<C extends Context>(bot: Telegraf<C>): void 
         `Yetkazish: ${row.order.addressText}\nTelefon: ${row.order.phoneSnapshot ?? 'mavjud emas'}\n` +
         `Taom: ${row.order.status}`,
         Markup.inlineKeyboard(
-          ['REQUESTED', 'CANCELLATION_PENDING'].includes(row.status) ? [
+          ['REQUESTED', 'CANCELLATION_PENDING', 'NEEDS_HELP'].includes(row.status) ? [
             [Markup.button.callback('🚕 Taksi yuborildi', `taxi:sent:${row.id}`)],
             [Markup.button.callback('🚫 Taksi yo‘q / yuborilmadi', `taxi:none:${row.id}`)],
           ] : [[Markup.button.callback('🔄 Yangilash', `taxi:view:${row.id}`)]]));

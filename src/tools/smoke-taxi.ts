@@ -87,6 +87,9 @@ try {
   console.log('[OK] Second operator cannot act on first company request');
   const rejected = await respondToTaxi({ actorTelegramId: firstId, dispatchId: dispatches[0]!.id, action: 'NO_TAXI' });
   assert.equal(rejected.finalStatus, 'DECLINED');
+  const afterDecline = await db.taxiDispatch.findUniqueOrThrow({ where: { id: dispatches[0]!.id } });
+  assert.equal(afterDecline.customerNotifiedAt, null);
+  assert.equal(afterDecline.staffNotifiedAt, null);
   assert.ok(rejected.fallbackCompany?.includes('SMOKE taxi B'));
   assert.ok(rejected.nextDispatchId);
   assert.equal((await respondToTaxi({ actorTelegramId: firstId, dispatchId: dispatches[0]!.id, action: 'SENT' })).changed, false);
@@ -106,6 +109,19 @@ try {
   assert.equal(active, 1);
   assert.equal((await db.order.findUniqueOrThrow({ where: { id: order.id } })).status, 'READY');
   console.log('[OK] Only 1 active driver, repeat callback ignored; customer & staff informed');
+  // Simulate a process dying after Telegram may have received the request.
+  await db.taxiDispatch.update({ where: { id: rejected.nextDispatchId! }, data: {
+    status: 'SENDING', leaseAt: new Date(Date.now() - 120_000),
+  } });
+  const beforeRecovery = sent.filter(x => x.chatId === secondId).length;
+  await runTaxiDispatchCycle(fakeBot, order.id);
+  assert.equal((await db.taxiDispatch.findUniqueOrThrow({ where: { id: rejected.nextDispatchId! } })).status, 'NEEDS_HELP');
+  assert.equal(sent.filter(x => x.chatId === secondId).length, beforeRecovery);
+  await respondToTaxi({ actorTelegramId: secondId, dispatchId: rejected.nextDispatchId!, action: 'SENT' });
+  const beforeFinalNotice = sent.length;
+  await runTaxiDispatchCycle(fakeBot, order.id);
+  assert.ok(sent.slice(beforeFinalNotice).some(x => x.chatId === customerTelegramId && x.message.includes('haydovchi')));
+  console.log('[OK] Interrupted send is not redispatched; operator confirmation refreshes notices');
   console.log('[PASS] PostgreSQL dispatch schedule + transport + fallback + authorization + deduplication');
 } catch (err) {
   console.error('[FAIL] TAXI smoke:', err);

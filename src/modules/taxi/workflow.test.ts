@@ -20,7 +20,7 @@ test('no taxi explicitly declined including cancellation', () => {
   assert.equal(operatorTransition('CANCELLATION_PENDING', 'NO_TAXI'), 'DECLINED');
 });
 test('stale or duplicate button is rejected', () => {
-  for (const s of ['SCHEDULED', 'SENDING', 'ASSIGNED', 'DECLINED', 'NEEDS_HELP'] as const) {
+  for (const s of ['SCHEDULED', 'SENDING', 'ASSIGNED', 'DECLINED'] as const) {
     assert.throws(() => operatorTransition(s, 'SENT'));
     assert.throws(() => operatorTransition(s, 'NO_TAXI'));
   }
@@ -36,4 +36,10 @@ test('timeout requests cancellation acknowledgement instead of redispatch', () =
   assert.equal(needsCancellationAcknowledgement('REQUESTED', deadline, now), true);
   assert.equal(needsCancellationAcknowledgement('ASSIGNED', deadline, now), false);
   assert.equal(needsCancellationAcknowledgement('REQUESTED', null, now), false);
+});
+
+test('uncertain send requires an explicit original operator outcome', () => {
+  assert.equal(operatorTransition('NEEDS_HELP', 'SENT'), 'ASSIGNED');
+  assert.equal(operatorTransition('NEEDS_HELP', 'NO_TAXI'), 'DECLINED');
+  assert.equal(canFallback(true, false), false);
 });

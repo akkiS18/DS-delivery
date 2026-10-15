@@ -26,19 +26,19 @@ function cancelKeyboard(dispatchId: string) {
   ]);
 }
 
-async function reportAlert(bot: Bot, text: string): Promise<void> {
+async function reportAlert(bot: Bot, text: string): Promise<boolean> {
   console.error(`[TAXI ALERT] ${text}`);
-  if (!alertTelegramId || !/^\d{1,20}$/.test(alertTelegramId)) return;
-  try { await bot.telegram.sendMessage(alertTelegramId, `⚠️ DS Delivery taxi: ${text}`); }
-  catch (err) { console.error('[TAXI ADMIN ALERT] ', err instanceof Error ? err.message : err); }
+  if (!alertTelegramId || !/^\d{1,20}$/.test(alertTelegramId)) return false;
+  try { await bot.telegram.sendMessage(alertTelegramId, `⚠️ DS Delivery taxi: ${text}`); return true; }
+  catch (err) { console.error('[TAXI ADMIN ALERT] ', err instanceof Error ? err.message : err); return false; }
 }
 
 async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
   const now = new Date();
-  // Recover an interrupted send. Telegram may receive duplicate messages, but callback IDs are idempotent.
+  // An interrupted send may already have reached the operator. Never resend it automatically.
   await db.taxiDispatch.updateMany({
     where: { status: 'SENDING', leaseAt: { lt: new Date(now.getTime() - 60_000) }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
-    data: { status: 'SCHEDULED', leaseAt: null, dueAt: now },
+    data: { status: 'NEEDS_HELP', leaseAt: null, customerNotifiedAt: null, staffNotifiedAt: null, adminNotifiedAt: null },
   });
   const due = await db.taxiDispatch.findMany({
     where: { status: 'SCHEDULED', dueAt: { lte: now }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
@@ -64,7 +64,6 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     const pickupSet = Boolean(item.order.restaurant.pickupAddress?.trim());
     if (!validOrder || !item.taxiCompany.isActive || !operator || (!item.order.payment?.isTest && !pickupSet)) {
       await db.taxiDispatch.updateMany({ where: { id: item.id, status: 'SENDING' }, data: { status: 'NEEDS_HELP', leaseAt: null } });
-      await reportAlert(bot, `#${item.order.number}: taksi jo‘natilmadi (operator biriktirilmagan, restoran pickup manzili yo‘q yoki buyurtma faol emas).`);
       continue;
     }
     const pickup = item.order.restaurant.pickupAddress?.trim() || 'TEST: olib ketish manzili kiritilmagan';
@@ -92,16 +91,15 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
           telegramMessageId: response.message_id, leaseAt: null, sendTries: { increment: 1 } },
       });
     } catch (err) {
-      const attempt = item.sendTries + 1;
+      // Even a transport timeout can follow a successful Telegram delivery.
+      // Require the original operator to confirm SENT / NO_TAXI through /taxi.
       await db.taxiDispatch.updateMany({
         where: { id: item.id, status: 'SENDING' },
-        data: attempt < 3 ? {
-          status: 'SCHEDULED', dueAt: new Date(Date.now() + 30_000), leaseAt: null,
-          sendTries: { increment: 1 },
-        } : { status: 'NEEDS_HELP', leaseAt: null, sendTries: { increment: 1 } },
+        data: { status: 'NEEDS_HELP', leaseAt: null, sendTries: { increment: 1 },
+          customerNotifiedAt: null, staffNotifiedAt: null, adminNotifiedAt: null },
       });
       console.error(`[TAXI REQUEST] #${item.order.number}:`, err instanceof Error ? err.message : err);
-      if (attempt >= 3) await reportAlert(bot, `#${item.order.number}: Telegram operatoriga 3 marta yuborib bo‘lmadi.`);
+
     }
   }
 }
@@ -114,10 +112,10 @@ async function enforceTimeout(bot: Bot, onlyOrderId?: string): Promise<void> {
   });
   for (const dispatch of pending) {
     if (!needsCancellationAcknowledgement(dispatch.status, dispatch.expiresAt, now)) continue;
-    const changed = await db.taxiDispatch.updateMany({
-      where: { id: dispatch.id, status: 'REQUESTED' }, data: { status: 'CANCELLATION_PENDING' },
+    await db.taxiDispatch.updateMany({
+      where: { id: dispatch.id, status: 'REQUESTED' }, data: { status: 'CANCELLATION_PENDING', customerNotifiedAt: null, staffNotifiedAt: null, adminNotifiedAt: null },
     });
-    if (changed.count) await reportAlert(bot, `#${dispatch.order.number}: operator javob bermadi. Haydovchi yuborilmaganini tasdiqlamaguncha boshqa taksiga o'tilmaydi.`);
+    // notifyOutcomes retries the admin alert from persisted state.
   }
   const needsConfirm = await db.taxiDispatch.findMany({
     where: {
@@ -148,14 +146,19 @@ async function enforceTimeout(bot: Bot, onlyOrderId?: string): Promise<void> {
 
 async function notifyOutcomes(bot: Bot, onlyOrderId?: string): Promise<void> {
   const recent = await db.taxiDispatch.findMany({
-    where: { status: { in: ['ASSIGNED', 'DECLINED', 'NEEDS_HELP', 'CANCELLATION_PENDING'] }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
-    orderBy: { updatedAt: 'desc' }, take: 80,
+    where: { OR: [{ customerNotifiedAt: null }, { staffNotifiedAt: null }, ...(alertTelegramId ? [{ adminNotifiedAt: null, status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] as import('@prisma/client').TaxiDispatchStatus[] } }] : [])], status: { in: ['ASSIGNED', 'DECLINED', 'NEEDS_HELP', 'CANCELLATION_PENDING'] }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
+    orderBy: { updatedAt: 'asc' }, take: 80,
     include: { taxiCompany: { select: { name: true } }, order: {
       include: { customer: { select: { telegramUserId: true } }, restaurant: { select: { staffTelegramUserId: true } },
         taxiDispatches: { select: { id: true, attemptNo: true } } },
     } },
   });
   for (const d of recent) {
+    if (!d.adminNotifiedAt && ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'].includes(d.status)) {
+      if (await reportAlert(bot, `#${d.order.number}: ${d.status}. Operator /taxi orqali haydovchi yuborilgan yoki yuborilmaganini aniqlashtirsin.`)) {
+        await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, adminNotifiedAt: null }, data: { adminNotifiedAt: new Date() } });
+      }
+    }
     const newer = d.order.taxiDispatches.some(x => x.attemptNo > d.attemptNo);
     const label = d.status === 'ASSIGNED'
       ? `🚕 #${d.order.number}: ${d.taxiCompany.name} operatori haydovchi yuborilganini bildirdi. Yetkazish narxi taksi tarifiga ko‘ra.`
@@ -170,7 +173,11 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string): Promise<void> {
       ['customerNotifiedAt', d.order.customer.telegramUserId],
       ['staffNotifiedAt', d.order.restaurant.staffTelegramUserId],
     ] as const) {
-      if (d[key] || !chatId) continue;
+      if (d[key]) continue;
+      if (!chatId) {
+        await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, [key]: null }, data: { [key]: new Date() } });
+        continue;
+      }
       try {
         await bot.telegram.sendMessage(chatId, label);
         await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, [key]: null }, data: { [key]: new Date() } });

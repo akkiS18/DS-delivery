@@ -79,7 +79,7 @@ export async function respondToTaxi(input: {
     if (!dispatch || dispatch.taxiCompany.operatorTelegramUserId !== input.actorTelegramId) {
       throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
     }
-    if (dispatch.status !== 'REQUESTED' && dispatch.status !== 'CANCELLATION_PENDING') {
+    if (dispatch.status !== 'REQUESTED' && dispatch.status !== 'CANCELLATION_PENDING' && dispatch.status !== 'NEEDS_HELP') {
       return { changed: false, finalStatus: 'STALE', fallbackCompany: null, nextDispatchId: null };
     }
     // PREPARING/READY are deliberately independent from taxi dispatch status.
@@ -89,7 +89,7 @@ export async function respondToTaxi(input: {
     const to = operatorTransition(dispatch.status, input.action);
     const result = await tx.taxiDispatch.updateMany({
       where: { id: dispatch.id, status: dispatch.status },
-      data: { status: to, respondedAt: new Date() },
+      data: { status: to, respondedAt: new Date(), customerNotifiedAt: null, staffNotifiedAt: null, adminNotifiedAt: null },
     });
     if (result.count !== 1) return { changed: false, finalStatus: 'STALE', fallbackCompany: null, nextDispatchId: null };
     await tx.orderEvent.create({
