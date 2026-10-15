@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+credentials.json
+gmail-token.json
+*.log
+*.zip

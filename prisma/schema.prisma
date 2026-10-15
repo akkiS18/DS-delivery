@@ -1,0 +1,271 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Restaurant {
+  id               String @id @default(cuid())
+  slug             String @unique
+  name             String
+  isActive         Boolean @default(true)
+  isPaused         Boolean @default(false)
+  staffTelegramUserId String? @unique
+  staffLinkedAt     DateTime? @db.Timestamptz(3)
+  pickupAddress    String?
+  pickupPhone      String?
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+  categories       Category[]
+  products         Product[]
+  orders           Order[]
+  cards            Card[]
+  payments         Payment[]
+  // Company dispatch pickup site
+}
+
+model Category {
+  id            String @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
+  name          String
+  position      Int @default(0)
+  products      Product[]
+  @@index([restaurantId, position])
+}
+
+model Product {
+  id            String @id @default(cuid())
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id])
+  name          String
+  description   String?
+  priceSom      Int
+  isAvailable   Boolean @default(true)
+  imageUrl      String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  orderItems    OrderItem[]
+  @@index([restaurantId, isAvailable])
+}
+
+model TaxiCompany {
+  id                     String   @id @default(cuid())
+  name                   String   @unique
+  isActive               Boolean  @default(true)
+  operatorTelegramUserId String?  @unique
+  operatorLinkedAt       DateTime? @db.Timestamptz(3)
+  createdAt              DateTime @default(now()) @db.Timestamptz(3)
+  orders                 Order[]
+  dispatches             TaxiDispatch[]
+}
+
+model Customer {
+  id              String @id @default(cuid())
+  telegramUserId  String @unique
+  displayName     String?
+  phone           String?
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  orders          Order[]
+}
+
+enum OrderStatus {
+  PAYMENT_PENDING
+  PAYMENT_EXPIRED
+  PAYMENT_MATCHED_UNVERIFIED
+  PAYMENT_CONFIRMED
+  ACCEPTED
+  PREPARING
+  READY
+  TAXI_REQUESTED
+  DRIVER_ASSIGNED
+  DELIVERY_ASSUMED
+  COMPLETED
+  CANCELLATION_REQUESTED
+  CANCELLED
+  FAILED
+}
+
+model Order {
+  id              String @id @default(cuid())
+  number          Int @unique @default(autoincrement())
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id])
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+  checkoutKey     String? @unique
+  phoneSnapshot   String?
+  taxiCompanyId   String?
+  taxiCompany     TaxiCompany? @relation(fields: [taxiCompanyId], references: [id])
+  createdViaBot   Boolean @default(false)
+  allowTaxiFallback Boolean @default(false)
+  status          OrderStatus @default(PAYMENT_PENDING)
+  paymentVerifiedAt DateTime? @db.Timestamptz(3)
+  paymentVerifiedBy String?
+  prepMinutes      Int?
+  preparingStartedAt DateTime? @db.Timestamptz(3)
+  readyAt          DateTime? @db.Timestamptz(3)
+  staffLastNotifiedStatus String?
+  customerLastNotifiedStatus String?
+  events           OrderEvent[]
+  taxiDispatches   TaxiDispatch[]
+  addressText     String
+  deliveryLat     Float?
+  deliveryLng     Float?
+  totalSom        Int
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+  items           OrderItem[]
+  payment         Payment?
+  @@index([restaurantId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([taxiCompanyId])
+}
+
+model OrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name        String
+  unitSom     Int
+  quantity    Int
+  subtotalSom Int
+  @@index([orderId])
+}
+
+// Ported from the tested PaymentService V3.
+// These are application-accounted matches, NOT verified bank settlements.
+model Card {
+  id             String @id @default(cuid())
+  restaurantId   String?
+  restaurant     Restaurant? @relation(fields: [restaurantId], references: [id])
+  last4          String @unique
+  label          String @default("UZCARD")
+  isTest         Boolean @default(false)
+  active         Boolean @default(true)
+  lastAssignedAt DateTime? @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  payments       Payment[]
+  cooldowns      CardCooldown[]
+  @@index([restaurantId, isTest, active])
+}
+
+model Payment {
+  id                   String @id @default(cuid())
+  number               Int @unique @default(autoincrement())
+  orderId              String? @unique
+  order                Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  restaurantId         String?
+  restaurant           Restaurant? @relation(fields: [restaurantId], references: [id])
+  amountTiyin          BigInt
+  status               String @default("QUEUED")
+  isTest               Boolean @default(false)
+  isStress             Boolean @default(false)
+  cardId               String?
+  card                 Card? @relation(fields: [cardId], references: [id])
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+  assignedAt           DateTime? @db.Timestamptz(3)
+  expiresAt            DateTime? @db.Timestamptz(3)
+  matchedAt            DateTime? @db.Timestamptz(3)
+  matchedTransactionId String? @unique
+  botLastNotifiedStatus String?
+  @@index([status, number])
+  @@index([restaurantId, status, amountTiyin])
+  @@index([cardId, amountTiyin, assignedAt])
+  @@index([isTest, amountTiyin, status])
+  @@index([isStress])
+}
+
+model CardCooldown {
+  cardId      String
+  card        Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  amountTiyin BigInt
+  until       DateTime @db.Timestamptz(3)
+  @@id([cardId, amountTiyin])
+}
+
+model IncomingTransaction {
+  id               String @id @default(cuid())
+  sourceId         String @unique
+  source           String
+  cardLast4        String
+  amountTiyin      BigInt
+  occurredAt       DateTime @db.Timestamptz(3)
+  receivedAt       DateTime @default(now()) @db.Timestamptz(3)
+  emailReceivedAt  DateTime? @db.Timestamptz(3)
+  minutePrecision  Boolean @default(true)
+  trustedSender    Boolean @default(false)
+  status           String @default("REVIEW_REQUIRED")
+  reason           String?
+  matchedPaymentId String?
+  @@index([cardLast4, amountTiyin, occurredAt])
+  @@index([status, receivedAt])
+}
+
+model GmailIngestion {
+  gmailId   String @id
+  status    String
+  reason    String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+}
+
+// Actor / previous state / next state are retained for payment and preparation decisions.
+model OrderEvent {
+  id              String @id @default(cuid())
+  orderId         String
+  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorTelegramId String
+  actorType       String
+  action          String
+  fromStatus      OrderStatus
+  toStatus        OrderStatus
+  details         Json?
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  @@index([orderId, createdAt])
+}
+
+// Dispatches are independent from kitchen order status. A driver can be sent
+// while the meal is still PREPARING. No 'DELIVERED' claim is made here.
+enum TaxiDispatchStatus {
+  SCHEDULED
+  SENDING
+  REQUESTED
+  CANCELLATION_PENDING
+  ASSIGNED
+  DECLINED
+  NEEDS_HELP
+}
+
+model TaxiDispatch {
+  id                String @id @default(cuid())
+  orderId           String
+  order             Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  taxiCompanyId     String
+  taxiCompany       TaxiCompany @relation(fields: [taxiCompanyId], references: [id])
+  attemptNo         Int
+  status            TaxiDispatchStatus @default(SCHEDULED)
+  dueAt             DateTime @db.Timestamptz(3)
+  leaseAt           DateTime? @db.Timestamptz(3)
+  sentAt            DateTime? @db.Timestamptz(3)
+  expiresAt         DateTime? @db.Timestamptz(3)
+  respondedAt       DateTime? @db.Timestamptz(3)
+  cancelNoticeAt    DateTime? @db.Timestamptz(3)
+  cancelNoticeTries Int @default(0)
+  telegramMessageId Int?
+  sendTries         Int @default(0)
+  customerNotifiedAt DateTime? @db.Timestamptz(3)
+  staffNotifiedAt    DateTime? @db.Timestamptz(3)
+  adminNotifiedAt    DateTime? @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+  @@unique([orderId, attemptNo])
+  @@index([status, dueAt])
+  @@index([orderId, status])
+}
