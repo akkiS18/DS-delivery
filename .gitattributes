@@ -6,3 +6,7 @@ Dockerfile text eol=lf
 deploy/*.example text eol=lf
 # Prisma checksums migration files byte-for-byte: keep them LF everywhere so a Windows checkout cannot diverge from what Linux servers applied.
 prisma/migrations/**/*.sql text eol=lf
+# Stage 8C: the edge Caddyfile, env templates and ps1/sh helpers are read on Linux (or run on Windows) byte-for-byte.
+deploy/**/Caddyfile text eol=lf
+deploy/**/*.example text eol=lf
+deploy/lib/* text eol=lf
