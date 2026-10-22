@@ -44,8 +44,11 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/dist ./dist
 COPY --from=miniapp /app/apps/customer-miniapp/dist ./apps/customer-miniapp/dist
 COPY prisma ./prisma
+# Refund receipt photos (see src/modules/refunds/receipts.ts) are the only files the app writes. The root filesystem stays read-only: this directory is
+# a named volume in compose, and creating it here with the right owner makes a fresh volume writable by the non-root user.
+RUN mkdir -p /app/data/receipts && chown -R node:node /app/data
 USER node
-ENV HOST=0.0.0.0 PORT=4000
+ENV HOST=0.0.0.0 PORT=4000 RECEIPT_DIR=/app/data/receipts
 EXPOSE 4000
 # Liveness only (never the database): a database outage must not make the orchestrator kill a healthy process.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \

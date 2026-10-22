@@ -14,5 +14,14 @@ docker exec "$CID" pg_dump -U ds -d ds_delivery_test -Fc --no-owner > "$F.part"
 mv "$F.part" "$F"
 (cd "$OUT" && sha256sum "$(basename "$F")" > "$(basename "$F").sha256")
 echo "[backup] $F ($(stat -c %s "$F") bytes)"
-# retention: keep the newest 14 dumps
+# Refund receipt photos live in a volume, not in PostgreSQL: archive them next to the dump (same timestamp/label), so a restore has both halves.
+BID="$(docker ps -q --filter label=com.docker.compose.project=ds-staging --filter label=com.docker.compose.service=backend)"
+if [ -n "$BID" ] && docker exec "$BID" test -d /app/data/receipts; then
+  R="$OUT/receipts-$(basename "$F" | sed -E 's/^ds_delivery_test-//; s/.dump$//').tar"
+  docker exec "$BID" tar -C /app/data -cf - receipts > "$R.part" && mv "$R.part" "$R"
+  (cd "$OUT" && sha256sum "$(basename "$R")" > "$(basename "$R").sha256")
+  echo "[backup] $R ($(stat -c %s "$R") bytes, $(docker exec "$BID" sh -c 'ls /app/data/receipts | wc -l') receipt files)"
+else echo "[backup] no receipts volume yet (nothing to archive)"; fi
+# retention: keep the newest 14 dumps and 14 receipt archives
 ls -1t "$OUT"/*.dump 2>/dev/null | tail -n +15 | while read -r old; do rm -f "$old" "$old.sha256"; done
+ls -1t "$OUT"/receipts-*.tar 2>/dev/null | tail -n +15 | while read -r old; do rm -f "$old" "$old.sha256"; done

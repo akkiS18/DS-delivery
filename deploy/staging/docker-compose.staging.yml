@@ -59,6 +59,8 @@ services:
     depends_on:
       db: { condition: service_healthy }
     networks: [internal, edge]      # no `ports:`: only Caddy (same edge network) can reach it
+    volumes:
+      - receipts:/app/data/receipts # refund receipt photos: the only data outside PostgreSQL. Backed up by bin/backup-db.sh. Never `down -v`.
     logging: *logging
     mem_limit: 1g
     pids_limit: 256
@@ -96,5 +98,6 @@ networks:
 
 volumes:
   pgdata:
+  receipts:
   caddy_data:
   caddy_config:

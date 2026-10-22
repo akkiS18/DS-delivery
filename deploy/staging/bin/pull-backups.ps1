@@ -14,10 +14,10 @@ New-Item -ItemType Directory -Force -Path $Target | Out-Null
 $log = Join-Path $Target 'pull.log'
 function Log($m) { Add-Content -Path $log -Value ("{0:u} {1}" -f (Get-Date), $m) }
 try {
-  $names = & $ssh -o BatchMode=yes -o ConnectTimeout=20 $Remote 'ls -1t /opt/ds-staging/backups/db/*.dump 2>/dev/null | xargs -n1 basename' 2>&1
+  $names = & $ssh -o BatchMode=yes -o ConnectTimeout=20 $Remote 'ls -1t /opt/ds-staging/backups/db/*.dump /opt/ds-staging/backups/db/receipts-*.tar 2>/dev/null | xargs -n1 basename' 2>&1
   if ($LASTEXITCODE -ne 0) { throw "ssh failed: $names" }
   $copied = 0
-  foreach ($n in @($names | Where-Object { $_ -match '^ds_delivery_test-[0-9TZ]+-[A-Za-z0-9._-]+\.dump$' })) {
+  foreach ($n in @($names | Where-Object { $_ -match '^(ds_delivery_test-[0-9TZ]+-[A-Za-z0-9._-]+\.dump|receipts-[0-9TZ]+-[A-Za-z0-9._-]+\.tar)$' })) {
     $local = Join-Path $Target $n
     if (Test-Path $local) { continue }
     & $scp -q -o BatchMode=yes "${Remote}:/opt/ds-staging/backups/db/$n" "${Remote}:/opt/ds-staging/backups/db/$n.sha256" $Target 2>&1 | Out-Null
@@ -27,6 +27,6 @@ try {
     if ($want -ne $have) { Remove-Item $local, "$local.sha256" -Force; throw "checksum mismatch for $n (deleted)" }
     $copied++; Log "copied $n"
   }
-  Get-ChildItem $Target -Filter '*.dump' | Sort-Object LastWriteTime -Descending | Select-Object -Skip $Keep | ForEach-Object { Remove-Item $_.FullName, "$($_.FullName).sha256" -Force -ErrorAction SilentlyContinue; Log "pruned $($_.Name)" }
-  Log "ok: $copied new, $((Get-ChildItem $Target -Filter '*.dump').Count) kept"
+  foreach ($pattern in '*.dump', 'receipts-*.tar') { Get-ChildItem $Target -Filter $pattern | Sort-Object LastWriteTime -Descending | Select-Object -Skip $Keep | ForEach-Object { Remove-Item $_.FullName, "$($_.FullName).sha256" -Force -ErrorAction SilentlyContinue; Log "pruned $($_.Name)" } }
+  Log "ok: $copied new, $((Get-ChildItem $Target -Filter '*.dump').Count) dumps and $((Get-ChildItem $Target -Filter 'receipts-*.tar').Count) receipt archives kept"
 } catch { Log "FAILED: $($_.Exception.Message)"; exit 1 }
