@@ -13,7 +13,7 @@ const DOWN_HINT: Record<string, string> = {
 /** Admin text for a Gmail event. Only amounts, the last 4 digits and reason codes: never mail bodies, addresses or tokens. */
 export function renderGmailAlert(a: GmailAlert): string {
   if (a.type === 'DOWN') {
-    return `🚨 Gmail o‘qilmayapti. To‘lovlar avtomatik mos kelmaydi!\n${DOWN_HINT[a.failure] ?? DOWN_HINT.api}\nMijozlar to‘lagan bo‘lsa, restoran bank ilovasini qo‘lda tekshirsin.`;
+    return `🚨 Gmail o‘qilmayapti. To‘lovlar avtomatik tasdiqlanmaydi!\n${DOWN_HINT[a.failure] ?? DOWN_HINT.api}\nMijozlar to‘lagan bo‘lsa, restoran bank ilovasini qo‘lda tekshirsin.`;
   }
   if (a.type === 'RECOVERED') return '✅ Gmail o‘qish tiklandi.';
   return `⚠️ Pul keldi, lekin mos to‘lov topilmadi.\nSumma: ${formatSom(a.amountTiyin)} | karta ***${a.cardLast4}\nSabab: ${explainReason(a.reason)} (${a.reason})\nKo‘rish va hal qilish: /money`;

@@ -1,13 +1,14 @@
 import { db } from '../../lib/db.js';
 import type { StaffActor } from '../restaurant/actor.js';
 import { takeStaffAction } from '../restaurant/service.js';
+import { GMAIL_AUTO_ACTOR, gmailAutoConfirmEnabled } from '../restaurant/auto-policy.js';
 
 /**
  * Stage 6E automatic progression, built only from the existing transition service (takeStaffAction):
  *  - cooking starts with ONE preparation time: the one chosen at acceptance, else Restaurant.defaultPrepMinutes;
  *  - MOCK/test payments are confirmed and cooked by a restart-safe sweep (system actor, restricted to test payments);
- *  - REAL payments are never confirmed automatically - a Gmail match stays MATCHED_UNVERIFIED until restaurant staff verify
- *    the bank credit; only AFTER that explicit verification does cooking start by itself;
+ *  - REAL payments: since Stage 8D a trusted Gmail match is confirmed by the 'gmail-auto' system actor (advanceGmailMatchedOrder; kill switch
+ *    GMAIL_AUTO_CONFIRM=false returns to "restaurant staff verify the bank credit", after which cooking starts by itself);
  *  - READY is never automatic.
  * A failed automatic start is not an error state of its own: the order stays PAYMENT_CONFIRMED and the app shows it as
  * "needs attention" with a manual start button.
@@ -39,6 +40,56 @@ export async function advanceMockOrder(orderId: string): Promise<boolean> {
   if (!row) return false;
   if (row.status === 'PAYMENT_MATCHED_UNVERIFIED') await takeStaffAction({ ...SYSTEM, orderId: row.id, action: 'VERIFY_PAYMENT' });
   return (await autoStartPreparing(SYSTEM, row.id)).started;
+}
+
+const GMAIL_AUTO = { actorSystemId: GMAIL_AUTO_ACTOR } as const;
+
+/**
+ * Stage 8D: one REAL order whose payment the bank e-mail matched. Confirm it (the same checks as the restaurant's own VERIFY_PAYMENT plus
+ * "no open refund, trusted GMAIL transaction"), then start cooking. Every step is a compare-and-swap, so a concurrent restaurant tap or a second
+ * sweep changes nothing twice. A refusal leaves the order exactly as it was (still MATCHED_UNVERIFIED: the restaurant's button and /money remain).
+ */
+export async function advanceGmailMatchedOrder(orderId: string): Promise<boolean> {
+  const row = await db.order.findFirst({
+    where: {
+      id: orderId, createdViaBot: true, paymentIsTest: false, payment: { is: { isTest: false, status: { in: ['MATCHED_UNVERIFIED', 'CONFIRMED_MANUAL'] } } },
+      OR: [{ status: 'PAYMENT_MATCHED_UNVERIFIED' }, { status: 'PAYMENT_CONFIRMED', paymentVerifiedBy: `system:${GMAIL_AUTO_ACTOR}` }],
+    },
+    select: { id: true, status: true },
+  });
+  if (!row) return false;
+  if (row.status === 'PAYMENT_MATCHED_UNVERIFIED') await takeStaffAction({ ...GMAIL_AUTO, orderId: row.id, action: 'VERIFY_PAYMENT' });
+  return (await autoStartPreparing(GMAIL_AUTO, row.id)).started;
+}
+
+export interface AutoConfirmRefusal { orderId: string; number: number; reason: string }
+const refusedAt = new Map<string, number>();
+const RETRY_AFTER_REFUSAL_MS = 5 * 60_000;
+
+/** Sweep for REAL matched payments (restart-safe: runs from the notifier loop and right after a Gmail match). Never throws. */
+export async function autoConfirmRealOrders(limit = 25, now = Date.now()): Promise<{ confirmed: string[]; refused: AutoConfirmRefusal[] }> {
+  const out = { confirmed: [] as string[], refused: [] as AutoConfirmRefusal[] };
+  if (!gmailAutoConfirmEnabled()) return out;
+  const rows = await db.order.findMany({
+    where: {
+      createdViaBot: true, paymentIsTest: false, payment: { is: { isTest: false, status: { in: ['MATCHED_UNVERIFIED', 'CONFIRMED_MANUAL'] } } },
+      OR: [{ status: 'PAYMENT_MATCHED_UNVERIFIED' }, { status: 'PAYMENT_CONFIRMED', paymentVerifiedBy: `system:${GMAIL_AUTO_ACTOR}` }],
+    },
+    orderBy: { updatedAt: 'asc' }, take: limit, select: { id: true, number: true },
+  });
+  for (const row of rows) {
+    if ((refusedAt.get(row.id) ?? 0) > now) continue;
+    try {
+      if (await advanceGmailMatchedOrder(row.id)) out.confirmed.push(row.id);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : 'UNKNOWN';
+      refusedAt.set(row.id, now + RETRY_AFTER_REFUSAL_MS);
+      out.refused.push({ orderId: row.id, number: row.number, reason });
+      console.error(`[GMAIL AUTO-CONFIRM] #${row.number} refused: ${reason}`);
+    }
+  }
+  if (refusedAt.size > 500) for (const [id, t] of refusedAt) if (t <= now) refusedAt.delete(id);
+  return out;
 }
 
 /** MOCK-only sweep. Idempotent and safe under concurrency (every step is a compare-and-swap in takeStaffAction). */

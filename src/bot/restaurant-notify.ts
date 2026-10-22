@@ -5,8 +5,8 @@ import { expireWaitingOrders } from '../modules/restaurant/acceptance.js';
 import { deliverRefundNotices } from './refunds.js';
 import { restaurantTelegramEnabled } from '../lib/features.js';
 import { isDelivered, notificationKey, sendOnce } from '../lib/notify-once.js';
-import { autoAdvanceMockOrders } from '../modules/restaurant-orders/auto.js';
-import { deliverPaidOrderAlerts } from './restaurant-alert.js';
+import { autoAdvanceMockOrders, autoConfirmRealOrders } from '../modules/restaurant-orders/auto.js';
+import { deliverAutoConfirmRefusals, deliverPaidOrderAlerts } from './restaurant-alert.js';
 
 /** At-least-once delivery: Telegram sends can repeat after a process crash.
  *  Buttons are guarded with DB compare-and-swap and therefore safe on retry.
@@ -20,6 +20,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
     try {
       await expireWaitingOrders(); // response timeout sweep (idempotent)
       await autoAdvanceMockOrders(); // MOCK-only: safe test payments move on to cooking by themselves (restart-safe sweep)
+      await deliverAutoConfirmRefusals(bot, (await autoConfirmRealOrders()).refused); // Stage 8D: Gmail-matched REAL payments confirm themselves; only refusals reach an admin
       await deliverRefundNotices(bot); // Stage 6A: refund request / decision / sent notices
       await deliverPaidOrderAlerts(bot); // Stage 8C: "open the app" alert for the restaurant staff (no push yet)
       const rows = await db.order.findMany({
@@ -61,7 +62,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
             CUSTOMER_CANCELLED: `❌ #${order.number}: buyurtma bekor qilindi. Pul yubormang.`,
             RESTAURANT_REJECTED: `🚫 #${order.number}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.number}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
-            PAYMENT_CONFIRMED: `✅ #${order.number}: restoran to‘lovni tekshirib tasdiqladi. Tayyorlash boshlanishini kuting.`,
+            PAYMENT_CONFIRMED: `✅ #${order.number}: to‘lovingiz qabul qilindi. Tayyorlash boshlanishini kuting.`,
             PREPARING: `👨‍🍳 #${order.number}: restoran buyurtmangizni tayyorlashni boshladi.`,
             READY: `🍽 #${order.number}: taom tayyor. Taksi operatori bosqichini /orders orqali tekshiring. Bu yetkazildi degani emas.`,
           };

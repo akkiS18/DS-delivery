@@ -82,14 +82,15 @@ Use 1–3 of the owner's real cards as the restaurant's cards and pay from a dif
 
 | # | Do | Expect |
 |---|---|---|
-| R1 | Order 1 item, pay the exact amount within 5 min | Gmail match → restaurant app shows "to‘lov keldi"; staff Telegram alert; confirm → cooking starts |
+| R1 | Order 1 item, pay the exact amount within 5 min | Gmail match → within ~15 s the order is confirmed by itself (`system:gmail-auto`) and cooking starts; the customer sees "to‘lovingiz qabul qilindi"; staff get one "yangi to‘langan buyurtma" Telegram alert; nobody presses anything. The restaurant's own confirm button must NOT be needed |
 | R2 | Two orders with the same total at once | Different cards (or the second queued); each match goes to the right order |
-| R3 | Pay a different amount (less, then more) | `/money` alert with the reason; no order moves; close it with a note |
+| R3 | Pay a different amount (less, then more) | `/money` alert with the reason; no order moves and nothing confirms itself; close it with a note |
 | R4 | Pay after the 5-minute window | Alert `LATE_FOR_EXPIRED_PAYMENT`; refund by the restaurant with a receipt photo |
 | R5 | Order, do not pay; open a 3rd order | Third refused ("To‘lanmagan buyurtmangiz bor") |
 | R6 | Disable the only card in the app | New checkout refused; re-enable restores it |
 | R7 | Revoke Google access (or stop the mail) | `gmail: down` → Telegram alert within ~3 min and watchdog alert; restore → "tiklandi" |
-| R8 | Restart the backend between payment and mail | The match still happens (mail is re-read; de-duplicated by Gmail id) |
+| R8 | Restart the backend between payment and mail | The match still happens (mail is re-read; de-duplicated by Gmail id), then the automatic confirmation follows |
+| R11 | Set `GMAIL_AUTO_CONFIRM=false`, restart, repeat R1 | Order stops at "to‘lov keldi"; the restaurant must confirm in the app (fallback proven); remove the variable and restart to go back to automatic |
 | R9 | Cancel a paid order, restaurant refunds with a photo, customer sees it | Statuses and receipt as in STAGE_7D |
 | R10 | Complete one delivery; later `/commission` | One 5 000 UZS entry due after the week closes; mark settled with a note |
 

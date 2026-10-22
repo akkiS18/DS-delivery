@@ -2,6 +2,8 @@
 
 Owner decisions (2026-10-22): write all code first, test everything in **one batch** at the end; production on the **same VPS** as staging; card numbers entered in the **restaurant app**; the owner also wants to try real money arriving "on the test server". Because `config-check.ts` refuses `BOT_PAYMENT_MODE=REAL` on a database named `*test*` (staging is `ds_delivery_test`), that real-money rehearsal runs on the **production stack while it is still locked to the owner's IP** (same VPS, own empty database, no customers). Staging stays MOCK.
 
+**Decision 2026-10-23 (Stage 8D): matched Gmail payments confirm themselves** (no restaurant or admin tap; admins only handle problems; kill switch `GMAIL_AUTO_CONFIRM=false`). See `docs/STAGE_8C.md` §1b.
+
 **Update 2026-10-23: the code items below are written (see `docs/STAGE_8C.md` for what, tests and what was not run).** Evidence for every gap below was read from the code on 2026-10-22; `docs/ROADMAP.html` sections 2, 5, 13–17 and "final check" were used as the product reference.
 
 ## A. Code still to write (I do these)

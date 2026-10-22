@@ -110,6 +110,7 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
         if (!ok) errors.push('BOT_REAL_CARD_NUMBERS_JSON must map each 4-digit suffix to the matching 16-digit card number.');
       } catch { errors.push('BOT_REAL_CARD_NUMBERS_JSON must be valid JSON.'); }
     }
+    if ((env.GMAIL_AUTO_CONFIRM ?? '').trim().toLowerCase() === 'false') warnings.push('GMAIL_AUTO_CONFIRM=false: a matched payment waits for the restaurant to confirm it in the app (manual fallback). Remove the variable to confirm exact Gmail matches automatically.');
     if (production && env.CONFIRM_REAL_PAYMENTS !== 'yes') {
       errors.push('REAL payments in production need an explicit CONFIRM_REAL_PAYMENTS=yes. This is a deliberate extra switch so they cannot be enabled by accident.');
     }

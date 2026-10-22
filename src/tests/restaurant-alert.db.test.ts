@@ -9,6 +9,7 @@ import { deliverPaidOrderAlerts, REMINDER_AFTER_MS } from '../bot/restaurant-ale
 // Stage 8C: "open the app" alert for restaurant staff. ds_delivery_test only; the bot is a fake, nothing is sent anywhere.
 delete process.env.RESTAURANT_TELEGRAM_ENABLED;
 delete process.env.RESTAURANT_TELEGRAM_ALERTS;
+process.env.GMAIL_AUTO_CONFIRM = 'false'; // these tests cover the manual fallback texts and flow (auto-confirm has its own suite)
 process.env.MAX_OPEN_UNPAID_ORDERS = '0';
 
 const db = new PrismaClient();

@@ -431,14 +431,14 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
       const requisites = pay.card ? payeeNumber(pay.card) : null;
       if (!requisites) lines.push('⚠️ Karta rekvizitlari mavjud emas. Pul yubormang, administratorga murojaat qiling.');
       else lines.push(`💳 Restoran kartasi: <code>${requisites}</code>`);
-      lines.push('⚠️ Bu xabar kirimni mustaqil bank tasdig‘i bilan tekshirmaydi.');
+      lines.push('ℹ️ To‘lovingiz bank xabari bo‘yicha avtomatik tekshiriladi, hech narsa bosish shart emas.');
     }
     if (pay.expiresAt) lines.push(`⏱ To‘lov oynasi tugashi: ${new Intl.DateTimeFormat('uz-UZ', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(pay.expiresAt))} (Toshkent)`);
     lines.push('Faqat ko‘rsatilgan summani yuboring. To‘lov oynasi tugasa, qayta pul yubormang.');
   } else if (pay.status === 'MATCHED_UNVERIFIED') {
-    lines.push('🔎 Kirim xabari mos keldi, lekin bank bo‘yicha yakuniy tasdiq hali yo‘q.');
+    lines.push('🔎 To‘lovingiz topildi, tasdiqlanmoqda…');
   } else if (pay.status === 'CONFIRMED_MANUAL') {
-    lines.push('✅ Restoran bankdagi kirimni alohida tekshirib tasdiqladi.');
+    lines.push('✅ To‘lovingiz qabul qilindi.');
   } else if (pay.status === 'EXPIRED' || pay.status === 'QUEUE_EXPIRED') {
     lines.push('⌛ To‘lov oynasi tugadi. Pul yuborgan bo‘lsangiz, administrator bilan bog‘laning.');
   } else lines.push(`To‘lov holati: ${escapeHtml(pay.status)}`);

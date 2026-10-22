@@ -89,6 +89,8 @@ Admin commands work only for the support admins (you). For the card and money te
 | H14 | `/restaurants` → suspend the demo restaurant (two taps) | The restaurant APK is signed out and cannot sign in; customers cannot order; resume restores it. **Resume it afterwards** |
 | H15 | `/commission` | Statement (or "To‘lanmagan komissiya yo‘q"); a real settlement is rehearsed on production (R10) |
 | H16 | Restaurant APK: pause / working hours / prep time screens | No more "serverga hali saqlanmaydi" notes; values are saved |
+| H17 | (Stage 8D, production rehearsal R1) Real money: order, pay the exact amount | No admin or restaurant tap: the order confirms itself, cooking starts, the customer sees "to‘lovingiz qabul qilindi"; only wrong/late/odd money reaches `/money` |
+| H18 | (Stage 8D) Staging stays MOCK, so MOCK orders confirm themselves as before; the "fallback" (`GMAIL_AUTO_CONFIRM=false`) is proven on production as R11 | MOCK flow unchanged |
 
 ## I. Infrastructure steps (done by the assistant with the owner's go, in this order; see docs/RUNBOOK_PRODUCTION.md)
 1. Package + deploy the new release to staging, check migrations (5 new) and `/health/ready`.

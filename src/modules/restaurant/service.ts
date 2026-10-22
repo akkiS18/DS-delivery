@@ -2,6 +2,9 @@ import { db } from '../../lib/db.js';
 import { planStaffTransition, type StaffAction } from './workflow.js';
 import { actorChannel, actorLabel, isActorOf, restaurantScope, type StaffActor } from './actor.js';
 import { advanceTaxiWhenReady, scheduleTaxiWhenPreparing } from '../taxi/service.js';
+import { GMAIL_AUTO_ACTOR, gmailAutoConfirmEnabled } from './auto-policy.js';
+
+const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 export async function findAssignedRestaurant(telegramUserId: string) {
   return db.restaurant.findUnique({
@@ -43,7 +46,18 @@ export async function takeStaffAction(input: StaffActor & {
     if (!order || !order.createdViaBot || !isActorOf(order.restaurant, input)) {
       throw new Error('RUXSAT_YOQ');
     }
-    if (input.actorSystemId !== undefined && !(order.paymentIsTest && order.payment?.isTest)) throw new Error('RUXSAT_YOQ');
+    if (input.actorSystemId !== undefined) {
+      // The system actor has exactly two jobs: MOCK/test payments (Stage 6E) and, since Stage 8D, confirming + starting an order whose REAL
+      // payment the bank e-mail matched (kill switch GMAIL_AUTO_CONFIRM=false). It can never mark an order ready.
+      const mock = order.paymentIsTest && order.payment?.isTest;
+      const gmailAuto = input.actorSystemId === GMAIL_AUTO_ACTOR && gmailAutoConfirmEnabled()
+        && (input.action === 'VERIFY_PAYMENT' || input.action === 'START_PREPARING')
+        && !order.paymentIsTest && order.payment !== null && !order.payment.isTest;
+      if (!mock && !gmailAuto) throw new Error('RUXSAT_YOQ');
+      if (!mock && await tx.refundRequest.findFirst({ where: { orderId: order.id, status: { in: OPEN_REFUND } }, select: { id: true } })) {
+        throw new Error('TOLOV_MOS_EMAS'); // the customer already asked for the money back: a person decides
+      }
+    }
     // Verify may only be requested for payment matcher, never from a photo or unchecked receipt.
     const plan = planStaffTransition(order.status, order.payment?.status ?? null, input.action, input.prepMinutes);
     const now = new Date();
@@ -76,6 +90,7 @@ export async function takeStaffAction(input: StaffActor & {
           ? await tx.incomingTransaction.findUnique({ where: { id: pay.matchedTransactionId } }) : null;
         if (!incoming || incoming.status !== 'MATCHED_UNVERIFIED' || incoming.matchedPaymentId !== pay.id
           || incoming.amountTiyin !== pay.amountTiyin || !incoming.trustedSender) throw new Error('TOLOV_MOS_EMAS');
+        if (input.actorSystemId !== undefined && incoming.source !== 'GMAIL') throw new Error('TOLOV_MOS_EMAS'); // automatic: only a real bank e-mail
       }
       const verified = await tx.payment.updateMany({
         where: { id: order.payment?.id ?? '', status: 'MATCHED_UNVERIFIED', orderId: order.id },
