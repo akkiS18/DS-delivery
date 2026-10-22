@@ -32,6 +32,7 @@ model Restaurant {
   catalogEvents       CatalogEvent[]
   sessions            RestaurantSession[]
   commissionEntries   CommissionEntry[]
+  commissionSettlements CommissionSettlement[]
   // Company dispatch pickup site
 }
 
@@ -728,8 +729,48 @@ model CommissionEntry {
   accruedBy     String
   accruedAt     DateTime          @default(now()) @db.Timestamptz(3)
   events        CommissionEvent[]
+  settlement    CommissionSettlementEntry?
 
   @@index([restaurantId, accruedAt])
+}
+
+/// Stage 8C: an administrator verified in the bank that the restaurant paid the commission for these ledger entries. Append-only.
+model CommissionSettlement {
+  id           String                      @id @default(cuid())
+  number       Int                         @unique @default(autoincrement())
+  restaurantId String
+  restaurant   Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  cutoffAt     DateTime                    @db.Timestamptz(3)
+  entryCount   Int
+  amountSom    Int
+  confirmedBy  String
+  note         String
+  createdAt    DateTime                    @default(now()) @db.Timestamptz(3)
+  entries      CommissionSettlementEntry[]
+
+  @@index([restaurantId, createdAt])
+}
+
+model CommissionSettlementEntry {
+  settlementId String
+  settlement   CommissionSettlement @relation(fields: [settlementId], references: [id], onDelete: Restrict)
+  entryId      String               @unique
+  entry        CommissionEntry      @relation(fields: [entryId], references: [id], onDelete: Restrict)
+
+  @@id([settlementId, entryId])
+}
+
+/// Stage 8C: append-only audit of administrator actions (restaurant suspend/resume).
+model AdminAuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  details    Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([targetType, targetId, createdAt])
 }
 
 model CommissionEvent {
