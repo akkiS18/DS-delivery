@@ -8,73 +8,184 @@ datasource db {
 }
 
 model Restaurant {
-  id               String @id @default(cuid())
-  slug             String @unique
-  name             String
-  isActive         Boolean @default(true)
-  isPaused         Boolean @default(false)
-  staffTelegramUserId String? @unique
-  staffLinkedAt     DateTime? @db.Timestamptz(3)
-  pickupAddress    String?
-  pickupPhone      String?
-  createdAt        DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
-  categories       Category[]
-  products         Product[]
-  orders           Order[]
-  cards            Card[]
-  payments         Payment[]
+  id                  String                @id @default(cuid())
+  slug                String                @unique
+  name                String
+  isActive            Boolean               @default(true)
+  isPaused            Boolean               @default(false)
+  defaultPrepMinutes  Int                   @default(25)
+  /// IANA zone in which workingHours are evaluated for new checkouts.
+  timezone            String                @default("Asia/Tashkent")
+  workingHours        Json?
+  staffTelegramUserId String?               @unique
+  staffLinkedAt       DateTime?             @db.Timestamptz(3)
+  pickupAddress       String?
+  pickupPhone         String?
+  createdAt           DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime              @updatedAt @db.Timestamptz(3)
+  categories          Category[]
+  products            Product[]
+  orders              Order[]
+  cards               Card[]
+  payments            Payment[]
+  credential          RestaurantCredential?
+  catalogEvents       CatalogEvent[]
+  sessions            RestaurantSession[]
+  commissionEntries   CommissionEntry[]
   // Company dispatch pickup site
 }
 
 model Category {
-  id            String @id @default(cuid())
-  restaurantId  String
-  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
-  name          String
-  position      Int @default(0)
-  products      Product[]
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  position     Int        @default(0)
+  version      Int        @default(0)
+  products     Product[]
+
   @@index([restaurantId, position])
 }
 
 model Product {
-  id            String @id @default(cuid())
-  restaurantId  String
-  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
-  categoryId    String?
-  category      Category? @relation(fields: [categoryId], references: [id])
-  name          String
-  description   String?
-  priceSom      Int
-  isAvailable   Boolean @default(true)
-  imageUrl      String?
-  createdAt     DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
-  orderItems    OrderItem[]
+  id           String      @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id])
+  categoryId   String?
+  category     Category?   @relation(fields: [categoryId], references: [id])
+  name         String
+  description  String?
+  priceSom     Int
+  isAvailable  Boolean     @default(true)
+  imageUrl     String?
+  // Stage 5B: products are archived, never hard-deleted (order lines keep their snapshot and productId).
+  // DB CHECK: archivedAt IS NULL OR isAvailable = false. version = optimistic-lock counter.
+  archivedAt   DateTime?   @db.Timestamptz(3)
+  version      Int         @default(0)
+  createdAt    DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
+  orderItems   OrderItem[]
+
   @@index([restaurantId, isAvailable])
 }
 
 model TaxiCompany {
-  id                     String   @id @default(cuid())
-  name                   String   @unique
-  isActive               Boolean  @default(true)
-  operatorTelegramUserId String?  @unique
-  operatorLinkedAt       DateTime? @db.Timestamptz(3)
-  createdAt              DateTime @default(now()) @db.Timestamptz(3)
+  id                     String         @id @default(cuid())
+  name                   String         @unique
+  isActive               Boolean        @default(true)
+  operatorTelegramUserId String?        @unique
+  operatorLinkedAt       DateTime?      @db.Timestamptz(3)
+  createdAt              DateTime       @default(now()) @db.Timestamptz(3)
   orders                 Order[]
   dispatches             TaxiDispatch[]
+  invites                TaxiOperatorInvite[]
 }
 
+model TaxiOperatorInvite {
+  id               String      @id @default(cuid())
+  taxiCompanyId    String
+  taxiCompany      TaxiCompany @relation(fields: [taxiCompanyId], references: [id], onDelete: Cascade)
+  codeHash         String      @unique
+  expiresAt        DateTime    @db.Timestamptz(3)
+  usedAt           DateTime?   @db.Timestamptz(3)
+  usedByTelegramId String?
+  createdBy        String
+  createdAt        DateTime    @default(now()) @db.Timestamptz(3)
+
+  @@index([taxiCompanyId])
+}
+
+/// telegramUserId is NULL for an Android guest profile (no fake Telegram id is ever invented). It is set when the guest links Telegram.
+/// mergedIntoId is set on a guest row whose data moved into an existing Telegram customer; such a row never serves requests again.
 model Customer {
-  id              String @id @default(cuid())
-  telegramUserId  String @unique
-  displayName     String?
-  phone           String?
-  createdAt       DateTime @default(now()) @db.Timestamptz(3)
-  orders          Order[]
+  id             String          @id @default(cuid())
+  telegramUserId String?         @unique
+  displayName    String?
+  phone          String?
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  mergedIntoId   String?
+  mergedInto     Customer?       @relation("CustomerMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom     Customer[]      @relation("CustomerMerge")
+  orders         Order[]
+  supportTickets SupportTicket[]
+  addresses      CustomerAddress[]
+  guestSessions  GuestSession[]
+  linkAttempts   TelegramLinkAttempt[]
+
+  @@index([mergedIntoId])
+}
+
+/// Android guest session. The credential is a server-generated random secret shown once; only its SHA-256 is stored.
+/// installationId is a random client-made helper label, never a credential.
+model GuestSession {
+  id             String    @id @default(cuid())
+  customerId     String
+  customer       Customer  @relation(fields: [customerId], references: [id])
+  tokenHash      String    @unique
+  installationId String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt     DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt      DateTime  @db.Timestamptz(3)
+  revokedAt      DateTime? @db.Timestamptz(3)
+  revokedReason  String?
+
+  @@index([customerId])
+}
+
+enum TelegramLinkStatus {
+  CREATED
+  BOT_BOUND
+  BOT_CONFIRMED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+/// Optional guest -> Telegram link. Needs the bot owner's confirmation in Telegram AND the app owner's confirmation in the app.
+model TelegramLinkAttempt {
+  id               String             @id @default(cuid())
+  guestCustomerId  String
+  guestCustomer    Customer           @relation(fields: [guestCustomerId], references: [id])
+  sessionId        String
+  tokenHash        String             @unique
+  status           TelegramLinkStatus @default(CREATED)
+  telegramUserId   String?
+  telegramName     String?
+  telegramUsername String?
+  targetCustomerId String?
+  mergeSummary     Json?
+  expiresAt        DateTime           @db.Timestamptz(3)
+  botBoundAt       DateTime?          @db.Timestamptz(3)
+  botConfirmedAt   DateTime?          @db.Timestamptz(3)
+  completedAt      DateTime?          @db.Timestamptz(3)
+  createdAt        DateTime           @default(now()) @db.Timestamptz(3)
+
+  @@index([guestCustomerId, status])
+}
+
+/// Stage 7A: saved delivery addresses of a customer (Mini App profile). Orders copy the text; they never reference this row.
+model CustomerAddress {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label       String
+  addressText String
+  lat         Float?
+  lng         Float?
+  isDefault   Boolean  @default(false)
+  lastUsedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([customerId])
 }
 
 enum OrderStatus {
+  WAITING_RESTAURANT
+  WAITING_CUSTOMER_CONSENT
+  CUSTOMER_CANCELLED
+  RESTAURANT_REJECTED
+  RESTAURANT_EXPIRED
   PAYMENT_PENDING
   PAYMENT_EXPIRED
   PAYMENT_MATCHED_UNVERIFIED
@@ -92,90 +203,137 @@ enum OrderStatus {
 }
 
 model Order {
-  id              String @id @default(cuid())
-  number          Int @unique @default(autoincrement())
-  restaurantId    String
-  restaurant      Restaurant @relation(fields: [restaurantId], references: [id])
-  customerId      String
-  customer        Customer @relation(fields: [customerId], references: [id])
-  checkoutKey     String? @unique
-  phoneSnapshot   String?
-  taxiCompanyId   String?
-  taxiCompany     TaxiCompany? @relation(fields: [taxiCompanyId], references: [id])
-  createdViaBot   Boolean @default(false)
-  allowTaxiFallback Boolean @default(false)
-  status          OrderStatus @default(PAYMENT_PENDING)
-  paymentVerifiedAt DateTime? @db.Timestamptz(3)
-  paymentVerifiedBy String?
-  prepMinutes      Int?
-  preparingStartedAt DateTime? @db.Timestamptz(3)
-  readyAt          DateTime? @db.Timestamptz(3)
-  staffLastNotifiedStatus String?
+  id                         String               @id @default(cuid())
+  number                     Int                  @unique @default(autoincrement())
+  restaurantId               String
+  restaurant                 Restaurant           @relation(fields: [restaurantId], references: [id])
+  customerId                 String
+  customer                   Customer             @relation(fields: [customerId], references: [id])
+  checkoutKey                String?              @unique
+  phoneSnapshot              String?
+  taxiCompanyId              String?
+  taxiCompany                TaxiCompany?         @relation(fields: [taxiCompanyId], references: [id])
+  createdViaBot              Boolean              @default(false)
+  allowTaxiFallback          Boolean              @default(false)
+  status                     OrderStatus          @default(PAYMENT_PENDING)
+  // Stage 4B-1: restaurant acceptance happens before any payment exists.
+  paymentIsTest              Boolean              @default(false)
+  restaurantDeadlineAt       DateTime?            @db.Timestamptz(3)
+  acceptedAt                 DateTime?            @db.Timestamptz(3)
+  acceptedBy                 String?
+  estimatedPrepMinutes       Int?
+  rejectedAt                 DateTime?            @db.Timestamptz(3)
+  rejectedBy                 String?
+  rejectReason               String?
+  cancelledAt                DateTime?            @db.Timestamptz(3)
+  cancelledBy                String?
+  cancelReason               String?
+  priceRevisions             OrderPriceRevision[]
+  paymentVerifiedAt          DateTime?            @db.Timestamptz(3)
+  paymentVerifiedBy          String?
+  prepMinutes                Int?
+  preparingStartedAt         DateTime?            @db.Timestamptz(3)
+  readyAt                    DateTime?            @db.Timestamptz(3)
+  staffLastNotifiedStatus    String?
   customerLastNotifiedStatus String?
-  events           OrderEvent[]
-  taxiDispatches   TaxiDispatch[]
-  addressText     String
-  deliveryLat     Float?
-  deliveryLng     Float?
-  totalSom        Int
-  createdAt       DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
-  items           OrderItem[]
-  payment         Payment?
+  events                     OrderEvent[]
+  taxiDispatches             TaxiDispatch[]
+  supportTickets             SupportTicket[]
+  refundRequests             RefundRequest[]
+  commission                 CommissionEntry?
+  addressText                String
+  deliveryLat                Float?
+  deliveryLng                Float?
+  totalSom                   Int
+  createdAt                  DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime             @updatedAt @db.Timestamptz(3)
+  items                      OrderItem[]
+  payment                    Payment?
+
   @@index([restaurantId, createdAt])
   @@index([customerId, createdAt])
   @@index([taxiCompanyId])
+  @@index([status, restaurantDeadlineAt])
 }
 
 model OrderItem {
-  id          String @id @default(cuid())
-  orderId     String
-  order       Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String?
-  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
-  name        String
-  unitSom     Int
-  quantity    Int
-  subtotalSom Int
+  id           String    @id @default(cuid())
+  orderId      String
+  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId    String?
+  product      Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name         String
+  unitSom      Int
+  quantity     Int
+  subtotalSom  Int
+  // Stage 4B-2: a consented price revision replaces the lines; old lines are kept, only marked superseded.
+  supersededAt DateTime? @db.Timestamptz(3)
+
   @@index([orderId])
+}
+
+// Stage 4B-2 - restaurant-proposed price change that needs explicit customer consent.
+// status: PROPOSED | ACCEPTED | DECLINED | EXPIRED | VOID. One PROPOSED per order (partial unique index in SQL).
+model OrderPriceRevision {
+  id            String    @id @default(cuid())
+  orderId       String
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status        String    @default("PROPOSED")
+  proposedBy    String
+  proposedAt    DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt     DateTime  @db.Timestamptz(3)
+  respondedAt   DateTime? @db.Timestamptz(3)
+  oldTotalSom   Int
+  newTotalSom   Int
+  prepMinutes   Int
+  previousLines Json
+  lines         Json
+
+  @@index([orderId, status])
+  @@index([status, expiresAt])
 }
 
 // Ported from the tested PaymentService V3.
 // These are application-accounted matches, NOT verified bank settlements.
 model Card {
-  id             String @id @default(cuid())
+  id             String         @id @default(cuid())
   restaurantId   String?
-  restaurant     Restaurant? @relation(fields: [restaurantId], references: [id])
-  last4          String @unique
-  label          String @default("UZCARD")
-  isTest         Boolean @default(false)
-  active         Boolean @default(true)
-  lastAssignedAt DateTime? @db.Timestamptz(3)
-  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  restaurant     Restaurant?    @relation(fields: [restaurantId], references: [id])
+  last4          String         @unique
+  label          String         @default("UZCARD")
+  isTest         Boolean        @default(false)
+  active         Boolean        @default(true)
+  lastAssignedAt DateTime?      @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
   payments       Payment[]
   cooldowns      CardCooldown[]
+
   @@index([restaurantId, isTest, active])
 }
 
 model Payment {
-  id                   String @id @default(cuid())
-  number               Int @unique @default(autoincrement())
-  orderId              String? @unique
-  order                Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  restaurantId         String?
-  restaurant           Restaurant? @relation(fields: [restaurantId], references: [id])
-  amountTiyin          BigInt
-  status               String @default("QUEUED")
-  isTest               Boolean @default(false)
-  isStress             Boolean @default(false)
-  cardId               String?
-  card                 Card? @relation(fields: [cardId], references: [id])
-  createdAt            DateTime @default(now()) @db.Timestamptz(3)
-  assignedAt           DateTime? @db.Timestamptz(3)
-  expiresAt            DateTime? @db.Timestamptz(3)
-  matchedAt            DateTime? @db.Timestamptz(3)
-  matchedTransactionId String? @unique
+  id                    String            @id @default(cuid())
+  number                Int               @unique @default(autoincrement())
+  orderId               String?           @unique
+  order                 Order?            @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  restaurantId          String?
+  restaurant            Restaurant?       @relation(fields: [restaurantId], references: [id])
+  amountTiyin           BigInt
+  status                String            @default("QUEUED")
+  isTest                Boolean           @default(false)
+  isStress              Boolean           @default(false)
+  cardId                String?
+  card                  Card?             @relation(fields: [cardId], references: [id])
+  createdAt             DateTime          @default(now()) @db.Timestamptz(3)
+  assignedAt            DateTime?         @db.Timestamptz(3)
+  expiresAt             DateTime?         @db.Timestamptz(3)
+  matchedAt             DateTime?         @db.Timestamptz(3)
+  matchedTransactionId  String?           @unique
+  events                PaymentEvent[]
+  refundRequests        RefundRequest[]
+  commissionEntries     CommissionEntry[]
   botLastNotifiedStatus String?
+
   @@index([status, number])
   @@index([restaurantId, status, amountTiyin])
   @@index([cardId, amountTiyin, assignedAt])
@@ -185,32 +343,55 @@ model Payment {
 
 model CardCooldown {
   cardId      String
-  card        Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   amountTiyin BigInt
   until       DateTime @db.Timestamptz(3)
+
   @@id([cardId, amountTiyin])
 }
 
 model IncomingTransaction {
-  id               String @id @default(cuid())
-  sourceId         String @unique
+  id               String    @id @default(cuid())
+  sourceId         String    @unique
   source           String
   cardLast4        String
   amountTiyin      BigInt
-  occurredAt       DateTime @db.Timestamptz(3)
-  receivedAt       DateTime @default(now()) @db.Timestamptz(3)
+  occurredAt       DateTime  @db.Timestamptz(3)
+  receivedAt       DateTime  @default(now()) @db.Timestamptz(3)
   emailReceivedAt  DateTime? @db.Timestamptz(3)
-  minutePrecision  Boolean @default(true)
-  trustedSender    Boolean @default(false)
-  status           String @default("REVIEW_REQUIRED")
+  minutePrecision  Boolean   @default(true)
+  trustedSender    Boolean   @default(false)
+  status           String    @default("REVIEW_REQUIRED")
   reason           String?
-  matchedPaymentId String?
+  // Unique: one verified incoming payment can be assigned to at most one payment.
+  matchedPaymentId String?   @unique
+  fingerprint      String?
+  reviewDetails    Json?
+
+  @@index([fingerprint])
   @@index([cardLast4, amountTiyin, occurredAt])
   @@index([status, receivedAt])
 }
 
+// Stage 4A - append-only history of payment attempt state transitions (system and restaurant actor).
+model PaymentEvent {
+  id                    String   @id @default(cuid())
+  paymentId             String
+  payment               Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  action                String
+  fromStatus            String?
+  toStatus              String?
+  actorType             String
+  actorId               String?
+  incomingTransactionId String?
+  details               Json?
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([paymentId, createdAt])
+}
+
 model GmailIngestion {
-  gmailId   String @id
+  gmailId   String   @id
   status    String
   reason    String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
@@ -218,16 +399,17 @@ model GmailIngestion {
 
 // Actor / previous state / next state are retained for payment and preparation decisions.
 model OrderEvent {
-  id              String @id @default(cuid())
+  id              String      @id @default(cuid())
   orderId         String
-  order           Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   actorTelegramId String
   actorType       String
   action          String
   fromStatus      OrderStatus
   toStatus        OrderStatus
   details         Json?
-  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+
   @@index([orderId, createdAt])
 }
 
@@ -241,31 +423,311 @@ enum TaxiDispatchStatus {
   ASSIGNED
   DECLINED
   NEEDS_HELP
+  CANCELLED
+  ACCEPTED
+  DELIVERED
 }
 
 model TaxiDispatch {
-  id                String @id @default(cuid())
-  orderId           String
-  order             Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  taxiCompanyId     String
-  taxiCompany       TaxiCompany @relation(fields: [taxiCompanyId], references: [id])
-  attemptNo         Int
-  status            TaxiDispatchStatus @default(SCHEDULED)
-  dueAt             DateTime @db.Timestamptz(3)
-  leaseAt           DateTime? @db.Timestamptz(3)
-  sentAt            DateTime? @db.Timestamptz(3)
-  expiresAt         DateTime? @db.Timestamptz(3)
-  respondedAt       DateTime? @db.Timestamptz(3)
-  cancelNoticeAt    DateTime? @db.Timestamptz(3)
-  cancelNoticeTries Int @default(0)
-  telegramMessageId Int?
-  sendTries         Int @default(0)
-  customerNotifiedAt DateTime? @db.Timestamptz(3)
-  staffNotifiedAt    DateTime? @db.Timestamptz(3)
-  adminNotifiedAt    DateTime? @db.Timestamptz(3)
-  createdAt         DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+  id                 String             @id @default(cuid())
+  orderId            String
+  order              Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  taxiCompanyId      String
+  taxiCompany        TaxiCompany        @relation(fields: [taxiCompanyId], references: [id])
+  attemptNo          Int
+  status             TaxiDispatchStatus @default(SCHEDULED)
+  dueAt              DateTime           @db.Timestamptz(3)
+  leaseAt            DateTime?          @db.Timestamptz(3)
+  sentAt             DateTime?          @db.Timestamptz(3)
+  expiresAt          DateTime?          @db.Timestamptz(3)
+  respondedAt        DateTime?          @db.Timestamptz(3)
+  cancelNoticeAt     DateTime?          @db.Timestamptz(3)
+  cancelNoticeTries  Int                @default(0)
+  telegramMessageId  Int?
+  sendTries          Int                @default(0)
+  customerNotifiedAt DateTime?          @db.Timestamptz(3)
+  staffNotifiedAt    DateTime?          @db.Timestamptz(3)
+  adminNotifiedAt    DateTime?          @db.Timestamptz(3)
+  acceptedAt         DateTime?          @db.Timestamptz(3)
+  acceptedBy         String?
+  dispatchedAt       DateTime?          @db.Timestamptz(3)
+  dispatchedBy       String?
+  deliveredAt        DateTime?          @db.Timestamptz(3)
+  deliveredBy        String?
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+
   @@unique([orderId, attemptNo])
   @@index([status, dueAt])
   @@index([orderId, status])
+}
+
+// Stage 3B — customer support tickets handled by two equal Telegram admins.
+// DB CHECK + partial unique index live in the migration SQL (Prisma cannot express them).
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model SupportTicket {
+  id                      String                      @id @default(cuid())
+  number                  Int                         @unique @default(autoincrement())
+  orderId                 String
+  order                   Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId              String
+  customer                Customer                    @relation(fields: [customerId], references: [id])
+  message                 String
+  status                  SupportTicketStatus         @default(OPEN)
+  assignedAdminTelegramId String?
+  assignedAdminName       String?
+  claimedAt               DateTime?                   @db.Timestamptz(3)
+  resolvedAt              DateTime?                   @db.Timestamptz(3)
+  customerNotifiedAt      DateTime?                   @db.Timestamptz(3)
+  createdAt               DateTime                    @default(now()) @db.Timestamptz(3)
+  updatedAt               DateTime                    @updatedAt @db.Timestamptz(3)
+  notifications           SupportTicketNotification[]
+  events                  SupportTicketEvent[]
+  messages                SupportTicketMessage[]
+
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+  @@index([orderId])
+}
+
+// One admin chat message per ticket and admin, so it can be edited after a claim.
+model SupportTicketNotification {
+  id              String        @id @default(cuid())
+  ticketId        String
+  ticket          SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  adminTelegramId String
+  messageId       Int
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([ticketId, adminTelegramId])
+}
+
+// Append-only audit history.
+model SupportTicketEvent {
+  id              String               @id @default(cuid())
+  ticketId        String
+  ticket          SupportTicket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorTelegramId String
+  actorType       String
+  action          String
+  fromStatus      SupportTicketStatus?
+  toStatus        SupportTicketStatus?
+  details         Json?
+  createdAt       DateTime             @default(now()) @db.Timestamptz(3)
+
+  @@index([ticketId, createdAt])
+}
+
+// Telegram callback_query ids already processed (duplicate delivery / double tap guard).
+model SupportCallbackLog {
+  callbackQueryId String   @id
+  ticketId        String
+  actorTelegramId String
+  action          String
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+}
+
+// Stage 3C - conversation between the customer and the assigned admin, with delivery tracking.
+// senderType is 'CUSTOMER' | 'ADMIN' (CHECK in migration). (senderTelegramId, telegramMessageId) dedupes redelivered updates.
+model SupportTicketMessage {
+  id                String        @id @default(cuid())
+  ticketId          String
+  ticket            SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderType        String
+  senderTelegramId  String
+  senderName        String?
+  telegramMessageId Int
+  text              String
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  deliveredAt       DateTime?     @db.Timestamptz(3)
+  deliveryAttempts  Int           @default(0)
+  nextAttemptAt     DateTime      @default(now()) @db.Timestamptz(3)
+  failedAt          DateTime?     @db.Timestamptz(3)
+  lastError         String?
+
+  @@unique([senderTelegramId, telegramMessageId])
+  @@index([ticketId, createdAt])
+  @@index([deliveredAt, failedAt, nextAttemptAt])
+}
+
+// Stage 5A - restaurant API authentication (Android APK). One shared login per restaurant (MVP).
+// passwordHash is an Argon2id PHC string and must never be returned by any API.
+model RestaurantCredential {
+  id                String     @id @default(cuid())
+  restaurantId      String     @unique
+  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  passwordHash      String
+  // Bumped on every password change; sessions created under an older version are rejected.
+  passwordVersion   Int        @default(1)
+  passwordChangedAt DateTime   @default(now()) @db.Timestamptz(3)
+  createdAt         DateTime   @default(now()) @db.Timestamptz(3)
+}
+
+// Only a SHA-256 of the bearer token is stored; the token itself is shown to the client once.
+model RestaurantSession {
+  id              String     @id @default(cuid())
+  tokenHash       String     @unique
+  restaurantId    String
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  passwordVersion Int
+  createdAt       DateTime   @default(now()) @db.Timestamptz(3)
+  expiresAt       DateTime   @db.Timestamptz(3)
+  lastSeenAt      DateTime   @default(now()) @db.Timestamptz(3)
+  revokedAt       DateTime?  @db.Timestamptz(3)
+
+  @@index([restaurantId, revokedAt, expiresAt])
+}
+
+// Login throttling. keyHash = sha256("slug:<slug>") or sha256("ip:<ip>"); no raw identifiers are stored.
+model RestaurantLoginAttempt {
+  id        String   @id @default(cuid())
+  keyHash   String
+  success   Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([keyHash, createdAt])
+  @@index([createdAt])
+}
+
+// Stage 5B - append-only history of restaurant catalog changes made through the API.
+// actorSessionId identifies the (shared-login) session that made the change.
+model CatalogEvent {
+  id             String     @id @default(cuid())
+  restaurantId   String
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  entity         String
+  entityId       String
+  action         String
+  actorSessionId String
+  before         Json?
+  after          Json?
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+
+  @@index([restaurantId, createdAt])
+  @@index([entity, entityId, createdAt])
+}
+
+// Stage 6A - manual refund workflow. DS Delivery never holds or moves money: the RESTAURANT refunds from its own
+// account; this table only records the request, the restaurant's decision and the attestations.
+// status: REQUESTED | APPROVED | REJECTED | SENT | CONFIRMED | DISPUTED. DB CHECKs and partial unique indexes
+// (one open request per order, one open-or-completed request per payment) live in the migration SQL.
+model RefundRequest {
+  id                         String        @id @default(cuid())
+  number                     Int           @unique @default(autoincrement())
+  orderId                    String
+  order                      Order         @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  paymentId                  String
+  payment                    Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  kind                       String
+  status                     String        @default("REQUESTED")
+  reasonCode                 String
+  reasonNote                 String?
+  paidAmountTiyin            BigInt
+  approvedAmountTiyin        BigInt?
+  orderStatusBefore          String
+  paymentStatusAtRequest     String
+  taxiActiveAtDecision       Boolean       @default(false)
+  requestedBy                String
+  requestedByType            String
+  requestedAt                DateTime      @default(now()) @db.Timestamptz(3)
+  decidedBy                  String?
+  decidedAt                  DateTime?     @db.Timestamptz(3)
+  rejectReason               String?
+  sentBy                     String?
+  sentAt                     DateTime?     @db.Timestamptz(3)
+  bankReference              String?
+  confirmedBy                String?
+  confirmedByType            String?
+  confirmedAt                DateTime?     @db.Timestamptz(3)
+  confirmNote                String?
+  disputedAt                 DateTime?     @db.Timestamptz(3)
+  staffNotifiedAt            DateTime?     @db.Timestamptz(3)
+  adminNotifiedAt            DateTime?     @db.Timestamptz(3)
+  customerDecisionNotifiedAt DateTime?     @db.Timestamptz(3)
+  customerSentNotifiedAt     DateTime?     @db.Timestamptz(3)
+  disputeNotifiedAt          DateTime?     @db.Timestamptz(3)
+  events                     RefundEvent[]
+
+  @@index([orderId])
+  @@index([status, requestedAt])
+}
+
+// Append-only audit trail of every refund state change and rejected attempt.
+model RefundEvent {
+  id         String        @id @default(cuid())
+  refundId   String
+  refund     RefundRequest @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  actorId    String
+  actorType  String
+  action     String
+  fromStatus String?
+  toStatus   String?
+  details    Json?
+  createdAt  DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([refundId, createdAt])
+}
+
+// Stage 6B - platform commission ledger. APPEND-ONLY (DB triggers forbid UPDATE/DELETE).
+// A row exists only for an order that reached COMPLETED with a COMPLETED OrderEvent as proof, a restaurant-verified
+// non-test payment and no refund request. amountSom is the amount applied at that moment; later config changes never touch it.
+// The restaurant owes the platform this amount; the platform collects nothing automatically.
+model CommissionEntry {
+  id            String            @id @default(cuid())
+  number        Int               @unique @default(autoincrement())
+  orderId       String            @unique
+  order         Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  restaurantId  String
+  restaurant    Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  paymentId     String
+  payment       Payment           @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  kind          String            @default("ACCRUAL")
+  amountSom     Int
+  orderTotalSom Int
+  ruleCode      String
+  proofEventId  String
+  accruedBy     String
+  accruedAt     DateTime          @default(now()) @db.Timestamptz(3)
+  events        CommissionEvent[]
+
+  @@index([restaurantId, accruedAt])
+}
+
+model CommissionEvent {
+  id        String          @id @default(cuid())
+  entryId   String
+  entry     CommissionEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  actorId   String
+  actorType String
+  action    String
+  details   Json?
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([entryId, createdAt])
+}
+
+/// Stage 6E: one row per logical notification (event + recipient chat). The unique key makes duplicate sends impossible
+/// across workers, retries and restarts; `sentAt` marks a delivered message, `claimedAt` is a short send lease.
+model NotificationLog {
+  id                String    @id @default(cuid())
+  dedupeKey         String    @unique
+  kind              String
+  chatId            String
+  orderId           String?
+  attempts          Int       @default(0)
+  claimedAt         DateTime? @db.Timestamptz(3)
+  sentAt            DateTime? @db.Timestamptz(3)
+  telegramMessageId Int?
+  lastError         String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([orderId])
 }
