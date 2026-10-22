@@ -1,0 +1,39 @@
+{
+  "name": "ds-customer-miniapp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DS Delivery customer Telegram Mini App (React + TypeScript + Vite). Talks to the DS backend under /api/v1/miniapp.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "build:android": "tsc --noEmit && vite build --mode android",
+    "build:android:release": "tsc --noEmit && vite build --mode android-release",
+    "android:sync": "npm run build:android && cap sync android",
+    "android:sync:release": "npm run build:android:release && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/app": "6.0.3",
+    "@capacitor/browser": "6.0.6",
+    "@capacitor/core": "6.2.2",
+    "lucide-react": "0.468.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/android": "6.2.2",
+    "@capacitor/cli": "6.2.2",
+    "@testing-library/react": "16.0.1",
+    "@types/node": "^22.20.5",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@vitejs/plugin-react": "4.3.3",
+    "jsdom": "25.0.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.10",
+    "vitest": "2.1.4"
+  }
+}

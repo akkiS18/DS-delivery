@@ -1,0 +1,9 @@
+{
+  "appId": "com.dsdelivery.customer",
+  "appName": "DS Delivery",
+  "webDir": "dist-android",
+  "backgroundColor": "#F5FBF7",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false },
+  "plugins": { "CapacitorHttp": { "enabled": true } }
+}

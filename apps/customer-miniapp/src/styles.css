@@ -1,0 +1,155 @@
+/* DS Delivery brand: primary #087F5B, mint #B8E8CF, background #F5FBF7, dark teal #1B3031. Mobile-first, large touch targets (>= 44px). */
+:root {
+  --primary: #087f5b;
+  --primary-dark: #066a4c;
+  --mint: #b8e8cf;
+  --mint-soft: #e3f5ec;
+  --bg: #f5fbf7;
+  --ink: #1b3031;
+  --ink-soft: #5a6e6f;
+  --line: #d9e8df;
+  --card: #ffffff;
+  --warn: #c2620a;
+  --warn-bg: #fff3e2;
+  --bad: #c0392b;
+  --bad-bg: #fdebe8;
+  --radius: 16px;
+  /* Layout contract: the tab bar is fixed and exactly --tabbar + --safe-bottom tall; .app-main reserves that space (plus --gap-end) so the last
+     element of every screen can be scrolled fully above it. Only the document scrolls (no nested scroll containers). */
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
+  --tabbar: 62px;
+  --gap-end: 16px;
+  --nav-space: calc(var(--tabbar) + var(--safe-bottom));
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body, #root { margin: 0; min-height: 100%; background: var(--bg); }
+[hidden] { display: none !important; }
+body { font-size: 16px; line-height: 1.35; overscroll-behavior-y: contain; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+
+.app { max-width: 560px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; overflow-x: hidden; }
+.app-main { flex: 1 0 auto; min-width: 0; padding-bottom: calc(var(--nav-space) + var(--gap-end)); }
+:root[data-nav='compact'] { --tabbar: 46px; }
+:root[data-nav='inline'] .app-main { padding-bottom: var(--gap-end); }
+.icon { flex: none; vertical-align: middle; }
+.icon.shrink { margin-top: 2px; }
+.status-ico { display: flex; justify-content: center; color: var(--primary); }
+.status-ico.bad { color: var(--warn); }
+.page { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.page-title { font-size: 22px; font-weight: 800; padding: 6px 0 2px; }
+.sub { color: var(--ink-soft); font-size: 14px; }
+.small { font-size: 13px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.between { justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.center { text-align: center; }
+.bold { font-weight: 700; }
+.ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mono { font-variant-numeric: tabular-nums; }
+
+.card { background: var(--card); border-radius: var(--radius); padding: 14px; box-shadow: 0 1px 3px rgba(27, 48, 49, 0.08); }
+.card.tap { cursor: pointer; }
+.card.tap:active { transform: scale(0.99); }
+.card.muted { opacity: 0.62; }
+
+
+.btn { min-height: 50px; padding: 0 18px; border-radius: 14px; border: 0; font-weight: 700; font-size: 16px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--primary); color: #fff; }
+.btn:active:not(:disabled) { background: var(--primary-dark); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.secondary { background: var(--mint-soft); color: var(--primary-dark); }
+.btn.ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--line); }
+.btn.danger { background: var(--bad-bg); color: var(--bad); }
+.btn.small { min-height: 40px; width: auto; padding: 0 14px; font-size: 14px; }
+
+.input { width: 100%; min-height: 48px; padding: 10px 14px; border-radius: 12px; border: 1.5px solid var(--line); background: #fff; outline: none; }
+.input:focus { border-color: var(--primary); }
+.input.invalid { border-color: var(--bad); }
+.field label { display: block; font-size: 13px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+.err { color: var(--bad); font-size: 13px; margin-top: 4px; }
+
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--mint-soft); color: var(--primary-dark); white-space: nowrap; }
+.badge.open { background: var(--mint); color: var(--primary-dark); }
+.badge.closed { background: #eceff0; color: #66787a; }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.test { background: #efe9ff; color: #5b3fbf; }
+
+.banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--mint-soft); color: var(--primary-dark); }
+.banner.warn { background: var(--warn-bg); color: var(--warn); }
+.banner.bad { background: var(--bad-bg); color: var(--bad); }
+
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; font-weight: 600; }
+.chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+.product { display: flex; gap: 12px; }
+.product .img { width: 84px; height: 84px; border-radius: 14px; background: var(--mint-soft); object-fit: cover; flex: none; display: flex; align-items: center; justify-content: center; color: var(--primary); }
+.product .desc { color: var(--ink-soft); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.price { font-weight: 800; color: var(--primary-dark); }
+
+.qty { display: inline-flex; align-items: center; gap: 4px; background: var(--mint-soft); border-radius: 999px; padding: 3px; }
+.qty button { width: 40px; height: 40px; border-radius: 50%; border: 0; background: #fff; color: var(--primary-dark); display: inline-flex; align-items: center; justify-content: center; }
+.qty button:disabled { opacity: 0.4; }
+.qty span { min-width: 28px; text-align: center; font-weight: 800; }
+
+/* Sticks just above the tab bar while scrolling, but stays in the flow so it never covers the last product. */
+.cartbar { position: sticky; bottom: calc(var(--nav-space) + 8px); z-index: 20; }
+:root[data-nav='inline'] .cartbar { bottom: 8px; }
+.cartbar > button { box-shadow: 0 6px 18px rgba(8, 127, 91, 0.35); }
+
+.tabbar { position: fixed; left: 0; right: 0; bottom: var(--kb-offset, 0px); z-index: 30; background: #fff; border-top: 1px solid var(--line); padding-bottom: var(--safe-bottom); }
+.tabbar nav { max-width: 560px; margin: 0 auto; height: var(--tabbar); display: flex; }
+.tabbar button { flex: 1; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.tabbar button.on { color: var(--primary); }
+.tabbar .ico { display: inline-flex; line-height: 1; position: relative; }
+.tabbar .dot { position: absolute; top: -4px; right: -10px; background: var(--primary); color: #fff; border-radius: 999px; font-size: 11px; min-width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; padding: 0 4px; }
+
+.sheet-back { position: fixed; inset: 0; background: rgba(27, 48, 49, 0.5); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: #fff; width: 100%; max-width: 560px; border-radius: 22px 22px 0 0; padding: 18px 16px calc(18px + var(--safe-bottom)); max-height: 90vh; max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; }
+.sheet h2 { font-size: 20px; margin-bottom: 12px; }
+
+.toast { position: fixed; left: 16px; right: 16px; bottom: calc(var(--nav-space) + 76px); z-index: 60; display: flex; justify-content: center; pointer-events: none; }
+.toast div { background: var(--ink); color: #fff; padding: 12px 16px; border-radius: 12px; font-size: 14px; max-width: 520px; }
+
+.timeline { display: flex; flex-direction: column; }
+.step { display: flex; gap: 12px; padding: 7px 0; position: relative; }
+.step .mark { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); background: #fff; flex: none; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; margin-top: 1px; }
+.step.done .mark { background: var(--primary); border-color: var(--primary); }
+.step.current .mark { border-color: var(--primary); box-shadow: 0 0 0 4px var(--mint); background: #fff; }
+.step.bad .mark { background: var(--bad); border-color: var(--bad); }
+.step.todo { color: var(--ink-soft); }
+.step.current { font-weight: 800; }
+.step:not(:last-child)::after { content: ''; position: absolute; left: 10px; top: 32px; bottom: -7px; width: 2px; background: var(--line); }
+.step.done:not(:last-child)::after { background: var(--primary); }
+
+.eta { font-size: 30px; font-weight: 800; color: var(--primary-dark); }
+.eta.late { color: var(--bad); }
+.cardnum { font-size: 22px; font-weight: 800; letter-spacing: 1px; word-break: break-all; }
+.divider { height: 1px; background: var(--line); margin: 4px 0; }
+.spinner { width: 28px; height: 28px; border: 3px solid var(--mint); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 24px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.skeleton { height: 78px; border-radius: var(--radius); background: linear-gradient(90deg, #e9f3ed, #f6fbf8, #e9f3ed); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.empty { text-align: center; padding: 36px 16px; color: var(--ink-soft); }
+.empty .big { display: flex; justify-content: center; color: var(--primary); opacity: 0.85; }
+
+/* Keyboard-sized viewports: icon-only bar, labels stay available to screen readers. */
+:root[data-nav='compact'] .tabbar .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:root[data-nav='compact'] .tabbar button { flex-direction: row; }
+/* Almost no visible height: the bar joins the page flow (reachable by scrolling) instead of eating the viewport. */
+:root[data-nav='inline'] .tabbar { position: static; }
+:root[data-nav='inline'] .toast { bottom: 16px; }
+
+.card.attn { border: 1.5px solid var(--warn); background: var(--warn-bg); }
+.card.live { border-left: 5px solid var(--primary); }
+.sec-title { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.sec-title .count { background: var(--primary); color: #fff; border-radius: 999px; font-size: 12px; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
+.ocard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.status-line { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--primary-dark); }
+.card.attn .status-line { color: var(--warn); }

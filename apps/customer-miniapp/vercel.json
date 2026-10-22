@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/v1/miniapp",
+      "destination": "https://understanding-recovery-sun-recommended.trycloudflare.com/api/v1/miniapp"
+    },
+    {
+      "source": "/api/v1/miniapp/:path*",
+      "destination": "https://understanding-recovery-sun-recommended.trycloudflare.com/api/v1/miniapp/:path*"
+    }
+  ]
+}
