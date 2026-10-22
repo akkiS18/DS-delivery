@@ -261,3 +261,24 @@ Owner reported "hammasi ishladi"; verified independently in the staging database
 Still **not** covered by this run: REAL payments/Gmail, a real restaurant/operator other than the owner's own accounts, refund and cancellation paths on a paid order from the phone, price-change consent, backend restart in the middle of an order, mobile data (non-allowlisted IP), push notifications (not implemented), long soak. The admin role stays in Telegram for the pilot (owner decision); no admin APK.
 
 Also changed: `docker-compose.example.yml` (production example) now pins PostgreSQL 18 with the data volume mounted at `/var/lib/postgresql`, matching staging (closes the 16-vs-18 open item of 7C-B1).
+
+## 19. Off-server backup automation and monitoring (2026-10-22, night)
+
+Package `be82dc80480f` (previous `38a10a81f760`) is live; it only adds the files below (no application change, no migration).
+
+### Backups (supersedes the "NOT DONE" line in §7 — partly)
+| Layer | What | Status |
+|---|---|---|
+| On the VPS | `backup-db.sh` nightly 02:30 UTC (cron), plus before every migration; 14 kept; SHA-256 next to each dump | running (§7) |
+| Off the VPS | **`deploy/staging/bin/pull-backups.ps1`** on the owner's PC, scheduled by `register-backup-task.ps1` as the per-user task **`DS-Staging-Backup-Pull`** (at every logon and daily 12:00, runs late if the PC was off). It lists the dumps on the VPS over the `ds-staging` ssh alias (strict host key, key auth), copies the ones not yet present, **verifies each SHA-256 (deletes on mismatch)**, keeps the newest 30, and logs to `DS-backups\_private-db-staging\pull.log` (folder ACL: current user only; outside Git and ZIPs). First manual run copied the 2 missing dumps (3 kept), exit 0. | working |
+| Limits | The copy exists only if the PC is on and logged in at some point after 02:30 UTC; both copies live in the owner's hands (the VPS and the laptop). It is **not** a cloud/offsite-in-another-place backup and dumps are not encrypted at rest beyond the folder ACL / disk. For production add a real offsite target (object storage or a second host) and encryption. | open |
+| Restore drill | `restore-check.sh` (disposable container) — run it after every schema change and at least monthly; it was last run in §7. | manual |
+
+### Monitoring
+| Layer | What | Status |
+|---|---|---|
+| Inside | **`deploy/staging/bin/watchdog.sh`**, cron every 2 min as `deploy` (`/etc/cron.d/ds-staging-watchdog`). Checks: containers running/healthy, `/health/ready` (database up; customer/taxi bot `polling` when configured), HTTPS `/health/live` through Caddy with real certificate validation, certificate ≥ 14 days to expiry, disk < 85 %, newest DB dump < 26 h. Telegram message to the owner (`WATCHDOG_CHAT_ID`, customer bot; token passed to curl via stdin, never argv) after **2 consecutive failing runs** (a release restart does not alert), a reminder every 6 h while broken, and a "recovered" message. | working |
+| Tested | Healthy run; dry-run with Caddy stopped and with the database stopped (both detected, then OK after restore); full path with real cron-style runs: 2 failing runs → 🚨 message sent, restart → ✅ recovered message; `--test-alert` message delivered. | PASS |
+| Not covered | A **dead or unreachable VPS** cannot report itself. Add an external HTTP monitor (e.g. UptimeRobot free plan, 5-min interval) on `https://staging.sultonxoja.uz/health/live` (public by design, returns `{"ok":true}`) with e-mail/Telegram alert. Needs an account of the owner: **not done**. Also no log shipping and no CPU/memory alerting. | open |
+
+Logs: `/opt/ds-staging/watchdog/watchdog.log`. Disable: `sudo rm /etc/cron.d/ds-staging-watchdog`. Remove the PC task: `Unregister-ScheduledTask -TaskName DS-Staging-Backup-Pull -Confirm:$false`.
