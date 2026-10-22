@@ -1,0 +1,100 @@
+# DS Delivery STAGING stack (Stage 7C-B2). One project (`-p ds-staging`): PostgreSQL 18 (internal network only), the backend (internal + edge,
+# NO published port), Caddy (the only published ports: 80/443). Secrets live outside the source tree in /opt/ds-staging/config/staging.env.
+#
+# Run through bin/release.sh (it passes the right --env-file and DS_RELEASE). Manual form:
+#   DS_RELEASE=<id> docker compose -p ds-staging -f deploy/staging/docker-compose.staging.yml --env-file /opt/ds-staging/config/staging.env <cmd>
+# NEVER `down -v` (it deletes the database volume). RUN EXACTLY ONE backend container (Telegram long polling, in-memory rate limiter).
+name: ds-staging
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:18-bookworm   # 18 = the major version every DB test and the B1 dump/restore proof ran on
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ds
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in staging.env}
+      POSTGRES_DB: ds_delivery_test
+    volumes:
+      - pgdata:/var/lib/postgresql   # PostgreSQL 18 images keep data in /var/lib/postgresql/18/docker, so the volume is mounted one level up
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ds -d ds_delivery_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]            # internal-only network: no published port, no route to the internet
+    logging: *logging
+    mem_limit: 2g
+    stop_grace_period: 60s
+
+  migrate:
+    image: ds-staging-migrate:${DS_RELEASE:-dev}
+    build: { context: ../.., target: migrate }
+    profiles: ["tools"]             # on demand only: `run --rm migrate` (prisma migrate deploy; never reset)
+    environment:
+      DATABASE_URL: postgresql://ds:${POSTGRES_PASSWORD}@db:5432/ds_delivery_test?schema=public
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+    logging: *logging
+
+  backend:
+    image: ds-staging-backend:${DS_RELEASE:-dev}
+    build: { context: ../.., target: runtime }
+    restart: unless-stopped
+    stop_grace_period: 30s          # > SHUTDOWN_TIMEOUT_SECONDS
+    env_file: /opt/ds-staging/config/staging.env
+    environment:                    # explicit values win over the env file: these define "staging" and cannot be edited away by mistake
+      NODE_ENV: staging
+      DATABASE_URL: postgresql://ds:${POSTGRES_PASSWORD}@db:5432/ds_delivery_test?schema=public
+      HOST: 0.0.0.0
+      PORT: "4000"
+      TRUST_PROXY: "1"              # exactly one proxy (Caddy) in front; Caddy overwrites client-sent X-Forwarded-*
+      STAGING_ACCESS_GATE: edge     # the Caddyfile restricts everything but /health/live to STAGING_ALLOW_IPS
+      BOT_PAYMENT_MODE: MOCK
+      GMAIL_ENABLED: "false"
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal, edge]      # no `ports:`: only Caddy (same edge network) can reach it
+    logging: *logging
+    mem_limit: 1g
+    pids_limit: 256
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      STAGING_DOMAIN: ${STAGING_DOMAIN:?set STAGING_DOMAIN in staging.env}
+      STAGING_ALLOW_IPS: ${STAGING_ALLOW_IPS:-127.0.0.1}
+    ports:
+      - "80:80"                     # ACME HTTP-01 + redirect to HTTPS
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data            # certificates + ACME account: keep (re-issuing too often hits Let's Encrypt rate limits)
+      - caddy_config:/config
+    depends_on: [backend]
+    networks: [edge]
+    logging: *logging
+    mem_limit: 256m
+    read_only: true
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  internal:
+    internal: true
+  edge: {}
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

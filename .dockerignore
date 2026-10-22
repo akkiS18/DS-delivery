@@ -1,0 +1,28 @@
+.git
+.gitignore
+.claude
+.vercel
+node_modules
+dist
+**/node_modules
+**/dist
+# secrets and local state: never part of an image
+.env
+.env.*
+!.env.example
+deploy/*.env
+credentials.json
+gmail-token.json
+*.log
+*.zip
+# not needed by the backend image
+apps/*
+!apps/customer-miniapp
+apps/customer-miniapp/android
+apps/customer-miniapp/dist-android
+docs
+*.md
+Dockerfile
+docker-compose*.yml
+**/*-backup-*
+deploy/**/*.env

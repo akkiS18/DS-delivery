@@ -1,0 +1,8 @@
+# Keep deployment files LF so they are byte-identical on Windows checkouts and Linux builds.
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf
+deploy/*.example text eol=lf
+# Prisma checksums migration files byte-for-byte: keep them LF everywhere so a Windows checkout cannot diverge from what Linux servers applied.
+prisma/migrations/**/*.sql text eol=lf

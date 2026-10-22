@@ -1,0 +1,63 @@
+# EXAMPLE ONLY. Copy to docker-compose.yml, copy deploy/production.env.example to deploy/production.env and fill it in.
+# Nothing here contains a secret: values come from deploy/production.env (git-ignored via .gitignore / .dockerignore).
+#
+#   docker compose --env-file deploy/production.env build
+#   docker compose --env-file deploy/production.env up -d db
+#   docker compose --env-file deploy/production.env run --rm migrate        # prisma migrate deploy (never reset)
+#   docker compose --env-file deploy/production.env up -d backend
+#
+# RUN EXACTLY ONE backend container. The Telegram bots use long polling: a second instance gets 409 from Telegram and exits,
+# but its workers could briefly run. Do not use `--scale backend=2` or replicas.
+name: ds-delivery
+
+services:
+  db:
+    image: postgres:18-bookworm   # 18 = the version every DB test and the staging stack ran on
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ds
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/production.env}
+      POSTGRES_DB: ds_delivery
+    volumes:
+      - pgdata:/var/lib/postgresql           # PostgreSQL 18 keeps data in /var/lib/postgresql/18/docker, so mount one level up; persistent: survives `docker compose down` (never use `down -v` in production)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ds -d ds_delivery"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No published port: only the backend (same compose network) reaches the database.
+
+  migrate:
+    build: { context: ., target: migrate }
+    profiles: ["tools"]                       # only runs on demand: `docker compose run --rm migrate`
+    environment:
+      DATABASE_URL: postgresql://ds:${POSTGRES_PASSWORD}@db:5432/ds_delivery?schema=public
+    depends_on:
+      db: { condition: service_healthy }
+
+  backend:
+    build: { context: ., target: runtime }
+    restart: unless-stopped
+    stop_grace_period: 30s                    # > SHUTDOWN_TIMEOUT_SECONDS (default 15)
+    env_file: deploy/production.env
+    environment:
+      DATABASE_URL: postgresql://ds:${POSTGRES_PASSWORD}@db:5432/ds_delivery?schema=public
+      HOST: 0.0.0.0
+      PORT: "4000"
+    ports:
+      - "127.0.0.1:4000:4000"                 # loopback only: put a TLS reverse proxy (Caddy/nginx) in front; never publish 4000 itself
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  pgdata:
