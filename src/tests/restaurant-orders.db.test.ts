@@ -13,6 +13,7 @@ import { fakeJpeg, fakePng, useTempReceiptDir } from './receipt-fixtures.js';
 
 const receiptDir = useTempReceiptDir();
 process.env.RESTAURANT_LOGIN_MAX_FAILURES = '50';
+process.env.MAX_OPEN_UNPAID_ORDERS = '0'; // these suites keep many unpaid orders per customer; the cap is tested in checkout.stage6f
 process.env.RESTAURANT_LOGIN_IP_MAX_FAILURES = '1000';
 
 // Legacy accept-first flow (RESTAURANT_MANUAL_ACCEPTANCE) and legacy price-consent; the 6F default has its own suite.

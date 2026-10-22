@@ -38,6 +38,16 @@ export const orderSchema = z.object({
 export type PlaceOrderInput = z.input<typeof orderSchema>;
 
 /** A checkout refusal the client can act on (statusCode is honoured by the HTTP error handler; `details` is returned). */
+/** Open (unpaid) orders one customer may hold at once. REAL defaults to 2; MOCK is unlimited unless MAX_OPEN_UNPAID_ORDERS is set. 0 = no limit. */
+export function maxOpenUnpaidOrders(mode: 'MOCK' | 'REAL', env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.MAX_OPEN_UNPAID_ORDERS?.trim();
+  if (raw !== undefined && raw !== '') {
+    const n = Number(raw);
+    return Number.isInteger(n) && n >= 0 && n <= 20 ? n : (mode === 'REAL' ? 2 : 0);
+  }
+  return mode === 'REAL' ? 2 : 0;
+}
+
 export class CheckoutError extends Error {
   constructor(code: string, readonly statusCode: number, readonly details?: unknown) { super(code); }
 }
@@ -220,6 +230,15 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
             ...(data.phone ? { phone: data.phone } : {}),
           },
         });
+      // Stage 8C: every unpaid REAL order holds one (card, amount) slot for up to the payment window; with 3-4 cards a few open orders
+      // from one customer could block everybody else. Expired attempts were already swept (engine.createCheckout runs expireWithin first).
+      const openLimit = maxOpenUnpaidOrders(data.paymentMode);
+      if (openLimit > 0) {
+        const open = await tx.order.count({
+          where: { customerId: customer.id, status: { in: ['PAYMENT_PENDING', 'WAITING_RESTAURANT'] }, paymentIsTest: data.paymentMode === 'MOCK' },
+        });
+        if (open >= openLimit) throw new CheckoutError('KOP_TOLANMAGAN_BUYURTMA', 429);
+      }
       return tx.order.create({
         data: {
           restaurantId: data.restaurantId, customerId: customer.id,

@@ -39,6 +39,8 @@ export function describeCheckoutError(e: unknown): Described {
       return { kind: 'NO_TAXI', retryable: true, message: 'Hozir yetkazib berish uchun taksi xizmati mavjud emas. Birozdan keyin urinib ko‘ring; pul olinmadi.' };
     case 'RESTORAN_OLIB_KETISH_MANZILI_YOQ':
       return { kind: 'CLOSED', retryable: false, message: 'Restoran hozircha buyurtma qabul qila olmaydi. Keyinroq urinib ko‘ring.' };
+    case 'KOP_TOLANMAGAN_BUYURTMA':
+      return { kind: 'LIMIT', retryable: false, message: 'To‘lanmagan buyurtmangiz bor. Avval uni to‘lang yoki bekor qiling, keyin yangisini bering.' };
     case 'PHONE_REQUIRED':
       return { kind: 'PHONE', retryable: false, message: 'Telefon raqamini kiriting.' };
     case 'BUYURTMA_SUMMASI_JUDA_KATTA':

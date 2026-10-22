@@ -18,6 +18,7 @@ import { fakePng, useTempReceiptDir } from './receipt-fixtures.js';
 // local engine (no Telegram, no real money, no taxi message is ever sent: the taxi worker is not running).
 delete process.env.RESTAURANT_MANUAL_ACCEPTANCE;
 useTempReceiptDir();
+process.env.MAX_OPEN_UNPAID_ORDERS = '0'; // these tests create many unpaid orders for one customer; the cap has its own test at the end
 process.env.RESTAURANT_LOGIN_MAX_FAILURES = '50';
 process.env.RESTAURANT_LOGIN_IP_MAX_FAILURES = '1000';
 
@@ -30,6 +31,7 @@ const slugB = `f6-b-${nonce}`;
 const PW_A = `Alpha-${randomUUID()}`;
 const PW_B = `Bravo-${randomUUID()}`;
 const customerTg = String(randomInt(700000000001, 800000000000));
+const capTg = String(randomInt(500000000001, 600000000000));
 const operatorTg = String(randomInt(900000000001, 990000000000));
 const ids: Record<string, string> = {};
 const ips: string[] = [];
@@ -104,7 +106,7 @@ after(async () => {
   await db.cardCooldown.deleteMany({ where: { cardId: { in: cards.map(c => c.id) } } });
   await db.card.deleteMany({ where: { restaurantId: { in: rids } } });
   await db.order.deleteMany({ where: { restaurantId: { in: rids } } });
-  await db.customer.deleteMany({ where: { telegramUserId: customerTg } });
+  await db.customer.deleteMany({ where: { telegramUserId: { in: [customerTg, capTg] } } });
   await db.product.deleteMany({ where: { restaurantId: { in: rids } } });
   await db.restaurant.deleteMany({ where: { id: { in: rids } } });
   await db.taxiCompany.deleteMany({ where: { id: taxiId } });
@@ -372,4 +374,31 @@ test('Mini App contract: strict schemas, identity only from the caller, quote = 
   assert.equal((await counts()).orders, before.orders + 1);
   const stale = await placeOrder(engine, toPlaceOrderInput(customerTg, 'Mini', { phone: '+998901234567', addressText: 'Manzil 1' }, checkoutRequestSchema.parse({ ...good, checkoutKey: randomUUID(), expectedTotalSom: 20_000 }), 'MOCK')).catch(e => e);
   assert.ok(stale instanceof CheckoutError && stale.message === 'NARX_OZGARGAN');
+});
+
+test('open unpaid order cap (Stage 8C): REAL defaults to 2 per customer, MOCK is unlimited, a paid or cancelled order frees a slot', async () => {
+  const saved = process.env.MAX_OPEN_UNPAID_ORDERS;
+  delete process.env.MAX_OPEN_UNPAID_ORDERS;
+  try {
+    const real = () => order('REAL', { telegramUserId: capTg });
+    const first = (await real()).o;
+    await real();
+    const before = await counts();
+    await assert.rejects(real(), (e: unknown) => e instanceof CheckoutError && e.message === 'KOP_TOLANMAGAN_BUYURTMA' && e.statusCode === 429);
+    assert.deepEqual(await counts(), before, 'the refused order created no order and no payment attempt');
+    for (let i = 0; i < 3; i++) await order('MOCK', { telegramUserId: capTg }); // MOCK is not limited by default
+    // another customer is unaffected
+    await order('REAL', { telegramUserId: customerTg });
+    // cancelling frees a slot
+    assert.equal((await cancelUnpaidOrder(engine, { telegramUserId: capTg, orderId: first.id })).result, 'CANCELLED');
+    await real();
+    await assert.rejects(real(), (e: unknown) => e instanceof CheckoutError && e.message === 'KOP_TOLANMAGAN_BUYURTMA');
+    // explicit settings
+    process.env.MAX_OPEN_UNPAID_ORDERS = '3';
+    await real();
+    process.env.MAX_OPEN_UNPAID_ORDERS = '0';
+    await real();
+  } finally {
+    if (saved === undefined) delete process.env.MAX_OPEN_UNPAID_ORDERS; else process.env.MAX_OPEN_UNPAID_ORDERS = saved;
+  }
 });

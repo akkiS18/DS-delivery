@@ -10,6 +10,7 @@ import { db as appDb } from '../lib/db.js';
 
 // Legacy manual-acceptance flow (the pre-6F default) is what this file exercises; the 6F default has its own suite.
 process.env.RESTAURANT_MANUAL_ACCEPTANCE = 'true';
+process.env.MAX_OPEN_UNPAID_ORDERS = '0'; // these suites keep many unpaid orders per customer; the cap is tested in checkout.stage6f
 const db = new PrismaClient();
 const engine = new PaymentEngineV3(db, defaultOptions, () => {});
 const staffId = String(randomInt(100000000000, 400000000000));
