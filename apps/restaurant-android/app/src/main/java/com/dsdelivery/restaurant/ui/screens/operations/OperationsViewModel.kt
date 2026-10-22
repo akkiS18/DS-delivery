@@ -3,6 +3,9 @@ package com.dsdelivery.restaurant.ui.screens.operations
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsdelivery.restaurant.data.api.ApiConfig
+import com.dsdelivery.restaurant.data.model.CardNumber
+import com.dsdelivery.restaurant.data.model.PayeeCard
+import com.dsdelivery.restaurant.data.model.PayeeCardStatus
 import com.dsdelivery.restaurant.data.model.Resource
 import com.dsdelivery.restaurant.data.model.WorkingDay
 import com.dsdelivery.restaurant.data.repository.RestaurantRepository
@@ -22,6 +25,67 @@ class OperationsViewModel(
 
     init {
         loadOperations()
+        loadCards()
+    }
+
+    // --- Stage 8B: payee cards ---
+
+    fun loadCards() {
+        _uiState.update { it.copy(cardsLoading = true, cardsError = null) }
+        viewModelScope.launch {
+            when (val result = repository.getCards()) {
+                is Resource.Success -> _uiState.update { it.copy(cards = result.data, cardsLoading = false) }
+                is Resource.Error -> _uiState.update { it.copy(cardsLoading = false, cardsError = result.message) }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun showAddCard(show: Boolean) {
+        _uiState.update { it.copy(showAddCardDialog = show, addCardError = null, addCardBusy = false) }
+    }
+
+    /** The number and password go to the server once; nothing about them is kept in the UI state. */
+    fun submitCard(digits: String, password: String) {
+        val number = CardNumber.digits(digits)
+        if (!CardNumber.isValid(number)) {
+            _uiState.update { it.copy(addCardError = "Karta raqami noto‘g‘ri.") }
+            return
+        }
+        if (_uiState.value.addCardBusy) return
+        _uiState.update { it.copy(addCardBusy = true, addCardError = null) }
+        viewModelScope.launch {
+            when (val result = repository.addCard(number, password)) {
+                is Resource.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            showAddCardDialog = false, addCardBusy = false,
+                            infoMessage = "Karta yuborildi. Administrator tasdiqlagach faollashadi."
+                        )
+                    }
+                    loadCards()
+                }
+                is Resource.Error -> _uiState.update { it.copy(addCardBusy = false, addCardError = result.message) }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun toggleCard(card: PayeeCard) {
+        if (_uiState.value.busyCardId != null) return
+        val enable = card.status == PayeeCardStatus.DISABLED
+        _uiState.update { it.copy(busyCardId = card.id) }
+        viewModelScope.launch {
+            when (val result = repository.setCardActive(card.id, enable)) {
+                is Resource.Success -> {
+                    _uiState.update { s ->
+                        s.copy(busyCardId = null, cards = s.cards.map { c -> if (c.id == card.id) result.data else c })
+                    }
+                }
+                is Resource.Error -> _uiState.update { it.copy(busyCardId = null, backendNotice = result.message) }
+                Resource.Loading -> {}
+            }
+        }
     }
 
     fun loadOperations() {

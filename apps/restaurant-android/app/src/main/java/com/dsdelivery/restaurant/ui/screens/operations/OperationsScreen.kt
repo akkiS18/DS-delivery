@@ -63,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.model.WorkingDay
 import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
 import com.dsdelivery.restaurant.ui.components.ServerConfigDialog
@@ -107,6 +108,11 @@ fun OperationsScreen(
         onDismissLogoutDialog = { viewModel.showLogoutDialog(false) },
         onConfirmLogout = { viewModel.logout(onLoggedOut) },
         onDismissNotice = viewModel::dismissNotice,
+        onAddCard = { viewModel.showAddCard(true) },
+        onDismissAddCard = { viewModel.showAddCard(false) },
+        onSubmitCard = viewModel::submitCard,
+        onToggleCard = viewModel::toggleCard,
+        onReloadCards = viewModel::loadCards,
         modifier = modifier
     )
 }
@@ -130,6 +136,11 @@ fun OperationsContent(
     onDismissLogoutDialog: () -> Unit,
     onConfirmLogout: () -> Unit,
     onDismissNotice: () -> Unit,
+    onAddCard: () -> Unit,
+    onDismissAddCard: () -> Unit,
+    onSubmitCard: (String, String) -> Unit,
+    onToggleCard: (PayeeCard) -> Unit,
+    onReloadCards: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -247,12 +258,6 @@ fun OperationsContent(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(
-                        text = "Namunaviy qiymat: serverga hali saqlanmaydi.",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontSize = 11.sp,
-                        color = WarningOrange
-                    )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -292,6 +297,17 @@ fun OperationsContent(
                 }
             }
 
+            // Stage 8B: payee cards
+            PayeeCardsSection(
+                cards = state.cards,
+                loading = state.cardsLoading,
+                error = state.cardsError,
+                busyCardId = state.busyCardId,
+                onAdd = onAddCard,
+                onToggle = onToggleCard,
+                onRetry = onReloadCards
+            )
+
             // Working Hours Management Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -322,12 +338,6 @@ fun OperationsContent(
                         }
                     }
 
-                    Text(
-                        text = "Namunaviy jadval: serverga hali saqlanmaydi.",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontSize = 11.sp,
-                        color = WarningOrange
-                    )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -436,6 +446,15 @@ fun OperationsContent(
             }
 
             Spacer(modifier = Modifier.height(80.dp))
+        }
+
+        if (state.showAddCardDialog) {
+            AddCardDialog(
+                busy = state.addCardBusy,
+                error = state.addCardError,
+                onDismiss = onDismissAddCard,
+                onSubmit = onSubmitCard
+            )
         }
 
         // Pause / Resume Confirmation Dialog
@@ -608,7 +627,12 @@ private fun OperationsScreenPreview() {
             onOpenLogoutDialog = {},
             onDismissLogoutDialog = {},
             onConfirmLogout = {},
-            onDismissNotice = {}
+            onDismissNotice = {},
+            onAddCard = {},
+            onDismissAddCard = {},
+            onSubmitCard = { _, _ -> },
+            onToggleCard = {},
+            onReloadCards = {}
         )
     }
 }

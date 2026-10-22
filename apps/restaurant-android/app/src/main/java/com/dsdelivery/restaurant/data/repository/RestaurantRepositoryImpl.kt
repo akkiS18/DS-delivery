@@ -17,6 +17,9 @@ import com.dsdelivery.restaurant.data.api.dto.RejectOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.UpdateAvailabilityRequestDto
 import com.dsdelivery.restaurant.data.api.dto.UpdateCategoryRequestDto
 import com.dsdelivery.restaurant.data.api.dto.UpdatePrepTimeRequestDto
+import com.dsdelivery.restaurant.data.api.dto.AddCardRequestDto
+import com.dsdelivery.restaurant.data.api.dto.toDomain as cardToDomain
+import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.api.dto.UpdateProductRequestDto
 import com.dsdelivery.restaurant.data.api.dto.UpdateStatusRequestDto
 import com.dsdelivery.restaurant.data.api.dto.UpdateWorkingHoursRequestDto
@@ -552,6 +555,42 @@ class RestaurantRepositoryImpl(
         }
     }
 
+    // --- Stage 8B: payee cards ---
+
+    override suspend fun getCards(): Resource<List<PayeeCard>> {
+        return try {
+            Resource.Success(apiClient.service.getCards().cards.orEmpty().map { it.cardToDomain() })
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
+    override suspend fun addCard(number: String, password: String): Resource<PayeeCard> {
+        return try {
+            val card = apiClient.service.addCard(AddCardRequestDto(number, password)).card
+                ?: return Resource.Error("Server javobi noto‘g‘ri.", null)
+            Resource.Success(card.cardToDomain())
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
+    override suspend fun setCardActive(id: String, active: Boolean): Resource<PayeeCard> {
+        return try {
+            val response = if (active) apiClient.service.enableCard(id) else apiClient.service.disableCard(id)
+            val card = response.card ?: return Resource.Error("Server javobi noto‘g‘ri.", null)
+            Resource.Success(card.cardToDomain())
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
     // --- Stage 4: Finance ---
 
     override suspend fun getFinanceSummary(filter: FinanceDateFilter): Resource<FinanceSummary> {
@@ -586,6 +625,7 @@ class RestaurantRepositoryImpl(
 
         return when (e.code()) {
             400 -> when (parsedCode) {
+                "CARD_NUMBER_INVALID" -> "Karta raqami noto‘g‘ri. 16 xonali raqamni tekshiring."
                 "Validation failed" -> "Kiritilgan ma'lumotlar talabga javob bermaydi (Format yoki maydonlar xato)."
                 "DATE_FILTER_INVALID" -> "Sana oralig‘i noto‘g‘ri."
                 "DATE_RANGE_TOO_LARGE" -> "Sana oralig‘i juda katta (ko‘pi bilan 366 kun)."
@@ -597,6 +637,7 @@ class RestaurantRepositoryImpl(
                 else -> "Autentifikatsiya xatosi (HTTP 401)."
             }
             403 -> when (parsedCode) {
+                "PASSWORD_INVALID" -> "Parol noto‘g‘ri."
                 "RESTAURANT_INACTIVE" -> "Restoran faoliyati to‘xtatilgan (Hisob ma'murlar tomonidan bloklangan)."
                 else -> "Ushbu amalni bajarish uchun ruxsat yo‘q (HTTP 403)."
             }
@@ -618,7 +659,12 @@ class RestaurantRepositoryImpl(
                 "PRICE_PROPOSALS_REMOVED" -> "Buyurtmadan keyin narxni o‘zgartirish bekor qilingan: narxlar to‘lovdan oldin tekshiriladi."
                 "REFUND_ALREADY_OPEN" -> "Bu buyurtma uchun qaytarish so‘rovi allaqachon ochilgan."
                 "NO_OPEN_REFUND" -> "Ochiq qaytarish so‘rovi topilmadi (holat o‘zgargan). Ma’lumot yangilandi."
-                "ORDER_PROBLEMS" -> "Qabul qilib bo‘lmaydi: menyu yoki narx o‘zgargan. Narx o‘zgargan bo‘lsa, yangi narxni Telegram bot orqali mijozga taklif qiling, aks holda buyurtmani rad eting."
+                "ORDER_PROBLEMS" -> "Qabul qilib bo‘lmaydi: menyu yoki narx o‘zgargan. Buyurtmani rad eting."
+                "CARD_TAKEN" -> "Bu kartani qo‘shib bo‘lmaydi: oxirgi 4 raqami band. Administratorga murojaat qiling."
+                "CARD_EXISTS" -> "Bu karta ro‘yxatda bor. Uni yoqing."
+                "CARD_LIMIT" -> "Kartalar soni chegaraga yetdi."
+                "CARD_PENDING_LIMIT" -> "Tasdiq kutayotgan kartalar bor. Administrator tasdiqlagach yana qo‘shing."
+                "NOT_APPROVED" -> "Karta hali administrator tomonidan tasdiqlanmagan."
                 else -> "To‘qnashuv yuz berdi (HTTP 409): ${parsedCode ?: ""}"
             }
             422 -> when (parsedCode) {

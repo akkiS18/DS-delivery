@@ -1,5 +1,6 @@
 package com.dsdelivery.restaurant.ui.screens.operations
 
+import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.model.RestaurantOperationsConfig
 import com.dsdelivery.restaurant.data.model.WorkingDay
 
@@ -20,5 +21,13 @@ data class OperationsUiState(
     val showLogoutConfirmDialog: Boolean = false,
     val infoMessage: String? = null,
     val errorMessage: String? = null,
-    val backendNotice: String? = null
+    val backendNotice: String? = null,
+    // Stage 8B: payee cards
+    val cards: List<PayeeCard> = emptyList(),
+    val cardsLoading: Boolean = false,
+    val cardsError: String? = null,
+    val showAddCardDialog: Boolean = false,
+    val addCardBusy: Boolean = false,
+    val addCardError: String? = null,
+    val busyCardId: String? = null
 )

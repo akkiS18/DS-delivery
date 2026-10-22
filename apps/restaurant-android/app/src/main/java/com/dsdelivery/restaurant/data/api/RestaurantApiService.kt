@@ -1,6 +1,10 @@
 package com.dsdelivery.restaurant.data.api
 
 import com.dsdelivery.restaurant.data.api.dto.AcceptOrderRequestDto
+import com.dsdelivery.restaurant.data.api.dto.AddCardRequestDto
+import com.dsdelivery.restaurant.data.api.dto.CardResponseDto
+import com.dsdelivery.restaurant.data.api.dto.CardsResponseDto
+import com.dsdelivery.restaurant.data.api.dto.EmptyBodyDto
 import com.dsdelivery.restaurant.data.api.dto.CancelOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.RefundDecisionRequestDto
 import com.dsdelivery.restaurant.data.api.dto.VerifyPaymentRequestDto
@@ -192,4 +196,25 @@ interface RestaurantApiService {
     suspend fun updatePrepTime(
         @Body body: UpdatePrepTimeRequestDto
     ): OperationsResponseDto
+
+    // --- Stage 8B: payee cards ---
+    @GET("api/v1/restaurant/cards")
+    suspend fun getCards(): CardsResponseDto
+
+    @POST("api/v1/restaurant/cards")
+    suspend fun addCard(
+        @Body body: AddCardRequestDto
+    ): CardResponseDto
+
+    @POST("api/v1/restaurant/cards/{id}/disable")
+    suspend fun disableCard(
+        @Path("id") id: String,
+        @Body body: EmptyBodyDto = EmptyBodyDto()
+    ): CardResponseDto
+
+    @POST("api/v1/restaurant/cards/{id}/enable")
+    suspend fun enableCard(
+        @Path("id") id: String,
+        @Body body: EmptyBodyDto = EmptyBodyDto()
+    ): CardResponseDto
 }

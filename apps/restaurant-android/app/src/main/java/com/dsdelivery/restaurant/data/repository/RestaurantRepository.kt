@@ -77,6 +77,11 @@ interface RestaurantRepository {
     suspend fun updateWorkingHours(workingDays: List<com.dsdelivery.restaurant.data.model.WorkingDay>): Resource<Unit>
     suspend fun updateDefaultPrepMinutes(minutes: Int): Resource<Unit>
 
+    // --- Stage 8B: payee cards ---
+    suspend fun getCards(): Resource<List<com.dsdelivery.restaurant.data.model.PayeeCard>>
+    suspend fun addCard(number: String, password: String): Resource<com.dsdelivery.restaurant.data.model.PayeeCard>
+    suspend fun setCardActive(id: String, active: Boolean): Resource<com.dsdelivery.restaurant.data.model.PayeeCard>
+
     // --- Stage 4: Finance ---
     suspend fun getFinanceSummary(filter: com.dsdelivery.restaurant.data.model.FinanceDateFilter): Resource<com.dsdelivery.restaurant.data.model.FinanceSummary>
 }
