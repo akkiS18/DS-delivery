@@ -44,8 +44,12 @@ describe('checkConfig', () => {
     const e = errs(real);
     assert.ok(has(e, 'GMAIL_ENABLED=true'));
     assert.ok(!has(e, 'BOT_REAL_CARD_NUMBERS_JSON'), 'cards come from the restaurant app now; the JSON is only a legacy fallback');
-    const okReal = { ...real, GMAIL_ENABLED: 'true' };
+    const okReal = { ...real, GMAIL_ENABLED: 'true', BOT_ENABLED: 'true', BOT_TOKEN: TOKEN, SUPPORT_ADMIN_1_TELEGRAM_ID: '123456789' };
     assert.deepEqual(errs(okReal), []);
+    // Stage 8C: card approval and money alerts need the bot and an administrator
+    assert.ok(has(errs({ ...okReal, BOT_ENABLED: 'false' }), 'BOT_ENABLED=true'));
+    assert.ok(has(errs({ ...okReal, SUPPORT_ADMIN_1_TELEGRAM_ID: '' }), 'SUPPORT_ADMIN_1_TELEGRAM_ID'));
+    assert.ok(has(errs({ ...okReal, SUPPORT_ADMIN_1_TELEGRAM_ID: 'abc' }), 'SUPPORT_ADMIN_1_TELEGRAM_ID'));
     assert.deepEqual(errs({ ...okReal, BOT_REAL_CARD_NUMBERS_JSON: '{"8167":"8600123456788167"}' }), []);
     assert.ok(has(errs({ ...okReal, BOT_REAL_CARD_NUMBERS_JSON: '{"1111":"8600123456788167"}' }), 'BOT_REAL_CARD_NUMBERS_JSON'));
     assert.ok(has(errs({ ...okReal, BOT_REAL_CARD_NUMBERS_JSON: 'not json' }), 'BOT_REAL_CARD_NUMBERS_JSON'));

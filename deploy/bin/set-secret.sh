@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Sets or replaces ONE variable in the environment's env file ($ROOT/config/<env>.env) without echoing the value.
+#   interactive (hidden prompt):  ssh -t ds-staging /opt/ds-staging/current/deploy/bin/set-secret.sh BOT_TOKEN
+#   production:                   ssh -t ds-staging 'DS_ENV=production /opt/ds-prod/current/deploy/bin/set-secret.sh BOT_TOKEN'
+#   non-secret value from argv:   set-secret.sh STAGING_ALLOW_IPS --value "203.0.113.5 198.51.100.7"
+# Secret values must NOT be passed on the command line (they would land in shell history and `ps`): use the hidden prompt.
+set -euo pipefail
+. "$(dirname "$(readlink -f "$0")")/../lib/env.sh"
+NAME="${1:?usage: set-secret.sh NAME [--value VALUE]}"
+[[ "$NAME" =~ ^[A-Z][A-Z0-9_]*$ ]] || { echo "bad variable name"; exit 1; }
+if [ "${2:-}" = "--value" ]; then VALUE="${3-}"; else
+  read -r -s -p "Value for $NAME (hidden): " VALUE; echo
+fi
+[ -n "$VALUE" ] || { echo "empty value refused"; exit 1; }
+BAD='[$"`\'"'"']'   # characters compose/env parsing would interpret: $ " ` \ '
+if [[ "$VALUE" =~ $BAD ]] || [[ "$VALUE" == *$'\n'* ]] || [[ "$VALUE" == *$'\r'* ]] || [[ "$VALUE" == *$'\t'* ]]; then
+  echo "value contains a quote, \$, backtick, backslash, tab or newline: refused (compose would interpolate it)"; exit 1
+fi
+[ -f "$CONF" ] || { echo "missing $CONF"; exit 1; }
+umask 077
+TMP="$(mktemp "$CONF.XXXXXX")"
+grep -v "^${NAME}=" "$CONF" > "$TMP" || true
+printf '%s=%s\n' "$NAME" "$VALUE" >> "$TMP"
+chmod 600 "$TMP"; mv "$TMP" "$CONF"
+echo "[set-secret] $NAME updated in $CONF (value not shown). Apply with: release.sh restart [backend|caddy]"

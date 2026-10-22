@@ -2,7 +2,7 @@
 
 Living list. Everything here needs a person with a phone/Telegram. **One batch = the two APKs below, installed once.** No new APK is shipped while a batch is open unless something blocks it; fixes found are collected and shipped together afterwards. Newly built features add items at the bottom of the matching section.
 
-Last updated: 2026-10-22 (after Stage 7D).
+Last updated: 2026-10-23 (after Stage 8C code). **A NEW pair of APKs is needed for §H** (cards screen, legal links, new error texts) — built once after the code is complete.
 
 ## 0. Setup (once)
 - APKs (`C:\Users\Acer\Documents\DS-backups\apk\`): customer `ds-customer-staging-debug-20261022-1954-receipt.apk`, restaurant `ds-restaurant-staging-debug-20261022-1954-receipt.apk`. Uninstall older versions first.
@@ -67,6 +67,36 @@ Last updated: 2026-10-22 (after Stage 7D).
 | E1 | Open from the menu button and `/app` | Loads from `staging.sultonxoja.uz/app/`; restaurants visible |
 | E2 | Full order incl. MOCK payment, cancel, refund receipt viewer | Same as A; Telegram Back button works; theme/dark mode fine |
 | E3 | Order from the Mini App and from the APK with the **same Telegram account** | One customer profile, one history |
+
+## H. New in Stage 8B/8C (needs the new APKs and the new backend on staging; staging stays MOCK)
+Admin commands work only for the support admins (you). For the card and money tests the staging backend must run the new release; REAL payments themselves are NOT tested on staging (runbook §5 on the production stack).
+
+| # | Steps | Expected |
+|---|---|---|
+| H1 | Restaurant APK → Operatsiyalar → **To‘lov kartalari** → Karta qo‘shish: type a made-up 16-digit number with a typo, then a valid one (e.g. any Luhn-valid test number) + the account password | Typo: red hint, button disabled. Valid: card appears as "Administrator tasdig‘i kutilmoqda", masked `**** **** **** NNNN`; full number never shown again |
+| H2 | Wrong account password in the same dialog | "Parol noto‘g‘ri"; the app stays signed in |
+| H3 | Telegram (customer bot, as admin): the pending card arrives with the FULL number and two buttons | Message within ~10 s; "Tasdiqlash" asks "Ha, aniq tasdiqlayman" first; "Rad etish" rejects at once |
+| H4 | Approve → app list (pull to refresh / reopen) | "Faol", switch on; switch off → "O‘chirilgan"; on again → "Faol" |
+| H5 | Reject a second card → submit the SAME number again | Rejected status shown; resubmission accepted (back to pending, a new Telegram message) |
+| H6 | Add 3 pending cards quickly | Third refused ("Tasdiq kutayotgan kartalar bor…") |
+| H7 | Try a number whose last 4 digits another restaurant uses | "oxirgi 4 raqami band" |
+| H8 | `/admin` as you; `/admin` from a non-admin account | Command list for you; **no answer** for others |
+| H9 | `/cards` | List of all cards with statuses; pending ones re-sent with buttons |
+| H10 | `/money` with nothing unmatched | "Mos kelmagan yoki kutayotgan pul yo‘q" (real mail cases are runbook §5 R3/R4) |
+| H11 | Customer APK/Mini App: place a MOCK order, leave it unpaid, place a second, then a third | Works on staging (MOCK is unlimited); on production REAL the 3rd is refused with "To‘lanmagan buyurtmangiz bor" |
+| H12 | Customer APK → Profil → **Maxfiylik siyosati** / **Foydalanish shartlari** | Opens the browser; shows the text if `LEGAL_OPERATOR_NAME/CONTACT` are set on staging, otherwise "Hujjat hali tayyor emas" |
+| H13 | Link the restaurant's staff Telegram (`link-staff` on the server with your id), place a MOCK order and pay | One "🧪 SINOV … buyurtma to‘landi" alert in Telegram per order, no repeats |
+| H14 | `/restaurants` → suspend the demo restaurant (two taps) | The restaurant APK is signed out and cannot sign in; customers cannot order; resume restores it. **Resume it afterwards** |
+| H15 | `/commission` | Statement (or "To‘lanmagan komissiya yo‘q"); a real settlement is rehearsed on production (R10) |
+| H16 | Restaurant APK: pause / working hours / prep time screens | No more "serverga hali saqlanmaydi" notes; values are saved |
+
+## I. Infrastructure steps (done by the assistant with the owner's go, in this order; see docs/RUNBOOK_PRODUCTION.md)
+1. Package + deploy the new release to staging, check migrations (5 new) and `/health/ready`.
+2. Staging → shared edge proxy cutover (one blip), uptime monitor stays green.
+3. Production bring-up IP-locked; first start refuses REAL without `CONFIRM_REAL_PAYMENTS` (guard test), then the switches.
+4. Backups: dump + receipts + Gmail archive, `restore-check.sh` PASS, encrypted offsite copy decrypted on the PC.
+5. Release-signed APKs installed from files (not Play): customer, restaurant.
+6. Real-money rehearsal R1–R10 (owner's cards).
 
 ## F. Still open without a phone (not yet run)
 - Real Telegram duplicate-polling (409) test — deliberately not provoked (it would take the live bot down).

@@ -97,6 +97,9 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
   if (mode === 'REAL') {
     if (env.GMAIL_ENABLED !== 'true') errors.push('BOT_PAYMENT_MODE=REAL requires GMAIL_ENABLED=true (payments are confirmed from the bank e-mail).');
     if (/test/i.test(dbName)) errors.push('BOT_PAYMENT_MODE=REAL is not allowed on a test database.');
+    // Stage 8C: a restaurant's new payee card only becomes usable after an administrator approves it in Telegram, and Gmail/money alerts go to the admins.
+    if (!botEnabled) errors.push('BOT_PAYMENT_MODE=REAL requires BOT_ENABLED=true (payee cards are approved and money alerts are sent through the Telegram bot).');
+    if (!/^\d{1,20}$/.test(env.SUPPORT_ADMIN_1_TELEGRAM_ID?.trim() ?? '')) errors.push('BOT_PAYMENT_MODE=REAL requires SUPPORT_ADMIN_1_TELEGRAM_ID (card approval and unmatched-money alerts need an administrator).');
     // Stage 8B: payee numbers are entered in the restaurant app and approved by an administrator (Card.number). BOT_REAL_CARD_NUMBERS_JSON is
     // only the fallback for legacy cards without a stored number: optional, but when present it must be valid.
     if (env.BOT_REAL_CARD_NUMBERS_JSON?.trim()) {
@@ -115,6 +118,7 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
   // ---- production hygiene
   if (production && env.MINIAPP_CSP === 'off') warnings.push('MINIAPP_CSP=off disables the Mini App Content-Security-Policy.');
   if (production && env.RESTAURANT_TELEGRAM_ENABLED === 'true') warnings.push('RESTAURANT_TELEGRAM_ENABLED=true re-enables the legacy Telegram restaurant panel.');
+  if (production && (!env.LEGAL_OPERATOR_NAME?.trim() || !env.LEGAL_OPERATOR_CONTACT?.trim())) warnings.push('LEGAL_OPERATOR_NAME / LEGAL_OPERATOR_CONTACT are not set: /legal/privacy and /legal/terms answer 503 until they are.');
   if (production && !(env.TAXI_OPERATOR_ALLOWLIST ?? '').trim()) warnings.push('TAXI_OPERATOR_ALLOWLIST is empty: any linked taxi operator account is accepted.');
 
   return { errors, warnings };

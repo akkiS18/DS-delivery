@@ -1,0 +1,38 @@
+# Shared edge proxy for staging AND production (project `ds-edge`). The only published ports on the VPS: 80/443.
+# Both stacks attach their backend to the external network `ds-edge` with the aliases `staging-backend` / `prod-backend`; neither stack
+# publishes a port of its own. Configuration (domains, IP gates) lives in /opt/ds-edge/config/edge.env (outside the source tree, mode 600).
+#   deploy/edge/edge.sh up | reload | status | set NAME "VALUE"
+name: ds-edge
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file: /opt/ds-edge/config/edge.env
+    ports:
+      - "80:80"                     # ACME HTTP-01 + redirect to HTTPS
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data            # certificates + ACME account: keep (re-issuing too often hits Let's Encrypt rate limits). Never `down -v`.
+      - caddy_config:/config
+    networks: [edge]
+    logging: *logging
+    mem_limit: 256m
+    read_only: true
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  edge:
+    external: true
+    name: ds-edge
+
+volumes:
+  caddy_data:
+  caddy_config:

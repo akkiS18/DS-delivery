@@ -1,0 +1,77 @@
+# Shared edge proxy (ONE Caddy for staging and production on the same VPS). Automatic Let's Encrypt certificates and renewal.
+# It is its own compose project (deploy/edge) so a staging release can never restart production's front door, and vice versa.
+# remote_ip is the TCP peer address Caddy sees, never a client-supplied header, so a forged X-Forwarded-For cannot pass an IP gate.
+# Caddy replaces any X-Forwarded-For sent by the client with the real peer address (client headers are untrusted unless trusted_proxies is set),
+# and each backend runs with TRUST_PROXY=1 (exactly this one proxy in front).
+{
+	admin off
+	servers {
+		protocols h1 h2
+	}
+}
+
+(common) {
+	encode zstd gzip
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+	log {
+		output stdout
+		format json
+	}
+}
+
+# ---- staging: MOCK checkout and anonymous guest sign-up, so NOT public: only STAGING_ALLOW_IPS reach anything except /health/live.
+{$STAGING_DOMAIN} {
+	import common
+
+	@live path /health/live
+	handle @live {
+		reverse_proxy staging-backend:4000
+	}
+
+	# The operator API (x-internal-api-key) is never reachable from the internet: use it from the server itself.
+	@internal path /api/v1/internal /api/v1/internal/*
+	handle @internal {
+		respond "Not found" 404
+	}
+
+	@allowed remote_ip {$STAGING_ALLOW_IPS}
+	handle @allowed {
+		reverse_proxy staging-backend:4000
+	}
+
+	handle {
+		respond "Forbidden" 403
+	}
+}
+
+# ---- production. PROD_ALLOW_IPS is the launch gate: your own IPs while it is private; "0.0.0.0/0 ::/0" opens it to everybody (only then).
+{$PROD_DOMAIN} {
+	import common
+
+	header Strict-Transport-Security "max-age=31536000"
+
+	# Liveness and the public policy pages are always reachable (monitors, store listings, links inside the apps).
+	@open path /health/live /legal/privacy /legal/terms
+	handle @open {
+		reverse_proxy prod-backend:4000
+	}
+
+	# Never public, whatever PROD_ALLOW_IPS says: the operator API, and the readiness/legacy health detail (the watchdog reads them inside the container).
+	@never path /api/v1/internal /api/v1/internal/* /health /health/ready
+	handle @never {
+		respond "Not found" 404
+	}
+
+	@allowed remote_ip {$PROD_ALLOW_IPS}
+	handle @allowed {
+		reverse_proxy prod-backend:4000
+	}
+
+	handle {
+		respond "Forbidden" 403
+	}
+}

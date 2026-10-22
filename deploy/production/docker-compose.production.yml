@@ -1,0 +1,87 @@
+# DS Delivery PRODUCTION stack (Stage 8C). Project `ds-prod`, on the SAME VPS as staging but sharing nothing with it: own database, volumes, secrets and
+# Telegram bots. PostgreSQL on an internal-only network; the backend has NO published port (the shared edge proxy, deploy/edge, reaches it over the
+# external network `ds-edge` as `prod-backend`). Secrets live outside the source tree in /opt/ds-prod/config/production.env.
+#
+# Run through deploy/bin/release.sh with DS_ENV=production (it passes the right --env-file, DS_RELEASE and the typed confirmation). Manual form:
+#   DS_RELEASE=<id> docker compose -p ds-prod -f deploy/production/docker-compose.production.yml --env-file /opt/ds-prod/config/production.env <cmd>
+# NEVER `down -v` (it deletes the database, receipt and Gmail-token volumes). RUN EXACTLY ONE backend container (Telegram long polling, in-memory rate limiter).
+name: ds-prod
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:18-bookworm   # 18 = the major version every DB test and the dump/restore proofs ran on
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ds
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in production.env}
+      POSTGRES_DB: ds_prod          # the name must NOT contain "test": the backend refuses REAL payments on such a database
+    volumes:
+      - pgdata:/var/lib/postgresql   # PostgreSQL 18 images keep data in /var/lib/postgresql/18/docker, so the volume is mounted one level up
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ds -d ds_prod"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]            # internal-only network: no published port, no route to the internet
+    logging: *logging
+    mem_limit: 2g
+    stop_grace_period: 60s
+
+  migrate:
+    image: ds-prod-migrate:${DS_RELEASE:-dev}
+    build: { context: ../.., target: migrate }
+    profiles: ["tools"]             # on demand only: `run --rm migrate` (prisma migrate deploy; never reset)
+    environment:
+      DATABASE_URL: postgresql://ds:${POSTGRES_PASSWORD}@db:5432/ds_prod?schema=public
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [internal]
+    logging: *logging
+
+  backend:
+    image: ds-prod-backend:${DS_RELEASE:-dev}
+    build: { context: ../.., target: runtime }
+    restart: unless-stopped
+    stop_grace_period: 30s          # > SHUTDOWN_TIMEOUT_SECONDS
+    env_file: /opt/ds-prod/config/production.env
+    environment:                    # explicit values win over the env file: these define "production" and cannot be edited away by mistake
+      NODE_ENV: production
+      DATABASE_URL: postgresql://ds:${POSTGRES_PASSWORD}@db:5432/ds_prod?schema=public
+      HOST: 0.0.0.0
+      PORT: "4000"
+      TRUST_PROXY: "1"              # exactly one proxy (the edge Caddy) in front; it overwrites client-sent X-Forwarded-*
+      BOT_PAYMENT_MODE: REAL        # MOCK is refused in production; REAL additionally needs GMAIL_ENABLED=true and CONFIRM_REAL_PAYMENTS=yes (set by the owner)
+      RECEIPT_DIR: /app/data/receipts
+      GMAIL_CREDENTIALS_FILE: /app/data/gmail/credentials.json
+      GMAIL_TOKEN_FILE: /app/data/gmail/gmail-token.json
+    depends_on:
+      db: { condition: service_healthy }
+    networks:
+      internal: {}
+      edge: { aliases: [prod-backend] }   # no `ports:`: only the edge proxy (same network) can reach it
+    volumes:
+      - receipts:/app/data/receipts # refund receipt photos: data outside PostgreSQL. Backed up by deploy/bin/backup-db.sh.
+      - gmail:/app/data/gmail       # Gmail OAuth credentials + token (rewritten on every refresh). Backed up (encrypted) by backup-db.sh.
+    logging: *logging
+    mem_limit: 1g
+    pids_limit: 256
+    read_only: true
+    tmpfs: ["/tmp"]
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+
+networks:
+  internal:
+    internal: true
+  edge:
+    external: true
+    name: ds-edge
+
+volumes:
+  pgdata:
+  receipts:
+  gmail:
