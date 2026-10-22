@@ -2,11 +2,17 @@ import { useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { Button, Empty, Icon, Sheet, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { confirmDialog } from '../lib/telegram';
+import { apiOrigin, isAndroidApp } from '../lib/platform';
+import { confirmDialog, openExternal } from '../lib/telegram';
 import type { Address } from '../lib/types';
 import { formatPhone, hasErrors, normalizePhone, validateAddress } from '../lib/validation';
 import { useApp } from '../state';
 import { TelegramLink } from './TelegramLink';
+
+/** The legal pages are served by the backend: the APK knows its API origin, the Mini App is served from it. */
+function legalOrigin(): string {
+  return isAndroidApp ? apiOrigin() : window.location.origin;
+}
 
 export function Profile() {
   const { profile, refreshProfile, toast } = useApp();
@@ -75,6 +81,11 @@ export function Profile() {
             </div>
           </div>
         ))}
+      </section>
+
+      <section className="row" style={{ flexWrap: 'wrap' }} aria-label="Hujjatlar">
+        <Button small variant="ghost" onClick={() => void openExternal(`${legalOrigin()}/legal/privacy`)}>Maxfiylik siyosati</Button>
+        <Button small variant="ghost" onClick={() => void openExternal(`${legalOrigin()}/legal/terms`)}>Foydalanish shartlari</Button>
       </section>
 
       {form && (
