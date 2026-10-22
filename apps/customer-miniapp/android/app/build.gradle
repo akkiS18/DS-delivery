@@ -7,8 +7,9 @@ android {
         applicationId "com.dsdelivery.customer"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Release builds pass -PdsVersionCode=N -PdsVersionName=x.y.z (Android needs a higher versionCode for every update).
+        versionCode Integer.parseInt((project.findProperty('dsVersionCode') ?: '1').toString())
+        versionName "${project.findProperty('dsVersionName') ?: '1.0'}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,22 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing (Stage 8C): keystore and passwords come from the environment ONLY (DS_KEYSTORE_FILE, DS_KEYSTORE_PASSWORD, DS_KEY_ALIAS,
+    // DS_KEY_PASSWORD), never from the repository. Without them the release APK stays UNSIGNED, never silently debug-signed.
+    def dsKeystore = System.getenv('DS_KEYSTORE_FILE')
+    if (dsKeystore) {
+        signingConfigs {
+            release {
+                storeFile file(dsKeystore)
+                storePassword System.getenv('DS_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('DS_KEY_ALIAS')
+                keyPassword System.getenv('DS_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (dsKeystore) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

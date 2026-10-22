@@ -31,3 +31,8 @@ apps/customer-miniapp-backup-*/
 
 # keep the local-testing env TEMPLATE (no secrets) even though `.env.*` is ignored
 !.env.telegram-test.example
+
+# Android signing keys (never commit; the release build reads them from the environment)
+*.jks
+*.keystore
+keystore.properties

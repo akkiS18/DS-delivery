@@ -11,8 +11,9 @@ android {
         applicationId = "com.dsdelivery.restaurant"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0-stage1"
+        // Release builds pass -PdsVersionCode=N -PdsVersionName=x.y.z (Android needs a higher versionCode for every update).
+        versionCode = (project.findProperty("dsVersionCode") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("dsVersionName") as String?) ?: "1.0.0-stage1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -20,8 +21,24 @@ android {
         }
     }
 
+    // Release signing (Stage 8C): the keystore and its passwords come from the environment ONLY (DS_KEYSTORE_FILE, DS_KEYSTORE_PASSWORD,
+    // DS_KEY_ALIAS, DS_KEY_PASSWORD) and are never stored in the repository. Without them the release APK stays UNSIGNED (it cannot be installed),
+    // never silently signed with a debug key.
+    val keystorePath = System.getenv("DS_KEYSTORE_FILE")
+    if (!keystorePath.isNullOrBlank()) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("DS_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("DS_KEY_ALIAS")
+                keyPassword = System.getenv("DS_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (!keystorePath.isNullOrBlank()) signingConfig = signingConfigs.getByName("release")
             // Production must use HTTPS. Provide the real host with -PdsApiBaseUrl=https://...
             // The default is a reserved, non-resolvable placeholder so a release build can never
             // silently talk to a development server.
