@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">DS Restaurant</string>
+    <string name="login_title">DS Delivery</string>
+    <string name="login_subtitle">Restoran boshqaruv paneli</string>
+    <string name="restaurant_slug">Restoran identifikatori (slug)</string>
+    <string name="staff_password">Xodim paroli / PIN</string>
+    <string name="login_button">Kirish</string>
+    <string name="login_demo_button">Ko‘rish rejimida kirish (Demo)</string>
+    <string name="menu_title">Restoran menyusi</string>
+    <string name="all_categories">Barchasi</string>
+    <string name="refresh">Yangilash</string>
+    <string name="server_settings">Server sozlamalari</string>
+    <string name="loading_menu">Menyu yuklanmoqda...</string>
+    <string name="empty_menu">Ushbu toifada mahsulotlar topilmadi</string>
+    <string name="error_loading">Ma\'lumotlarni yuklab bo‘lmadi</string>
+    <string name="retry">Qayta urinish</string>
+    <string name="status_active">Faol</string>
+    <string name="status_paused">To‘xtatilgan</string>
+    <string name="som_suffix">so‘m</string>
+</resources>

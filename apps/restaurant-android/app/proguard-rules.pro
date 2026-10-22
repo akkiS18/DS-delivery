@@ -1,0 +1,16 @@
+# Retrofit
+-dontwarn retrofit2.**
+-keep class retrofit2.** { *; }
+-keepattributes Signature
+-keepattributes Exceptions
+
+# Gson
+-keepattributes *Annotation*
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+-keep class com.dsdelivery.restaurant.data.api.dto.** { *; }
+
+# OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**

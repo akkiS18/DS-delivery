@@ -7,3 +7,27 @@ credentials.json
 gmail-token.json
 *.log
 *.zip
+
+# deployment secrets (templates end in .example and are tracked)
+deploy/*.env
+docker-compose.yml
+
+# Customer Android (Capacitor) build output
+apps/customer-miniapp/dist-android/
+*.apk
+*.aab
+
+# staging server secrets (templates end in .example and are tracked)
+deploy/**/*.env
+
+# Restaurant Android (Kotlin) build output and machine-local files
+apps/restaurant-android/.gradle/
+apps/restaurant-android/.idea/
+apps/restaurant-android/**/build/
+apps/restaurant-android/local.properties
+
+# Old Mini App source snapshots kept only in DS-backups
+apps/customer-miniapp-backup-*/
+
+# keep the local-testing env TEMPLATE (no secrets) even though `.env.*` is ignored
+!.env.telegram-test.example
