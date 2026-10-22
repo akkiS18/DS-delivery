@@ -70,7 +70,7 @@ Last updated: 2026-10-22 (after Stage 7D).
 
 ## F. Still open without a phone (not yet run)
 - Real Telegram duplicate-polling (409) test — deliberately not provoked (it would take the live bot down).
-- Gmail / REAL payments, bank terms, a real restaurant/operator — out of scope until approved.
+- Gmail / REAL payments, bank terms, a real restaurant/operator — out of scope until approved. Plan and rehearsal list: `docs/STAGE_8A.md` (Gmail health/alert code of 8A-1 has only unit tests; it needs a real mailbox on the production stack).
 - Push notifications — not implemented. Admin APK — not planned (Telegram admin for the pilot).
 - Long soak (days) and load beyond the 50-customer burst of Stage 7C-QA.
 

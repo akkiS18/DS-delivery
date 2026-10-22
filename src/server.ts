@@ -6,6 +6,7 @@ import { runtime } from './lib/health.js';
 import { createShutdown } from './lib/shutdown.js';
 import { PaymentEngineV3, defaultOptions } from './modules/payment/engine.js';
 import { startGmail } from './modules/payment/gmail.js';
+import { gmailAlertSender } from './bot/gmail-alerts.js';
 import { createClientBot } from './bot/client.js';
 import { createTaxiBot } from './bot/taxi-bot.js';
 import { chatCheckoutEnabled, miniAppUrl, setMiniAppMenuButton } from './bot/miniapp-launch.js';
@@ -139,7 +140,7 @@ try {
   }
   // Gmail starts only after Telegram polling is confirmed: a duplicate instance gets 409 and exits before it ever reads the mailbox.
   if (env.GMAIL_ENABLED === 'true') {
-    try { stopGmail = await startGmail(engine); }
+    try { stopGmail = await startGmail(engine, { onAlert: gmailAlertSender(clientBot) }); }
     catch (err) { app.log.error({ err }, 'Gmail failed to start. API remains available.'); }
   }
   runtime.phase = 'ready';

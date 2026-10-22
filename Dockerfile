@@ -44,9 +44,10 @@ COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/dist ./dist
 COPY --from=miniapp /app/apps/customer-miniapp/dist ./apps/customer-miniapp/dist
 COPY prisma ./prisma
-# Refund receipt photos (see src/modules/refunds/receipts.ts) are the only files the app writes. The root filesystem stays read-only: this directory is
-# a named volume in compose, and creating it here with the right owner makes a fresh volume writable by the non-root user.
-RUN mkdir -p /app/data/receipts && chown -R node:node /app/data
+# Refund receipt photos (see src/modules/refunds/receipts.ts) and the Gmail OAuth token (src/modules/payment/gmail.ts rewrites it on every refresh)
+# are the only files the app writes. The root filesystem stays read-only: each directory is a named volume in compose, and creating it here with the
+# right owner makes a fresh volume writable by the non-root user.
+RUN mkdir -p /app/data/receipts /app/data/gmail && chown -R node:node /app/data
 USER node
 ENV HOST=0.0.0.0 PORT=4000 RECEIPT_DIR=/app/data/receipts
 EXPOSE 4000

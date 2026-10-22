@@ -20,7 +20,16 @@ describe('health routes', () => {
     const app = await build('ready', async () => undefined);
     const res = await app.inject('/health/ready');
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.json(), { ok: true, phase: 'ready', checks: { database: 'up', customerBot: 'polling', taxiBot: 'disabled' } });
+    assert.deepEqual(res.json(), { ok: true, phase: 'ready', checks: { database: 'up', customerBot: 'polling', taxiBot: 'disabled', gmail: 'disabled' } });
+    await app.close();
+  });
+  it('a Gmail outage is reported but does not make the API unready', async () => {
+    const app = Fastify();
+    await app.register(async a => { await healthRoutes(a, { pingDatabase: async () => undefined, gmailStatus: () => 'down', state: { phase: 'ready', customerBot: 'polling', taxiBot: 'polling' } }); });
+    const res = await app.inject('/health/ready');
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().checks.gmail, 'down');
+    assert.equal(res.json().ok, true);
     await app.close();
   });
   it('ready is 503 while starting, stopping, or when the database fails or hangs; errors are not leaked', async () => {

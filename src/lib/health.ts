@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { gmailHealth, type GmailStatus } from '../modules/payment/gmail-health.js';
 
 /**
  * Process state shown by /health/ready. Only coarse states: no tokens, no URLs, no database names.
@@ -13,6 +14,9 @@ export interface HealthDeps {
   pingDatabase: () => Promise<void>;
   state?: typeof runtime;
   timeoutMs?: number;
+  /** Gmail reader state (Stage 8A). Reported only: a Gmail outage does not make the API unready (orders and bots keep working),
+   *  but the watchdog alerts on it because customers' payments would stop matching. */
+  gmailStatus?: () => GmailStatus;
 }
 
 /**
@@ -37,6 +41,6 @@ export async function healthRoutes(app: FastifyInstance, deps: HealthDeps): Prom
     finally { clearTimeout(timer); }
     const ok = state.phase === 'ready' && database === 'up';
     return reply.code(ok ? 200 : 503).header('Cache-Control', 'no-store')
-      .send({ ok, phase: state.phase, checks: { database, customerBot: state.customerBot, taxiBot: state.taxiBot } });
+      .send({ ok, phase: state.phase, checks: { database, customerBot: state.customerBot, taxiBot: state.taxiBot, gmail: (deps.gmailStatus ?? (() => gmailHealth.status()))() } });
   });
 }

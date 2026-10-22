@@ -27,11 +27,13 @@ for c in backend db caddy; do
   case "$s" in running/healthy|running/-) ;; *) problems+=("container $c: $s");; esac
 done
 
-ready="$(docker exec ds-staging-backend-1 node -e "fetch('http://127.0.0.1:4000/health/ready').then(async r=>{const j=await r.json();console.log(r.status,j.checks?.database,j.checks?.customerBot,j.checks?.taxiBot)}).catch(()=>console.log('ERR'))" 2>/dev/null || echo ERR)"
+ready="$(docker exec ds-staging-backend-1 node -e "fetch('http://127.0.0.1:4000/health/ready').then(async r=>{const j=await r.json();console.log(r.status,j.checks?.database,j.checks?.customerBot,j.checks?.taxiBot,j.checks?.gmail)}).catch(()=>console.log('ERR'))" 2>/dev/null || echo ERR)"
 set -- $ready
 [ "${1:-ERR}" = 200 ] || problems+=("readiness: ${ready:-no answer}")
 [ "$(get BOT_ENABLED)" = true ] && [ "${3:-}" != polling ] && problems+=("customer bot not polling")
 [ -n "$(get TAXI_BOT_TOKEN)" ] && [ "${4:-}" != polling ] && problems+=("taxi bot not polling")
+# Gmail is off on staging ("disabled"); when it is on, a "down" reader means customers' payments stop matching (Stage 8A).
+[ "${5:-}" = down ] && problems+=("Gmail reader is down: payments are not matched")
 
 code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/health/live" 2>/dev/null)"; code="${code:-000}"
 [ "$code" = 200 ] || problems+=("HTTPS /health/live via Caddy: $code (TLS or proxy problem)")
