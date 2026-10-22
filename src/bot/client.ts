@@ -15,6 +15,7 @@ import { advanceMockOrder } from '../modules/restaurant-orders/auto.js';
 import { registerTaxiHandlers } from './taxi.js';
 import { registerSupportHandlers } from './support.js';
 import { registerCardAdminHandlers } from './card-admin.js';
+import { registerMoneyAdminHandlers } from './money-admin.js';
 import { registerOrderCancelHandler } from './order-cancel.js';
 import { registerRefundHandlers } from './refunds.js';
 import { handleLinkStart, isLinkPayload, registerTelegramLinkHandlers } from './telegram-link.js';
@@ -626,6 +627,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
   }
   registerSupportHandlers(bot);
   registerCardAdminHandlers(bot); // /cards + approval of restaurant-added payee cards (support admins only)
+  registerMoneyAdminHandlers(bot); // /money: unmatched incoming money and long-unconfirmed payments (support admins only)
   registerOrderCancelHandler(bot);
   registerRefundHandlers(bot, engine);
   bot.help(async ctx => { await ctx.reply('/start — restoranlar\n/menu — menyu\n/cart — savat\n/orders — mening buyurtmalarim\n/reset — savatni tozalash\n/staff — restoran xodimi uchun\n/taxi — taksi operatori\n/support — buyurtma bo‘yicha murojaat\n/mytickets — murojaatlarim\n/myid — Telegram ID'); });

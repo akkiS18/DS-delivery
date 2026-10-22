@@ -388,6 +388,11 @@ model IncomingTransaction {
   matchedPaymentId String?   @unique
   fingerprint      String?
   reviewDetails    Json?
+  // Stage 8C: set when an administrator closes a review with a decision and a note (CHECK: all or none).
+  handledAt        DateTime? @db.Timestamptz(3)
+  handledBy        String?
+  handledAction    String?
+  handledNote      String?
 
   @@index([fingerprint])
   @@index([cardLast4, amountTiyin, occurredAt])

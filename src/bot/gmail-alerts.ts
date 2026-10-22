@@ -1,6 +1,7 @@
 import { supportAdminIds } from '../modules/support/service.js';
 import { formatSom } from '../modules/payment/uzcard.js';
 import type { GmailAlert } from '../modules/payment/gmail.js';
+import { explainReason } from '../modules/payment/review-reasons.js';
 
 const DOWN_HINT: Record<string, string> = {
   auth: 'Google ruxsati tugagan yoki bekor qilingan: tokenni lokal kompyuterda yangilab, serverga qayta joylang.',
@@ -15,7 +16,7 @@ export function renderGmailAlert(a: GmailAlert): string {
     return `🚨 Gmail o‘qilmayapti. To‘lovlar avtomatik mos kelmaydi!\n${DOWN_HINT[a.failure] ?? DOWN_HINT.api}\nMijozlar to‘lagan bo‘lsa, restoran bank ilovasini qo‘lda tekshirsin.`;
   }
   if (a.type === 'RECOVERED') return '✅ Gmail o‘qish tiklandi.';
-  return `⚠️ Pul keldi, lekin mos to‘lov topilmadi.\nSumma: ${formatSom(a.amountTiyin)} | karta ***${a.cardLast4}\nSabab: ${a.reason}\nBuyurtmani tekshiring: kerak bo‘lsa mijoz bilan bog‘laning yoki pulni qaytaring.`;
+  return `⚠️ Pul keldi, lekin mos to‘lov topilmadi.\nSumma: ${formatSom(a.amountTiyin)} | karta ***${a.cardLast4}\nSabab: ${explainReason(a.reason)} (${a.reason})\nKo‘rish va hal qilish: /money`;
 }
 
 /** Sends a Gmail alert to every support admin. Best effort: a Telegram failure is logged and never thrown. */
