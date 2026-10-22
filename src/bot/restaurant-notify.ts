@@ -6,6 +6,7 @@ import { deliverRefundNotices } from './refunds.js';
 import { restaurantTelegramEnabled } from '../lib/features.js';
 import { isDelivered, notificationKey, sendOnce } from '../lib/notify-once.js';
 import { autoAdvanceMockOrders } from '../modules/restaurant-orders/auto.js';
+import { deliverPaidOrderAlerts } from './restaurant-alert.js';
 
 /** At-least-once delivery: Telegram sends can repeat after a process crash.
  *  Buttons are guarded with DB compare-and-swap and therefore safe on retry.
@@ -20,6 +21,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
       await expireWaitingOrders(); // response timeout sweep (idempotent)
       await autoAdvanceMockOrders(); // MOCK-only: safe test payments move on to cooking by themselves (restart-safe sweep)
       await deliverRefundNotices(bot); // Stage 6A: refund request / decision / sent notices
+      await deliverPaidOrderAlerts(bot); // Stage 8C: "open the app" alert for the restaurant staff (no push yet)
       const rows = await db.order.findMany({
         where: {
           createdViaBot: true,
