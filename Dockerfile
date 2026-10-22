@@ -41,6 +41,11 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 # The generated client + engine binary (npm ci --ignore-scripts did not generate it).
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+# npm installs the optional peers of @prisma/client (the Prisma CLI, typescript) even with --omit=dev. They are not needed to run the generated client
+# and carry `npm audit` findings (effect, deepmerge-ts under @prisma/config). Removing them also shrinks the image; the check proves the client still loads.
+RUN rm -rf node_modules/prisma node_modules/.bin/prisma node_modules/@prisma/config node_modules/@prisma/engines node_modules/@prisma/fetch-engine \
+      node_modules/@prisma/get-platform node_modules/effect node_modules/deepmerge-ts node_modules/typescript \
+    && node -e "const { PrismaClient } = require('@prisma/client'); new PrismaClient(); console.log('prisma client loads without the CLI')"
 COPY --from=build /app/dist ./dist
 COPY --from=miniapp /app/apps/customer-miniapp/dist ./apps/customer-miniapp/dist
 COPY prisma ./prisma
