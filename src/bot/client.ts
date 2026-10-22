@@ -14,7 +14,7 @@ import { restaurantTelegramEnabled } from '../lib/features.js';
 import { advanceMockOrder } from '../modules/restaurant-orders/auto.js';
 import { registerTaxiHandlers } from './taxi.js';
 import { registerSupportHandlers } from './support.js';
-import { registerPriceConsentHandlers } from './price-consent.js';
+import { registerOrderCancelHandler } from './order-cancel.js';
 import { registerRefundHandlers } from './refunds.js';
 import { handleLinkStart, isLinkPayload, registerTelegramLinkHandlers } from './telegram-link.js';
 
@@ -413,7 +413,6 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
     lines.push(`${taxiStateLabels[taxiState.status] ?? taxiState.status} — ${escapeHtml(taxiState.taxiCompany.name)}`);
   }
   if (order.status === 'WAITING_RESTAURANT') lines.push('⏳ Restoran buyurtmani tasdiqlashi kutilmoqda. To‘lov rekvizitlari tasdiqdan keyin yuboriladi. Hozir pul yubormang.');
-  else if (order.status === 'WAITING_CUSTOMER_CONSENT') lines.push('💬 Restoran yangi narx taklif qildi. Xabardagi tugma orqali rozilik bering yoki bekor qiling. Rozilik bermaguningizcha pul yubormang.');
   else if (order.status === 'CANCELLATION_REQUESTED') lines.push('⏳ Bekor qilish so‘rovi restoranga yuborilgan. Qaror kutilmoqda; buyurtma to‘xtatilgan.');
   else if (order.status === 'CANCELLED') lines.push('❌ Buyurtma bekor qilingan.' + (refundLine ? ` ${refundLine}` : ''));
   else if (order.status === 'CUSTOMER_CANCELLED') lines.push('❌ Buyurtma bekor qilingan. Pul yubormang.');
@@ -626,7 +625,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
     registerTaxiHandlers(bot);
   }
   registerSupportHandlers(bot);
-  registerPriceConsentHandlers(bot, engine);
+  registerOrderCancelHandler(bot);
   registerRefundHandlers(bot, engine);
   bot.help(async ctx => { await ctx.reply('/start — restoranlar\n/menu — menyu\n/cart — savat\n/orders — mening buyurtmalarim\n/reset — savatni tozalash\n/staff — restoran xodimi uchun\n/taxi — taksi operatori\n/support — buyurtma bo‘yicha murojaat\n/mytickets — murojaatlarim\n/myid — Telegram ID'); });
   bot.on('contact', async ctx => {

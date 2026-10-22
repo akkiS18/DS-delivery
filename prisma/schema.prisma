@@ -643,6 +643,12 @@ model RefundRequest {
   sentBy                     String?
   sentAt                     DateTime?     @db.Timestamptz(3)
   bankReference              String?
+  // Proof of a sent refund: one photo of the bank receipt (bytes on the server volume, never in the database). Replaces the typed reference for
+  // new refunds; bankReference stays for rows created before. See migration 20261030000100_refund_receipt.
+  receiptKey                 String?
+  receiptMime                String?
+  receiptBytes               Int?
+  receiptSha256              String?
   confirmedBy                String?
   confirmedByType            String?
   confirmedAt                DateTime?     @db.Timestamptz(3)

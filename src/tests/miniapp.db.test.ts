@@ -17,11 +17,13 @@ import { PaymentEngineV3, defaultOptions } from '../modules/payment/engine.js';
 import { RateLimiter } from '../lib/rate-limit.js';
 import { localTime, openState } from '../modules/restaurant-operations/hours.js';
 import { db as appDb } from '../lib/db.js';
+import { fakeJpeg, useTempReceiptDir } from './receipt-fixtures.js';
 
 // Mini App backend against ds_delivery_test. Telegram is never contacted (fake local server for the bot launcher test); the BOT_TOKEN
 // below is a fixture used only to sign test initData. MOCK payments only, apart from REAL-mode boundary checks that never move money.
 const BOT_TOKEN = '123456789:AAFakeMiniAppTokenLocalOnly_0123456789';
 process.env.BOT_TOKEN = BOT_TOKEN;
+useTempReceiptDir();
 process.env.MINIAPP_ENABLED = 'true';
 process.env.MINIAPP_URL = 'https://miniapp.example.test/app/';
 process.env.MINIAPP_ORDER_RATE_PER_MINUTE = '500'; // the production default (10/min) has its own test below
@@ -452,6 +454,35 @@ test('payment boundaries: REAL shows only the configured payee and never the MOC
     assert.equal(refund.bankReference, null);
     assert.equal((await call('POST', `/orders/${o.id}/cancel`, userA, {})).statusCode, 409, 'cannot be requested twice as a new cancellation');
   } finally { delete process.env.BOT_PAYMENT_MODE; delete process.env.BOT_REAL_CARD_NUMBERS_JSON; }
+});
+
+test('refund receipt photo: only the order owner can see it, and only once the restaurant has sent the refund', async () => {
+  const { decideRefund, markRefundSent, requestCancellation } = await import('../modules/refunds/service.js');
+  const { storeReceipt } = await import('../modules/refunds/receipts.js');
+  const { res } = await checkout(userC);
+  const id = res.json().order.id as string;
+  assert.equal((await call('POST', `/orders/${id}/mock-payment`, userC)).statusCode, 200);
+  assert.equal((await call('GET', `/orders/${id}/refund/receipt`, userC)).statusCode, 404, 'no refund yet');
+  const c = await call('POST', `/orders/${id}/cancel`, userC, { reasonCode: 'CHANGED_MIND' });
+  assert.equal(c.statusCode, 200, c.body);
+  const refund = await db.refundRequest.findFirstOrThrow({ where: { orderId: id } });
+  assert.equal(c.json().order.refund.hasReceipt, false);
+  assert.equal((await decideRefund({ actorTelegramId: 'restaurant-api:test', restaurantId: ids.a!, refundId: refund.id, decision: 'APPROVE' })).result, 'DONE');
+  assert.equal((await call('GET', `/orders/${id}/refund/receipt`, userC)).statusCode, 404, 'approved is not sent: there is no receipt yet');
+  const photo = fakeJpeg(4096);
+  const stored = await storeReceipt(photo);
+  assert.equal((await markRefundSent({ actorTelegramId: 'restaurant-api:test', restaurantId: ids.a!, refundId: refund.id, receipt: stored })).result, 'DONE');
+  const view = (await call('GET', `/orders/${id}`, userC)).json().order;
+  assert.deepEqual(view.refund, { status: 'SENT', hasReceipt: true });
+  const got = await call('GET', `/orders/${id}/refund/receipt`, userC);
+  assert.equal(got.statusCode, 200);
+  assert.equal(got.json().mime, 'image/jpeg');
+  assert.ok(Buffer.from(got.json().dataBase64, 'base64').equals(photo), 'the exact bytes the restaurant uploaded');
+  assert.equal((await call('GET', `/orders/${id}/refund/receipt`, userB)).statusCode, 404, "another customer's order looks like a missing one");
+  assert.equal((await call('GET', `/orders/${id}/refund/receipt`, null)).statusCode, 401);
+  assert.equal((await call('GET', `/orders/${id}-nope/refund/receipt`, userC)).statusCode, 404);
+  // the customer-facing view never exposes the storage key
+  assert.ok(!JSON.stringify(view).includes(stored.key));
 });
 
 test('unpaid cancellation needs no refund and is idempotent', async () => {

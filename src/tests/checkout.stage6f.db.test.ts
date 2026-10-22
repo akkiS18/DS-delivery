@@ -10,13 +10,14 @@ import { attemptKey, setRestaurantPassword } from '../modules/restaurant-auth/se
 import { autoAdvanceMockOrders } from '../modules/restaurant-orders/auto.js';
 import { prepClock } from '../modules/restaurant-orders/service.js';
 import { takeStaffAction } from '../modules/restaurant/service.js';
-import { cancelUnpaidOrder, markRefundSent, requestCancellation } from '../modules/refunds/service.js';
+import { cancelUnpaidOrder, requestCancellation } from '../modules/refunds/service.js';
 import { db as appDb } from '../lib/db.js';
+import { fakePng, useTempReceiptDir } from './receipt-fixtures.js';
 
 // Stage 6F default flow: NO manual acceptance. Everything here runs against ds_delivery_test with MOCK payments or a
 // local engine (no Telegram, no real money, no taxi message is ever sent: the taxi worker is not running).
 delete process.env.RESTAURANT_MANUAL_ACCEPTANCE;
-delete process.env.LEGACY_PRICE_PROPOSALS;
+useTempReceiptDir();
 process.env.RESTAURANT_LOGIN_MAX_FAILURES = '50';
 process.env.RESTAURANT_LOGIN_IP_MAX_FAILURES = '1000';
 
@@ -45,6 +46,8 @@ async function loginToken(slug: string, password: string): Promise<string> {
   assert.equal(r.statusCode, 200);
   return r.json().accessToken;
 }
+const upload = (url: string, token: string, payload: Buffer) =>
+  app.inject({ method: 'POST', url: `/api/v1/restaurant${url}`, payload, headers: { authorization: `Bearer ${token}`, 'content-type': 'image/png' } });
 const call = (method: 'GET' | 'POST', url: string, token: string, payload?: unknown) =>
   app.inject({ method, url: `/api/v1/restaurant${url}`, payload: payload as object | undefined, headers: { authorization: `Bearer ${token}` } });
 async function product(over: { price?: number; restaurant?: string; available?: boolean } = {}) {
@@ -188,7 +191,8 @@ test('prices are frozen: later menu changes never touch an existing order, its l
   assert.equal((await db.payment.findUniqueOrThrow({ where: { id: pay.id } })).amountTiyin, BigInt(p.priceSom * 2) * 100n);
   const detail = (await call('GET', `/orders/${o.id}`, ta)).json();
   assert.equal(detail.totalSom, p.priceSom * 2);
-  assert.equal(detail.priceChange, null, 'only legacy waiting orders ever show a price drift');
+  assert.equal(detail.priceChange, undefined, 'there is no price-change field any more');
+  assert.deepEqual(detail.menuProblems, [], 'frozen prices: a later menu change is not a problem for an existing paid order');
 });
 
 // ------------------------------------------------------------------------------------------------ payment pending vs verified
@@ -274,9 +278,9 @@ test('cancellation: unpaid needs no refund; paid keeps truthful manual refund tr
   assert.equal(approved.status, 'APPROVED');
   assert.equal(approved.sentAt, null);
   assert.equal((await call('GET', `/orders/${paid.id}`, ta)).json().refund.status, 'APPROVED');
-  await assert.rejects(markRefundSent({ actorTelegramId: 'x', restaurantId: ids.a!, refundId: refund.id, bankReference: '' }), /BANK_REFERENCE_NOTOGRI/);
-  assert.equal((await call('POST', `/orders/${paid.id}/refund/sent`, tb, { bankReference: 'TRX-1111-2222' })).statusCode, 404);
-  assert.equal((await call('POST', `/orders/${paid.id}/refund/sent`, ta, { bankReference: 'TRX-1111-2222' })).json().refund.status, 'SENT');
+  assert.equal((await upload(`/orders/${paid.id}/refund/receipt`, ta, Buffer.alloc(4000))).statusCode, 400, 'not a photo');
+  assert.equal((await upload(`/orders/${paid.id}/refund/receipt`, tb, fakePng())).statusCode, 404);
+  assert.equal((await upload(`/orders/${paid.id}/refund/receipt`, ta, fakePng())).json().refund.status, 'SENT');
   // the customer contract has no bank fields at all
   assert.equal(customerCancelRequestSchema.safeParse({ reasonCode: 'CHANGED_MIND' }).success, true);
   assert.equal(customerCancelRequestSchema.safeParse({}).success, true);

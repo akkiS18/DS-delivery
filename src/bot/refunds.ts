@@ -3,7 +3,7 @@ import { db } from '../lib/db.js';
 import type { PaymentEngineV3 } from '../modules/payment/engine.js';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import {
-  adminConfirmRefund, cancelUnpaidOrder, customerAnswerRefund, decideRefund, markRefundSent, requestCancellation,
+  adminConfirmRefund, cancelUnpaidOrder, customerAnswerRefund, decideRefund, requestCancellation,
   type StepResult,
 } from '../modules/refunds/service.js';
 import { CUSTOMER_REASONS, REJECT_REASONS, RESTAURANT_REASONS } from '../modules/refunds/workflow.js';
@@ -17,8 +17,8 @@ const REASON_LABEL: Record<string, string> = {
   MONEY_NOT_RECEIVED: 'Pul kelmagan', ALREADY_PREPARED: 'Allaqachon tayyorlangan', POLICY: 'Qoida bo‘yicha',
 };
 
-/** Armed text input (in-memory, 10 min): the bank reference (restaurant) or the confirmation note (admin). */
-const pending = new Map<string, { kind: 'ref' | 'note'; refundId: string; expires: number }>();
+/** Armed text input (in-memory, 10 min): the confirmation note (admin). The restaurant's proof of a sent refund is a receipt PHOTO uploaded in the app. */
+const pending = new Map<string, { kind: 'note'; refundId: string; expires: number }>();
 const TTL = 10 * 60 * 1000;
 
 const stepNote = (r: StepResult): string => r.result === 'DONE' ? '✅ Bajarildi.'
@@ -83,15 +83,15 @@ export function registerRefundHandlers<C extends Context>(bot: Telegraf<C>, engi
   staffAction(/^refund:cxr:([A-Z_]+):([a-zA-Z0-9_-]+)$/, ctx => guard(ctx, async id => {
     const r = await requestCancellation({ actorType: 'RESTAURANT_STAFF', actorTelegramId: id, orderId: ctx.match[2]!, reasonCode: ctx.match[1]! });
     if (r.result === 'APPROVED') {
-      await ctx.reply(`✅ Buyurtma bekor qilindi. Qaytarish #${r.number} ochildi. Pulni o‘z hisobingizdan qaytaring va bank ma’lumotnoma raqamini kiriting.`,
-        Markup.inlineKeyboard([[Markup.button.callback('💸 Qaytarildi — raqamni kiritish', `refund:sent:${r.refundId}`)]]));
+      await ctx.reply(`✅ Buyurtma bekor qilindi. Qaytarish #${r.number} ochildi. Pulni o‘z hisobingizdan qaytaring va bank chekining rasmini ilovada yuklang.`,
+        Markup.inlineKeyboard([[Markup.button.callback('💸 Qaytarildi — chek rasmi', `refund:sent:${r.refundId}`)]]));
     } else await ctx.reply(r.result === 'ALREADY_REQUESTED' ? `ℹ️ #${r.number} qaytarish so‘rovi allaqachon mavjud.` : r.result === 'NOT_FOUND' ? '⛔ Ruxsat yo‘q yoki buyurtma topilmadi.' : 'Bu holatda bekor qilib bo‘lmaydi.');
   }));
 
   staffAction(/^refund:ok:([a-zA-Z0-9_-]+)$/, ctx => guard(ctx, async id => {
     const r = await decideRefund({ actorTelegramId: id, refundId: ctx.match[1]!, decision: 'APPROVE' });
     await ctx.reply(stepNote(r), r.result === 'DONE'
-      ? Markup.inlineKeyboard([[Markup.button.callback('💸 Qaytarildi — raqamni kiritish', `refund:sent:${ctx.match[1]}`)]]) : undefined);
+      ? Markup.inlineKeyboard([[Markup.button.callback('💸 Qaytarildi — chek rasmi', `refund:sent:${ctx.match[1]}`)]]) : undefined);
   }));
   staffAction(/^refund:no:([a-zA-Z0-9_-]+)$/, ctx => guard(ctx, async () => {
     await ctx.reply('Rad etish sababi:', Markup.inlineKeyboard(REJECT_REASONS.map((c, i) => [Markup.button.callback(REASON_LABEL[c]!, `refund:r${i}:${ctx.match[1]}`)])));
@@ -101,8 +101,7 @@ export function registerRefundHandlers<C extends Context>(bot: Telegraf<C>, engi
     await ctx.reply(stepNote(r));
   }));
   staffAction(/^refund:sent:([a-zA-Z0-9_-]+)$/, ctx => guard(ctx, async id => {
-    pending.set(id, { kind: 'ref', refundId: ctx.match[1]!, expires: Date.now() + TTL });
-    await ctx.reply('Bank o‘tkazmasi ma’lumotnoma (reference) raqamini yozing. Faqat tugma bosish yetarli emas; raqam saqlanadi va mijoz/administrator tomonidan tasdiqlanadi. Bekor qilish: /cancel');
+    await ctx.reply('Qaytarilganini tasdiqlash uchun bank chekining RASMINI restoran ilovasida (buyurtma → Qaytarish) yuklang. Faqat tugma bosish yetarli emas.');
   }));
 
   // ---------------- customer answer & admin confirmation ----------------
@@ -131,14 +130,12 @@ export function registerRefundHandlers<C extends Context>(bot: Telegraf<C>, engi
     if (text.startsWith('/')) { pending.delete(id); return next(); }
     if (wait.expires < Date.now()) { pending.delete(id); await ctx.reply('Vaqt tugadi. Tugmani qayta bosing.'); return; }
     try {
-      const r = wait.kind === 'ref'
-        ? await markRefundSent({ actorTelegramId: id, refundId: wait.refundId, bankReference: text })
-        : await adminConfirmRefund({ adminTelegramId: id, refundId: wait.refundId, note: text });
+      const r = await adminConfirmRefund({ adminTelegramId: id, refundId: wait.refundId, note: text });
       pending.delete(id);
-      await ctx.reply(wait.kind === 'ref' && r.result === 'DONE' ? '📨 Qayd etildi. Mijozdan qabul qilinganini tasdiqlash so‘raladi — to‘liq tasdiqlanmaguncha qaytarish “yakunlangan” hisoblanmaydi.' : stepNote(r));
+      await ctx.reply(stepNote(r));
     } catch (err) {
       const code = err instanceof Error ? err.message : '';
-      if (code === 'BANK_REFERENCE_NOTOGRI' || code === 'ADMIN_IZOH_NOTOGRI') { await ctx.reply('Qiymat yaroqsiz, qayta yozing (yoki /cancel).'); return; }
+      if (code === 'ADMIN_IZOH_NOTOGRI') { await ctx.reply('Qiymat yaroqsiz, qayta yozing (yoki /cancel).'); return; }
       pending.delete(id);
       console.error('[REFUND INPUT]', code || 'Unknown error');
       await ctx.reply(`Amal bajarilmadi: ${/^[A-Z_]+$/.test(code) ? code : 'xatolik'}.`);
@@ -156,7 +153,7 @@ export function registerRefundHandlers<C extends Context>(bot: Telegraf<C>, engi
     for (const r of rows) {
       const keys = r.status === 'REQUESTED'
         ? [[Markup.button.callback('✅ Qabul qilish', `refund:ok:${r.id}`), Markup.button.callback('🚫 Rad etish', `refund:no:${r.id}`)]]
-        : [[Markup.button.callback('💸 Qaytarildi — raqamni kiritish', `refund:sent:${r.id}`)]];
+        : [[Markup.button.callback('💸 Qaytarildi — chek rasmi', `refund:sent:${r.id}`)]];
       await ctx.reply(`#${r.number} • buyurtma #${r.order.number} • ${som(r.paidAmountTiyin)} • ${r.status}`, Markup.inlineKeyboard(keys));
     }
   });
@@ -211,7 +208,7 @@ export async function deliverRefundNotices<C extends Context>(bot: Telegraf<C>):
     }
     if (r.status === 'SENT' && !r.customerSentNotifiedAt) {
       await send(`csent:${r.id}`, r.order.customer.telegramUserId,
-        `💸 ${head}: ${r.order.restaurant.name} ${amount} qaytarganini bildirdi (ma’lumotnoma: ${r.bankReference}). Pul hisobingizga keldimi?`,
+        `💸 ${head}: ${r.order.restaurant.name} ${amount} qaytarganini bildirdi (chek rasmi ilovada ko‘rinadi). Pul hisobingizga keldimi?`,
         Markup.inlineKeyboard([[Markup.button.callback('✅ Ha, keldi', `refund:got:${r.id}`), Markup.button.callback('❌ Kelmadi', `refund:miss:${r.id}`)]]),
         () => db.refundRequest.updateMany({ where: { id: r.id, customerSentNotifiedAt: null }, data: { customerSentNotifiedAt: new Date() } }), true);
     }
@@ -219,11 +216,11 @@ export async function deliverRefundNotices<C extends Context>(bot: Telegraf<C>):
       const key = `disp:${r.id}`;
       try {
         for (const a of admins) {
-          await bot.telegram.sendMessage(a, `⚠️ Qaytarish ${head}: mijoz pul KELMADI dedi (ma’lumotnoma: ${r.bankReference}). Mustaqil tekshirgach, izoh bilan tasdiqlang.`,
+          await bot.telegram.sendMessage(a, `⚠️ Qaytarish ${head}: mijoz pul KELMADI dedi. Mustaqil tekshirgach, izoh bilan tasdiqlang.`,
             Markup.inlineKeyboard([[Markup.button.callback('📝 Izoh bilan tasdiqlash', `refund:adm:${r.id}`)]]));
         }
         if (restaurantTelegramEnabled() && r.order.restaurant.staffTelegramUserId) {
-          await bot.telegram.sendMessage(r.order.restaurant.staffTelegramUserId, `⚠️ ${head}: mijoz qaytarilgan pulni olmaganini bildirdi. Tekshirib, yangi ma’lumotnoma bilan qayta yuboring.`,
+          await bot.telegram.sendMessage(r.order.restaurant.staffTelegramUserId, `⚠️ ${head}: mijoz qaytarilgan pulni olmaganini bildirdi. Tekshirib, yangi chek rasmi bilan qayta yuboring.`,
             Markup.inlineKeyboard([[Markup.button.callback('💸 Qayta qayd etish', `refund:sent:${r.id}`)]]));
         }
         await db.refundRequest.updateMany({ where: { id: r.id, disputeNotifiedAt: null }, data: { disputeNotifiedAt: new Date() } });

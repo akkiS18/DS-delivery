@@ -5,8 +5,9 @@ import type { PaymentEngineV3 } from '../payment/engine.js';
 import { isSupportAdmin } from '../support/service.js';
 import {
   CUSTOMER_REASONS, REJECT_REASONS, RESTAURANT_REASONS, canRefundTransition, cancellationPlan, paymentAllowsRefund,
-  resolveRefundAmount, validateAdminNote, validateBankReference, type RefundActor, type RefundStatus,
+  resolveRefundAmount, validateAdminNote, type RefundActor, type RefundStatus,
 } from './workflow.js';
+import type { StoredReceipt } from './receipts.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -204,30 +205,37 @@ export async function decideRefund(input: {
   });
 }
 
-/** The restaurant says it sent the money and MUST give the bank reference. This is a claim, not a settlement:
- *  it moves the request to SENT only, and the restaurant can never move it to CONFIRMED itself. */
+/** The restaurant says it sent the money and MUST attach ONE photo of the bank receipt (stored by the caller, see receipts.ts). This is a claim, not a
+ *  settlement: it moves the request to SENT only, and the restaurant can never move it to CONFIRMED itself. The same image can never prove two refunds
+ *  (unique SHA-256); after a dispute the restaurant must attach a different receipt. The typed bank reference of older rows is kept, never asked again. */
 export async function markRefundSent(input: {
-  actorTelegramId: string; refundId: string; bankReference: string; sentAmountTiyin?: bigint; restaurantId?: string;
+  actorTelegramId: string; refundId: string; receipt: StoredReceipt; sentAmountTiyin?: bigint; restaurantId?: string;
 }): Promise<StepResult> {
-  const reference = validateBankReference(input.bankReference);
-  return db.$transaction(async (tx): Promise<StepResult> => {
-    const refund = await staffRefund(tx, input.actorTelegramId, input.refundId, input.restaurantId);
-    if (!canRefundTransition(refund.status as RefundStatus, 'SENT', 'RESTAURANT_STAFF')) {
-      await refundEvent(tx, refund.id, input.actorTelegramId, 'RESTAURANT_STAFF', 'SEND_REJECTED', refund.status, refund.status);
-      return { result: 'STALE', status: refund.status };
-    }
-    if (input.sentAmountTiyin !== undefined && input.sentAmountTiyin !== refund.approvedAmountTiyin) throw new Error('REFUND_SUMMASI_MOS_EMAS');
-    if (refund.bankReference && refund.bankReference.toLowerCase() === reference.toLowerCase()) throw new Error('BANK_REFERENCE_TAKROR');
-    const claimed = await tx.refundRequest.updateMany({
-      where: { id: refund.id, status: refund.status },
-      data: { status: 'SENT', sentBy: input.actorTelegramId, sentAt: new Date(), bankReference: reference,
-        customerSentNotifiedAt: null, disputeNotifiedAt: null, disputedAt: null },
+  try {
+    return await db.$transaction(async (tx): Promise<StepResult> => {
+      const refund = await staffRefund(tx, input.actorTelegramId, input.refundId, input.restaurantId);
+      if (!canRefundTransition(refund.status as RefundStatus, 'SENT', 'RESTAURANT_STAFF')) {
+        await refundEvent(tx, refund.id, input.actorTelegramId, 'RESTAURANT_STAFF', 'SEND_REJECTED', refund.status, refund.status);
+        return { result: 'STALE', status: refund.status };
+      }
+      if (input.sentAmountTiyin !== undefined && input.sentAmountTiyin !== refund.approvedAmountTiyin) throw new Error('REFUND_SUMMASI_MOS_EMAS');
+      if (refund.receiptSha256 === input.receipt.sha256) throw new Error('CHEK_RASMI_TAKROR');
+      const claimed = await tx.refundRequest.updateMany({
+        where: { id: refund.id, status: refund.status },
+        data: { status: 'SENT', sentBy: input.actorTelegramId, sentAt: new Date(),
+          receiptKey: input.receipt.key, receiptMime: input.receipt.mime, receiptBytes: input.receipt.bytes, receiptSha256: input.receipt.sha256,
+          customerSentNotifiedAt: null, disputeNotifiedAt: null, disputedAt: null },
+      });
+      if (claimed.count !== 1) return { result: 'STALE', status: 'CHANGED' };
+      await refundEvent(tx, refund.id, input.actorTelegramId, 'RESTAURANT_STAFF', 'SENT', refund.status, 'SENT',
+        { receiptSha256: input.receipt.sha256, receiptBytes: input.receipt.bytes, receiptMime: input.receipt.mime, previousReceiptSha256: refund.receiptSha256 });
+      return { result: 'DONE' };
     });
-    if (claimed.count !== 1) return { result: 'STALE', status: 'CHANGED' };
-    await refundEvent(tx, refund.id, input.actorTelegramId, 'RESTAURANT_STAFF', 'SENT', refund.status, 'SENT',
-      { bankReference: reference, previousReference: refund.bankReference });
-    return { result: 'DONE' };
-  });
+  } catch (err) {
+    // The same image already proves another refund (partial unique index on receiptSha256).
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new Error('CHEK_RASMI_TAKROR');
+    throw err;
+  }
 }
 
 // ---------------------------------------------------------------- attestation: customer or DS admin

@@ -2,11 +2,11 @@ import { Prisma, type OrderStatus } from '@prisma/client';
 import { z } from 'zod';
 import { db } from '../../lib/db.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
-import { acceptOrder, rejectOrder, REJECT_REASONS, type SnapshotProblem } from '../restaurant/acceptance.js';
-import { buildRevision } from '../restaurant/price-consent.js';
+import { acceptOrder, rejectOrder, validateSnapshot, REJECT_REASONS, type SnapshotProblem } from '../restaurant/acceptance.js';
 import { takeStaffAction } from '../restaurant/service.js';
 import { isValidPrepMinutes } from '../restaurant/workflow.js';
 import { decideRefund, markRefundSent, requestCancellation } from '../refunds/service.js';
+import type { StoredReceipt } from '../refunds/receipts.js';
 import { REJECT_REASONS as REFUND_REJECT_REASONS, RESTAURANT_REASONS } from '../refunds/workflow.js';
 import { taxiStage } from '../taxi/workflow.js';
 import { autoStartPreparing } from './auto.js';
@@ -46,7 +46,8 @@ export const cancelBodySchema = z.object({ reason: z.enum(RESTAURANT_REASONS), n
 export const refundDecisionBodySchema = z.object({
   decision: z.enum(['APPROVE', 'REJECT']), rejectReason: z.enum(REFUND_REJECT_REASONS).optional(), expectedStatus: expected,
 }).strict().refine(b => b.decision === 'APPROVE' || b.rejectReason !== undefined, { message: 'rejectReason' });
-export const refundSentBodySchema = z.object({ bankReference: z.string().trim().min(4).max(64), expectedStatus: expected }).strict();
+/** The refund receipt photo is the raw request body; only the optimistic-concurrency hint travels in the query. */
+export const refundReceiptQuerySchema = z.object({ expectedStatus: expected }).strict();
 export const orderIdSchema = idSchema;
 
 export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPARING' | 'MARK_READY'
@@ -69,7 +70,7 @@ const detailSelect = {
   } },
   refundRequests: { orderBy: { number: 'desc' }, take: 1, select: {
     id: true, number: true, kind: true, status: true, reasonCode: true, requestedByType: true, paidAmountTiyin: true,
-    approvedAmountTiyin: true, bankReference: true, sentAt: true, rejectReason: true, requestedAt: true,
+    approvedAmountTiyin: true, bankReference: true, receiptKey: true, sentAt: true, rejectReason: true, requestedAt: true,
   } },
 } satisfies Prisma.OrderSelect;
 type Row = Prisma.OrderGetPayload<{ select: typeof detailSelect }>;
@@ -80,11 +81,9 @@ const som = (t: bigint): number => Number(t / 100n);
 /** Facts only the detail view computes (they need extra queries). */
 export interface Extras {
   incoming: { source: string; amountTiyin: bigint; occurredAt: Date; receivedAt: Date; trustedSender: boolean; cardLast4: string; minutePrecision: boolean; status: string } | null;
-  priceChange: { oldTotalSom: number; newTotalSom: number } | null;
   menuProblems: SnapshotProblem[];
-  revision: { id: string; oldTotalSom: number; newTotalSom: number; expiresAt: Date } | null;
 }
-const NO_EXTRAS: Extras = { incoming: null, priceChange: null, menuProblems: [], revision: null };
+const NO_EXTRAS: Extras = { incoming: null, menuProblems: [] };
 
 type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'> & {
   paymentStatus: string | null; refund: { status: string } | null; paymentIsTest: boolean;
@@ -92,7 +91,7 @@ type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'
 
 /** What the app may offer. The server re-checks every transition; this only drives which buttons are shown.
  *  VERIFY_PAYMENT is offered only for a matched-but-unverified payment and still needs an explicit confirmation. */
-export function allowedActions(o: ActionInput, extras: Pick<Extras, 'priceChange' | 'menuProblems'> = NO_EXTRAS, now = new Date()): OrderAction[] {
+export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblems'> = NO_EXTRAS, now = new Date()): OrderAction[] {
   if (!o.createdViaBot) return [];
   const actions: OrderAction[] = [];
   const openRefund = o.refund && OPEN_REFUND.includes(o.refund.status) ? o.refund.status : null;
@@ -100,7 +99,7 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'priceChange
     // Legacy/rollback only: orders created before 6F (or with RESTAURANT_MANUAL_ACCEPTANCE=true). With a stale price or a missing
     // product only rejection is possible - price proposals no longer exist.
     const open = Boolean(o.restaurantDeadlineAt && o.restaurantDeadlineAt > now);
-    if (open && extras.menuProblems.length === 0 && !extras.priceChange) actions.push('ACCEPT');
+    if (open && extras.menuProblems.length === 0) actions.push('ACCEPT');
     actions.push('REJECT');
   } else if (o.status === 'PAYMENT_MATCHED_UNVERIFIED' && o.paymentStatus === 'MATCHED_UNVERIFIED') {
     actions.push('VERIFY_PAYMENT');
@@ -126,7 +125,6 @@ export function attentionCodes(o: Row, extras: Extras): string[] {
   if (refund && ['APPROVED', 'DISPUTED'].includes(refund.status)) out.push('REFUND_PENDING');
   if (o.status === 'PAYMENT_CONFIRMED') out.push('AUTO_START_FAILED');
   if (extras.menuProblems.length) out.push('MENU_PROBLEM');
-  if (extras.priceChange) out.push('PRICE_CHANGED');
   if (taxi && taxiStage(taxi.status) === 'NEEDS_HELP' && ['PREPARING', 'READY'].includes(o.status)) out.push('TAXI_NEEDS_HELP');
   return out;
 }
@@ -191,15 +189,11 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
     restaurantDeadlineAt: iso(o.restaurantDeadlineAt),
     acceptedAt: iso(o.acceptedAt), paymentVerifiedAt: iso(o.paymentVerifiedAt),
     preparingStartedAt: iso(o.preparingStartedAt), readyAt: iso(o.readyAt),
-    // Only legacy waiting orders can still show a stale price; price proposals no longer exist.
-    priceChange: extras.priceChange,
     menuProblems: extras.menuProblems.map(p => ({ kind: p.kind, name: p.name })),
-    /** An old proposal that is still waiting for the customer (created before 6F). Read-only. */
-    priceProposal: extras.revision && { oldTotalSom: extras.revision.oldTotalSom, newTotalSom: extras.revision.newTotalSom, expiresAt: extras.revision.expiresAt.toISOString() },
     refund: refund && {
       id: refund.id, number: refund.number, kind: refund.kind, status: refund.status, reasonCode: refund.reasonCode, requestedBy: refund.requestedByType,
       paidAmountSom: som(refund.paidAmountTiyin), approvedAmountSom: refund.approvedAmountTiyin === null ? null : som(refund.approvedAmountTiyin),
-      bankReference: refund.bankReference, sentAt: iso(refund.sentAt), rejectReason: refund.rejectReason, requestedAt: refund.requestedAt.toISOString(),
+      bankReference: refund.bankReference, hasReceipt: refund.receiptKey !== null, sentAt: iso(refund.sentAt), rejectReason: refund.rejectReason, requestedAt: refund.requestedAt.toISOString(),
     },
     attention: attentionCodes(o, extras),
     allowedActions: allowedActions({ ...o, paymentStatus: o.payment?.status ?? null, paymentIsTest: o.paymentIsTest, refund: refund && { status: refund.status } }, extras, now),
@@ -208,7 +202,7 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
 }
 export type OrderView = ReturnType<typeof orderView>;
 
-/** The detail view needs a few more reads (bank signal, current menu vs the order snapshot, open price proposal). */
+/** The detail view needs a few more reads (bank signal, current menu vs the order snapshot). */
 async function loadExtras(row: Row): Promise<Extras> {
   const extras: Extras = { ...NO_EXTRAS };
   if (row.payment?.matchedTransactionId) {
@@ -218,13 +212,8 @@ async function loadExtras(row: Row): Promise<Extras> {
   if (row.status === 'WAITING_RESTAURANT') {
     const ids = row.items.map(i => i.productId).filter((id): id is string => id !== null);
     const menu = new Map((await db.product.findMany({ where: { id: { in: ids } } })).map(p => [p.id, p]));
-    const plan = buildRevision(row.items, menu, row.restaurantId);
-    if (plan.ok) extras.priceChange = { oldTotalSom: plan.oldTotal, newTotalSom: plan.newTotal };
-    else extras.menuProblems = plan.problems.filter(p => p.kind !== 'PRICE_CHANGED');
-  }
-  if (row.status === 'WAITING_CUSTOMER_CONSENT') {
-    const rev = await db.orderPriceRevision.findFirst({ where: { orderId: row.id, status: 'PROPOSED' }, orderBy: { proposedAt: 'desc' } });
-    if (rev) extras.revision = { id: rev.id, oldTotalSom: rev.oldTotalSom, newTotalSom: rev.newTotalSom, expiresAt: rev.expiresAt };
+    const problems = validateSnapshot(row.items, menu, row.restaurantId);
+    if (problems.length) extras.menuProblems = problems;
   }
   return extras;
 }
@@ -262,18 +251,18 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
 
 export type ActionOutcome =
   | { ok: true; order: OrderView; autoStart?: { started: boolean; reason?: string } }
-  | { ok: false; httpStatus: 400 | 404 | 409; error: string; status?: string; problems?: SnapshotProblem[]; canProposePrice?: boolean };
+  | { ok: false; httpStatus: 400 | 404 | 409; error: string; status?: string; problems?: SnapshotProblem[] };
 
-const BAD_INPUT = new Set(['TAYYORLASH_VAQTI_NOTOGRI', 'RAD_SABABI_NOTOGRI', 'SABAB_NOTOGRI', 'BANK_REFERENCE_NOTOGRI']);
+const BAD_INPUT = new Set(['TAYYORLASH_VAQTI_NOTOGRI', 'RAD_SABABI_NOTOGRI', 'SABAB_NOTOGRI', 'CHEK_RASMI_NOTOGRI']);
 const WRONG_STATE = new Set(['TOLOV_MOS_EMAS_YOKI_AVVAL_TASDIQLANGAN', 'TAYYORLASH_UCHUN_TOLOV_TASDIGI_KERAK',
-  'BUYURTMA_TAYYORLASHDA_EMAS', 'BANK_REFERENCE_TAKROR', 'REFUND_SUMMASI_MOS_EMAS', 'NOTOGRI_OTISH', 'HOLAT_ORALIQDA_OZGARDI']);
+  'BUYURTMA_TAYYORLASHDA_EMAS', 'CHEK_RASMI_TAKROR', 'REFUND_SUMMASI_MOS_EMAS', 'NOTOGRI_OTISH', 'HOLAT_ORALIQDA_OZGARDI']);
 /** The stored bank signal does not match the payment (amount, sender, link): the restaurant must not confirm. */
 const EVIDENCE_INVALID = new Set(['TOLOV_SUMMASI_MOS_EMAS', 'TOLOV_MOS_EMAS']);
 
 export type ActionArgs = {
   prepMinutes?: number | undefined; reason?: (typeof REJECT_REASONS)[number] | (typeof RESTAURANT_REASONS)[number] | undefined;
   note?: string | undefined; decision?: 'APPROVE' | 'REJECT' | undefined; rejectReason?: (typeof REFUND_REJECT_REASONS)[number] | undefined;
-  bankReference?: string | undefined; expectedStatus?: string | undefined;
+  receipt?: StoredReceipt | undefined; expectedStatus?: string | undefined;
 };
 
 /** Runs one restaurant action through the same services the Telegram staff buttons used. The restaurant id is the
@@ -308,8 +297,7 @@ export async function performOrderAction(
     if (action === 'ACCEPT') {
       const r = await acceptOrder(engine, { ...actor, prepMinutes: args.prepMinutes ?? current.restaurant.defaultPrepMinutes });
       if (r.result === 'PROBLEMS') {
-        return { ok: false, httpStatus: 409, error: 'ORDER_PROBLEMS', status: 'WAITING_RESTAURANT', problems: r.problems,
-          canProposePrice: r.problems.every(p => p.kind === 'PRICE_CHANGED') };
+        return { ok: false, httpStatus: 409, error: 'ORDER_PROBLEMS', status: 'WAITING_RESTAURANT', problems: r.problems };
       }
       if (r.result === 'RESTAURANT_CLOSED') return stale('RESTAURANT_CLOSED');
       if (r.result === 'TIMED_OUT') return stale('TIMED_OUT');
@@ -348,7 +336,7 @@ export async function performOrderAction(
       });
       if (!open) return stale('NO_OPEN_REFUND');
       const r = action === 'REFUND_SENT'
-        ? await markRefundSent({ actorTelegramId: label, restaurantId, refundId: open.id, bankReference: args.bankReference! })
+        ? await markRefundSent({ actorTelegramId: label, restaurantId, refundId: open.id, receipt: args.receipt! })
         : await decideRefund({ actorTelegramId: label, restaurantId, refundId: open.id, decision: action === 'REFUND_APPROVE' ? 'APPROVE' : 'REJECT',
           ...(action === 'REFUND_REJECT' ? { rejectReason: args.rejectReason! } : {}) });
       if (r.result === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };

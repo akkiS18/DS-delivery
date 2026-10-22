@@ -7,6 +7,7 @@ import { placeOrder } from '../orders/service.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
 import { paymentMode } from '../payment/requisites.js';
 import { cancelUnpaidOrder, requestCancellation } from '../refunds/service.js';
+import { readReceipt } from '../refunds/receipts.js';
 import { advanceMockOrder } from '../restaurant-orders/auto.js';
 import { actorLabel, type CustomerOwner } from '../../lib/customer-owner.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
@@ -261,6 +262,22 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     const view = await ownedView(request, idParam.parse(request.params.id));
     if (!view) throw httpError(404, 'NOT_FOUND');
     return { order: view };
+  });
+
+  // The bank-receipt photo the restaurant attached to a sent refund, for the order's OWN customer only (foreign and unknown ids look the same).
+  // Returned as base64 JSON so the Mini App and the native app can show it without any binary or header-authenticated image loading.
+  app.get<{ Params: { id: string } }>('/orders/:id/refund/receipt', async request => {
+    strict(request, 'receipt', 20);
+    const id = idParam.parse(request.params.id);
+    const order = await loadCustomerOrder(owner(request), id);
+    if (!order) throw httpError(404, 'NOT_FOUND');
+    const refund = await db.refundRequest.findFirst({
+      where: { orderId: order.id, receiptKey: { not: null }, status: { in: ['SENT', 'CONFIRMED', 'DISPUTED'] } },
+      orderBy: { number: 'desc' }, select: { receiptKey: true, receiptMime: true, sentAt: true },
+    });
+    const bytes = refund?.receiptKey ? await readReceipt(refund.receiptKey) : null;
+    if (!refund || !bytes) throw httpError(404, 'NOT_FOUND');
+    return { mime: refund.receiptMime, dataBase64: bytes.toString('base64'), sentAt: refund.sentAt?.toISOString() ?? null };
   });
 
   app.post<{ Params: { id: string } }>('/orders/:id/cancel', async request => {

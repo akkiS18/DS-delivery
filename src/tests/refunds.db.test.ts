@@ -5,9 +5,12 @@ import { PrismaClient, type OrderStatus } from '@prisma/client';
 import { PaymentEngineV3, defaultOptions } from '../modules/payment/engine.js';
 import { takeStaffAction } from '../modules/restaurant/service.js';
 import { db as appDb } from '../lib/db.js';
+import { fakePng, useTempReceiptDir } from './receipt-fixtures.js';
 
 const ADMIN = String(randomInt(100000000000, 400000000000));
 process.env.SUPPORT_ADMIN_1_TELEGRAM_ID = ADMIN; // read per call by the support helpers
+const receiptDir = useTempReceiptDir();
+const { storeReceipt } = await import('../modules/refunds/receipts.js');
 const {
   adminConfirmRefund, cancelUnpaidOrder, customerAnswerRefund, decideRefund, markRefundSent, requestCancellation,
 } = await import('../modules/refunds/service.js');
@@ -26,7 +29,8 @@ let testLast4 = '';
 const PAID = 2_100_000n; // 21,000 so'm
 
 const cb = () => randomUUID();
-const ref = () => `TRX-${randomInt(10_000_000, 99_999_999)}`;
+/** A stored, valid receipt photo (unique bytes, so a unique SHA-256). */
+const rcpt = () => storeReceipt(fakePng());
 
 /** A paid-looking order. Payments are isTest (the only kind that may be forced into a matched state without a mail). */
 async function paidOrder(status: OrderStatus = 'PAYMENT_CONFIRMED', payStatus = 'CONFIRMED_MANUAL', som = 21_000) {
@@ -238,19 +242,18 @@ test('approval with a taxi already requested keeps that dispatch and flags it fo
 });
 
 // ------------------------------------------------------------------ manual refund confirmation
-test('"sent" needs the restaurant\'s typed bank reference and is only a claim; the restaurant cannot confirm itself', async () => {
+test('"sent" needs ONE receipt photo and is only a claim; the restaurant cannot confirm itself', async () => {
   const { o, refundId } = await approvedRefund();
-  await assert.rejects(markRefundSent({ actorTelegramId: otherStaffId, refundId, bankReference: ref() }), /RUXSAT_YOQ/);
-  await assert.rejects(markRefundSent({ actorTelegramId: customerTg, refundId, bankReference: ref() }), /RUXSAT_YOQ/);
-  for (const bad of ['', 'ok', 'done', 'sent!!!', '1111111']) await assert.rejects(markRefundSent({ actorTelegramId: staffId, refundId, bankReference: bad }), /BANK_REFERENCE_NOTOGRI/);
-  await assert.rejects(markRefundSent({ actorTelegramId: staffId, refundId, bankReference: ref(), sentAmountTiyin: PAID - 100n }), /REFUND_SUMMASI_MOS_EMAS/);
+  const r1 = await rcpt();
+  await assert.rejects(markRefundSent({ actorTelegramId: otherStaffId, refundId, receipt: r1 }), /RUXSAT_YOQ/);
+  await assert.rejects(markRefundSent({ actorTelegramId: customerTg, refundId, receipt: r1 }), /RUXSAT_YOQ/);
+  await assert.rejects(markRefundSent({ actorTelegramId: staffId, refundId, receipt: r1, sentAmountTiyin: PAID - 100n }), /REFUND_SUMMASI_MOS_EMAS/);
   assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: refundId } })).status, 'APPROVED');
-  const reference = ref();
-  const rs = await Promise.all(Array.from({ length: 4 }, () => markRefundSent({ actorTelegramId: staffId, refundId, bankReference: reference, sentAmountTiyin: PAID })));
+  const rs = await Promise.all(Array.from({ length: 4 }, () => markRefundSent({ actorTelegramId: staffId, refundId, receipt: r1, sentAmountTiyin: PAID })));
   assert.equal(rs.filter(r => r.result === 'DONE').length, 1);
   assert.equal(rs.filter(r => r.result === 'STALE').length, 3);
   const sent = await db.refundRequest.findUniqueOrThrow({ where: { id: refundId } });
-  assert.deepEqual([sent.status, sent.bankReference, sent.sentBy, sent.confirmedBy], ['SENT', reference, staffId, null]);
+  assert.deepEqual([sent.status, sent.bankReference, sent.receiptKey, sent.receiptSha256, sent.sentBy, sent.confirmedBy], ['SENT', null, r1.key, r1.sha256, staffId, null]);
   assert.ok(sent.sentAt);
   // there is no restaurant path to CONFIRMED, and the database refuses an unattested confirmation
   await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "status" = 'CONFIRMED' WHERE "id" = ${refundId}`);
@@ -258,19 +261,38 @@ test('"sent" needs the restaurant\'s typed bank reference and is only a claim; t
   // money is "refunded" only after attestation; the order itself stays CANCELLED with its payment untouched
   assert.equal((await order(o.id)).status, 'CANCELLED');
   assert.equal((await db.payment.findUniqueOrThrow({ where: { orderId: o.id } })).status, 'CONFIRMED_MANUAL');
+  // the audit row records the image fingerprint, not the image
+  const ev = (await db.refundEvent.findMany({ where: { refundId, action: 'SENT' } }))[0]!;
+  assert.equal((ev.details as { receiptSha256?: string }).receiptSha256, r1.sha256);
 });
 
-test('an unreferenced SENT/CONFIRMED refund cannot exist in the database', async () => {
+test('the same receipt image can never prove two refunds (unique SHA-256)', async () => {
+  const a = await approvedRefund();
+  const b = await approvedRefund();
+  const shared = await rcpt();
+  assert.equal((await markRefundSent({ actorTelegramId: staffId, refundId: a.refundId, receipt: shared })).result, 'DONE');
+  await assert.rejects(markRefundSent({ actorTelegramId: staffId, refundId: b.refundId, receipt: shared }), /CHEK_RASMI_TAKROR/);
+  assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: b.refundId } })).status, 'APPROVED');
+});
+
+test('an unproven SENT/CONFIRMED refund cannot exist in the database; legacy typed references still satisfy the proof rule', async () => {
   const { refundId } = await approvedRefund();
   await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "status" = 'SENT' WHERE "id" = ${refundId}`);
   await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "status" = 'SENT', "bankReference" = 'ab', "sentBy" = ${staffId}, "sentAt" = now() WHERE "id" = ${refundId}`);
+  // receipt columns are all-or-nothing, with a sane key, type, size and hash
+  await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "receiptKey" = 'x.png' WHERE "id" = ${refundId}`);
+  await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "receiptKey" = ${randomUUID() + '.png'}, "receiptMime" = 'application/pdf', "receiptBytes" = 2048, "receiptSha256" = ${'a'.repeat(64)} WHERE "id" = ${refundId}`);
+  await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "receiptKey" = ${randomUUID() + '.png'}, "receiptMime" = 'image/png', "receiptBytes" = 10, "receiptSha256" = ${'a'.repeat(64)} WHERE "id" = ${refundId}`);
+  // legacy rows (typed reference, no receipt) remain valid
+  assert.equal(await db.$executeRaw`UPDATE "RefundRequest" SET "status" = 'SENT', "bankReference" = 'TRX-LEGACY-1', "sentBy" = ${staffId}, "sentAt" = now() WHERE "id" = ${refundId}`, 1);
+  await db.$executeRaw`UPDATE "RefundRequest" SET "status" = 'APPROVED', "bankReference" = NULL, "sentBy" = NULL, "sentAt" = NULL WHERE "id" = ${refundId}`;
   await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "approvedAmountTiyin" = "paidAmountTiyin" + 1 WHERE "id" = ${refundId}`);
   await assert.rejects(db.$executeRaw`UPDATE "RefundRequest" SET "approvedAmountTiyin" = NULL WHERE "id" = ${refundId}`);
 });
 
 test('customer attestation: owner only, one winner between "received" and "not received"', async () => {
   const { refundId } = await approvedRefund();
-  await markRefundSent({ actorTelegramId: staffId, refundId, bankReference: ref() });
+  await markRefundSent({ actorTelegramId: staffId, refundId, receipt: await rcpt() });
   assert.deepEqual(await customerAnswerRefund({ telegramUserId: strangerTg, refundId, received: true }), { result: 'NOT_FOUND' });
   const rs = await Promise.all([customerAnswerRefund({ telegramUserId: customerTg, refundId, received: true }),
     customerAnswerRefund({ telegramUserId: customerTg, refundId, received: false }), customerAnswerRefund({ telegramUserId: customerTg, refundId, received: true })]);
@@ -281,19 +303,19 @@ test('customer attestation: owner only, one winner between "received" and "not r
   else assert.ok(r.disputedAt);
 });
 
-test('dispute path: restaurant must re-send with a NEW reference; admin confirms only with a typed note; terminal afterwards', async () => {
+test('dispute path: restaurant must re-send with a NEW receipt photo; admin confirms only with a typed note; terminal afterwards', async () => {
   const { o, refundId } = await approvedRefund();
-  const first = ref();
-  await markRefundSent({ actorTelegramId: staffId, refundId, bankReference: first });
+  const first = await rcpt();
+  await markRefundSent({ actorTelegramId: staffId, refundId, receipt: first });
   assert.equal((await customerAnswerRefund({ telegramUserId: customerTg, refundId, received: false })).result, 'DONE');
   assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: refundId } })).status, 'DISPUTED');
-  await assert.rejects(markRefundSent({ actorTelegramId: staffId, refundId, bankReference: first.toLowerCase() }), /BANK_REFERENCE_TAKROR/);
+  await assert.rejects(markRefundSent({ actorTelegramId: staffId, refundId, receipt: first }), /CHEK_RASMI_TAKROR/);
   // admin: must be a configured admin and give a real note
   await assert.rejects(adminConfirmRefund({ adminTelegramId: strangerTg, refundId, note: 'restoran hisobi tekshirildi' }), /ADMIN_RUXSAT_YOQ/);
   await assert.rejects(adminConfirmRefund({ adminTelegramId: staffId, refundId, note: 'restoran hisobi tekshirildi' }), /ADMIN_RUXSAT_YOQ/);
   await assert.rejects(adminConfirmRefund({ adminTelegramId: ADMIN, refundId, note: 'ok' }), /ADMIN_IZOH_NOTOGRI/);
   assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: refundId } })).status, 'DISPUTED');
-  assert.equal((await markRefundSent({ actorTelegramId: staffId, refundId, bankReference: ref() })).result, 'DONE');
+  assert.equal((await markRefundSent({ actorTelegramId: staffId, refundId, receipt: await rcpt() })).result, 'DONE');
   const note = 'Restoran hisobi ko‘chirmasi va mijoz bilan telefon orqali tekshirildi';
   assert.equal((await adminConfirmRefund({ adminTelegramId: ADMIN, refundId, note })).result, 'DONE');
   const done = await db.refundRequest.findUniqueOrThrow({ where: { id: refundId } });
@@ -301,7 +323,7 @@ test('dispute path: restaurant must re-send with a NEW reference; admin confirms
   // terminal: nothing moves it again, and no new request is possible for the same payment/order
   assert.equal((await adminConfirmRefund({ adminTelegramId: ADMIN, refundId, note })).result, 'STALE');
   assert.equal((await customerAnswerRefund({ telegramUserId: customerTg, refundId, received: false })).result, 'STALE');
-  assert.equal((await markRefundSent({ actorTelegramId: staffId, refundId, bankReference: ref() })).result, 'STALE');
+  assert.equal((await markRefundSent({ actorTelegramId: staffId, refundId, receipt: await rcpt() })).result, 'STALE');
   assert.equal((await customerRequest(o.id)).result, 'NOT_ALLOWED');
   await assert.rejects(db.refundRequest.create({ data: { orderId: o.id, paymentId: done.paymentId, kind: 'CUSTOMER_CANCEL', reasonCode: 'OTHER',
     paidAmountTiyin: PAID, orderStatusBefore: 'PAYMENT_CONFIRMED', paymentStatusAtRequest: 'CONFIRMED_MANUAL', requestedBy: customerTg, requestedByType: 'CUSTOMER' } })); // one refund per payment

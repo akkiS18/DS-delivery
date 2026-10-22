@@ -2,7 +2,6 @@ import { Markup, type Telegraf } from 'telegraf';
 import { db } from '../lib/db.js';
 import { staffOrderPresentation } from './restaurant.js';
 import { expireWaitingOrders } from '../modules/restaurant/acceptance.js';
-import { expireConsents } from '../modules/restaurant/price-consent.js';
 import { deliverRefundNotices } from './refunds.js';
 import { restaurantTelegramEnabled } from '../lib/features.js';
 import { isDelivered, notificationKey, sendOnce } from '../lib/notify-once.js';
@@ -19,7 +18,6 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
     busy = true;
     try {
       await expireWaitingOrders(); // response timeout sweep (idempotent)
-      await expireConsents(); // unanswered price proposals close the order
       await autoAdvanceMockOrders(); // MOCK-only: safe test payments move on to cooking by themselves (restart-safe sweep)
       await deliverRefundNotices(bot); // Stage 6A: refund request / decision / sent notices
       const rows = await db.order.findMany({
@@ -56,29 +54,9 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
           await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
           continue;
         }
-        if (customerChat && order.status === 'WAITING_CUSTOMER_CONSENT' && order.customerLastNotifiedStatus !== order.status) {
-          try {
-            const rev = await db.orderPriceRevision.findFirst({ where: { orderId: order.id, status: 'PROPOSED' } });
-            if (rev) {
-              const outcome = await sendOnce(bot, { key: notificationKey('order-consent', rev.id, customerChat), kind: 'order-consent',
-                chatId: customerChat, orderId: order.id,
-                text: `💬 #${order.number}: restoran narxni yangiladi.
-Eski jami: ${rev.oldTotalSom} so‘m
-Yangi jami: ${rev.newTotalSom} so‘m
-Rozilik bermaguningizcha to‘lov rekvizitlari yuborilmaydi va pul yubormang. Rozilik muddati tugasa buyurtma bekor bo‘ladi.`,
-                extra: Markup.inlineKeyboard([[Markup.button.callback('✅ Yangi narxga roziman', `price:yes:${rev.id}`),
-                  Markup.button.callback('❌ Bekor qilish', `price:no:${rev.id}`)]]) });
-              if (isDelivered(outcome)) await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
-            }
-          } catch (err) {
-            console.error(`[PRICE CONSENT NOTICE] #${order.number}:`, err instanceof Error ? err.message : err);
-          }
-        }
         if (customerChat && ['CUSTOMER_CANCELLED', 'RESTAURANT_REJECTED', 'RESTAURANT_EXPIRED', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY'].includes(order.status) && order.customerLastNotifiedStatus !== order.status) {
           const messages: Record<string, string> = {
-            CUSTOMER_CANCELLED: order.cancelReason === 'CONSENT_TIMEOUT' ? `⌛ #${order.number}: narx bo‘yicha rozilik vaqtida kelmadi, buyurtma bekor bo‘ldi. Pul yubormang.`
-              : order.cancelReason === 'MENU_CHANGED' ? `⚠️ #${order.number}: menyu yana o‘zgargani uchun buyurtma bekor bo‘ldi. Pul yubormang.`
-              : `❌ #${order.number}: buyurtma bekor qilindi. Pul yubormang.`,
+            CUSTOMER_CANCELLED: `❌ #${order.number}: buyurtma bekor qilindi. Pul yubormang.`,
             RESTAURANT_REJECTED: `🚫 #${order.number}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.number}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
             PAYMENT_CONFIRMED: `✅ #${order.number}: restoran to‘lovni tekshirib tasdiqladi. Tayyorlash boshlanishini kuting.`,

@@ -3,7 +3,6 @@ import { db } from '../lib/db.js';
 import { findAssignedRestaurant, staffOrderDetails, takeStaffAction } from '../modules/restaurant/service.js';
 import { PREP_CHOICES } from '../modules/restaurant/workflow.js';
 import { acceptOrder, rejectOrder, type SnapshotProblem } from '../modules/restaurant/acceptance.js';
-import { proposePriceRevision } from '../modules/restaurant/price-consent.js';
 import type { PaymentEngineV3 } from '../modules/payment/engine.js';
 import { RESTAURANT_TELEGRAM_DISABLED_MESSAGE } from '../lib/features.js';
 
@@ -121,7 +120,7 @@ export function registerRestaurantHandlers<C extends Context>(bot: Telegraf<C>, 
     ])));
   });
 
-  bot.action(/^staff:(view|verifyask|verify|prep(?:10|15|20|30|45|60)|acc(?:10|15|20|30|45|60)|prop(?:10|15|20|30|45|60)|rejask|rej[A-Z_]+|ready):([a-zA-Z0-9_-]+)$/, async ctx => {
+  bot.action(/^staff:(view|verifyask|verify|prep(?:10|15|20|30|45|60)|acc(?:10|15|20|30|45|60)|rejask|rej[A-Z_]+|ready):([a-zA-Z0-9_-]+)$/, async ctx => {
     await ctx.answerCbQuery();
     if (ctx.chat?.type !== 'private' || !ctx.from) return;
     const userId = String(ctx.from.id);
@@ -166,27 +165,12 @@ export function registerRestaurantHandlers<C extends Context>(bot: Telegraf<C>, 
         await ctx.reply(`Amal bajarilmadi: ${error instanceof Error ? error.message : 'Noma’lum xato'}.`);
       }
     }
-    if (action.startsWith('prop')) {
-      try {
-        const r = await proposePriceRevision({ actorTelegramId: userId, orderId, prepMinutes: Number(action.slice(4)) });
-        if (r.result === 'PROPOSED') await ctx.reply(`📨 Mijozga yangi narx yuborildi: ${som(r.oldTotal)} → ${som(r.newTotal)}. Rozilik kelguncha to‘lov ochilmaydi.`);
-        else if (r.result === 'NOT_REVISABLE') await ctx.reply(`⚠️ Narxni taklif qilib bo‘lmaydi:\n${r.problems.map(problemText).join('\n')}`);
-        else if (r.result === 'RESTAURANT_CLOSED') await ctx.reply('⛔ Restoran faol emas yoki pauzada.');
-        else if (r.result === 'TIMED_OUT') await ctx.reply('⌛ Javob muddati tugagan.');
-        else await ctx.reply('Amal avval bajarilgan yoki buyurtma holati o‘zgargan.');
-      } catch (error) {
-        await ctx.reply(`Amal bajarilmadi: ${error instanceof Error ? error.message : 'Noma’lum xato'}.`);
-      }
-    }
     if (action.startsWith('acc')) {
       if (!engine) { await ctx.reply('Qabul qilish hozir mavjud emas.'); return; }
       try {
         const r = await acceptOrder(engine, { actorTelegramId: userId, orderId, prepMinutes: Number(action.slice(3)) });
         if (r.result === 'PROBLEMS') {
-          const onlyPrice = r.problems.every(p => p.kind === 'PRICE_CHANGED');
-          await ctx.reply(`⚠️ Qabul qilib bo‘lmaydi:\n${r.problems.map(problemText).join('\n')}\n${onlyPrice
-            ? 'Mijoz roziligi bilan yangi narxda davom etish mumkin.' : 'Buyurtmani rad eting yoki muammoni hal qilib qayta urining.'}`,
-            onlyPrice ? Markup.inlineKeyboard([[Markup.button.callback('💬 Yangi narxni mijozga taklif qilish', `staff:prop${action.slice(3)}:${orderId}`)]]) : undefined);
+          await ctx.reply(`⚠️ Qabul qilib bo‘lmaydi:\n${r.problems.map(problemText).join('\n')}\nBuyurtmani rad eting yoki muammoni hal qilib qayta urining.`);
         } else if (r.result === 'RESTAURANT_CLOSED') {
           await ctx.reply('⛔ Restoran faol emas yoki pauzada. Avval ochiq holatga qaytaring yoki buyurtmani rad eting.');
         } else if (r.result === 'TIMED_OUT') await ctx.reply('⌛ Javob muddati tugagan, buyurtma bekor qilindi.');

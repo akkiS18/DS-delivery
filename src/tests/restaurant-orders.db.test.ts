@@ -7,9 +7,11 @@ import { PaymentEngineV3, defaultOptions } from '../modules/payment/engine.js';
 import { attemptKey, setRestaurantPassword } from '../modules/restaurant-auth/service.js';
 import { placeOrder } from '../modules/orders/service.js';
 import { takeStaffAction } from '../modules/restaurant/service.js';
-import { proposePriceRevision } from '../modules/restaurant/price-consent.js';
 import { db as appDb } from '../lib/db.js';
+import { readdirSync } from 'node:fs';
+import { fakeJpeg, fakePng, useTempReceiptDir } from './receipt-fixtures.js';
 
+const receiptDir = useTempReceiptDir();
 process.env.RESTAURANT_LOGIN_MAX_FAILURES = '50';
 process.env.RESTAURANT_LOGIN_IP_MAX_FAILURES = '1000';
 
@@ -41,6 +43,10 @@ async function loginToken(slug: string, password: string): Promise<string> {
 }
 const call = (method: 'GET' | 'POST', url: string, token: string | undefined, payload?: unknown) =>
   app.inject({ method, url: `/api/v1/restaurant${url}`, payload: payload as object | undefined, headers: token ? { authorization: `Bearer ${token}` } : {} });
+/** The refund receipt is the raw request body (a photo), not JSON. */
+const upload = (url: string, token: string | undefined, payload: Buffer, type = 'image/png') =>
+  app.inject({ method: 'POST', url: `/api/v1/restaurant${url}`, payload, headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': type } });
+const storedFiles = () => readdirSync(receiptDir).filter(f => !f.startsWith('.'));
 /** Every order gets its own price, so the single card per restaurant is never reused by two live payments. */
 async function place(restaurant: 'a' | 'b' = 'a') {
   const rid = ids[restaurant]!;
@@ -287,20 +293,19 @@ test('a paused restaurant cannot accept new orders from the app either', async (
   }
 });
 
-test('price proposals no longer exist: a stale price can only be rejected, never re-priced', async () => {
+test('a stale price can only be rejected: no accept, no re-pricing, no propose route', async () => {
   const o = await place();
   const item = await db.orderItem.findFirstOrThrow({ where: { orderId: o.id } });
   await db.product.update({ where: { id: item.productId! }, data: { priceSom: { increment: 1000 } } });
   const d = (await call('GET', `/orders/${o.id}`, ta)).json();
-  assert.deepEqual(d.priceChange, { oldTotalSom: o.totalSom, newTotalSom: o.totalSom + 1000 });
+  assert.ok(d.menuProblems.some((m: { kind: string }) => m.kind === 'PRICE_CHANGED'));
+  assert.equal(d.priceChange, undefined);
+  assert.equal(d.priceProposal, undefined);
   assert.deepEqual(d.allowedActions, ['REJECT'], 'no accept, no propose');
   const blocked = await acceptApi(o.id);
   assert.equal(blocked.statusCode, 409);
   assert.equal(blocked.json().error, 'ORDER_PROBLEMS');
-  const gone = await call('POST', `/orders/${o.id}/propose-price`, ta, {});
-  assert.equal(gone.statusCode, 410);
-  assert.equal(gone.json().error, 'PRICE_PROPOSALS_REMOVED');
-  await assert.rejects(proposePriceRevision({ actorRestaurantId: ids.a!, orderId: o.id, prepMinutes: 20 }), /PRICE_PROPOSALS_REMOVED/);
+  assert.equal((await call('POST', `/orders/${o.id}/propose-price`, ta, {})).statusCode, 404, 'the propose route no longer exists');
   assert.equal((await row(o.id)).status, 'WAITING_RESTAURANT');
   assert.equal(await db.orderPriceRevision.count({ where: { orderId: o.id } }), 0);
   assert.equal((await call('POST', `/orders/${o.id}/reject`, ta, { reason: 'PRICE_CHANGED' })).statusCode, 200);
@@ -319,12 +324,31 @@ test('restaurant cancellation and refund handling work from the app, tenant-scop
   assert.equal(c.json().refund.status, 'APPROVED');
   assert.deepEqual(c.json().allowedActions, ['REFUND_SENT']);
   assert.equal((await call('POST', `/orders/${o.id}/cancel`, ta, { reason: 'CLOSED' })).statusCode, 409);
-  assert.equal((await call('POST', `/orders/${o.id}/refund/sent`, ta, { bankReference: 'ok' })).statusCode, 400);
-  assert.equal((await call('POST', `/orders/${o.id}/refund/sent`, tb, { bankReference: 'TRX-1234-5678' })).statusCode, 404);
-  const sent = await call('POST', `/orders/${o.id}/refund/sent`, ta, { bankReference: 'TRX-1234-5678' });
+  // "Qaytarildi" asks for ONE photo of the bank receipt - nothing typed. The old JSON route is gone.
+  assert.equal((await call('POST', `/orders/${o.id}/refund/sent`, ta, { bankReference: 'TRX-1234-5678' })).statusCode, 404);
+  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, undefined, fakePng())).statusCode, 401, 'authentication happens before the body is read');
+  const before = storedFiles().length;
+  for (const [bytes, type] of [[Buffer.alloc(3000), 'image/png'], [Buffer.from('%PDF-1.4 ' + 'x'.repeat(3000)), 'image/jpeg'], [fakePng(100).subarray(0, 500), 'image/png']] as const) {
+    const bad = await upload(`/orders/${o.id}/refund/receipt`, ta, bytes, type);
+    assert.equal(bad.statusCode, 400, 'only real JPEG/PNG/WebP photos are accepted (magic bytes, size >= 1 KB)');
+    assert.equal(bad.json().error, 'CHEK_RASMI_NOTOGRI');
+  }
+  assert.equal((await call('POST', `/orders/${o.id}/refund/receipt`, ta, { bankReference: 'TRX-1234-5678' })).statusCode, 400, 'a JSON body is not a receipt');
+  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, ta, Buffer.concat([fakePng(), Buffer.alloc(5 * 1024 * 1024)]))).statusCode, 413, 'bigger than 5 MB');
+  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, tb, fakePng())).statusCode, 404, "another restaurant's order is just not found");
+  assert.equal(storedFiles().length, before, 'a refused upload leaves no file behind');
+  const photo = fakeJpeg();
+  const sent = await upload(`/orders/${o.id}/refund/receipt`, ta, photo, 'image/jpeg');
   assert.equal(sent.statusCode, 200);
   assert.equal(sent.json().refund.status, 'SENT', 'a restaurant claim, never a settlement');
-  assert.equal((await call('POST', `/orders/${o.id}/refund/sent`, ta, { bankReference: 'TRX-9999-0000' })).statusCode, 409);
+  assert.equal(sent.json().refund.hasReceipt, true);
+  assert.equal(sent.json().refund.bankReference, null, 'no typed reference is asked for any more');
+  assert.equal(storedFiles().length, before + 1);
+  const stored = await db.refundRequest.findFirstOrThrow({ where: { orderId: o.id } });
+  assert.equal(stored.receiptMime, 'image/jpeg', 'the type comes from the bytes');
+  assert.equal(stored.receiptBytes, photo.length);
+  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, ta, fakePng())).statusCode, 409, 'already SENT: a second photo is refused');
+  assert.equal(storedFiles().length, before + 1, 'and its file is removed again');
   // customer-initiated request: approve / reject from the app
   const o2 = await place();
   assert.equal((await acceptApi(o2.id)).statusCode, 200);

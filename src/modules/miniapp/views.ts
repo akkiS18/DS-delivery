@@ -80,7 +80,7 @@ const orderInclude = {
   items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
   payment: { include: { card: { select: { last4: true, isTest: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' as const }, take: 1, select: { status: true, deliveredAt: true, taxiCompany: { select: { name: true } } } },
-  refundRequests: { orderBy: { number: 'desc' as const }, take: 1, select: { status: true } },
+  refundRequests: { orderBy: { number: 'desc' as const }, take: 1, select: { status: true, receiptKey: true } },
 } as const;
 
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
@@ -132,7 +132,7 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     taxi: taxi ? { stage: taxiSt, companyName: taxi.taxiCompany.name } : null,
     deliveredAt: taxi?.deliveredAt?.toISOString() ?? null, // the operator-confirmed time; nothing earlier counts as delivered
     cancel: { allowed: cancel !== null, kind: cancel },
-    refund: refund ? { status: refund.status } : null,
+    refund: refund ? { status: refund.status, hasReceipt: refund.receiptKey !== null } : null,
   };
 }
 export type CustomerOrderView = ReturnType<typeof customerOrderView>;
