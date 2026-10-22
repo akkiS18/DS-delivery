@@ -1,6 +1,10 @@
 import { Markup, type Telegraf } from 'telegraf';
 import { db } from '../../lib/db.js';
+import { isDelivered, notificationKey, sendOnce } from '../../lib/notify-once.js';
+import { restaurantTelegramEnabled } from '../../lib/features.js';
 import { needsCancellationAcknowledgement } from './workflow.js';
+import { escalateSilentDispatch } from './recovery.js';
+import { supportAdminIds } from '../support/service.js';
 
 const responseSeconds = Number(process.env.TAXI_OPERATOR_RESPONSE_SECONDS ?? 180);
 const pollSeconds = Number(process.env.TAXI_WORKER_INTERVAL_SECONDS ?? 5);
@@ -8,6 +12,11 @@ const alertTelegramId = process.env.TAXI_ALERT_TELEGRAM_ID?.trim();
 if (![responseSeconds, pollSeconds].every(v => Number.isSafeInteger(v) && v >= 2 && v <= 3600)) {
   throw new Error('TAXI_OPERATOR_RESPONSE_SECONDS / TAXI_WORKER_INTERVAL_SECONDS noto‘g‘ri');
 }
+// Development guard: when set, a request is only ever sent to these Telegram ids (your own test account).
+const operatorAllowlist = (process.env.TAXI_OPERATOR_ALLOWLIST ?? '').split(',').map(v => v.trim()).filter(Boolean);
+const silenceEscalationSeconds = Number(process.env.TAXI_SILENCE_ESCALATION_SECONDS ?? 300);
+// Opt-in only: re-dispatching after silence can double-book if the operator did send a car. Audited when used.
+const autoFallbackOnSilence = process.env.TAXI_AUTO_FALLBACK_ON_SILENCE === 'true';
 const callback = (verb: string, id: string) => `taxi:${verb}:${id}`;
 const currency = new Intl.NumberFormat('uz-UZ');
 
@@ -15,8 +24,8 @@ type Bot = Telegraf<any>;
 
 function requestKeyboard(dispatchId: string) {
   return Markup.inlineKeyboard([
-    [Markup.button.callback('🚕 Taksi yuborildi', callback('sent', dispatchId))],
-    [Markup.button.callback('🚫 Taksi yo‘q', callback('none', dispatchId))],
+    [Markup.button.callback('✅ Qabul qilish', callback('acc', dispatchId))],
+    [Markup.button.callback('🚫 Rad etish', callback('none', dispatchId))],
   ]);
 }
 function cancelKeyboard(dispatchId: string) {
@@ -26,14 +35,33 @@ function cancelKeyboard(dispatchId: string) {
   ]);
 }
 
-async function reportAlert(bot: Bot, text: string): Promise<boolean> {
+/** Platform administrators who can recover a stuck dispatch: the support admins plus the optional TAXI_ALERT_TELEGRAM_ID. */
+function adminRecipients(): string[] {
+  let admins: string[] = [];
+  try { admins = supportAdminIds(); } catch { admins = []; }
+  if (alertTelegramId && /^\d{1,20}$/.test(alertTelegramId)) admins.push(alertTelegramId);
+  return [...new Set(admins)];
+}
+
+/** One alert per (dispatch state, administrator); delivered through the taxi bot with a button into the recovery screen. */
+async function reportAlert(bot: Bot, text: string, key: string, orderId: string, dispatchId: string): Promise<boolean> {
   console.error(`[TAXI ALERT] ${text}`);
-  if (!alertTelegramId || !/^\d{1,20}$/.test(alertTelegramId)) return false;
-  try { await bot.telegram.sendMessage(alertTelegramId, `⚠️ DS Delivery taxi: ${text}`); return true; }
-  catch (err) { console.error('[TAXI ADMIN ALERT] ', err instanceof Error ? err.message : err); return false; }
+  const recipients = adminRecipients();
+  if (!recipients.length) return false;
+  let delivered = false;
+  for (const chatId of recipients) {
+    const outcome = await sendOnce(bot, {
+      key: notificationKey('taxi-alert', key, chatId), kind: 'taxi-alert', chatId, orderId, text: `⚠️ DS Delivery taksi: ${text}`,
+      extra: Markup.inlineKeyboard([[Markup.button.callback('🛠 Ko‘rish va hal qilish', `tadm:view:${dispatchId}`)]]),
+    });
+    if (outcome === 'FAILED') console.error('[TAXI ADMIN ALERT] delivery failed, will retry');
+    if (isDelivered(outcome)) delivered = true;
+  }
+  return delivered;
 }
 
 async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
+  // `bot` here is the operator-facing bot (dedicated taxi bot when configured).
   const now = new Date();
   // An interrupted send may already have reached the operator. Never resend it automatically.
   await db.taxiDispatch.updateMany({
@@ -62,6 +90,11 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     const validOrder = item.order.createdViaBot && ['PREPARING', 'READY'].includes(item.order.status)
       && item.order.payment?.status === 'CONFIRMED_MANUAL';
     const pickupSet = Boolean(item.order.restaurant.pickupAddress?.trim());
+    if (operator && operatorAllowlist.length && !operatorAllowlist.includes(operator)) {
+      console.error(`[TAXI] #${item.order.number}: operator is not in TAXI_OPERATOR_ALLOWLIST, nothing was sent`);
+      await db.taxiDispatch.updateMany({ where: { id: item.id, status: 'SENDING' }, data: { status: 'NEEDS_HELP', leaseAt: null } });
+      continue;
+    }
     if (!validOrder || !item.taxiCompany.isActive || !operator || (!item.order.payment?.isTest && !pickupSet)) {
       await db.taxiDispatch.updateMany({ where: { id: item.id, status: 'SENDING' }, data: { status: 'NEEDS_HELP', leaseAt: null } });
       continue;
@@ -79,8 +112,10 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
       `Yetkazish manzili: ${item.order.addressText}${loc}`,
       `Mijoz telefoni: ${item.order.phoneSnapshot ?? 'kiritilmagan'}`,
       `Ovqat: ${item.order.status === 'READY' ? 'TAYYOR' : 'Tayyorlanmoqda'}`,
+      ...(item.order.prepMinutes ? [`Tayyorlash vaqti: ${item.order.prepMinutes} daqiqa`] : []),
       `Ovqat qiymati: ${currency.format(item.order.totalSom)} so‘m (taksi haqi emas)`,
       'Yetkazish narxini sizning taksi xizmatingiz belgilaydi.',
+      'Avval buyurtmani qabul qiling yoki rad eting; haydovchi yuborilgach „Taksi yuborildi“ni bosing.',
       `Javob muddati: ${responseSeconds} soniya. Javob bo‘lmasa avtomatik boshqa taksi chaqirilmaydi.`,
     ].join('\n');
     try {
@@ -117,6 +152,26 @@ async function enforceTimeout(bot: Bot, onlyOrderId?: string): Promise<void> {
     });
     // notifyOutcomes retries the admin alert from persisted state.
   }
+  const stuck = await db.taxiDispatch.findMany({
+    where: { status: 'ACCEPTED', expiresAt: { lte: now }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) }, take: 30, select: { id: true },
+  });
+  for (const dispatch of stuck) {
+    await db.taxiDispatch.updateMany({
+      where: { id: dispatch.id, status: 'ACCEPTED' },
+      data: { status: 'NEEDS_HELP', customerNotifiedAt: null, staffNotifiedAt: null, adminNotifiedAt: null },
+    });
+  }
+  // The operator was asked to clarify (up to 3 reminders) and still said nothing. A driver may or may not exist, so the system does
+  // not re-send on its own unless explicitly allowed; it escalates to the administrators (NEEDS_HELP -> /taxiadmin).
+  const silent = await db.taxiDispatch.findMany({
+    where: { status: 'CANCELLATION_PENDING', cancelNoticeTries: { gte: 3 }, cancelNoticeAt: { lt: new Date(now.getTime() - silenceEscalationSeconds * 1000) },
+      ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
+    take: 20, select: { id: true },
+  });
+  for (const d of silent) {
+    try { await escalateSilentDispatch(d.id, autoFallbackOnSilence); }
+    catch (err) { console.error('[TAXI SILENCE]', err instanceof Error ? err.message : err); }
+  }
   const needsConfirm = await db.taxiDispatch.findMany({
     where: {
       status: 'CANCELLATION_PENDING', cancelNoticeTries: { lt: 3 },
@@ -144,9 +199,9 @@ async function enforceTimeout(bot: Bot, onlyOrderId?: string): Promise<void> {
   }
 }
 
-async function notifyOutcomes(bot: Bot, onlyOrderId?: string): Promise<void> {
+async function notifyOutcomes(bot: Bot, onlyOrderId?: string, operatorBot: Bot = bot): Promise<void> {
   const recent = await db.taxiDispatch.findMany({
-    where: { OR: [{ customerNotifiedAt: null }, { staffNotifiedAt: null }, ...(alertTelegramId ? [{ adminNotifiedAt: null, status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] as import('@prisma/client').TaxiDispatchStatus[] } }] : [])], status: { in: ['ASSIGNED', 'DECLINED', 'NEEDS_HELP', 'CANCELLATION_PENDING'] }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
+    where: { OR: [{ customerNotifiedAt: null }, { staffNotifiedAt: null }, ...(adminRecipients().length ? [{ adminNotifiedAt: null, status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] as import('@prisma/client').TaxiDispatchStatus[] } }] : [])], status: { in: ['ACCEPTED', 'ASSIGNED', 'DELIVERED', 'DECLINED', 'NEEDS_HELP', 'CANCELLATION_PENDING'] }, ...(onlyOrderId ? { orderId: onlyOrderId } : {}) },
     orderBy: { updatedAt: 'asc' }, take: 80,
     include: { taxiCompany: { select: { name: true } }, order: {
       include: { customer: { select: { telegramUserId: true } }, restaurant: { select: { staffTelegramUserId: true } },
@@ -155,12 +210,16 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string): Promise<void> {
   });
   for (const d of recent) {
     if (!d.adminNotifiedAt && ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'].includes(d.status)) {
-      if (await reportAlert(bot, `#${d.order.number}: ${d.status}. Operator /taxi orqali haydovchi yuborilgan yoki yuborilmaganini aniqlashtirsin.`)) {
+      if (await reportAlert(operatorBot, `#${d.order.number} (${d.taxiCompany.name}): ${d.status}. Haydovchi yuborilgan-yuborilmaganini aniqlab, qayta yuboring yoki boshqa kompaniyaga o‘tkazing: /taxiadmin`, `${d.id}:${d.status}`, d.orderId, d.id)) {
         await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, adminNotifiedAt: null }, data: { adminNotifiedAt: new Date() } });
       }
     }
     const newer = d.order.taxiDispatches.some(x => x.attemptNo > d.attemptNo);
-    const label = d.status === 'ASSIGNED'
+    const label = d.status === 'ACCEPTED'
+      ? `🚕 #${d.order.number}: ${d.taxiCompany.name} buyurtmani qabul qildi, haydovchi yuboriladi.`
+      : d.status === 'DELIVERED'
+      ? `✅ #${d.order.number}: buyurtma yetkazildi (${d.taxiCompany.name} operatori tasdiqladi).`
+      : d.status === 'ASSIGNED'
       ? `🚕 #${d.order.number}: ${d.taxiCompany.name} operatori haydovchi yuborilganini bildirdi. Yetkazish narxi taksi tarifiga ko‘ra.`
       : d.status === 'DECLINED' && newer
       ? `🔄 #${d.order.number}: ${d.taxiCompany.name}da bo‘sh taksi yo‘q. Roziligingiz asosida boshqa kompaniyadan qidiryapmiz.`
@@ -169,20 +228,23 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string): Promise<void> {
       : d.status === 'NEEDS_HELP'
       ? `⚠️ #${d.order.number}: taksi operatori bilan bog‘lanishda muammo. Yetkazish uchun administrator yordami kerak.`
       : `⏳ #${d.order.number}: taksi operatoridan javob kechikmoqda. Ikkinchi haydovchi yuborilmasligi uchun tekshirilyapti.`;
+    // One logical notice per (dispatch state, destination CHAT). The key names the chat, not the role, so a person who is both
+    // customer and restaurant staff gets it once, and concurrent workers/retries/restarts cannot repeat it (NotificationLog).
+    // Restaurant staff are no longer notified through Telegram unless the legacy panel is explicitly re-enabled.
     for (const [key, chatId] of [
       ['customerNotifiedAt', d.order.customer.telegramUserId],
-      ['staffNotifiedAt', d.order.restaurant.staffTelegramUserId],
+      ['staffNotifiedAt', restaurantTelegramEnabled() ? d.order.restaurant.staffTelegramUserId : null],
     ] as const) {
       if (d[key]) continue;
       if (!chatId) {
         await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, [key]: null }, data: { [key]: new Date() } });
         continue;
       }
-      try {
-        await bot.telegram.sendMessage(chatId, label);
+      const outcome = await sendOnce(bot, { key: notificationKey('taxi-outcome', d.id, d.status, chatId), kind: 'taxi-outcome', chatId, orderId: d.orderId, text: label });
+      if (isDelivered(outcome)) {
         await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, [key]: null }, data: { [key]: new Date() } });
-      } catch (err) {
-        console.error(`[TAXI NOTICE] ${d.order.number} ${key}:`, err instanceof Error ? err.message : err);
+      } else if (outcome === 'FAILED') {
+        console.error(`[TAXI NOTICE] ${d.order.number} ${key}: delivery failed, will retry`);
       }
     }
   }
@@ -192,20 +254,21 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string): Promise<void> {
  *  Telegram notification is at-least-once; the callback is idempotent.
  */
 /** Exposed for an isolated DB smoke test; orderId limits side effects to one test order. */
-export async function runTaxiDispatchCycle(bot: Bot, onlyOrderId?: string): Promise<void> {
-  await dispatchDue(bot, onlyOrderId);
-  await enforceTimeout(bot, onlyOrderId);
-  await notifyOutcomes(bot, onlyOrderId);
+export async function runTaxiDispatchCycle(bot: Bot, onlyOrderId?: string, operatorBot: Bot = bot): Promise<void> {
+  await dispatchDue(operatorBot, onlyOrderId);
+  await enforceTimeout(operatorBot, onlyOrderId);
+  await notifyOutcomes(bot, onlyOrderId, operatorBot);
 }
 
-export function startTaxiDispatcher(bot: Bot): () => void {
+/** `bot` notifies customers/staff; `operatorBot` (default: the same bot) talks to taxi operators. */
+export function startTaxiDispatcher(bot: Bot, operatorBot: Bot = bot): () => void {
   let busy = false;
   let stopped = false;
   const tick = async () => {
     if (busy || stopped) return;
     busy = true;
     try {
-      await runTaxiDispatchCycle(bot);
+      await runTaxiDispatchCycle(bot, undefined, operatorBot);
     } catch (err) {
       console.error('[TAXI DISPATCH WORKER]', err instanceof Error ? err.message : err);
     } finally { busy = false; }

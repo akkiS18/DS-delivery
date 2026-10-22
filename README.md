@@ -4,7 +4,7 @@
 
 **Backend birinchi. Hali mijoz Telegram boti ulanmagan. Frontend yo‘q.**
 
-Texnologiyalar: Node.js 20.12+ (Node 22 tavsiya qilinadi), TypeScript, Fastify 5, Prisma 6.18.0, PostgreSQL, UZCARD Gmail Reader (Payment CLI V3'dan ko‘chirildi).
+Texnologiyalar: Node.js 24 LTS (>=24.7.0 <25; Argon2id uchun `crypto.argon2` kerak), TypeScript, Fastify 5, Prisma 6.18.0, PostgreSQL, UZCARD Gmail Reader (Payment CLI V3'dan ko‘chirildi).
 
 ## Qaysi qismi tayyor?
 

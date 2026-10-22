@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateTaxiDueAt, canFallback, needsCancellationAcknowledgement, operatorTransition } from './workflow.js';
+import { calculateTaxiDueAt, canFallback, needsCancellationAcknowledgement, operatorTransition, taxiStage } from './workflow.js';
 
 test('schedule before food ready and clamp at preparation start', () => {
   const t = new Date('2026-10-14T10:00:00Z');
@@ -11,16 +11,34 @@ test('no invalid preparation/lead time', () => {
   for (const n of [0, -1, 4.5, 241]) assert.throws(() => calculateTaxiDueAt(new Date(), n, 7));
   assert.throws(() => calculateTaxiDueAt(new Date(), 15, -1));
 });
-test('operator sent is allowed during request and cancellation confirmation', () => {
-  assert.equal(operatorTransition('REQUESTED', 'SENT'), 'ASSIGNED');
+test('operator sent needs a prior acceptance, or an explicit clarification of an unanswered request', () => {
+  assert.equal(operatorTransition('ACCEPTED', 'SENT'), 'ASSIGNED');
   assert.equal(operatorTransition('CANCELLATION_PENDING', 'SENT'), 'ASSIGNED');
+  assert.throws(() => operatorTransition('REQUESTED', 'SENT'), /ESKIRGAN/); // a notification is not an accepted booking
+});
+test('acceptance only from a fresh request', () => {
+  assert.equal(operatorTransition('REQUESTED', 'ACCEPT'), 'ACCEPTED');
+  for (const s of ['SCHEDULED', 'SENDING', 'ACCEPTED', 'ASSIGNED', 'DECLINED', 'DELIVERED', 'NEEDS_HELP', 'CANCELLATION_PENDING'] as const) {
+    assert.throws(() => operatorTransition(s, 'ACCEPT'), s);
+  }
+});
+test('delivered and dispatched states accept no further operator answers', () => {
+  for (const a of ['ACCEPT', 'SENT', 'NO_TAXI'] as const) {
+    assert.throws(() => operatorTransition('DELIVERED', a));
+    assert.throws(() => operatorTransition('ASSIGNED', a));
+  }
+  assert.equal(operatorTransition('ACCEPTED', 'NO_TAXI'), 'DECLINED');
+});
+test('stage mapping for the restaurant app', () => {
+  assert.deepEqual(['SCHEDULED', 'SENDING', 'REQUESTED', 'ACCEPTED', 'ASSIGNED', 'DELIVERED', 'DECLINED', 'NEEDS_HELP', 'CANCELLATION_PENDING', 'CANCELLED'].map(taxiStage),
+    ['SCHEDULED', 'REQUESTED', 'REQUESTED', 'ACCEPTED', 'DISPATCHED', 'DELIVERED', 'NEEDS_HELP', 'NEEDS_HELP', 'NEEDS_HELP', 'CANCELLED']);
 });
 test('no taxi explicitly declined including cancellation', () => {
   assert.equal(operatorTransition('REQUESTED', 'NO_TAXI'), 'DECLINED');
   assert.equal(operatorTransition('CANCELLATION_PENDING', 'NO_TAXI'), 'DECLINED');
 });
 test('stale or duplicate button is rejected', () => {
-  for (const s of ['SCHEDULED', 'SENDING', 'ASSIGNED', 'DECLINED'] as const) {
+  for (const s of ['SCHEDULED', 'SENDING', 'ASSIGNED', 'DECLINED', 'DELIVERED'] as const) {
     assert.throws(() => operatorTransition(s, 'SENT'));
     assert.throws(() => operatorTransition(s, 'NO_TAXI'));
   }

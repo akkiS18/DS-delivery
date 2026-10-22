@@ -19,6 +19,10 @@ export function startBotPaymentNotifier(bot: Telegraf<any>): () => void {
       for (const payment of payments) {
         if (!payment.order || payment.botLastNotifiedStatus === payment.status) continue;
         const id = payment.order.customer.telegramUserId;
+        if (!id) { // Android guest without a Telegram link: nobody to message; settle the marker so the row is not re-read every cycle
+          await db.payment.updateMany({ where: { id: payment.id, status: payment.status }, data: { botLastNotifiedStatus: payment.status } });
+          continue;
+        }
         const n = payment.order.number;
         const msgs: Record<string, string> = {
           AWAITING: `🟡 #${n}: karta ajratildi. Botda /orders buyrug‘i orqali rekvizitlarni ko‘ring.`,

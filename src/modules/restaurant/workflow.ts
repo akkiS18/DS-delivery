@@ -1,4 +1,6 @@
 export const PREP_CHOICES = [10, 15, 20, 30, 45, 60] as const;
+/** Same range as Restaurant.defaultPrepMinutes. PREP_CHOICES are only the legacy Telegram quick buttons. */
+export const isValidPrepMinutes = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 5 && n <= 120;
 export type StaffAction = 'VERIFY_PAYMENT' | 'START_PREPARING' | 'MARK_READY';
 export type WorkflowStatus = 'PAYMENT_MATCHED_UNVERIFIED' | 'PAYMENT_CONFIRMED' | 'PREPARING' | 'READY';
 
@@ -21,7 +23,7 @@ export function planStaffTransition(
     if (status !== 'PAYMENT_CONFIRMED' || paymentStatus !== 'CONFIRMED_MANUAL') {
       throw new Error('TAYYORLASH_UCHUN_TOLOV_TASDIGI_KERAK');
     }
-    if (!PREP_CHOICES.some(n => n === minutes)) throw new Error('TAYYORLASH_VAQTI_NOTOGRI');
+    if (!isValidPrepMinutes(minutes)) throw new Error('TAYYORLASH_VAQTI_NOTOGRI');
     return { from: 'PAYMENT_CONFIRMED', to: 'PREPARING', action };
   }
   if (action === 'MARK_READY') {

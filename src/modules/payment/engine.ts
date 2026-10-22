@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient, type Card, type Payment } from '@prisma/client';
-import { couldBelongToEarlierPayment, overlapsPaymentWindow } from './matching.js';
+import {
+  classifyAmountMismatch, couldBelongToEarlierPayment, incomingFingerprint, isDelayedNotification, overlapsPaymentWindow,
+} from './matching.js';
 import { formatSom } from './uzcard.js';
 
 export type Incoming = {
@@ -23,6 +25,8 @@ export type Options = {
   queueWindowMs: number;
   cooldownMs: number;
   ambiguityMs: number;
+  /** Stage 4A: a bank mail older than this (vs. the operation time) is never auto-matched. Default 30 min. */
+  maxNotificationDelayMs?: number;
 };
 export const defaultOptions: Options = {
   paymentWindowMs: 300_000,
@@ -32,6 +36,13 @@ export const defaultOptions: Options = {
 };
 const key = (p: Payment): string => `P${String(p.number).padStart(4, '0')}`;
 export const displayPayment = key;
+/** Append-only payment history (Stage 4A). */
+type PaymentEventInput = {
+  paymentId: string; action: string; fromStatus?: string; toStatus?: string; actorType?: string;
+  actorId?: string; incomingTransactionId?: string; details?: Prisma.InputJsonValue;
+};
+const record = (tx: Prisma.TransactionClient, e: PaymentEventInput) =>
+  tx.paymentEvent.create({ data: { ...e, actorType: e.actorType ?? 'SYSTEM' } });
 const allowedMoney = (n: bigint): void => {
   if (n < 100n || n > 10_000_000_000_000n) throw new Error('Noto‘g‘ri summa (tiyin).');
 };
@@ -50,6 +61,28 @@ export class PaymentEngineV3 {
       await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7013, 3001)`;
       return fn(tx);
     }, { maxWait: 60_000, timeout: 120_000 });
+  }
+
+  /** Stage 6A: run a callback under the same advisory lock that serializes matching and scheduling. */
+  runLocked<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    return this.locked(fn);
+  }
+
+  /** Stage 6A: unpaid cancellation of an order's single payment attempt. Only QUEUED/AWAITING can be cancelled; a
+   *  matched or confirmed payment is never touched here. Call inside runLocked. The card/amount cooldown protects
+   *  against reassigning the pair while the first payer's late transfer may still arrive; such a late mail is
+   *  classified LATE_FOR_EXPIRED_PAYMENT (manual review) by ingest. */
+  async cancelOpenPayment(
+    tx: Prisma.TransactionClient, orderId: string, now: Date, actor: { type: string; id: string },
+  ): Promise<{ cancelled: boolean; status: string | null }> {
+    const p = await tx.payment.findUnique({ where: { orderId } });
+    if (!p) return { cancelled: false, status: null };
+    if (p.status !== 'QUEUED' && p.status !== 'AWAITING') return { cancelled: false, status: p.status };
+    const { count } = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status: 'CANCELLED' } });
+    if (count !== 1) return { cancelled: false, status: p.status };
+    if (p.status === 'AWAITING' && p.cardId) await this.setCooldown(tx, p.cardId, p.amountTiyin, now);
+    await record(tx, { paymentId: p.id, action: 'CANCELLED', fromStatus: p.status, toStatus: 'CANCELLED', actorType: actor.type, actorId: actor.id });
+    return { cancelled: true, status: 'CANCELLED' };
   }
 
   async addCard(last4: string, isTest = false, restaurantId: string | null = null): Promise<Card> {
@@ -76,6 +109,7 @@ export class PaymentEngineV3 {
       const now = new Date();
       await this.expireWithin(tx, now);
       const created = await tx.payment.create({ data: { amountTiyin, isTest, isStress, orderId, restaurantId, status: 'QUEUED' } });
+      await record(tx, { paymentId: created.id, action: 'CREATED', toStatus: 'QUEUED' });
       const assigned = await this.assignForAmount(tx, amountTiyin, isTest, restaurantId, now);
       return { created, assigned };
     });
@@ -102,6 +136,7 @@ export class PaymentEngineV3 {
       const payment = await tx.payment.create({
         data: { amountTiyin, isTest, status: 'QUEUED', restaurantId: order.restaurantId, orderId: order.id },
       });
+      await record(tx, { paymentId: payment.id, action: 'CREATED', toStatus: 'QUEUED' });
       const assigned = await this.assignForAmount(tx, amountTiyin, isTest, order.restaurantId, now);
       return { order, payment, assigned };
     });
@@ -144,6 +179,7 @@ export class PaymentEngineV3 {
         },
       });
       await tx.card.update({ where: { id: card.id }, data: { lastAssignedAt: now } });
+      await record(tx, { paymentId: updated.id, action: 'ASSIGNED', fromStatus: 'QUEUED', toStatus: 'AWAITING', details: { cardId: card.id } });
       assigned.push(updated);
       count.set(card.id, (count.get(card.id) ?? 0) + 1);
     }
@@ -179,6 +215,7 @@ export class PaymentEngineV3 {
     });
     for (const payment of expiring) {
       await tx.payment.update({ where: { id: payment.id }, data: { status: 'EXPIRED' } });
+      await record(tx, { paymentId: payment.id, action: 'EXPIRED', fromStatus: 'AWAITING', toStatus: 'EXPIRED' });
       if (payment.orderId) await tx.order.updateMany({
         where: { id: payment.orderId, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_EXPIRED' },
       });
@@ -190,6 +227,9 @@ export class PaymentEngineV3 {
     });
     if (queuedOut.length) {
       await tx.payment.updateMany({ where: { id: { in: queuedOut.map(p => p.id) } }, data: { status: 'QUEUE_EXPIRED' } });
+      await tx.paymentEvent.createMany({ data: queuedOut.map(p => ({
+        paymentId: p.id, action: 'QUEUE_EXPIRED', fromStatus: 'QUEUED', toStatus: 'QUEUE_EXPIRED', actorType: 'SYSTEM',
+      })) });
       const orderIds = queuedOut.map(p => p.orderId).filter((id): id is string => id !== null);
       if (orderIds.length) await tx.order.updateMany({
         where: { id: { in: orderIds }, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_EXPIRED' },
@@ -233,10 +273,20 @@ export class PaymentEngineV3 {
           amountTiyin: input.amountTiyin, occurredAt: input.occurredAt,
           emailReceivedAt: input.emailReceivedAt,
           minutePrecision: input.minutePrecision, trustedSender: input.trustedSender,
+          fingerprint: input.source === 'GMAIL' ? incomingFingerprint(input.cardLast4, input.amountTiyin, input.occurredAt) : null,
         },
       });
-      const reviewed = async (reason: string, paymentNumber?: number): Promise<MatchResult> => {
-        await tx.incomingTransaction.update({ where: { id: incoming.id }, data: { status: 'REVIEW_REQUIRED', reason } });
+      // Stage 4A: every doubtful event ends here. Candidate payments get an audit entry but are never changed.
+      const reviewed = async (
+        reason: string, paymentNumber?: number, details?: Prisma.InputJsonValue, candidateIds: string[] = [],
+      ): Promise<MatchResult> => {
+        await tx.incomingTransaction.update({
+          where: { id: incoming.id },
+          data: { status: 'REVIEW_REQUIRED', reason, ...(details !== undefined ? { reviewDetails: details } : {}) },
+        });
+        for (const paymentId of candidateIds) {
+          await record(tx, { paymentId, action: 'INCOMING_FLAGGED', incomingTransactionId: incoming.id, details: { reason } });
+        }
         return { status: 'REVIEW_REQUIRED', reason, paymentNumber };
       };
       if (input.occurredAt.getTime() > now.getTime() + 120_000) return reviewed('FUTURE_OPERATION_TIME');
@@ -245,10 +295,58 @@ export class PaymentEngineV3 {
       if (card.isTest && input.source === 'GMAIL') return reviewed('GMAIL_FOR_MOCK_CARD');
       if (!card.isTest && input.source === 'MOCK') return reviewed('MOCK_FOR_REAL_CARD');
       if (!input.trustedSender) return reviewed('UNVERIFIED_EMAIL_SENDER');
-      const payment = await tx.payment.findFirst({
+      // Same bank event under a different Gmail id (forward, resend): keep it, but never match it twice.
+      if (incoming.fingerprint) {
+        const twins = await tx.incomingTransaction.findMany({
+          where: { fingerprint: incoming.fingerprint, id: { not: incoming.id } }, select: { sourceId: true }, take: 5,
+        });
+        if (twins.length) return reviewed('POSSIBLE_DUPLICATE_NOTIFICATION', undefined, { sameAs: twins.map(t => t.sourceId) });
+      }
+      const maxDelay = this.options.maxNotificationDelayMs ?? 1_800_000;
+      if (input.emailReceivedAt && isDelayedNotification(input.occurredAt.getTime(), input.emailReceivedAt.getTime(), maxDelay)) {
+        return reviewed('DELAYED_NOTIFICATION', undefined,
+          { delayMs: input.emailReceivedAt.getTime() - input.occurredAt.getTime() });
+      }
+      const active = await tx.payment.findMany({
         where: { cardId: card.id, amountTiyin: input.amountTiyin, status: 'AWAITING' },
       });
-      if (!payment || !payment.assignedAt || !payment.expiresAt) return reviewed('NO_ACTIVE_PAYMENT');
+      // The partial unique index makes this impossible; if it ever happens a human decides.
+      if (active.length > 1) {
+        return reviewed('MULTIPLE_ACTIVE_PAYMENTS', undefined, { payments: active.map(p => p.number) }, active.map(p => p.id));
+      }
+      const payment = active[0];
+      if (!payment || !payment.assignedAt || !payment.expiresAt) {
+        const t = input.occurredAt.getTime();
+        const inWindow = {
+          assignedAt: { lt: new Date(t + (input.minutePrecision ? 60_000 : 1)) }, expiresAt: { gt: new Date(t) },
+        };
+        // Same amount, already settled or expired attempt: duplicate/excess or late money, not a new match.
+        const settled = await tx.payment.findMany({
+          where: { cardId: card.id, amountTiyin: input.amountTiyin,
+            status: { in: ['EXPIRED', 'CANCELLED', 'MATCHED_UNVERIFIED', 'CONFIRMED_MANUAL'] }, ...inWindow },
+          orderBy: { number: 'asc' }, take: 5,
+        });
+        if (settled.length) {
+          const late = settled.every(p => p.status === 'EXPIRED' || p.status === 'CANCELLED');
+          return reviewed(late ? 'LATE_FOR_EXPIRED_PAYMENT' : 'ALREADY_MATCHED_PAYMENT', settled[0]!.number,
+            { payments: settled.map(p => ({ number: p.number, status: p.status })) }, settled.map(p => p.id));
+        }
+        // Different amount on the same card inside an open window: partial or excess payment.
+        const other = await tx.payment.findMany({
+          where: { cardId: card.id, status: 'AWAITING', amountTiyin: { not: input.amountTiyin }, ...inWindow },
+          orderBy: { number: 'asc' }, take: 5,
+        });
+        if (other.length) {
+          const kind = other.length === 1 ? classifyAmountMismatch(other[0]!.amountTiyin, input.amountTiyin) : null;
+          return reviewed(kind ?? 'AMOUNT_MISMATCH_MULTIPLE_CANDIDATES', other[0]!.number,
+            { receivedTiyin: input.amountTiyin.toString(),
+              expected: other.map(p => ({ number: p.number, tiyin: p.amountTiyin.toString() })) }, other.map(p => p.id));
+        }
+        return reviewed('NO_ACTIVE_PAYMENT');
+      }
+      if (payment.restaurantId !== card.restaurantId || payment.isTest !== card.isTest) {
+        return reviewed('CARD_PAYMENT_SCOPE_MISMATCH', payment.number, undefined, [payment.id]);
+      }
       if (input.emailReceivedAt && input.emailReceivedAt.getTime() < payment.assignedAt.getTime()) {
         return reviewed('EMAIL_ARRIVED_BEFORE_PAYMENT');
       }
@@ -270,9 +368,15 @@ export class PaymentEngineV3 {
         p.assignedAt.getTime(), input.occurredAt.getTime(), this.options.ambiguityMs,
       ))) return reviewed('PRIOR_SAME_CARD_AND_AMOUNT', payment.number);
 
-      await tx.payment.update({ where: { id: payment.id }, data: {
+      // Compare-and-set: the payment must still be AWAITING; a transaction links to one payment only.
+      const claimed = await tx.payment.updateMany({ where: { id: payment.id, status: 'AWAITING' }, data: {
         status: 'MATCHED_UNVERIFIED', matchedAt: now, matchedTransactionId: incoming.id,
       } });
+      if (claimed.count !== 1) return reviewed('PAYMENT_STATE_CHANGED', payment.number, undefined, [payment.id]);
+      await record(tx, {
+        paymentId: payment.id, action: 'MATCHED_UNVERIFIED', fromStatus: 'AWAITING', toStatus: 'MATCHED_UNVERIFIED',
+        incomingTransactionId: incoming.id, details: { source: input.source, signalOnly: true },
+      });
       await tx.incomingTransaction.update({ where: { id: incoming.id }, data: {
         status: 'MATCHED_UNVERIFIED', matchedPaymentId: payment.id,
       } });

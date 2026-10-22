@@ -1,14 +1,22 @@
 import { Telegraf, Markup, session } from 'telegraf';
 import { randomUUID } from 'node:crypto';
-import { placeOrder, orderDetails } from '../modules/orders/service.js';
+import { CheckoutError, placeOrder, orderDetails } from '../modules/orders/service.js';
+import { paymentMode, realRequisite as realRequisiteOf } from '../modules/payment/requisites.js';
+import { chatCheckoutEnabled, launcherKeyboard, LAUNCH_TEXT, miniAppUrl, registerMiniAppLauncher } from './miniapp-launch.js';
 import type { PaymentEngineV3 } from '../modules/payment/engine.js';
 import { normalizeUzPhone, checkoutSummary } from './checkout.js';
 import type { Context } from 'telegraf';
 import { db } from '../lib/db.js';
 import type { Cart } from './cart.js';
 import { cartTotal, changeQuantity, countItems, removeItem } from './cart.js';
-import { registerRestaurantHandlers } from './restaurant.js';
+import { registerRestaurantDisabledHandlers, registerRestaurantHandlers } from './restaurant.js';
+import { restaurantTelegramEnabled } from '../lib/features.js';
+import { advanceMockOrder } from '../modules/restaurant-orders/auto.js';
 import { registerTaxiHandlers } from './taxi.js';
+import { registerSupportHandlers } from './support.js';
+import { registerPriceConsentHandlers } from './price-consent.js';
+import { registerRefundHandlers } from './refunds.js';
+import { handleLinkStart, isLinkPayload, registerTelegramLinkHandlers } from './telegram-link.js';
 
 type CheckoutStep = 'phone' | 'address-choice' | 'address-text' | 'location' | 'location-note' | 'taxi' | 'confirm' | 'placed';
 interface CheckoutState {
@@ -23,6 +31,8 @@ interface CheckoutState {
   taxiCompanyName?: string;
   allowTaxiFallback?: boolean;
   orderId?: string;
+  /** The total the customer was shown on the confirmation screen; checkout refuses if prices changed since. */
+  expectedTotalSom?: number;
 }
 interface ClientSession {
   restaurantId?: string;
@@ -256,19 +266,8 @@ async function updateCart(ctx: ClientContext, productId: string, op: string): Pr
 }
 
 
-function mode(): 'MOCK' | 'REAL' {
-  return process.env.BOT_PAYMENT_MODE === 'REAL' ? 'REAL' : 'MOCK';
-}
-function realRequisite(last4: string): string | null {
-  try {
-    const parsed: unknown = JSON.parse(process.env.BOT_REAL_CARD_NUMBERS_JSON ?? '{}');
-    if (!parsed || typeof parsed !== 'object') return null;
-    const value = (parsed as Record<string, unknown>)[last4];
-    if (typeof value !== 'string') return null;
-    const digits = value.replace(/\s/g, '');
-    return /^\d{16}$/.test(digits) && digits.endsWith(last4) ? digits : null;
-  } catch { return null; }
-}
+const mode = paymentMode;
+const realRequisite = (last4: string) => realRequisiteOf(last4);
 function keyboardClear() { return Markup.removeKeyboard(); }
 function ensureCheckout(ctx: ClientContext, step: CheckoutStep): CheckoutState | null {
   const check = currentSession(ctx).checkout;
@@ -367,6 +366,7 @@ async function confirmScreen(ctx: ClientContext): Promise<void> {
     await ctx.reply('Mahsulot ma’lumotlari o‘zgargan. /cart orqali qayta tekshiring.'); return;
   }
   const amountSom = products.reduce((sum, p) => sum + p.priceSom * (state.cart[p.id] ?? 0), 0);
+  check.expectedTotalSom = amountSom;
   await ctx.reply(checkoutSummary({ restaurant: rest.name, phone: check.phone,
     address: check.addressText, taxi: check.taxiCompanyName, amountSom, mock: mode() === 'MOCK' }) +
     `\nBoshqa taksi izlashga rozilik: <b>${check.allowTaxiFallback ? 'Ha' : 'Yo‘q'}</b>`, {
@@ -394,6 +394,8 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
     `Buyurtma holati: <b>${escapeHtml(order.status)}</b>`,
     ...(order.status === 'READY' ? ['🍽 Taom tayyor, ammo hali yetkazilgan emas.'] : []),
   ];
+  const refund = await db.refundRequest.findFirst({ where: { orderId: order.id }, orderBy: { requestedAt: 'desc' }, select: { number: true, status: true } });
+  const refundLine = refund ? `Qaytarish #${refund.number}: ${refund.status}.` : '';
   const taxiAttempts = await db.taxiDispatch.findMany({
     where: { orderId: order.id }, orderBy: { attemptNo: 'desc' }, take: 1,
     include: { taxiCompany: { select: { name: true } } },
@@ -406,11 +408,18 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
       REQUESTED: '⏳ Taksi operatori javobi kutilmoqda',
       CANCELLATION_PENDING: '⚠️ Operator javobi kechikdi, tekshiruv davom etmoqda',
       ASSIGNED: '🚕 Operator haydovchi yuborilganini tasdiqladi',
-      DECLINED: '🚫 Taksi topilmadi', NEEDS_HELP: '⚠️ Taksi uchun administrator yordami kerak',
+      DECLINED: '🚫 Taksi topilmadi', CANCELLED: '🚫 Taksi so‘rovi bekor qilindi', NEEDS_HELP: '⚠️ Taksi uchun administrator yordami kerak',
     };
     lines.push(`${taxiStateLabels[taxiState.status] ?? taxiState.status} — ${escapeHtml(taxiState.taxiCompany.name)}`);
   }
-  if (!pay) lines.push('To‘lov yaratilmagan.');
+  if (order.status === 'WAITING_RESTAURANT') lines.push('⏳ Restoran buyurtmani tasdiqlashi kutilmoqda. To‘lov rekvizitlari tasdiqdan keyin yuboriladi. Hozir pul yubormang.');
+  else if (order.status === 'WAITING_CUSTOMER_CONSENT') lines.push('💬 Restoran yangi narx taklif qildi. Xabardagi tugma orqali rozilik bering yoki bekor qiling. Rozilik bermaguningizcha pul yubormang.');
+  else if (order.status === 'CANCELLATION_REQUESTED') lines.push('⏳ Bekor qilish so‘rovi restoranga yuborilgan. Qaror kutilmoqda; buyurtma to‘xtatilgan.');
+  else if (order.status === 'CANCELLED') lines.push('❌ Buyurtma bekor qilingan.' + (refundLine ? ` ${refundLine}` : ''));
+  else if (order.status === 'CUSTOMER_CANCELLED') lines.push('❌ Buyurtma bekor qilingan. Pul yubormang.');
+  else if (order.status === 'RESTAURANT_REJECTED') lines.push('🚫 Restoran buyurtmani qabul qila olmadi. Pul yubormang.');
+  else if (order.status === 'RESTAURANT_EXPIRED') lines.push('⌛ Restoran vaqtida javob bermadi. Pul yubormang; yangi buyurtma berishingiz mumkin.');
+  else if (!pay) lines.push('To‘lov yaratilmagan.');
   else if (pay.status === 'QUEUED') {
     lines.push('⌛ Hozir mos karta band. Navbatdasiz. Karta ajratilmaguncha pul yubormang.');
   } else if (pay.status === 'AWAITING') {
@@ -432,8 +441,14 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
     lines.push('⌛ To‘lov oynasi tugadi. Pul yuborgan bo‘lsangiz, administrator bilan bog‘laning.');
   } else lines.push(`To‘lov holati: ${escapeHtml(pay.status)}`);
   const keys = [[Markup.button.callback('🔄 Holatni yangilash', `checkout:status:${order.id}`)]];
+  if (['PAYMENT_PENDING', 'PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(order.status)) {
+    keys.push([Markup.button.callback('❌ Bekor qilish', `order:cx:${order.id}`)]);
+  }
   if (pay?.status === 'AWAITING' && pay.card?.isTest && mode() === 'MOCK' && process.env.NODE_ENV !== 'production') {
     keys.push([Markup.button.callback('🧪 MOCK kirim (pul yubormasdan)', `checkout:mock:${order.id}`)]);
+  }
+  if (order.status === 'WAITING_RESTAURANT' || order.status === 'WAITING_CUSTOMER_CONSENT') {
+    keys.push([Markup.button.callback('❌ Buyurtmani bekor qilish', `order:cancel:${order.id}`)]);
   }
   keys.push([Markup.button.callback('🏪 Restoranlar', 'restaurants')]);
   await ctx.reply(lines.join('\n'), { parse_mode: 'HTML', reply_markup: Markup.inlineKeyboard(keys).reply_markup });
@@ -456,15 +471,24 @@ async function listMyOrders(ctx: ClientContext): Promise<void> {
   ])));
 }
 
-export function createClientBot(token: string, engine: PaymentEngineV3): Telegraf<ClientContext> {
-  const bot = new Telegraf<ClientContext>(token);
+/** `telegramOptions` exists so tests can point the bot at a local fake Telegram API; production passes nothing. */
+export function createClientBot(token: string, engine: PaymentEngineV3, telegramOptions?: Partial<Telegraf.Options<ClientContext>>['telegram']): Telegraf<ClientContext> {
+  const bot = new Telegraf<ClientContext>(token, telegramOptions ? { telegram: telegramOptions } : undefined);
   // Customer interactions only in private chats. No group data exposure.
   bot.use(async (ctx, next) => {
     if (ctx.chat?.type !== 'private') return;
     return next();
   });
   bot.use(session({ defaultSession: freshSession }));
-  bot.start(async ctx => { await restaurants(ctx); });
+  registerMiniAppLauncher(bot); // /app, and the chat-checkout rollback switch (CHAT_CHECKOUT_ENABLED)
+  registerTelegramLinkHandlers(bot); // optional Android guest -> Telegram link (explicit confirmation on both sides)
+  bot.start(async ctx => {
+    if (isLinkPayload(ctx.startPayload)) { await handleLinkStart(ctx, ctx.startPayload); return; }
+    const url = miniAppUrl();
+    if (url) await ctx.reply(LAUNCH_TEXT, launcherKeyboard(url)); // the Mini App is the way to order; the bot notifies and supports
+    if (!url || chatCheckoutEnabled()) await restaurants(ctx);   // legacy chat checkout stays until the Mini App E2E has passed
+  });
+  bot.action('orders:list', async ctx => { await ctx.answerCbQuery(); await listMyOrders(ctx); });
   bot.command('restaurants', async ctx => { await restaurants(ctx); });
   bot.command('menu', async ctx => {
     const id = currentSession(ctx).restaurantId;
@@ -553,6 +577,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3): Telegra
         taxiCompanyId: check.taxiCompanyId, checkoutKey: check.key,
         createdViaBot: true, paymentMode: mode(),
         allowTaxiFallback: Boolean(check.allowTaxiFallback),
+        ...(check.expectedTotalSom !== undefined ? { expectedTotalSom: check.expectedTotalSom } : {}),
         items: Object.entries(state.cart).map(([productId, quantity]) => ({ productId, quantity })),
       });
       if (!result) throw new Error('Buyurtma ma’lumotlari topilmadi');
@@ -562,7 +587,17 @@ export function createClientBot(token: string, engine: PaymentEngineV3): Telegra
       await showOrder(ctx, result.id);
     } catch (error) {
       console.error('[BOT CHECKOUT]', error instanceof Error ? error.message : 'Unknown error');
-      await ctx.reply('Buyurtmani yakunlab bo‘lmadi. Restoran, mahsulot yoki karta holatini tekshiring. Pul yubormang.');
+      if (error instanceof CheckoutError && error.message === 'NARX_OZGARGAN') {
+        // Stage 6F: prices are validated before payment. Nothing was created; show the customer the new total to confirm again.
+        await ctx.reply('⚠️ Narxlar o‘zgargan, buyurtma yaratilmadi va pul olinmadi. Yangi jami summani ko‘rib, qayta tasdiqlang.');
+        await confirmScreen(ctx);
+      } else if (error instanceof CheckoutError && error.message === 'MAHSULOT_MAVJUD_EMAS') {
+        await ctx.reply('⚠️ Savatdagi mahsulotlardan biri hozir mavjud emas. Buyurtma yaratilmadi. /cart orqali savatni yangilang.');
+      } else if (error instanceof CheckoutError && error.message === 'RESTORAN_BUYURTMA_QABUL_QILMAYDI') {
+        await ctx.reply('⛔ Restoran hozir buyurtma olmayapti. Buyurtma yaratilmadi.');
+      } else {
+        await ctx.reply('Buyurtmani yakunlab bo‘lmadi. Restoran, mahsulot yoki karta holatini tekshiring. Pul yubormang.');
+      }
     } finally { inFlight.delete(id); }
   });
   bot.action(/^checkout:status:([\w-]+)$/, async ctx => {
@@ -578,12 +613,22 @@ export function createClientBot(token: string, engine: PaymentEngineV3): Telegra
       await ctx.reply('MOCK to‘lov faol emas.'); return;
     }
     await engine.ingestMock(BigInt(order.totalSom) * 100n, order.payment.card.last4);
+    await advanceMockOrder(order.id).catch(err => console.error('[MOCK AUTO]', err instanceof Error ? err.message : err)); // test payment -> cooking, no staff step
     await showOrder(ctx, order.id);
   });
   // Register /staff and /myid before the generic text handler, which consumes messages.
-  registerRestaurantHandlers(bot);
-  registerTaxiHandlers(bot);
-  bot.help(async ctx => { await ctx.reply('/start — restoranlar\n/menu — menyu\n/cart — savat\n/orders — mening buyurtmalarim\n/reset — savatni tozalash\n/staff — restoran xodimi uchun\n/taxi — taksi operatori\n/myid — Telegram ID'); });
+  if (restaurantTelegramEnabled()) registerRestaurantHandlers(bot, engine); // legacy staff panel, rollback only
+  else registerRestaurantDisabledHandlers(bot);
+  if (process.env.TAXI_BOT_TOKEN?.trim()) {
+    // Stage 6D: taxi operators work in the dedicated taxi bot; this bot never shows or answers dispatch requests.
+    bot.command('taxi', async ctx => { await ctx.reply('Taksi operatorlari uchun alohida DS Taxi bot ishlatiladi.'); });
+  } else {
+    registerTaxiHandlers(bot);
+  }
+  registerSupportHandlers(bot);
+  registerPriceConsentHandlers(bot, engine);
+  registerRefundHandlers(bot, engine);
+  bot.help(async ctx => { await ctx.reply('/start — restoranlar\n/menu — menyu\n/cart — savat\n/orders — mening buyurtmalarim\n/reset — savatni tozalash\n/staff — restoran xodimi uchun\n/taxi — taksi operatori\n/support — buyurtma bo‘yicha murojaat\n/mytickets — murojaatlarim\n/myid — Telegram ID'); });
   bot.on('contact', async ctx => {
     const contact = ctx.message.contact;
     if (!ensureCheckout(ctx, 'phone')) return;

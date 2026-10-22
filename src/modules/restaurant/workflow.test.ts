@@ -19,7 +19,11 @@ test('prep accepted only from verified payment', () => {
   for (const minutes of PREP_CHOICES) {
     assert.equal(planStaffTransition('PAYMENT_CONFIRMED', 'CONFIRMED_MANUAL', 'START_PREPARING', minutes).to, 'PREPARING');
   }
-  for (const minutes of [0, 1, 5, 61, 90, -1, 10.5]) {
+  // Stage 6E: any whole number of minutes 5..120 (the restaurant default range); the Telegram quick buttons are only a subset
+  for (const minutes of [5, 25, 61, 90, 120]) {
+    assert.equal(planStaffTransition('PAYMENT_CONFIRMED', 'CONFIRMED_MANUAL', 'START_PREPARING', minutes).to, 'PREPARING');
+  }
+  for (const minutes of [0, 1, 4, 121, -1, 10.5, Number.NaN]) {
     assert.throws(() => planStaffTransition('PAYMENT_CONFIRMED', 'CONFIRMED_MANUAL', 'START_PREPARING', minutes));
   }
 });
