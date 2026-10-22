@@ -38,8 +38,7 @@ interface OrderDetailCallbacks {
     fun onRefundRejectReasonSelected(reason: RefundRejectReason) {}
     fun confirmRefundReject() {}
     fun showRefundSentDialog(show: Boolean) {}
-    fun onBankReferenceChange(value: String) {}
-    fun confirmRefundSent() {}
+    fun confirmRefundSent(receiptJpeg: ByteArray) {}
     fun dismissActionNotice() {}
     fun dismissActionMessage() {}
 }
@@ -86,8 +85,7 @@ class OrderDetailViewModel(
     override fun showRefundApproveDialog(show: Boolean) = _uiState.update { it.copy(showRefundApproveDialog = show) }.let { }
     override fun showRefundRejectDialog(show: Boolean) = _uiState.update { it.copy(showRefundRejectDialog = show) }.let { }
     override fun onRefundRejectReasonSelected(reason: RefundRejectReason) = _uiState.update { it.copy(selectedRefundRejectReason = reason) }.let { }
-    override fun showRefundSentDialog(show: Boolean) = _uiState.update { it.copy(showRefundSentDialog = show, bankReference = "") }.let { }
-    override fun onBankReferenceChange(value: String) = _uiState.update { it.copy(bankReference = value.take(64)) }.let { }
+    override fun showRefundSentDialog(show: Boolean) = _uiState.update { it.copy(showRefundSentDialog = show) }.let { }
 
     /**
      * Runs one order mutation. A second tap while a request is in flight is ignored (also server-side idempotent),
@@ -178,11 +176,10 @@ class OrderDetailViewModel(
         }
     }
 
-    override fun confirmRefundSent() {
-        val ref = _uiState.value.bankReference
-        if (ref.trim().length < 4) return
+    override fun confirmRefundSent(receiptJpeg: ByteArray) {
+        if (receiptJpeg.size < 1024) return
         runAction("Qaytarish qayd etildi. Mijoz tasdiqlashi kutiladi.") { expected ->
-            repository.markRefundSent(orderId, ref, expected)
+            repository.uploadRefundReceipt(orderId, receiptJpeg, expected)
         }
     }
 

@@ -26,7 +26,6 @@ data class OrderDetailUiState(
     val showRefundRejectDialog: Boolean = false,
     val selectedRefundRejectReason: RefundRejectReason = RefundRejectReason.POLICY,
     val showRefundSentDialog: Boolean = false,
-    val bankReference: String = "",
     val showReadyConfirm: Boolean = false,
     val actionNoticeText: String? = null
 )

@@ -55,6 +55,14 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -209,7 +217,6 @@ fun OrderDetailContent(
                 ) {
                     SummaryCard(order, nowElapsed)
                     AttentionBanner(order)
-                    PriceProposalBanner(order)
 
                     // Operational actions: only what the server lists in allowedActions.
                     val busy = state.isSubmitting
@@ -558,31 +565,10 @@ fun OrderDetailContent(
         }
 
         if (state.showRefundSentDialog) {
-            AlertDialog(
-                onDismissRequest = { callbacks.showRefundSentDialog(false) },
-                title = { Text("Pul qaytarildi", fontWeight = FontWeight.Bold) },
-                text = {
-                    Column {
-                        Text("Bank o‘tkazmasining ma’lumotnoma (reference) raqamini kiriting. Bu sizning bayonotingiz: to‘liq tasdiq mijoz yoki administrator tomonidan qilinadi.", style = MaterialTheme.typography.bodySmall)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = state.bankReference,
-                            onValueChange = callbacks::onBankReferenceChange,
-                            label = { Text("Ma’lumotnoma raqami") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                },
-                confirmButton = {
-                    Button(
-                        onClick = callbacks::confirmRefundSent,
-                        enabled = state.bankReference.trim().length >= 4 && !state.isSubmitting,
-                        colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
-                    ) { Text("Saqlash") }
-                },
-                dismissButton = { TextButton(onClick = { callbacks.showRefundSentDialog(false) }) { Text("Bekor qilish") } },
-                shape = RoundedCornerShape(16.dp)
+            RefundReceiptDialog(
+                submitting = state.isSubmitting,
+                onSend = callbacks::confirmRefundSent,
+                onDismiss = { callbacks.showRefundSentDialog(false) }
             )
         }
 
@@ -842,15 +828,49 @@ private fun AttentionBanner(order: Order) {
     }
 }
 
+/** "Pul qaytarildi": the only proof asked for is ONE photo of the bank receipt. Nothing is typed. */
 @Composable
-private fun PriceProposalBanner(order: Order) {
-    val p = order.priceProposal ?: return
-    Surface(color = BrandMint.copy(alpha = 0.35f), shape = RoundedCornerShape(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Text(
-            "Mijoz roziligi kutilmoqda: ${som(p.oldTotalSom)} → ${som(p.newTotalSom)}. Mijoz rozilik bermaguncha to‘lov ochilmaydi.",
-            style = MaterialTheme.typography.bodySmall, color = BrandDark, modifier = Modifier.padding(12.dp)
-        )
+private fun RefundReceiptDialog(submitting: Boolean, onSend: (ByteArray) -> Unit, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var photo by remember { mutableStateOf<ByteArray?>(null) }
+    var problem by remember { mutableStateOf<String?>(null) }
+    var reading by remember { mutableStateOf(false) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            reading = true
+            scope.launch {
+                val bytes = withContext(Dispatchers.IO) { ReceiptImage.compressToJpeg(context, uri) }
+                reading = false
+                if (bytes == null) problem = "Rasmni o‘qib bo‘lmadi. Boshqa rasm tanlang." else { photo = bytes; problem = null }
+            }
+        }
     }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pul qaytarildi", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                Text("Bank chekining rasmini yuklang. Bu sizning bayonotingiz: to‘liq tasdiq mijoz yoki administrator tomonidan qilinadi.", style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !reading && !submitting, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (photo == null) "Chek rasmini tanlash" else "Boshqa rasm tanlash")
+                }
+                photo?.let { Text("Rasm tayyor (${it.size / 1024} KB)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
+                if (reading) Text("Rasm tayyorlanmoqda...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+                problem?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 8.dp)) }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { photo?.let(onSend) },
+                enabled = photo != null && !reading && !submitting,
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+            ) { Text("Yuborish") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Bekor qilish") } },
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Composable
@@ -897,7 +917,8 @@ private fun RefundCard(order: Order) {
             }
             Text(statusText, style = MaterialTheme.typography.bodyMedium)
             Text("To‘langan: ${som(r.paidAmountSom)}" + (r.approvedAmountSom?.let { " • qaytariladi: ${som(it)}" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            r.bankReference?.let { Text("Ma’lumotnoma: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (r.hasReceipt) Text("Bank cheki rasmi yuklangan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else r.bankReference?.let { Text("Ma’lumotnoma: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

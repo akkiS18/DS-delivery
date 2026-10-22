@@ -5,7 +5,6 @@ import com.dsdelivery.restaurant.data.model.PaymentEvidence
 import com.dsdelivery.restaurant.data.model.PrepInfo
 import com.dsdelivery.restaurant.data.model.ServerClock
 import com.dsdelivery.restaurant.data.model.parseIsoMillis
-import com.dsdelivery.restaurant.data.model.PriceChange
 import com.dsdelivery.restaurant.data.model.RefundInfo
 import com.dsdelivery.restaurant.data.model.OrderAction
 import com.dsdelivery.restaurant.data.model.OrderItem
@@ -60,11 +59,6 @@ data class PrepDto(
     @SerializedName("estimatedReadyAt") val estimatedReadyAt: String? = null
 )
 
-data class PriceChangeDto(
-    @SerializedName("oldTotalSom") val oldTotalSom: Int = 0,
-    @SerializedName("newTotalSom") val newTotalSom: Int = 0
-)
-
 data class MenuProblemDto(
     @SerializedName("kind") val kind: String = "",
     @SerializedName("name") val name: String = ""
@@ -80,6 +74,7 @@ data class RefundDto(
     @SerializedName("paidAmountSom") val paidAmountSom: Int = 0,
     @SerializedName("approvedAmountSom") val approvedAmountSom: Int? = null,
     @SerializedName("bankReference") val bankReference: String? = null,
+    @SerializedName("hasReceipt") val hasReceipt: Boolean = false,
     @SerializedName("rejectReason") val rejectReason: String? = null
 )
 
@@ -114,8 +109,6 @@ data class OrderDto(
     @SerializedName("awaitingPaymentVerification") val awaitingPaymentVerification: Boolean? = null,
     @SerializedName("defaultPrepMinutes") val defaultPrepMinutes: Int? = null,
     @SerializedName("paymentEvidence") val paymentEvidence: PaymentEvidenceDto? = null,
-    @SerializedName("priceChange") val priceChange: PriceChangeDto? = null,
-    @SerializedName("priceProposal") val priceProposal: PriceChangeDto? = null,
     @SerializedName("menuProblems") val menuProblems: List<MenuProblemDto>? = null,
     @SerializedName("refund") val refund: RefundDto? = null,
     @SerializedName("attention") val attention: List<String>? = null,
@@ -170,11 +163,6 @@ data class RefundDecisionRequestDto(
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
 
-data class RefundSentRequestDto(
-    @SerializedName("bankReference") val bankReference: String,
-    @SerializedName("expectedStatus") val expectedStatus: String? = null
-)
-
 data class ReadyOrderRequestDto(
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
@@ -214,11 +202,9 @@ fun OrderDto.toDomain(): Order {
                 signalOccurredAt = it.signal?.occurredAt, signalTrusted = it.signal?.trustedSender, notBankProof = it.notBankProof
             )
         },
-        priceChange = priceChange?.let { PriceChange(it.oldTotalSom, it.newTotalSom) },
-        priceProposal = priceProposal?.let { PriceChange(it.oldTotalSom, it.newTotalSom) },
         menuProblems = menuProblems.orEmpty().map { it.name },
         refund = refund?.let {
-            RefundInfo(it.id, it.number, it.kind, it.status, it.reasonCode, it.requestedBy, it.paidAmountSom, it.approvedAmountSom, it.bankReference, it.rejectReason)
+            RefundInfo(it.id, it.number, it.kind, it.status, it.reasonCode, it.requestedBy, it.paidAmountSom, it.approvedAmountSom, it.bankReference, it.hasReceipt, it.rejectReason)
         },
         attention = attention.orEmpty(),
         clock = serverNow?.let { parseIsoMillis(it) }?.let { ServerClock(it, SystemClock.elapsedRealtime()) },

@@ -4,7 +4,8 @@ import com.dsdelivery.restaurant.data.api.ApiClient
 import com.dsdelivery.restaurant.data.api.dto.AcceptOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CancelOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.RefundDecisionRequestDto
-import com.dsdelivery.restaurant.data.api.dto.RefundSentRequestDto
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.dsdelivery.restaurant.data.api.dto.VerifyPaymentRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CreateCategoryRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CreateProductRequestDto
@@ -503,8 +504,8 @@ class RestaurantRepositoryImpl(
     override suspend fun rejectRefund(id: String, reasonCode: String, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.rejectRefund(id, RefundDecisionRequestDto(rejectReason = reasonCode, expectedStatus = expectedStatus)) }
 
-    override suspend fun markRefundSent(id: String, bankReference: String, expectedStatus: String?): Resource<Order> =
-        orderAction { apiClient.service.markRefundSent(id, RefundSentRequestDto(bankReference.trim(), expectedStatus)) }
+    override suspend fun uploadRefundReceipt(id: String, receiptJpeg: ByteArray, expectedStatus: String?): Resource<Order> =
+        orderAction { apiClient.service.uploadRefundReceipt(id, expectedStatus, receiptJpeg.toRequestBody("image/jpeg".toMediaType())) }
 
     // --- Stage 4: Operations & Settings ---
 

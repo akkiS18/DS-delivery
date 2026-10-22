@@ -103,7 +103,7 @@ export interface OrderView {
   taxi: { stage: string | null; companyName: string } | null;
   deliveredAt: string | null;
   cancel: { allowed: boolean; kind: 'UNPAID' | 'REFUND_REQUEST' | null };
-  refund: { status: string } | null;
+  refund: { status: string; hasReceipt: boolean } | null;
 }
 
 export interface OrderSummary {

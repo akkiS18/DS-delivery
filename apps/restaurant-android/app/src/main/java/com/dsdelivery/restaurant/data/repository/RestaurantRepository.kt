@@ -69,7 +69,7 @@ interface RestaurantRepository {
     suspend fun cancelOrder(id: String, reasonCode: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun approveRefund(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun rejectRefund(id: String, reasonCode: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
-    suspend fun markRefundSent(id: String, bankReference: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
+    suspend fun uploadRefundReceipt(id: String, receiptJpeg: ByteArray, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
 
     // --- Stage 4: Operations & Settings ---
     suspend fun updateRestaurantStatus(isPaused: Boolean): Resource<Unit>

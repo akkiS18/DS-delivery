@@ -115,8 +115,6 @@ data class PaymentEvidence(
     val notBankProof: Boolean
 )
 
-data class PriceChange(val oldTotalSom: Int, val newTotalSom: Int)
-
 /**
  * Preparation clock from the SERVER. [serverNowMillis] is the server time when the response was built and
  * [receivedAtElapsed] the device's monotonic clock at that moment, so remaining time never depends on the phone's wall clock.
@@ -148,6 +146,8 @@ data class RefundInfo(
     val paidAmountSom: Int,
     val approvedAmountSom: Int?,
     val bankReference: String?,
+    /** The restaurant attached a photo of the bank receipt (the only proof asked for a sent refund). */
+    val hasReceipt: Boolean,
     val rejectReason: String?
 )
 
@@ -214,8 +214,6 @@ data class Order(
     val createdAtMillis: Long? = null,
     val verifiedAtMillis: Long? = null,
     val readyAtMillis: Long? = null,
-    val priceChange: PriceChange? = null,
-    val priceProposal: PriceChange? = null,
     val menuProblems: List<String> = emptyList(),
     val refund: RefundInfo? = null,
     /** Exception states that need a human: VERIFY_PAYMENT, PRICE_CHANGED, AUTO_START_FAILED, TAXI_NEEDS_HELP, ... */

@@ -22,12 +22,16 @@ class ApiConfig(context: Context) {
             val normalized = normalizeUrl(value)
             // Refuse (do not store) anything that fails the HTTPS policy.
             if (validationError(normalized) != null) return
-            prefs.edit().putString(KEY_BASE_URL, normalized).apply()
+            prefs.edit().putString(KEY_BASE_URL, normalized).putString(KEY_DEFAULT_AT_SAVE, normalizeUrl(BuildConfig.DEFAULT_BASE_URL)).apply()
             _baseUrlFlow.value = normalized
         }
 
     private fun loadBaseUrl(): String {
-        val saved = prefs.getString(KEY_BASE_URL, null)
+        // A saved address is honoured only if it was chosen inside a build with the SAME default address. An address left behind by an older or
+        // differently configured build (emulator, LAN, tunnel) must never override this build's default, so a staging/release build cannot
+        // silently keep talking to an old server.
+        val savedForDefault = prefs.getString(KEY_DEFAULT_AT_SAVE, null)
+        val saved = prefs.getString(KEY_BASE_URL, null)?.takeIf { savedForDefault == normalizeUrl(BuildConfig.DEFAULT_BASE_URL) }
         val savedNormalized = saved?.takeIf { it.isNotBlank() }?.let { normalizeUrl(it) }
         return if (savedNormalized != null && validationError(savedNormalized) == null) {
             savedNormalized
@@ -43,6 +47,7 @@ class ApiConfig(context: Context) {
     companion object {
         private const val PREFS_NAME = "ds_restaurant_api_config"
         private const val KEY_BASE_URL = "api_base_url"
+        private const val KEY_DEFAULT_AT_SAVE = "api_base_url_default_at_save"
 
         const val EMULATOR_URL = "http://10.0.2.2:4000/"
         const val LOCALHOST_URL = "http://127.0.0.1:4000/"

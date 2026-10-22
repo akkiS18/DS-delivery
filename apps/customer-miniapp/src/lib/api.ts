@@ -92,5 +92,7 @@ export const api = {
   telegramLink: (id: string, signal?: AbortSignal) => request<LinkStatus>(`/me/telegram-link/${encodeURIComponent(id)}`, { signal }),
   confirmTelegramLink: (id: string) => request<{ status: 'COMPLETED'; merged: boolean | null; session: { token: string; expiresAt: string } | null }>(`/me/telegram-link/${encodeURIComponent(id)}/confirm`, { method: 'POST' }),
   cancelTelegramLink: (id: string) => request<LinkStatus>(`/me/telegram-link/${encodeURIComponent(id)}/cancel`, { method: 'POST' }),
+  /** The bank-receipt photo the restaurant attached to a sent refund (base64 JSON; the order's own customer only). */
+  refundReceipt: (id: string, signal?: AbortSignal) => request<{ mime: string; dataBase64: string; sentAt: string | null }>(`/orders/${encodeURIComponent(id)}/refund/receipt`, { signal }),
   mockPay: (id: string) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/mock-payment`, { method: 'POST' }),
 };

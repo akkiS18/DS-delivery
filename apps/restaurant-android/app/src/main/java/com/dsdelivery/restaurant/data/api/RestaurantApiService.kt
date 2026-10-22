@@ -3,7 +3,6 @@ package com.dsdelivery.restaurant.data.api
 import com.dsdelivery.restaurant.data.api.dto.AcceptOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CancelOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.RefundDecisionRequestDto
-import com.dsdelivery.restaurant.data.api.dto.RefundSentRequestDto
 import com.dsdelivery.restaurant.data.api.dto.VerifyPaymentRequestDto
 import com.dsdelivery.restaurant.data.api.dto.AuthMeResponseDto
 import com.dsdelivery.restaurant.data.api.dto.OrdersResponseDto
@@ -164,8 +163,9 @@ interface RestaurantApiService {
     @POST("api/v1/restaurant/orders/{id}/refund/reject")
     suspend fun rejectRefund(@Path("id") id: String, @Body body: RefundDecisionRequestDto): OrderDto
 
-    @POST("api/v1/restaurant/orders/{id}/refund/sent")
-    suspend fun markRefundSent(@Path("id") id: String, @Body body: RefundSentRequestDto): OrderDto
+    /** "Qaytarildi": ONE photo of the bank receipt as the raw body (image/jpeg), nothing typed. */
+    @POST("api/v1/restaurant/orders/{id}/refund/receipt")
+    suspend fun uploadRefundReceipt(@Path("id") id: String, @Query("expectedStatus") expectedStatus: String?, @Body body: okhttp3.RequestBody): OrderDto
 
     // --- Stage 6B: Restaurant Finance (read-only) ---
     @GET("api/v1/restaurant/finance/summary")

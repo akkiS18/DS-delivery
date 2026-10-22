@@ -17,6 +17,8 @@ export function OrderScreen({ id }: { id: string }) {
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState<'pay' | 'cancel' | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [receipt, setReceipt] = useState<{ mime: string; dataBase64: string } | null>(null);
+  const [receiptBusy, setReceiptBusy] = useState(false);
   const alive = useRef(true);
 
   const adopt = useCallback((o: OrderView) => { setOrder(o); setAnchor(anchorOf(o.serverNow, performance.now())); setError(null); }, []);
@@ -101,6 +103,23 @@ export function OrderScreen({ id }: { id: string }) {
         {o.stage === 'NEEDS_HELP' && <div className="banner warn">Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.</div>}
         {o.stage === 'EXPIRED' && <div className="banner bad">To‘lov muddati tugadi. Yangi buyurtma bering.</div>}
         {o.refund && <div className="banner">Pulni qaytarish holati: <strong>{o.refund.status}</strong></div>}
+        {o.refund?.hasReceipt && (
+          <div className="stack">
+            {receipt
+              ? (
+                <>
+                  <img alt="Restoran yuborgan bank cheki" src={`data:${receipt.mime};base64,${receipt.dataBase64}`} style={{ maxWidth: '100%', borderRadius: 12 }} />
+                  <Button small variant="secondary" onClick={() => setReceipt(null)}>Chekni yopish</Button>
+                </>
+              )
+              : (
+                <Button small variant="secondary" loading={receiptBusy} onClick={() => {
+                  setReceiptBusy(true);
+                  api.refundReceipt(id).then(r => setReceipt(r), () => toast('Chek rasmini yuklab bo‘lmadi. Keyinroq urinib ko‘ring.')).finally(() => { if (alive.current) setReceiptBusy(false); });
+                }}>Qaytarish chekini ko‘rish</Button>
+              )}
+          </div>
+        )}
       </div>
 
       {awaiting && pay && (
