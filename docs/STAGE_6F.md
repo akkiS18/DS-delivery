@@ -1,5 +1,7 @@
 # Stage 6F — simpler business workflow (before the Mini App)
 
+> **Update (Stage 7D):** the residual price-consent code mentioned below was deleted; see `docs/STAGE_7D.md`.
+
 ## New checkout lifecycle
 ```
 customer checks out (bot today, Mini App later)

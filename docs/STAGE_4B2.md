@@ -1,5 +1,7 @@
 # Stage 4B-2 — Safe acceptance, price consent and customer cancellation
 
+> **Superseded (Stage 7D):** the price-change / customer-consent workflow described here was removed by an owner decision; see `docs/STAGE_7D.md`. Kept as history.
+
 Continues Stage 4B-1. PaymentEngineV3, the Stage 4A matching rules, support and taxi logic are untouched. Still true: **no payment attempt exists for an order until the restaurant has accepted (and, if the price changed, the customer has consented)**.
 
 ## 1. Non-bot REAL HTTP orders — decision: refuse creation
