@@ -7,6 +7,7 @@ import { createShutdown } from './lib/shutdown.js';
 import { PaymentEngineV3, defaultOptions } from './modules/payment/engine.js';
 import { startGmail } from './modules/payment/gmail.js';
 import { gmailAlertSender } from './bot/gmail-alerts.js';
+import { startCardApprovalNotifier } from './bot/card-admin.js';
 import { createClientBot } from './bot/client.js';
 import { createTaxiBot } from './bot/taxi-bot.js';
 import { chatCheckoutEnabled, miniAppUrl, setMiniAppMenuButton } from './bot/miniapp-launch.js';
@@ -29,6 +30,7 @@ let stopGmail: (() => void) | undefined;
 let clientBot: ReturnType<typeof createClientBot> | undefined;
 let taxiBot: ReturnType<typeof createTaxiBot> | undefined;
 let stopBotNotifier: (() => void) | undefined;
+let stopCardNotifier: (() => void) | undefined;
 let stopRestaurantNotifier: (() => void) | undefined;
 let stopTaxiDispatcher: (() => void) | undefined;
 let stopSupportNotifier: (() => void) | undefined;
@@ -79,6 +81,7 @@ const shutdown = createShutdown(() => [
   { name: 'restaurant-notifier', run: () => stopRestaurantNotifier?.() },
   { name: 'taxi-dispatcher', run: () => stopTaxiDispatcher?.() },
   { name: 'support-notifier', run: () => stopSupportNotifier?.() },
+  { name: 'card-notifier', run: () => stopCardNotifier?.() },
   { name: 'telegram-polling', run: () => stopPolling('shutdown') },
   { name: 'maintenance-in-flight', run: async () => { await maintenanceRun; } },
   { name: 'http', run: () => app.close() },
@@ -137,6 +140,8 @@ try {
     app.log.info('Taxi dispatch worker started (DB-backed)');
     stopSupportNotifier = startSupportNotifier(clientBot);
     app.log.info('Support ticket notifier started');
+    stopCardNotifier = startCardApprovalNotifier(clientBot);
+    app.log.info('Card approval notifier started');
   }
   // Gmail starts only after Telegram polling is confirmed: a duplicate instance gets 409 and exits before it ever reads the mailbox.
   if (env.GMAIL_ENABLED === 'true') {

@@ -97,12 +97,16 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
   if (mode === 'REAL') {
     if (env.GMAIL_ENABLED !== 'true') errors.push('BOT_PAYMENT_MODE=REAL requires GMAIL_ENABLED=true (payments are confirmed from the bank e-mail).');
     if (/test/i.test(dbName)) errors.push('BOT_PAYMENT_MODE=REAL is not allowed on a test database.');
-    try {
-      const cards = JSON.parse(env.BOT_REAL_CARD_NUMBERS_JSON ?? '') as unknown;
-      const ok = typeof cards === 'object' && cards !== null && !Array.isArray(cards) && Object.keys(cards).length > 0
-        && Object.entries(cards).every(([last4, n]) => /^\d{4}$/.test(last4) && typeof n === 'string' && /^\d{16}$/.test(n) && n.endsWith(last4));
-      if (!ok) errors.push('BOT_REAL_CARD_NUMBERS_JSON must map each 4-digit suffix to the matching 16-digit card number.');
-    } catch { errors.push('BOT_REAL_CARD_NUMBERS_JSON is required for REAL payments and must be valid JSON.'); }
+    // Stage 8B: payee numbers are entered in the restaurant app and approved by an administrator (Card.number). BOT_REAL_CARD_NUMBERS_JSON is
+    // only the fallback for legacy cards without a stored number: optional, but when present it must be valid.
+    if (env.BOT_REAL_CARD_NUMBERS_JSON?.trim()) {
+      try {
+        const cards = JSON.parse(env.BOT_REAL_CARD_NUMBERS_JSON) as unknown;
+        const ok = typeof cards === 'object' && cards !== null && !Array.isArray(cards) && Object.keys(cards).length > 0
+          && Object.entries(cards).every(([last4, n]) => /^\d{4}$/.test(last4) && typeof n === 'string' && /^\d{16}$/.test(n) && n.endsWith(last4));
+        if (!ok) errors.push('BOT_REAL_CARD_NUMBERS_JSON must map each 4-digit suffix to the matching 16-digit card number.');
+      } catch { errors.push('BOT_REAL_CARD_NUMBERS_JSON must be valid JSON.'); }
+    }
     if (production && env.CONFIRM_REAL_PAYMENTS !== 'yes') {
       errors.push('REAL payments in production need an explicit CONFIRM_REAL_PAYMENTS=yes. This is a deliberate extra switch so they cannot be enabled by accident.');
     }

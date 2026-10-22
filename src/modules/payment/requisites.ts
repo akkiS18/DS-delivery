@@ -4,6 +4,17 @@ export function paymentMode(env: NodeJS.ProcessEnv = process.env): 'MOCK' | 'REA
 }
 
 /**
+ * The number customers pay to for a given card row. Stage 8B: the restaurant enters it in its app and an administrator approves it
+ * (Card.number, validated 16 digits ending in last4). Legacy cards fall back to the operator configuration below. Anything missing or
+ * inconsistent returns null: callers must then tell the customer not to pay.
+ */
+export function payeeNumber(card: { last4: string; number?: string | null }, env: NodeJS.ProcessEnv = process.env): string | null {
+  const n = card.number;
+  if (typeof n === 'string' && /^\d{16}$/.test(n) && n.endsWith(card.last4)) return n;
+  return realRequisite(card.last4, env);
+}
+
+/**
  * The 16-digit number customers must pay to, taken ONLY from operator configuration (BOT_REAL_CARD_NUMBERS_JSON maps a card's last4
  * to its number). Anything missing or inconsistent returns null: callers must then tell the customer not to pay - a recipient is
  * never guessed or invented.

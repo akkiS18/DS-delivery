@@ -56,6 +56,7 @@
     "test:miniapp:db": "node --env-file=.env --import tsx --test src/tests/miniapp.db.test.ts",
     "test:taxi:recovery:db": "node --env-file=.env --import tsx --test src/tests/taxi.recovery.db.test.ts",
     "miniapp:build": "npm --prefix apps/customer-miniapp run build",
+    "test:cards:db": "node --env-file=.env --import tsx --test src/tests/restaurant-cards.db.test.ts",
     "test:checkout6f:db": "node --env-file=.env --import tsx --test src/tests/checkout.stage6f.db.test.ts",
     "test:orders:db": "node --env-file=.env --import tsx --test src/tests/restaurant-orders.db.test.ts",
     "test:catalog": "node --import tsx --test src/modules/restaurant-catalog/catalog.test.ts",

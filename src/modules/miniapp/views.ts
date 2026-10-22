@@ -1,6 +1,6 @@
 import { db } from '../../lib/db.js';
 import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
-import { realRequisite } from '../payment/requisites.js';
+import { payeeNumber } from '../payment/requisites.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { prepClock } from '../restaurant-orders/service.js';
 import { taxiStage, type TaxiStage } from '../taxi/workflow.js';
@@ -104,10 +104,10 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
 
   let instructions: unknown = null;
   if (pay?.status === 'AWAITING' && pay.card) {
-    const requisite = pay.card.isTest ? null : realRequisite(pay.card.last4);
+    const requisite = pay.card.isTest ? null : payeeNumber(pay.card);
     instructions = {
       cardLast4: pay.card.last4, isTest: pay.card.isTest,
-      // The payee number comes only from operator configuration; if it is not configured the customer is told NOT to pay.
+      // The payee number is the approved Card.number (or the legacy operator configuration); if neither exists the customer is told NOT to pay.
       cardNumber: requisite, recipientUnavailable: !pay.card.isTest && !requisite,
       expiresAt: pay.expiresAt?.toISOString() ?? null,
     };

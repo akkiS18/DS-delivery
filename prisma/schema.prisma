@@ -307,8 +307,29 @@ model Card {
   createdAt      DateTime       @default(now()) @db.Timestamptz(3)
   payments       Payment[]
   cooldowns      CardCooldown[]
+  events         CardEvent[]
+  // Stage 8B: payee number managed in the restaurant app. number is NULL for legacy cards; approvalStatus gates assignment.
+  // The partial unique index Card_number_key lives only in the migration SQL.
+  number          String?
+  approvalStatus  String         @default("APPROVED")
+  decidedAt       DateTime?      @db.Timestamptz(3)
+  decidedBy       String?
+  adminNotifiedAt DateTime?      @db.Timestamptz(3)
 
   @@index([restaurantId, isTest, active])
+}
+
+model CardEvent {
+  id        String   @id @default(cuid())
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id])
+  action    String
+  actorType String
+  actorId   String?
+  details   Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([cardId, createdAt])
 }
 
 model Payment {

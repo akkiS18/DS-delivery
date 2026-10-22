@@ -43,10 +43,12 @@ describe('checkConfig', () => {
     const real = { ...base, BOT_PAYMENT_MODE: 'REAL' };
     const e = errs(real);
     assert.ok(has(e, 'GMAIL_ENABLED=true'));
-    assert.ok(has(e, 'BOT_REAL_CARD_NUMBERS_JSON'));
-    const okReal = { ...real, GMAIL_ENABLED: 'true', BOT_REAL_CARD_NUMBERS_JSON: '{"8167":"8600123456788167"}' };
+    assert.ok(!has(e, 'BOT_REAL_CARD_NUMBERS_JSON'), 'cards come from the restaurant app now; the JSON is only a legacy fallback');
+    const okReal = { ...real, GMAIL_ENABLED: 'true' };
     assert.deepEqual(errs(okReal), []);
+    assert.deepEqual(errs({ ...okReal, BOT_REAL_CARD_NUMBERS_JSON: '{"8167":"8600123456788167"}' }), []);
     assert.ok(has(errs({ ...okReal, BOT_REAL_CARD_NUMBERS_JSON: '{"1111":"8600123456788167"}' }), 'BOT_REAL_CARD_NUMBERS_JSON'));
+    assert.ok(has(errs({ ...okReal, BOT_REAL_CARD_NUMBERS_JSON: 'not json' }), 'BOT_REAL_CARD_NUMBERS_JSON'));
     assert.ok(has(errs({ ...okReal, DATABASE_URL: 'postgresql://u:pw@db/ds_delivery_test' }), 'test database'));
     assert.ok(has(errs({ ...okReal, NODE_ENV: 'production' }), 'CONFIRM_REAL_PAYMENTS'));
     assert.deepEqual(errs({ ...okReal, NODE_ENV: 'production', CONFIRM_REAL_PAYMENTS: 'yes', INTERNAL_API_KEY: 'r4nd0m'.repeat(8) }), []);

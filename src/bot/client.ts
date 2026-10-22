@@ -1,7 +1,7 @@
 import { Telegraf, Markup, session } from 'telegraf';
 import { randomUUID } from 'node:crypto';
 import { CheckoutError, placeOrder, orderDetails } from '../modules/orders/service.js';
-import { paymentMode, realRequisite as realRequisiteOf } from '../modules/payment/requisites.js';
+import { paymentMode, payeeNumber } from '../modules/payment/requisites.js';
 import { chatCheckoutEnabled, launcherKeyboard, LAUNCH_TEXT, miniAppUrl, registerMiniAppLauncher } from './miniapp-launch.js';
 import type { PaymentEngineV3 } from '../modules/payment/engine.js';
 import { normalizeUzPhone, checkoutSummary } from './checkout.js';
@@ -14,6 +14,7 @@ import { restaurantTelegramEnabled } from '../lib/features.js';
 import { advanceMockOrder } from '../modules/restaurant-orders/auto.js';
 import { registerTaxiHandlers } from './taxi.js';
 import { registerSupportHandlers } from './support.js';
+import { registerCardAdminHandlers } from './card-admin.js';
 import { registerOrderCancelHandler } from './order-cancel.js';
 import { registerRefundHandlers } from './refunds.js';
 import { handleLinkStart, isLinkPayload, registerTelegramLinkHandlers } from './telegram-link.js';
@@ -267,7 +268,6 @@ async function updateCart(ctx: ClientContext, productId: string, op: string): Pr
 
 
 const mode = paymentMode;
-const realRequisite = (last4: string) => realRequisiteOf(last4);
 function keyboardClear() { return Markup.removeKeyboard(); }
 function ensureCheckout(ctx: ClientContext, step: CheckoutStep): CheckoutState | null {
   const check = currentSession(ctx).checkout;
@@ -299,7 +299,7 @@ async function beginCheckout(ctx: ClientContext): Promise<void> {
       await ctx.reply('Real to‘lov yoqilmagan: Gmail monitoringi o‘chiq.'); return;
     }
     const realCards = await db.card.findMany({ where: { restaurantId: rest.id, isTest: false, active: true } });
-    if (!realCards.length || realCards.some(c => !realRequisite(c.last4))) {
+    if (!realCards.length || realCards.some(c => !payeeNumber(c))) {
       await ctx.reply('Restoran uchun haqiqiy karta rekvizitlari sozlanmagan. Administratorga murojaat qiling.'); return;
     }
   } else {
@@ -425,7 +425,7 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
     if (mode() === 'MOCK' || pay.card?.isTest) {
       lines.push(`🧪 <b>SINOV!</b> MOCK karta ***${pay.card?.last4 ?? '????'}. Haqiqiy pul yubormang.`);
     } else {
-      const requisites = pay.card?.last4 ? realRequisite(pay.card.last4) : null;
+      const requisites = pay.card ? payeeNumber(pay.card) : null;
       if (!requisites) lines.push('⚠️ Karta rekvizitlari mavjud emas. Pul yubormang, administratorga murojaat qiling.');
       else lines.push(`💳 Restoran kartasi: <code>${requisites}</code>`);
       lines.push('⚠️ Bu xabar kirimni mustaqil bank tasdig‘i bilan tekshirmaydi.');
@@ -625,6 +625,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
     registerTaxiHandlers(bot);
   }
   registerSupportHandlers(bot);
+  registerCardAdminHandlers(bot); // /cards + approval of restaurant-added payee cards (support admins only)
   registerOrderCancelHandler(bot);
   registerRefundHandlers(bot, engine);
   bot.help(async ctx => { await ctx.reply('/start — restoranlar\n/menu — menyu\n/cart — savat\n/orders — mening buyurtmalarim\n/reset — savatni tozalash\n/staff — restoran xodimi uchun\n/taxi — taksi operatori\n/support — buyurtma bo‘yicha murojaat\n/mytickets — murojaatlarim\n/myid — Telegram ID'); });

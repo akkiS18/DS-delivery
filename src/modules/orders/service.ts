@@ -210,6 +210,10 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       // New flow only: the order is payable immediately, so a REAL order must already be dispatchable. (The legacy accept-first flow
       // keeps its old behaviour: the restaurant sets the pickup address before accepting.)
       if (!waiting && data.paymentMode === 'REAL' && !checked.restaurant.pickupAddress?.trim()) throw new CheckoutError('RESTORAN_OLIB_KETISH_MANZILI_YOQ', 409);
+      // Stage 8B: a REAL order needs at least one approved, enabled card; otherwise the payment would wait in the queue and expire.
+      if (data.paymentMode === 'REAL' && (await tx.card.count({ where: { restaurantId: data.restaurantId, isTest: false, active: true } })) === 0) {
+        throw new CheckoutError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409);
+      }
       if (!data.taxiCompanyId && data.autoTaxi) {
         // Automatic assignment needs at least one company that can be booked right now, otherwise the order would stall after payment.
         if (!(await tx.taxiCompany.findFirst({ where: eligibleCompanyWhere(), select: { id: true } }))) throw new CheckoutError('TAKSI_XIZMATI_MAVJUD_EMAS', 409);

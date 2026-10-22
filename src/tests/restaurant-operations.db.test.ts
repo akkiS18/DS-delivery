@@ -45,6 +45,13 @@ const place = () => placeOrder(engine, {
 before(async () => {
   await db.$connect();
   for (const [k, slug] of [['a', slugA], ['b', slugB]] as const) ids[k] = (await db.restaurant.create({ data: { slug, name: `Ops ${k}`, pickupAddress: 'Test pickup' } })).id; // REAL checkout (Stage 6F) needs a dispatchable restaurant
+  // REAL checkout refuses a restaurant without an enabled card (Stage 8B), so each test restaurant gets one.
+  for (const id of Object.values(ids)) {
+    for (;;) {
+      const last4 = String(randomInt(1000, 10000));
+      if (!(await db.card.findUnique({ where: { last4 } }))) { await db.card.create({ data: { restaurantId: id, last4, isTest: false } }); break; }
+    }
+  }
   await setRestaurantPassword({ slug: slugA, password: PW_A });
   await setRestaurantPassword({ slug: slugB, password: PW_B });
   taxiId = (await db.taxiCompany.create({ data: { name: `Taxi ${randomUUID()}`, operatorTelegramUserId: String(randomInt(900000000001, 990000000000)), isActive: true } })).id;
@@ -54,6 +61,12 @@ before(async () => {
 });
 after(async () => {
   await db.restaurantLoginAttempt.deleteMany({ where: { keyHash: { in: [slugA, slugB].map(s => attemptKey('slug', s)).concat(ips.map(i => attemptKey('ip', i))) } } });
+  const pays = await db.payment.findMany({ where: { restaurantId: { in: Object.values(ids) } }, select: { id: true } });
+  const cards = await db.card.findMany({ where: { restaurantId: { in: Object.values(ids) } }, select: { id: true } });
+  await db.paymentEvent.deleteMany({ where: { paymentId: { in: pays.map(p => p.id) } } });
+  await db.payment.deleteMany({ where: { id: { in: pays.map(p => p.id) } } });
+  await db.cardCooldown.deleteMany({ where: { cardId: { in: cards.map(c => c.id) } } });
+  await db.card.deleteMany({ where: { id: { in: cards.map(c => c.id) } } });
   await db.order.deleteMany({ where: { restaurantId: { in: Object.values(ids) } } });
   await db.customer.deleteMany({ where: { telegramUserId: customerTg } });
   await db.product.deleteMany({ where: { restaurantId: { in: Object.values(ids) } } });
