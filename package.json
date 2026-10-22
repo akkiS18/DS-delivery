@@ -61,6 +61,7 @@
     "test:alert:db": "node --env-file=.env --import tsx --test src/tests/restaurant-alert.db.test.ts",
     "test:settlement:db": "node --env-file=.env --import tsx --test src/tests/commission-settlement.db.test.ts",
     "test:radmin:db": "node --env-file=.env --import tsx --test src/tests/restaurant-admin.db.test.ts",
+    "test:retention:db": "node --env-file=.env --import tsx --test src/tests/receipt-retention.db.test.ts",
     "test:cards:db": "node --env-file=.env --import tsx --test src/tests/restaurant-cards.db.test.ts",
     "test:checkout6f:db": "node --env-file=.env --import tsx --test src/tests/checkout.stage6f.db.test.ts",
     "test:orders:db": "node --env-file=.env --import tsx --test src/tests/restaurant-orders.db.test.ts",

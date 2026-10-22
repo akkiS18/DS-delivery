@@ -110,6 +110,7 @@ test('the database enforces the record: all-or-none, fixed decisions, a real not
   const item = await strayMoney();
   const bad = (data: object) => assert.rejects(db.incomingTransaction.update({ where: { id: item.id }, data }), /IncomingTransaction_handling_complete|check constraint/i);
   await bad({ handledAt: new Date() });
+  await bad({ handledAt: new Date(), handledBy: ADMIN }); // half-filled: NULL action and note must not slip through a CHECK
   await bad({ handledAt: new Date(), handledBy: ADMIN, handledAction: 'NOT_OURS', handledNote: 'short' });
   await bad({ handledAt: new Date(), handledBy: ADMIN, handledAction: 'DELETE', handledNote: 'long enough note here' });
   await bad({ handledAt: new Date(), handledBy: ADMIN, handledAction: 'OTHER', handledNote: 'long enough note here', status: 'MATCHED_UNVERIFIED' });

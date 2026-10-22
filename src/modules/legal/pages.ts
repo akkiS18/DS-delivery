@@ -4,6 +4,8 @@
  * from configuration and refuses to publish (503) until both are set: a policy without a responsible party is worse than none.
  * It is a working document for the pilot and must be reviewed by the operator's own legal adviser before the service is opened to the public.
  */
+import { receiptRetentionDays } from '../refunds/retention-config.js';
+
 export type LegalKind = 'privacy' | 'terms';
 
 export const escapeHtml = (s: string): string =>
@@ -15,10 +17,9 @@ export function legalConfig(env: NodeJS.ProcessEnv = process.env): LegalConfig |
   const operator = env.LEGAL_OPERATOR_NAME?.trim() ?? '';
   const contact = env.LEGAL_OPERATOR_CONTACT?.trim() ?? '';
   if (operator.length < 3 || contact.length < 3) return null;
-  const days = Number(env.RECEIPT_RETENTION_DAYS);
   return {
     operator: operator.slice(0, 200), contact: contact.slice(0, 200),
-    receiptDays: Number.isInteger(days) && days >= 30 && days <= 3650 ? days : 365,
+    receiptDays: receiptRetentionDays(env),
     supportHours: env.LEGAL_SUPPORT_HOURS?.trim() ? env.LEGAL_SUPPORT_HOURS.trim().slice(0, 200) : null,
   };
 }

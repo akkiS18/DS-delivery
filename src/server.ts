@@ -8,6 +8,7 @@ import { PaymentEngineV3, defaultOptions } from './modules/payment/engine.js';
 import { startGmail } from './modules/payment/gmail.js';
 import { gmailAlertSender } from './bot/gmail-alerts.js';
 import { startCardApprovalNotifier } from './bot/card-admin.js';
+import { startReceiptRetention } from './modules/refunds/retention.js';
 import { createClientBot } from './bot/client.js';
 import { createTaxiBot } from './bot/taxi-bot.js';
 import { chatCheckoutEnabled, miniAppUrl, setMiniAppMenuButton } from './bot/miniapp-launch.js';
@@ -31,6 +32,7 @@ let clientBot: ReturnType<typeof createClientBot> | undefined;
 let taxiBot: ReturnType<typeof createTaxiBot> | undefined;
 let stopBotNotifier: (() => void) | undefined;
 let stopCardNotifier: (() => void) | undefined;
+let stopReceiptRetention: (() => void) | undefined;
 let stopRestaurantNotifier: (() => void) | undefined;
 let stopTaxiDispatcher: (() => void) | undefined;
 let stopSupportNotifier: (() => void) | undefined;
@@ -82,6 +84,7 @@ const shutdown = createShutdown(() => [
   { name: 'taxi-dispatcher', run: () => stopTaxiDispatcher?.() },
   { name: 'support-notifier', run: () => stopSupportNotifier?.() },
   { name: 'card-notifier', run: () => stopCardNotifier?.() },
+  { name: 'receipt-retention', run: () => stopReceiptRetention?.() },
   { name: 'telegram-polling', run: () => stopPolling('shutdown') },
   { name: 'maintenance-in-flight', run: async () => { await maintenanceRun; } },
   { name: 'http', run: () => app.close() },
@@ -148,6 +151,7 @@ try {
     try { stopGmail = await startGmail(engine, { onAlert: gmailAlertSender(clientBot) }); }
     catch (err) { app.log.error({ err }, 'Gmail failed to start. API remains available.'); }
   }
+  stopReceiptRetention = startReceiptRetention((line) => app.log.info(line));
   runtime.phase = 'ready';
 } catch (err) {
   app.log.error(err);

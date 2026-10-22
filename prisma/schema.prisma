@@ -676,6 +676,7 @@ model RefundRequest {
   receiptMime                String?
   receiptBytes               Int?
   receiptSha256              String?
+  receiptPurgedAt DateTime? @db.Timestamptz(3)
   confirmedBy                String?
   confirmedByType            String?
   confirmedAt                DateTime?     @db.Timestamptz(3)

@@ -11,7 +11,7 @@ ALTER TABLE "IncomingTransaction"
 ALTER TABLE "IncomingTransaction" ADD CONSTRAINT "IncomingTransaction_handling_complete" CHECK (
   ("handledAt" IS NULL AND "handledBy" IS NULL AND "handledAction" IS NULL AND "handledNote" IS NULL)
   OR ("handledAt" IS NOT NULL AND "handledBy" IS NOT NULL AND "status" = 'REVIEW_REQUIRED'
-      AND "handledAction" IN ('NOT_OURS', 'REFUNDED', 'ORDER_RESOLVED', 'OTHER')
-      AND char_length("handledNote") BETWEEN 10 AND 300)
+      AND "handledAction" IS NOT NULL AND "handledAction" IN ('NOT_OURS', 'REFUNDED', 'ORDER_RESOLVED', 'OTHER')
+      AND "handledNote" IS NOT NULL AND char_length("handledNote") BETWEEN 10 AND 300)
 );
 CREATE INDEX "IncomingTransaction_status_handledAt_receivedAt_idx" ON "IncomingTransaction" ("status", "handledAt", "receivedAt");
