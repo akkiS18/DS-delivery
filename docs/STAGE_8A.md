@@ -69,3 +69,10 @@ Tests: `src/modules/payment/gmail-health.test.ts` (14 incl. health route): error
 ## 8. Not run
 
 Real Gmail polling with the new health code (staging has Gmail off, no token on the server); the Docker image rebuild with the new directory; the watchdog change on the server; the full DB suites (only the unit tests above and `tsc` were run).
+
+## 9. Owner decisions after the first review (2026-10-22)
+
+1. The first real-money order test is wanted **on staging**. Conflict: the staging database is `ds_delivery_test` and `config-check.ts` refuses `BOT_PAYMENT_MODE=REAL` on any database whose name contains "test" (by design). Recommended resolution: run the real-money rehearsal (8A-3) on the **production stack while it is still locked to the owner's IP**, so no real order ever touches the test database; staging stays MOCK.
+2. Production lives on the **same VPS** as staging: separate compose project, database, volumes, secrets and bots; one Caddy can serve both hostnames. Capacity (RAM/disk) must be checked before it starts.
+3. **Card numbers are entered in the restaurant admin app**, not in a server env JSON. Design notes (Stage 8B): a new table/columns for the payee number; the 16 digits are returned only to the owning restaurant (masked) and to customers at payment time, never logged; adding or changing a card is a money-redirection risk (a stolen restaurant session could point customers at another card), so a new card starts `PENDING`, the owner is alerted in Telegram and one tap approves it before it can be assigned. Needs a migration, API, app screen and a new restaurant APK (collected into the next batch, no per-fix APK).
+4. Google OAuth: guide given in the conversation (publish the app, then re-consent once). The token in `KARTA\ds3` dates from 2026-10-13 (Testing mode) and has therefore already expired.
