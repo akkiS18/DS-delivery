@@ -33,6 +33,6 @@ for f in "$(newest '*.dump')" "$(newest 'receipts-*.tar')" "$(newest 'gmail-*.ta
   echo "[offsite] $name -> encrypted$( [ -n "$REMOTE" ] && echo " and uploaded to $REMOTE/$DS_ENV")"
 done
 # keep the newest 14 encrypted files locally (the remote keeps its own, longer history: set a lifecycle rule on the bucket)
-ls -1t "$ENC"/*.age 2>/dev/null | tail -n +15 | while read -r old; do rm -f "$old"; done
+{ ls -1t "$ENC"/*.age 2>/dev/null || true; } | tail -n +15 | while read -r old; do rm -f "$old"; done
 date -u +%s > "$ROOT/backups/offsite.last"
 exit $status

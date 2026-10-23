@@ -32,5 +32,5 @@ archive receipts receipts
 [ "$DS_ENV" = production ] && archive gmail gmail   # contains the OAuth token: the archive is as sensitive as the mailbox (encrypted before it leaves the server)
 # retention: keep the newest 14 of each kind
 for pat in '*.dump' 'receipts-*.tar' 'gmail-*.tar'; do
-  ls -1t "$OUT"/$pat 2>/dev/null | tail -n +15 | while read -r old; do rm -f "$old" "$old.sha256" "$old.age"; done
+  { ls -1t "$OUT"/$pat 2>/dev/null || true; } | tail -n +15 | while read -r old; do rm -f "$old" "$old.sha256" "$old.age"; done
 done
