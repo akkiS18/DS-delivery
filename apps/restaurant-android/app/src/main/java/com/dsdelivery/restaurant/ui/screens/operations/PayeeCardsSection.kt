@@ -35,10 +35,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dsdelivery.restaurant.data.model.CardNumber
@@ -146,6 +150,16 @@ private fun PayeeCardRow(card: PayeeCard, busy: Boolean, onToggle: () -> Unit) {
     }
 }
 
+/** The field holds bare digits; the spaces are only drawn, so the cursor always stays where the user is typing. */
+private val CardNumberTransformation = VisualTransformation { text ->
+    val raw = text.text
+    val shown = CardNumber.grouped(raw)
+    TransformedText(AnnotatedString(shown), object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int = (offset + (offset - 1).coerceAtLeast(0) / 4).coerceAtMost(shown.length)
+        override fun transformedToOriginal(offset: Int): Int = (offset - offset / 5).coerceIn(0, raw.length)
+    })
+}
+
 @Composable
 fun AddCardDialog(
     busy: Boolean,
@@ -169,10 +183,11 @@ fun AddCardDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 OutlinedTextField(
-                    value = CardNumber.grouped(digits),
+                    value = digits,
                     onValueChange = { digits = CardNumber.digits(it) },
                     label = { Text("Karta raqami") },
                     singleLine = true,
+                    visualTransformation = CardNumberTransformation,
                     isError = typo,
                     supportingText = { if (typo) Text("Raqamda xato bor. Qayta tekshiring.") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

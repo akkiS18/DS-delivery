@@ -69,7 +69,7 @@ Last updated: 2026-10-23 (after Stage 8C code). **A NEW pair of APKs is needed f
 | E3 | Order from the Mini App and from the APK with the **same Telegram account** | One customer profile, one history |
 
 ## H. New in Stage 8B/8C (needs the new APKs and the new backend on staging; staging stays MOCK)
-Admin commands work only for the support admins (you). For the card and money tests the staging backend must run the new release; REAL payments themselves are NOT tested on staging (runbook §5 on the production stack).
+Admin commands work only for the support admins (SUPPORT_ADMIN_1/2 in the staging config), and only in the bots the STAGING backend polls: customer bot `@ziadin_food_order_bot`, taxi bot `@S18platformbot`. The new `@ds_dostavka_bot` / `@ds_taxi_panel_bot` belong to production and do not answer until it exists. Each admin must press /start in the staging customer bot once. For the card and money tests the staging backend must run the new release; REAL payments themselves are NOT tested on staging (runbook §5 on the production stack).
 
 | # | Steps | Expected |
 |---|---|---|
