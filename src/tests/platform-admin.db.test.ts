@@ -9,6 +9,7 @@ import { REAL_PAYMENTS_KEY, realPaymentsOpen, setRealPaymentsOpen } from '../mod
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin, slugFromName } from '../modules/restaurant/provision.js';
 import { attemptKey, authenticate, login } from '../modules/restaurant-auth/service.js';
 import { renderPayments } from '../bot/platform-admin.js';
+import { customerOrderView, loadCustomerOrder } from '../modules/miniapp/views.js';
 
 // Stage 9: the real-payments door and administrator-side restaurant setup. ds_delivery_test only: no Telegram, no money.
 process.env.MAX_OPEN_UNPAID_ORDERS = '0';
@@ -189,4 +190,39 @@ test('password reset signs the old sessions out; linking staff is one account pe
   assert.deepEqual(await linkStaffByAdmin({ adminId: ADMIN, slug: 'nope-nope', telegramId: tg }), { result: 'NOT_FOUND' });
   await assert.rejects(linkStaffByAdmin({ adminId: ADMIN, slug, telegramId: 'abc' }), /TELEGRAM_ID_NOTOGRI/);
   await assert.rejects(linkStaffByAdmin({ adminId: '999', slug, telegramId: tg }), /ADMIN_RUXSAT_YOQ/);
+});
+
+async function fixedPriceOrder(eng: PaymentEngineV3, priceSom: number) {
+  const p = await db.product.create({ data: { restaurantId, name: `F${randomUUID().slice(0, 6)}`, priceSom, isAvailable: true } });
+  return placeOrder(eng, {
+    restaurantId, telegramUserId: customerTg, customerName: 'Tester', phone: '+998901234567', addressText: 'Test manzil',
+    taxiCompanyId: taxiId, checkoutKey: randomUUID(), createdViaBot: true, paymentMode: 'REAL', items: [{ productId: p.id, quantity: 1 }],
+  });
+}
+
+test('the Mini App shows the approved card number to pay to (not "recipient not configured")', async () => {
+  const placed = (await fixedPriceOrder(engine, 12_345))!;
+  const view = customerOrderView((await loadCustomerOrder(customerTg, placed.id))!);
+  const ins = view.payment?.instructions as { cardNumber: string | null; recipientUnavailable: boolean };
+  const card = await db.card.findUniqueOrThrow({ where: { id: cardId } });
+  assert.equal(ins.recipientUnavailable, false);
+  assert.equal(ins.cardNumber, card.number);
+  await db.$transaction(tx => engine.cancelOpenPayment(tx, placed.id, new Date(), { type: 'TEST', id: 't' })); // frees the card for the next test
+});
+
+test('a cancelled unpaid order frees the card at once when cancelCooldownMs is 0; the default keeps the cooldown', async () => {
+  const instant = new PaymentEngineV3(db, { ...defaultOptions, cancelCooldownMs: 0 }, () => {});
+  const a = (await fixedPriceOrder(instant, 23_456))!;
+  assert.equal(a.payment?.status, 'AWAITING');
+  await instant.runLocked(tx => instant.cancelOpenPayment(tx, a.id, new Date(), { type: 'TEST', id: 't' }));
+  const b = (await fixedPriceOrder(instant, 23_456))!;
+  assert.equal(b.payment?.status, 'AWAITING', 'same card, same amount, right after the cancel');
+  await instant.runLocked(tx => instant.cancelOpenPayment(tx, b.id, new Date(), { type: 'TEST', id: 't' }));
+
+  const careful = new PaymentEngineV3(db, { ...defaultOptions }, () => {});
+  const c = (await fixedPriceOrder(careful, 34_567))!;
+  assert.equal(c.payment?.status, 'AWAITING');
+  await careful.runLocked(tx => careful.cancelOpenPayment(tx, c.id, new Date(), { type: 'TEST', id: 't' }));
+  const d = (await fixedPriceOrder(careful, 34_567))!;
+  assert.equal(d.payment?.status, 'QUEUED', 'without the setting the 120 s cooldown still protects against a late transfer');
 });

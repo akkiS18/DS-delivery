@@ -24,6 +24,9 @@ export type Options = {
   paymentWindowMs: number;
   queueWindowMs: number;
   cooldownMs: number;
+  /** Stage 9: after the customer cancels an unpaid order / after a payment is matched the card is free at once (default: same as cooldownMs, i.e. unchanged). Expiry always uses cooldownMs. */
+  cancelCooldownMs?: number;
+  matchCooldownMs?: number;
   ambiguityMs: number;
   /** Stage 4A: a bank mail older than this (vs. the operation time) is never auto-matched. Default 30 min. */
   maxNotificationDelayMs?: number;
@@ -80,7 +83,7 @@ export class PaymentEngineV3 {
     if (p.status !== 'QUEUED' && p.status !== 'AWAITING') return { cancelled: false, status: p.status };
     const { count } = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status: 'CANCELLED' } });
     if (count !== 1) return { cancelled: false, status: p.status };
-    if (p.status === 'AWAITING' && p.cardId) await this.setCooldown(tx, p.cardId, p.amountTiyin, now);
+    if (p.status === 'AWAITING' && p.cardId) await this.setCooldown(tx, p.cardId, p.amountTiyin, now, this.options.cancelCooldownMs ?? this.options.cooldownMs);
     await record(tx, { paymentId: p.id, action: 'CANCELLED', fromStatus: p.status, toStatus: 'CANCELLED', actorType: actor.type, actorId: actor.id });
     return { cancelled: true, status: 'CANCELLED' };
   }
@@ -199,8 +202,9 @@ export class PaymentEngineV3 {
     return assigned;
   }
 
-  private async setCooldown(tx: Prisma.TransactionClient, cardId: string, amountTiyin: bigint, at: Date): Promise<void> {
-    const until = new Date(at.getTime() + this.options.cooldownMs);
+  private async setCooldown(tx: Prisma.TransactionClient, cardId: string, amountTiyin: bigint, at: Date, ms: number = this.options.cooldownMs): Promise<void> {
+    if (ms <= 0) return; // released immediately; an existing (longer) cooldown from an earlier expiry stays
+    const until = new Date(at.getTime() + ms);
     const previous = await tx.cardCooldown.findUnique({ where: { cardId_amountTiyin: { cardId, amountTiyin } } });
     if (previous && previous.until > until) return;
     await tx.cardCooldown.upsert({
@@ -386,7 +390,7 @@ export class PaymentEngineV3 {
           data: { status: 'PAYMENT_MATCHED_UNVERIFIED' },
         });
       }
-      await this.setCooldown(tx, card.id, input.amountTiyin, now);
+      await this.setCooldown(tx, card.id, input.amountTiyin, now, this.options.matchCooldownMs ?? this.options.cooldownMs);
       return { status: 'MATCHED_UNVERIFIED', paymentNumber: payment.number } as MatchResult;
     });
     if (result.status === 'MATCHED_UNVERIFIED') {

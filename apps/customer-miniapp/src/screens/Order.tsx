@@ -181,7 +181,7 @@ export function OrderScreen({ id }: { id: string }) {
         <Sheet title="Bekor qilishni tasdiqlang" onClose={() => setConfirmCancel(false)}>
           <p className="sub" style={{ marginBottom: 12 }}>{o.cancel.kind === 'REFUND_REQUEST'
             ? 'To‘lov qilingan. Bekor qilish so‘rovi restoranga yuboriladi; pul qaytarilishi restoran qaroriga bog‘liq.'
-            : 'Buyurtma to‘lovsiz bekor qilinadi.'}</p>
+            : 'Buyurtma bekor qilinadi. Pul o‘tkazgan bo‘lsangiz, bekor qilmang.'}</p>
           <div className="stack">
             <Button variant="danger" onClick={() => void cancel()}>Ha, bekor qilish</Button>
             <Button variant="secondary" onClick={() => setConfirmCancel(false)}>Yo‘q</Button>

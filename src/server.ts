@@ -19,13 +19,19 @@ import { startSupportNotifier } from './bot/support-notify.js';
 import { startTaxiDispatcher } from './modules/taxi/worker.js';
 
 const opts = {
-  paymentWindowMs: Number(process.env.PAYMENT_WINDOW_SECONDS ?? 300) * 1000,
+  paymentWindowMs: Number(process.env.PAYMENT_WINDOW_SECONDS ?? 600) * 1000,
   queueWindowMs: Number(process.env.QUEUE_WINDOW_SECONDS ?? 600) * 1000,
   cooldownMs: Number(process.env.CARD_COOLDOWN_SECONDS ?? 120) * 1000,
   ambiguityMs: Number(process.env.AMBIGUITY_WINDOW_SECONDS ?? 900) * 1000,
 };
 if (Object.values(opts).some(v => !Number.isSafeInteger(v) || v <= 0)) throw new Error('Invalid payment interval');
-const engine = new PaymentEngineV3(db, { ...defaultOptions, ...opts });
+// Stage 9: the card is free again the moment the customer cancels or the payment is matched (0 = no wait); only an EXPIRED attempt keeps the cooldown.
+const releaseMs = (name: string): number => {
+  const v = Number(process.env[name] ?? 0) * 1000;
+  if (!Number.isSafeInteger(v) || v < 0) throw new Error(`Invalid ${name}`);
+  return v;
+};
+const engine = new PaymentEngineV3(db, { ...defaultOptions, ...opts, cancelCooldownMs: releaseMs('CARD_CANCEL_COOLDOWN_SECONDS'), matchCooldownMs: releaseMs('CARD_MATCH_COOLDOWN_SECONDS') });
 const app = buildApp(engine);
 let stopGmail: (() => void) | undefined;
 let clientBot: ReturnType<typeof createClientBot> | undefined;

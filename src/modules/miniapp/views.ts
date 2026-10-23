@@ -78,7 +78,8 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 const orderInclude = {
   restaurant: { select: { name: true, defaultPrepMinutes: true } },
   items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
-  payment: { include: { card: { select: { last4: true, isTest: true } } } },
+  // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
+  payment: { include: { card: { select: { last4: true, isTest: true, number: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' as const }, take: 1, select: { status: true, deliveredAt: true, taxiCompany: { select: { name: true } } } },
   refundRequests: { orderBy: { number: 'desc' as const }, take: 1, select: { status: true, receiptKey: true } },
 } as const;
