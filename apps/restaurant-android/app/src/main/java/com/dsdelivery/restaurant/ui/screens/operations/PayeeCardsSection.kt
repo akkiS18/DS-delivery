@@ -6,20 +6,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -44,7 +38,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.dsdelivery.restaurant.data.model.CardNumber
 import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.model.PayeeCardStatus
@@ -68,76 +61,57 @@ fun PayeeCardsSection(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    SettingsSection(
+        title = "To‘lov kartalari",
+        modifier = modifier,
+        footer = "Yangi karta administrator tasdiqlagach faollashadi."
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CreditCard, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "To‘lov kartalari",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+        when {
+            loading && cards.isEmpty() -> Text("Yuklanmoqda...", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 12.dp))
+            error != null && cards.isEmpty() -> {
+                Text(error, style = MaterialTheme.typography.bodyMedium, color = ErrorRed, modifier = Modifier.padding(top = 12.dp))
+                TextButton(onClick = onRetry) { Text("Qayta urinish") }
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "Mijozlar pulni shu kartalarga o‘tkazadi. Yangi karta administrator tasdiqlagandan keyin faollashadi.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(8.dp))
-
-            when {
-                loading && cards.isEmpty() -> Text("Yuklanmoqda...", style = MaterialTheme.typography.bodySmall)
-                error != null && cards.isEmpty() -> {
-                    Text(error, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
-                    TextButton(onClick = onRetry) { Text("Qayta urinish") }
-                }
-                cards.isEmpty() -> Text(
-                    "Hali karta yo‘q. Real to‘lov yoqilganda kamida bitta faol karta kerak.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WarningOrange
-                )
-                else -> cards.forEachIndexed { index, card ->
-                    if (index > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-                    PayeeCardRow(card = card, busy = busyCardId == card.id, onToggle = { onToggle(card) })
-                }
+            cards.isEmpty() -> Text("Karta yo‘q", style = MaterialTheme.typography.bodyMedium, color = WarningOrange, modifier = Modifier.padding(vertical = 12.dp))
+            else -> cards.forEachIndexed { index, card ->
+                if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                PayeeCardRow(card = card, busy = busyCardId == card.id, onToggle = { onToggle(card) })
             }
-
-            if (cards.isNotEmpty() && cards.none { it.status == PayeeCardStatus.ACTIVE }) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Faol karta yo‘q: real to‘lov yoqilganda mijozlar buyurtma bera olmaydi.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = WarningOrange
-                )
-            }
-
-            Spacer(Modifier.height(10.dp))
-            OutlinedButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Karta qo‘shish") }
         }
+
+        if (cards.isNotEmpty() && cards.none { it.status == PayeeCardStatus.ACTIVE }) {
+            Text(
+                "Faol karta yo‘q. Mijozlar buyurtma bera olmaydi.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = WarningOrange,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+
+        OutlinedButton(
+            onClick = onAdd,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(vertical = 4.dp)
+        ) { Text("Karta qo‘shish") }
     }
 }
 
 @Composable
 private fun PayeeCardRow(card: PayeeCard, busy: Boolean, onToggle: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    Row(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(card.masked, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            Text(card.masked, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
             val (label, color) = when (card.status) {
                 PayeeCardStatus.ACTIVE -> "Faol" to SuccessGreen
                 PayeeCardStatus.DISABLED -> "O‘chirilgan" to MaterialTheme.colorScheme.onSurfaceVariant
-                PayeeCardStatus.PENDING -> "Administrator tasdig‘i kutilmoqda" to WarningOrange
-                PayeeCardStatus.REJECTED -> "Rad etilgan (to‘g‘ri raqam bilan qayta yuborishingiz mumkin)" to ErrorRed
-                PayeeCardStatus.UNKNOWN -> "Noma’lum holat" to MaterialTheme.colorScheme.onSurfaceVariant
+                PayeeCardStatus.PENDING -> "Tasdiq kutilmoqda" to WarningOrange
+                PayeeCardStatus.REJECTED -> "Rad etilgan" to ErrorRed
+                PayeeCardStatus.UNKNOWN -> "Noma’lum" to MaterialTheme.colorScheme.onSurfaceVariant
             }
-            Text(label, style = MaterialTheme.typography.bodySmall, color = color)
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = color)
         }
         if (card.status == PayeeCardStatus.ACTIVE || card.status == PayeeCardStatus.DISABLED) {
             Switch(
@@ -176,20 +150,15 @@ fun AddCardDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("Karta qo‘shish", fontWeight = FontWeight.Bold) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    "Mijozlar pulini qabul qiladigan 16 xonali karta raqami. Administrator uni siz bilan telefon orqali tekshirib tasdiqlaydi.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = digits,
                     onValueChange = { digits = CardNumber.digits(it) },
                     label = { Text("Karta raqami") },
                     singleLine = true,
-                    visualTransformation = CardNumberTransformation,
                     isError = typo,
-                    supportingText = { if (typo) Text("Raqamda xato bor. Qayta tekshiring.") },
+                    supportingText = { if (typo) Text("Raqamda xato bor.") },
+                    visualTransformation = CardNumberTransformation,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth()
@@ -197,14 +166,14 @@ fun AddCardDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Hisob paroli (tasdiqlash uchun)") },
+                    label = { Text("Parolingiz") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (error != null) Text(error, style = MaterialTheme.typography.bodySmall, color = ErrorRed)
+                if (error != null) Text(error, style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
             }
         },
         confirmButton = {
@@ -214,7 +183,7 @@ fun AddCardDialog(
                 colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) { Text(if (busy) "Yuborilmoqda..." else "Yuborish") }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Bekor qilish") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !busy) { Text("Yopish") } },
         shape = RoundedCornerShape(16.dp)
     )
 }

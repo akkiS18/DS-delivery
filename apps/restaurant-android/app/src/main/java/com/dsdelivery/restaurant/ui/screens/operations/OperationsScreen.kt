@@ -2,12 +2,15 @@ package com.dsdelivery.restaurant.ui.screens.operations
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,15 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Logout
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Storefront
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,14 +30,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -62,17 +54,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.dsdelivery.restaurant.BuildConfig
 import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.model.WorkingDay
 import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
 import com.dsdelivery.restaurant.ui.components.ServerConfigDialog
-import com.dsdelivery.restaurant.ui.theme.BrandDark
-import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.DSRestaurantTheme
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
-import com.dsdelivery.restaurant.ui.theme.SuccessGreen
 import com.dsdelivery.restaurant.ui.theme.WarningOrange
 
 @Composable
@@ -117,6 +106,41 @@ fun OperationsScreen(
     )
 }
 
+/** A titled group of rows, like a grouped list in system settings: the title says what it is, the card holds the controls. */
+@Composable
+internal fun SettingsSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    footer: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), content = content)
+        }
+        if (footer != null) {
+            Text(
+                text = footer,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OperationsContent(
@@ -148,12 +172,7 @@ fun OperationsContent(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Restoran Operatsiyalari",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
+                title = { Text(text = "Sozlamalar", fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BrandPrimary,
                     titleContentColor = Color.White
@@ -170,55 +189,24 @@ fun OperationsContent(
                 .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(scrollState)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Restaurant Active / Paused Status Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
+            // 1. Are we taking orders right now?
+            SettingsSection(title = "Qabul") {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.PowerSettingsNew,
-                                contentDescription = null,
-                                tint = if (state.isPaused) WarningOrange else SuccessGreen,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (state.isPaused) "Pauza holati (To‘xtatilgan)" else "Faol qabul holati",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = if (state.isPaused) WarningOrange else SuccessGreen
-                            )
+                        Text("Buyurtma qabul qilish", style = MaterialTheme.typography.bodyLarge)
+                        if (state.isPaused) {
+                            Text("To‘xtatilgan", style = MaterialTheme.typography.bodyMedium, color = WarningOrange)
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (state.isPaused) {
-                                "Restoran vaqtincha yangi buyurtmalarni qabul qilmaydi."
-                            } else {
-                                "Restoran ochiq va mijozlardan buyurtma qabul qilishga tayyor."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
-
                     Switch(
                         checked = !state.isPaused,
-                        onCheckedChange = { isChecked ->
-                            onTogglePause(!isChecked)
-                        },
+                        onCheckedChange = { isChecked -> onTogglePause(!isChecked) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = BrandPrimary,
@@ -229,75 +217,7 @@ fun OperationsContent(
                 }
             }
 
-            // Default Preparation Estimate Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.AccessTime,
-                            contentDescription = null,
-                            tint = BrandPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Standart tayyorlash vaqti",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Yangi buyurtmalarni qabul qilishda boshlang‘ich taklif etiladigan vaqt:",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    val prepOptions = listOf(15, 20, 25, 30, 40, 50, 60)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        prepOptions.take(4).forEach { min ->
-                            FilterChip(
-                                selected = state.defaultPrepMinutes == min,
-                                onClick = { onPrepMinutesChange(min) },
-                                label = { Text("$min daq", fontSize = 11.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = BrandPrimary,
-                                    selectedLabelColor = Color.White
-                                )
-                            )
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        prepOptions.drop(4).forEach { min ->
-                            FilterChip(
-                                selected = state.defaultPrepMinutes == min,
-                                onClick = { onPrepMinutesChange(min) },
-                                label = { Text("$min daq", fontSize = 11.sp) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = BrandPrimary,
-                                    selectedLabelColor = Color.White
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Stage 8B: payee cards
+            // 2. Where the customers' money goes
             PayeeCardsSection(
                 cards = state.cards,
                 loading = state.cardsLoading,
@@ -308,144 +228,100 @@ fun OperationsContent(
                 onRetry = onReloadCards
             )
 
-            // Working Hours Management Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+            // 3. Preparation time
+            SettingsSection(title = "Tayyorlash vaqti") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(15, 20, 25, 30, 40, 50, 60).forEach { min ->
+                        FilterChip(
+                            selected = state.defaultPrepMinutes == min,
+                            onClick = { onPrepMinutesChange(min) },
+                            label = { Text("$min daqiqa") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = BrandPrimary,
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+            }
+
+            // 4. Working hours
+            SettingsSection(title = "Ish vaqti") {
+                state.workingDays.forEachIndexed { index, day ->
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable { onEditWorkingDay(day) },
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.CalendarToday,
-                                contentDescription = null,
-                                tint = BrandPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Ish vaqti jadvali",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    state.workingDays.forEachIndexed { index, day ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onEditWorkingDay(day) }
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = day.dayName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.weight(1f)
-                            )
-                            Text(
-                                text = if (day.isOpen) "${day.openTime} – ${day.closeTime}" else "Dam olish kuni",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (day.isOpen) BrandPrimary else ErrorRed,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Tahrirlash",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                        if (index < state.workingDays.size - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                        }
-                    }
-                }
-            }
-
-            // Restaurant Info & Settings Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(day.dayName, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Text(
+                            text = if (day.isOpen) "${day.openTime} – ${day.closeTime}" else "Yopiq",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (day.isOpen) MaterialTheme.colorScheme.onSurfaceVariant else ErrorRed
+                        )
                         Icon(
-                            imageVector = Icons.Default.Storefront,
+                            imageVector = Icons.Default.ChevronRight,
                             contentDescription = null,
-                            tint = BrandPrimary,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Restoran ma'lumotlari",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
                     }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = "Restoran nomi: ${state.restaurantName.ifBlank { "DS Restaurant" }}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "Identifikator (slug): ${state.restaurantSlug}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onOpenServerConfig,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Dns, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Server sozlamasi", fontSize = 12.sp)
-                        }
-
-                        Button(
-                            onClick = onOpenLogoutDialog,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                        ) {
-                            Icon(imageVector = Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Chiqish", fontSize = 12.sp)
-                        }
+                    if (index < state.workingDays.size - 1) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(80.dp))
+            // 5. Account
+            SettingsSection(title = "Hisob") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Restoran", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        state.restaurantName.ifBlank { "—" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                // The server address is a developer setting: it does not exist in the release app.
+                if (BuildConfig.DEBUG) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onOpenServerConfig() },
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Server", style = MaterialTheme.typography.bodyLarge)
+                        Icon(
+                            imageVector = Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                }
+                TextButton(
+                    onClick = onOpenLogoutDialog,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                ) {
+                    Text("Chiqish", color = ErrorRed, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         if (state.showAddCardDialog) {
@@ -457,23 +333,17 @@ fun OperationsContent(
             )
         }
 
-        // Pause / Resume Confirmation Dialog
         if (state.showPauseConfirmDialog) {
             ActionConfirmDialog(
-                title = if (state.pendingPauseState) "Pauzaga qo‘yish" else "Qabulni faollashtirish",
-                message = if (state.pendingPauseState) {
-                    "Haqiqatan ham restoranni vaqtincha to‘xtatmoqchimisiz? Yangi mijozlar buyurtma bera olmaydi."
-                } else {
-                    "Restoran holati faollashtirilsinmi? Mijozlar menyudan buyurtma berishni boshlashi mumkin."
-                },
-                confirmText = "Ha, tasdiqlash",
+                title = if (state.pendingPauseState) "Qabulni to‘xtatasizmi?" else "Qabulni yoqasizmi?",
+                message = if (state.pendingPauseState) "Yangi buyurtmalar kelmaydi." else "Mijozlar yana buyurtma bera oladi.",
+                confirmText = if (state.pendingPauseState) "To‘xtatish" else "Yoqish",
                 confirmButtonColor = if (state.pendingPauseState) WarningOrange else BrandPrimary,
                 onConfirm = onConfirmTogglePause,
                 onDismiss = onDismissPauseDialog
             )
         }
 
-        // Edit Working Day Dialog
         state.editingWorkingDay?.let { day ->
             var isOpen by remember { mutableStateOf(day.isOpen) }
             var openTime by remember { mutableStateOf(day.openTime) }
@@ -481,14 +351,14 @@ fun OperationsContent(
             val hhmm = remember { Regex("^([01]\\d|2[0-3]):[0-5]\\d$") }
             // HH:MM 24h, and the day must close after it opens (same rule as the server).
             val timesError: String? = when {
-                !hhmm.matches(openTime) || !hhmm.matches(closeTime) -> "Vaqtni SS:DD ko‘rinishida kiriting (masalan 09:00)."
-                closeTime <= openTime -> "Yopilish vaqti ochilish vaqtidan keyin bo‘lishi kerak."
+                !hhmm.matches(openTime) || !hhmm.matches(closeTime) -> "Vaqtni 09:00 ko‘rinishida yozing."
+                closeTime <= openTime -> "Yopilish vaqti ochilishdan keyin bo‘lsin."
                 else -> null
             }
 
             AlertDialog(
                 onDismissRequest = onDismissWorkingDayDialog,
-                title = { Text("${day.dayName} ish vaqti", fontWeight = FontWeight.Bold) },
+                title = { Text(day.dayName, fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
                         Row(
@@ -496,7 +366,7 @@ fun OperationsContent(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Ochiq kun (Ish kuni)", style = MaterialTheme.typography.bodyMedium)
+                            Text("Ochiq", style = MaterialTheme.typography.bodyLarge)
                             Switch(
                                 checked = isOpen,
                                 onCheckedChange = { isOpen = it },
@@ -509,7 +379,7 @@ fun OperationsContent(
                             OutlinedTextField(
                                 value = openTime,
                                 onValueChange = { openTime = it },
-                                label = { Text("Ochilish vaqti") },
+                                label = { Text("Ochilish") },
                                 placeholder = { Text("09:00") },
                                 singleLine = true,
                                 isError = !hhmm.matches(openTime),
@@ -519,7 +389,7 @@ fun OperationsContent(
                             OutlinedTextField(
                                 value = closeTime,
                                 onValueChange = { closeTime = it },
-                                label = { Text("Yopilish vaqti") },
+                                label = { Text("Yopilish") },
                                 placeholder = { Text("22:00") },
                                 singleLine = true,
                                 isError = !hhmm.matches(closeTime),
@@ -549,14 +419,13 @@ fun OperationsContent(
                 },
                 dismissButton = {
                     TextButton(onClick = onDismissWorkingDayDialog) {
-                        Text("Bekor qilish")
+                        Text("Yopish")
                     }
                 },
                 shape = RoundedCornerShape(16.dp)
             )
         }
 
-        // Server Config Dialog
         if (state.showServerConfigDialog) {
             ServerConfigDialog(
                 currentBaseUrl = state.currentBaseUrl,
@@ -565,11 +434,10 @@ fun OperationsContent(
             )
         }
 
-        // Logout Confirmation Dialog
         if (state.showLogoutConfirmDialog) {
             ActionConfirmDialog(
-                title = "Tizimdan chiqish",
-                message = "Haqiqatan ham restoran hisobidan chiqmoqchimisiz?",
+                title = "Chiqasizmi?",
+                message = "Qayta kirish uchun parol kerak bo‘ladi.",
                 confirmText = "Chiqish",
                 confirmButtonColor = ErrorRed,
                 onConfirm = onConfirmLogout,
@@ -577,24 +445,15 @@ fun OperationsContent(
             )
         }
 
-        // Backend Notice Dialog
+        // Anything the server refused to save, in one sentence.
         if (state.backendNotice != null) {
             AlertDialog(
                 onDismissRequest = onDismissNotice,
-                icon = {
-                    Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(36.dp))
-                },
-                title = { Text("Backend Holati", fontWeight = FontWeight.Bold) },
-                text = {
-                    Text(
-                        text = state.backendNotice ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                },
+                title = { Text("Saqlanmadi", fontWeight = FontWeight.Bold) },
+                text = { Text(text = state.backendNotice ?: "", style = MaterialTheme.typography.bodyMedium) },
                 confirmButton = {
                     Button(onClick = onDismissNotice, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) {
-                        Text("Tushunarli")
+                        Text("Yaxshi")
                     }
                 },
                 shape = RoundedCornerShape(16.dp)

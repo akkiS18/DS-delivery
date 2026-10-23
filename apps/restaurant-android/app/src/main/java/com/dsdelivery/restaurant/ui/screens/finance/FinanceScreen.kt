@@ -91,7 +91,7 @@ fun FinanceContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Moliya va Tushumlar",
+                        text = "Moliya",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
@@ -134,7 +134,7 @@ fun FinanceContent(
                     FilterChip(
                         selected = state.selectedFilter == filter,
                         onClick = { onFilterSelected(filter) },
-                        label = { Text(filter.title, fontSize = 12.sp) },
+                        label = { Text(filter.title) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = BrandPrimary,
                             selectedLabelColor = Color.White
@@ -157,7 +157,7 @@ fun FinanceContent(
                     }
                 }
                 else -> FinanceErrorCard(
-                    message = state.errorMessage ?: "Moliya ma'lumotlarini yuklab bo‘lmadi.",
+                    message = state.errorMessage ?: "Yuklanmadi.",
                     onRetry = onRefresh
                 )
             }
@@ -169,107 +169,69 @@ fun FinanceContent(
 
 @Composable
 private fun FinanceSummaryCards(summary: FinanceSummary) {
-    // Delivery proof: until the backend can confirm delivery no commission is earned.
-    if (!summary.deliveryConfirmationImplemented) {
-        NoticeCard(
-            title = "Yetkazib berish tasdiqlanmaydi",
-            text = "Hozircha serverda yetkazib berishni tasdiqlash mavjud emas, shuning uchun komissiya hisoblanmaydi va qarz yo‘q."
-        )
-    }
-
-    // Money actually received (restaurant-verified payments only)
-    FinanceCard(title = "Tasdiqlangan tushum", icon = Icons.Default.AccountBalance) {
+    // Money actually received
+    FinanceCard(title = "Tushum", icon = Icons.Default.AccountBalance) {
         Text(
             text = FinanceSummary.formatSom(summary.verifiedReceived.som),
             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
             color = BrandPrimary
         )
         Text(
-            text = "${summary.verifiedReceived.count} ta to‘lov — restoran xodimi tasdiqlagan",
-            style = MaterialTheme.typography.bodySmall,
+            text = "${summary.verifiedReceived.count} ta to‘lov",
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(10.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-        CountSomRow("Tekshirilmagan (pochta mos kelgan)", summary.pendingUnverified, WarningOrange)
+        CountSomRow("Tasdiqlanmoqda", summary.pendingUnverified, WarningOrange)
         CountSomRow("To‘lov kutilmoqda", summary.awaitingPayment)
-        Text(
-            text = "Tekshirilmagan va kutilayotgan to‘lovlar qabul qilingan pul hisoblanmaydi.",
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 
     // Orders (created in the selected period)
     FinanceCard(title = "Buyurtmalar", icon = Icons.Default.Receipt) {
         CountSomRow("Yakunlangan", summary.ordersCompleted)
         CountSomRow("Jarayonda", summary.ordersInProgress)
-        CountSomRow("Bekor qilingan / rad etilgan", summary.ordersCancelled)
-        Text(
-            text = "Tanlangan davrda yaratilgan buyurtmalar.",
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        CountSomRow("Bekor qilingan", summary.ordersCancelled)
     }
 
-    // Platform commission (flat fee, amounts straight from the backend)
-    FinanceCard(title = "DS Delivery xizmat haqi", icon = Icons.Default.CreditCard) {
+    // Platform fee (flat per delivered order, amounts straight from the backend)
+    FinanceCard(title = "Xizmat haqi", icon = Icons.Default.CreditCard) {
         val flat = summary.commissionFlatSom
         LabeledValue(
-            label = "Yetkazilgan buyurtma uchun belgilangan summa",
-            value = if (flat != null) FinanceSummary.formatSom(flat) else "Server sozlamasi noto‘g‘ri"
+            label = "Har bir yetkazilgan buyurtma",
+            value = if (flat != null) FinanceSummary.formatSom(flat) else "—"
         )
-        CountSomRow("Davrda hisoblangan", summary.commissionAccruedInPeriod)
-        CountSomRow("To‘lanmagan jami qarz", summary.commissionOutstanding)
-        Text(
-            text = "Komissiya har bir yetkazilgani tasdiqlangan, to‘lovi restoran tomonidan tasdiqlangan, sinov (test) bo‘lmagan buyurtma uchun qat’iy belgilangan summa (foiz emas). Bekor qilingan, to‘lanmagan va sinov buyurtmalar uchun hisoblanmaydi. " +
-                "Platforma pulni avtomatik yechib olmaydi" +
-                if (!summary.settlementTrackingImplemented) "; to‘lovlarni qayd etish hali mavjud emas." else ".",
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        CountSomRow("Shu davrda", summary.commissionAccruedInPeriod)
+        CountSomRow("To‘lanmagan", summary.commissionOutstanding)
         if (summary.completedOrdersWithoutCommission > 0) {
             Text(
-                text = "Diqqat: ${summary.completedOrdersWithoutCommission} ta yakunlangan buyurtmaga komissiya yozilmagan (tekshirish kerak).",
-                style = MaterialTheme.typography.bodySmall,
+                text = "${summary.completedOrdersWithoutCommission} ta buyurtmaga xizmat haqi yozilmagan.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = ErrorRed
             )
         }
         if (summary.commissionedOrdersWithRefund > 0) {
             Text(
-                text = "Diqqat: ${summary.commissionedOrdersWithRefund} ta komissiyali buyurtma bo‘yicha qaytarish mavjud (ko‘rib chiqish kerak).",
-                style = MaterialTheme.typography.bodySmall,
+                text = "${summary.commissionedOrdersWithRefund} ta buyurtmada pul qaytarilgan.",
+                style = MaterialTheme.typography.bodyMedium,
                 color = WarningOrange
             )
         }
     }
 
     // Refunds: shown, never netted against received money
-    FinanceCard(title = "Qaytarishlar (Refunds)", icon = Icons.Default.Warning) {
+    FinanceCard(title = "Pul qaytarish", icon = Icons.Default.Warning) {
         RefundRow("So‘ralgan", summary.refundsRequested)
-        RefundRow("Tasdiqlangan, yuborilishi kutilmoqda", summary.refundsApprovedAwaitingSend)
-        RefundRow("Restoran yubordi deydi (tasdiqlanmagan)", summary.refundsSentUnconfirmed)
+        RefundRow("Qaytarish kerak", summary.refundsApprovedAwaitingSend)
+        RefundRow("Mijoz tasdig‘i kutilmoqda", summary.refundsSentUnconfirmed)
         RefundRow(
-            "Mijoz/admin tasdiqlagan",
+            "Tasdiqlangan",
             FinanceRefundAmount(summary.refundsConfirmedCount, summary.refundsConfirmedSom)
         )
         RefundRow("Nizoli", summary.refundsDisputed, if (summary.refundsDisputed.count > 0) ErrorRed else null)
         RefundRow("Rad etilgan", summary.refundsRejected)
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-        RefundRow("Hozir ochiq (barcha vaqt)", summary.refundsOpenNow, if (summary.refundsOpenNow.count > 0) WarningOrange else null)
-        Text(
-            text = if (summary.refundsBankVerified) {
-                "Bank tomonidan tasdiqlangan."
-            } else {
-                "Qaytarishlar bank tomonidan tasdiqlanmagan. Tushumdan ayirilmaydi."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        RefundRow("Hozir ochiq", summary.refundsOpenNow, if (summary.refundsOpenNow.count > 0) WarningOrange else null)
     }
 }
 

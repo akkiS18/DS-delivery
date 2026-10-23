@@ -170,46 +170,16 @@ fun ProductManagementContent(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text(
-                            text = "Mahsulotlar Boshqaruvi",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                        Text(
-                            text = state.restaurant?.name ?: state.slug,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Ortga",
-                            tint = Color.White
-                        )
-                    }
+                    Text(
+                        text = "Menyu",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
                 },
                 actions = {
-                    IconButton(onClick = onOpenCategoryDialog) {
-                        Icon(
-                            imageVector = Icons.Default.Category,
-                            contentDescription = "Toifalarni boshqarish",
-                            tint = Color.White
-                        )
-                    }
                     IconButton(onClick = onRefresh) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Yangilash",
-                            tint = Color.White
-                        )
-                    }
-                    IconButton(onClick = onOpenLogoutDialog) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Logout,
-                            contentDescription = "Chiqish",
                             tint = Color.White
                         )
                     }
@@ -225,7 +195,7 @@ fun ProductManagementContent(
             ExtendedFloatingActionButton(
                 onClick = onNavigateToCreateProduct,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Yangi mahsulot", fontWeight = FontWeight.SemiBold) },
+                text = { Text("Yangi taom", fontWeight = FontWeight.SemiBold) },
                 containerColor = BrandPrimary,
                 contentColor = Color.White
             )
@@ -241,7 +211,7 @@ fun ProductManagementContent(
         ) {
             when {
                 state.isLoading -> {
-                    LoadingView(message = "Serverdan mahsulotlar yuklanmoqda...")
+                    LoadingView(message = "Yuklanmoqda...")
                 }
 
                 state.errorMessage != null && state.products.isEmpty() -> {
@@ -262,7 +232,7 @@ fun ProductManagementContent(
                             OutlinedTextField(
                                 value = state.searchQuery,
                                 onValueChange = onSearchQueryChange,
-                                placeholder = { Text("Mahsulot nomi yoki tavsifidan izlash...") },
+                                placeholder = { Text("Qidirish") },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Search,
@@ -301,9 +271,8 @@ fun ProductManagementContent(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Jami: ${state.filteredProducts.size} ta mahsulot",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = FontWeight.SemiBold,
+                                text = "${state.filteredProducts.size} ta taom",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
@@ -311,18 +280,18 @@ fun ProductManagementContent(
                                 Icon(
                                     imageVector = Icons.Default.Category,
                                     contentDescription = null,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(18.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Toifalar (${state.categories.size})", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Toifalar")
                             }
                         }
 
                         // Products List
                         if (state.filteredProducts.isEmpty()) {
                             EmptyView(
-                                title = "Mahsulotlar topilmadi",
-                                subtitle = if (state.searchQuery.isNotEmpty()) "Qidiruv so‘rovingizga mos mahsulot mavjud emas." else "Yangi mahsulot qo‘shish uchun pastdagi tugmani bosing."
+                                title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Menyu bo‘sh",
+                                subtitle = null
                             )
                         } else {
                             LazyColumn(
@@ -375,9 +344,9 @@ fun ProductManagementContent(
                             modifier = Modifier.size(36.dp)
                         )
                     },
-                    title = { Text("Versiya to‘qnashuvi (VERSION_CONFLICT)", fontWeight = FontWeight.Bold) },
+                    title = { Text("Boshqa joyda o‘zgartirilgan", fontWeight = FontWeight.Bold) },
                     text = {
-                        Text("Ushbu mahsulot yoki toifa boshqa sessiyada tahrirlangan. Sizdagi versiya eskirgan. So‘nggi ma'lumotlarni olish uchun ro‘yxatni yangilang.")
+                        Text("Ro‘yxatni yangilang va qayta urinib ko‘ring.")
                     },
                     confirmButton = {
                         Button(
@@ -387,7 +356,7 @@ fun ProductManagementContent(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                         ) {
-                            Text("Yangilash (Refresh)")
+                            Text("Yangilash")
                         }
                     },
                     dismissButton = {
@@ -409,21 +378,21 @@ fun ProductManagementContent(
                             tint = ErrorRed
                         )
                     },
-                    title = { Text("Mahsulotni arxivlash") },
+                    title = { Text("Menyudan olib tashlaysizmi?") },
                     text = {
-                        Text("Rostdan ham \"${state.productToDelete?.name}\" mahsulotini arxivlamoqchimisiz? Arxivlangan mahsulot mijozlarga ko‘rinmaydi, biroq buyurtmalar tarixi saqlanib qoladi.")
+                        Text("\"${state.productToDelete?.name}\" mijozlarga ko‘rinmaydi. Buyurtmalar tarixi saqlanadi.")
                     },
                     confirmButton = {
                         Button(
                             onClick = onConfirmDeleteProduct,
                             colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
                         ) {
-                            Text("Arxivlash")
+                            Text("Olib tashlash")
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = onCancelDeleteProduct) {
-                            Text("Bekor qilish")
+                            Text("Yopish")
                         }
                     }
                 )

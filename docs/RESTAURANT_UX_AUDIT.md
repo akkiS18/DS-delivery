@@ -31,6 +31,9 @@ Taklif: odatiy holatda restoran faqat "To'langan, tayyorlanmoqda" ni ko'radi. "Q
 - Buyurtma ekrani: bitta asosiy tugma (hozirgi bosqichga mos), qolganlari ikkinchi darajali. Xavfli amal ("Buyurtmani bekor qilish / pulni qaytarish") ajratilgan, lekin tasdiq oynasi bilan.
 - Qabul qilish qadami: hozir restoran avval buyurtmani qabul qiladi, keyin mijozga to'lov rekvizitlari yuboriladi. Bu inson kutishi (mijoz kutib o'tirolmaydi). QAROR KERAK: avtomatik qabul (restoran ochiq va menyu to'g'ri bo'lsa) qilinsinmi, restoran faqat "rad etish" huquqini saqlasinmi.
 
+## Bajarildi (2026-10-23, kodda; yig'ilmagan, telefonda sinalmagan)
+A (matn qismi), B, C va D ning katta qismi: Kirish, Sozlamalar (qayta tuzildi, tizim sozlamalari uslubida), To'lov kartalari (kursor xatosi ham), Buyurtmalar, Buyurtma tafsiloti, Menyu, Taom shakli, Toifalar, Moliya, xato xabarlari. Qolgan: "Qo'lda tasdiq" tugmasini faqat zaxira rejimida ko'rsatish (backend bayrog'i kerak), shrift o'lchamlarini to'liq tekshirish, telefonda ko'rib chiqish.
+
 ## E. Tuzatish rejasi (tasdiqlansa)
 1. Matn va atamalar bo'yicha bitta o'tish (A, B, C): faqat satrlar, mantiq o'zgarmaydi.
 2. Sozlamalar tartibi, shriftlar, chiplar, "Chiqish" (D).

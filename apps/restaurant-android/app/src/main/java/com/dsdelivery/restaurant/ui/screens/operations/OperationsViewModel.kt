@@ -136,7 +136,7 @@ class OperationsViewModel(
                     _uiState.update {
                         it.copy(
                             isPaused = target,
-                            infoMessage = if (target) "Restoran vaqtincha to‘xtatildi (Pauza)" else "Restoran faollashtirildi"
+                            infoMessage = if (target) "Qabul to‘xtatildi" else "Qabul yoqildi"
                         )
                     }
                 }

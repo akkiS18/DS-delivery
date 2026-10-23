@@ -190,7 +190,7 @@ fun OrderDetailContent(
         when {
             state.isLoading && order == null -> {
                 LoadingView(
-                    message = "Buyurtma ma'lumotlari yuklanmoqda...",
+                    message = "Yuklanmoqda...",
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding)
@@ -198,7 +198,7 @@ fun OrderDetailContent(
             }
             order == null -> {
                 ErrorView(
-                    message = state.errorMessage ?: "Buyurtma topilmadi yoki yuklashda xatolik yuz berdi.",
+                    message = state.errorMessage ?: "Buyurtma yuklanmadi.",
                     onRetry = callbacks::loadOrder,
                     modifier = Modifier
                         .fillMaxSize()
@@ -259,12 +259,12 @@ fun OrderDetailContent(
                                 ) { Text("Rad etish") }
                             }
                             if (OrderAction.REFUND_APPROVE in allowed) {
-                                ActionButton("Bekor qilishni qabul qilish", Icons.Default.Check, !busy, Modifier.weight(1.4f)) { callbacks.showRefundApproveDialog(true) }
+                                ActionButton("Bekor qilishga rozi", Icons.Default.Check, !busy, Modifier.weight(1.4f)) { callbacks.showRefundApproveDialog(true) }
                             }
                         }
                     }
                     if (OrderAction.REFUND_SENT in allowed) {
-                        ActionButton("Pul qaytarildi — ma’lumotnomani kiritish", Icons.Default.Receipt, !busy, Modifier.fillMaxWidth()) { callbacks.showRefundSentDialog(true) }
+                        ActionButton("Pul qaytarildi (chek yuklash)", Icons.Default.Receipt, !busy, Modifier.fillMaxWidth()) { callbacks.showRefundSentDialog(true) }
                     }
                     if (OrderAction.CANCEL_ORDER in allowed) {
                         OutlinedButton(
@@ -273,7 +273,7 @@ fun OrderDetailContent(
                             modifier = Modifier.fillMaxWidth().height(44.dp),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed)
-                        ) { Text("Buyurtmani bekor qilish / pulni qaytarish") }
+                        ) { Text("Buyurtmani bekor qilish") }
                     }
                     if (busy) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -296,7 +296,7 @@ fun OrderDetailContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Buyurtma tarkibi",
+                                    text = "Taomlar",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -357,7 +357,7 @@ fun OrderDetailContent(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Jami summa:",
+                                    text = "Jami",
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -377,11 +377,6 @@ fun OrderDetailContent(
                     PaymentEvidenceCard(order)
                     RefundCard(order)
 
-                    // Taxi progress (automatic dispatch; the restaurant never requests a taxi)
-                    if (order.taxiStage != null) {
-                        TaxiProgressCard(order)
-                    }
-
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
@@ -395,10 +390,10 @@ fun OrderDetailContent(
             AlertDialog(
                 onDismissRequest = { callbacks.showAcceptDialog(false) },
                 icon = { Icon(imageVector = Icons.Default.AccessTime, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(32.dp)) },
-                title = { Text("Buyurtmani qabul qilish", fontWeight = FontWeight.Bold) },
+                title = { Text("Qabul qilasizmi?", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("Mijozga to‘lov rekvizitlari yuboriladi. Tayyorlash vaqti restoran sozlamasidan olinadi:", style = MaterialTheme.typography.bodyMedium)
+                        Text("Tayyorlash vaqti:", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             IconButton(onClick = { callbacks.onPrepOverride(minutes - 5) }) { Icon(Icons.Default.Remove, contentDescription = "Kamaytirish") }
@@ -406,14 +401,14 @@ fun OrderDetailContent(
                             IconButton(onClick = { callbacks.onPrepOverride(minutes + 5) }) { Icon(Icons.Default.Add, contentDescription = "Ko‘paytirish") }
                         }
                         if (state.prepOverride != null) {
-                            TextButton(onClick = { callbacks.onPrepOverride(null) }) { Text("Sozlamadagi vaqtga qaytish ($defaultPrep daq)") }
+                            TextButton(onClick = { callbacks.onPrepOverride(null) }) { Text("Odatiy: $defaultPrep daqiqa") }
                         }
                     }
                 },
                 confirmButton = {
                     Button(onClick = callbacks::confirmAccept, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) { Text("Qabul qilish") }
                 },
-                dismissButton = { TextButton(onClick = { callbacks.showAcceptDialog(false) }) { Text("Bekor qilish") } },
+                dismissButton = { TextButton(onClick = { callbacks.showAcceptDialog(false) }) { Text("Yopish") } },
                 shape = RoundedCornerShape(16.dp)
             )
         }
@@ -423,16 +418,15 @@ fun OrderDetailContent(
             AlertDialog(
                 onDismissRequest = { callbacks.showRejectDialog(false) },
                 icon = { Icon(imageVector = Icons.Default.Close, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(32.dp)) },
-                title = { Text("Buyurtmani rad etish", fontWeight = FontWeight.Bold) },
+                title = { Text("Rad etish sababi", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("Rad etish sababini tanlang. Mijozga buyurtma qabul qilinmagani haqida xabar yuboriladi; to‘lov ochilmaydi.", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(10.dp))
                         RejectReason.entries.forEach { reason ->
                             FilterChip(
                                 selected = state.selectedRejectReason == reason,
                                 onClick = { callbacks.onRejectReasonSelected(reason) },
-                                label = { Text(reason.title, fontSize = 12.sp) },
+                                label = { Text(reason.title) },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = ErrorRed, selectedLabelColor = Color.White)
                             )
@@ -440,9 +434,9 @@ fun OrderDetailContent(
                     }
                 },
                 confirmButton = {
-                    Button(onClick = callbacks::confirmReject, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("Rad etishni tasdiqlash") }
+                    Button(onClick = callbacks::confirmReject, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("Rad etish") }
                 },
-                dismissButton = { TextButton(onClick = { callbacks.showRejectDialog(false) }) { Text("Bekor qilish") } },
+                dismissButton = { TextButton(onClick = { callbacks.showRejectDialog(false) }) { Text("Yopish") } },
                 shape = RoundedCornerShape(16.dp)
             )
         }
@@ -456,34 +450,16 @@ fun OrderDetailContent(
                 title = { Text("To‘lovni tasdiqlash", fontWeight = FontWeight.Bold) },
                 text = {
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        Text("Buyurtma ${order.orderNumberDisplay}", fontWeight = FontWeight.SemiBold)
-                        Text("Kutilgan summa: ${som(ev?.expectedAmountSom ?: order.paymentAmountSom ?: order.totalSom)}", style = MaterialTheme.typography.bodyMedium)
-                        if (ev != null) {
-                            Text("To‘lov raqami: #${ev.reference}" + (ev.cardLast4?.let { " • karta ***$it" } ?: ""), style = MaterialTheme.typography.bodySmall)
-                            ev.signalSource?.let {
-                                Text(
-                                    "Xabar manbasi: $it" + (ev.signalAmountSom?.let { a -> " • ${som(a)}" } ?: "") +
-                                        (if (ev.signalAmountMatches == false) " • SUMMA MOS EMAS" else ""),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                ev.signalOccurredAt?.let { t -> Text("Xabar vaqti: $t", style = MaterialTheme.typography.bodySmall) }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("${order.orderNumberDisplay} • ${som(ev?.expectedAmountSom ?: order.paymentAmountSom ?: order.totalSom)}", fontWeight = FontWeight.SemiBold)
                         if (ev?.isTest == true || order.isTest) {
-                            Text("Sinov (MOCK) to‘lov — haqiqiy pul emas.", color = WarningOrange, style = MaterialTheme.typography.bodySmall)
+                            Text("Sinov to‘lovi: haqiqiy pul emas.", color = WarningOrange, style = MaterialTheme.typography.bodyMedium)
                         } else {
-                            Surface(color = WarningOrange.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
-                                Text(
-                                    "E-pochta xabari faqat signal: bu bank tasdig‘i emas. Pul restoran bank hisobiga HAQIQATAN tushganini o‘zingiz tekshiring. Skrinshot yoki xabar yetarli emas.",
-                                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp)
-                                )
-                            }
+                            Text("Pul kartangizga tushganini bankda tekshiring.", style = MaterialTheme.typography.bodyMedium)
                         }
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = state.verifyChecked, onCheckedChange = callbacks::onVerifyChecked)
-                            Text("Pul bank hisobimizga tushganini o‘zim tekshirdim", style = MaterialTheme.typography.bodyMedium)
+                            Text("Pul tushganini tekshirdim", style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 },
@@ -494,7 +470,7 @@ fun OrderDetailContent(
                         colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                     ) { Text("Tasdiqlash") }
                 },
-                dismissButton = { TextButton(onClick = { callbacks.showVerifyDialog(false) }) { Text("Bekor qilish") } },
+                dismissButton = { TextButton(onClick = { callbacks.showVerifyDialog(false) }) { Text("Yopish") } },
                 shape = RoundedCornerShape(16.dp)
             )
         }
@@ -506,13 +482,13 @@ fun OrderDetailContent(
                 title = { Text("Buyurtmani bekor qilish", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("To‘langan buyurtma bekor qilinadi. Pulni o‘z hisobingizdan mijozga qaytarishingiz va bank ma’lumotnomasini kiritishingiz kerak. Taksi so‘rovi to‘xtatiladi.", style = MaterialTheme.typography.bodyMedium)
+                        Text("Pulni mijozga qaytarishingiz kerak bo‘ladi. Sabab:", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(10.dp))
                         CancelReason.entries.forEach { reason ->
                             FilterChip(
                                 selected = state.selectedCancelReason == reason,
                                 onClick = { callbacks.onCancelReasonSelected(reason) },
-                                label = { Text(reason.title, fontSize = 12.sp) },
+                                label = { Text(reason.title) },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = ErrorRed, selectedLabelColor = Color.White)
                             )
@@ -520,18 +496,18 @@ fun OrderDetailContent(
                     }
                 },
                 confirmButton = {
-                    Button(onClick = callbacks::confirmCancel, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("Bekor qilish") }
+                    Button(onClick = callbacks::confirmCancel, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("Buyurtmani bekor qilish") }
                 },
-                dismissButton = { TextButton(onClick = { callbacks.showCancelDialog(false) }) { Text("Ortga") } },
+                dismissButton = { TextButton(onClick = { callbacks.showCancelDialog(false) }) { Text("Yopish") } },
                 shape = RoundedCornerShape(16.dp)
             )
         }
 
         if (state.showRefundApproveDialog) {
             ActionConfirmDialog(
-                title = "Bekor qilishni qabul qilish",
-                message = "Buyurtma bekor qilinadi. Pulni o‘z hisobingizdan qaytarib, bank ma’lumotnomasini kiritishingiz kerak bo‘ladi.",
-                confirmText = "Qabul qilish",
+                title = "Bekor qilishga rozimisiz?",
+                message = "Pulni qaytarib, chekni yuklashingiz kerak bo‘ladi.",
+                confirmText = "Rozi",
                 onConfirm = callbacks::confirmRefundApprove,
                 onDismiss = { callbacks.showRefundApproveDialog(false) }
             )
@@ -543,13 +519,13 @@ fun OrderDetailContent(
                 title = { Text("Bekor qilishni rad etish", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("Buyurtma davom etadi. Rad etish sababi:", style = MaterialTheme.typography.bodyMedium)
+                        Text("Sabab:", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(10.dp))
                         RefundRejectReason.entries.forEach { reason ->
                             FilterChip(
                                 selected = state.selectedRefundRejectReason == reason,
                                 onClick = { callbacks.onRefundRejectReasonSelected(reason) },
-                                label = { Text(reason.title, fontSize = 12.sp) },
+                                label = { Text(reason.title) },
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                                 colors = FilterChipDefaults.filterChipColors(selectedContainerColor = ErrorRed, selectedLabelColor = Color.White)
                             )
@@ -559,7 +535,7 @@ fun OrderDetailContent(
                 confirmButton = {
                     Button(onClick = callbacks::confirmRefundReject, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)) { Text("Rad etish") }
                 },
-                dismissButton = { TextButton(onClick = { callbacks.showRefundRejectDialog(false) }) { Text("Ortga") } },
+                dismissButton = { TextButton(onClick = { callbacks.showRefundRejectDialog(false) }) { Text("Yopish") } },
                 shape = RoundedCornerShape(16.dp)
             )
         }
@@ -576,7 +552,7 @@ fun OrderDetailContent(
         if (state.showReadyConfirm) {
             ActionConfirmDialog(
                 title = "Buyurtma tayyor",
-                message = "Taom to‘liq tayyor bo‘ldimi? Taksi operatoriga tayyor ekani ko‘rinadi.",
+                message = "Taksi operatoriga xabar yuboriladi.",
                 confirmText = "Tayyor",
                 confirmButtonColor = SuccessGreen,
                 onConfirm = callbacks::confirmReady,
@@ -589,10 +565,10 @@ fun OrderDetailContent(
             AlertDialog(
                 onDismissRequest = callbacks::dismissActionNotice,
                 icon = { Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(36.dp)) },
-                title = { Text("Amal bajarilmadi", fontWeight = FontWeight.Bold) },
+                title = { Text("Bajarilmadi", fontWeight = FontWeight.Bold) },
                 text = { Text(text = state.actionNoticeText ?: "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) },
                 confirmButton = {
-                    Button(onClick = callbacks::dismissActionNotice, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) { Text("Tushunarli") }
+                    Button(onClick = callbacks::dismissActionNotice, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) { Text("Yaxshi") }
                 },
                 shape = RoundedCornerShape(16.dp)
             )
@@ -625,7 +601,7 @@ private fun SummaryCard(order: Order, nowElapsed: State<Long>) {
             }
             Text("${order.itemsCount} ta mahsulot", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             if (order.isTest) {
-                Text("Sinov (MOCK) buyurtma — haqiqiy pul emas", style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 4.dp))
+                Text("Sinov buyurtmasi", style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 4.dp))
             }
             if (!order.rejectReason.isNullOrBlank()) {
                 Text("Rad etish sababi: ${RejectReason.entries.firstOrNull { it.code == order.rejectReason }?.title ?: order.rejectReason}", style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 4.dp))
@@ -646,7 +622,7 @@ private fun SummaryCard(order: Order, nowElapsed: State<Long>) {
                     }
                 }
                 if (cooking) {
-                    Text("Tayyorlash vaqti ${prep.minutes} daqiqa • tayyor bo‘lgach pastdagi „Tayyor“ tugmasini bosing", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+                    Text("${prep.minutes} daqiqa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 }
             } else if (prep != null && prep.minutes > 0) {
                 Text("Tayyorlash vaqti: ${prep.minutes} daqiqa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
@@ -671,8 +647,8 @@ private fun TimelineCard(order: Order) {
         add(
             when {
                 ended && !paid -> Step("To‘lov", StepState.FAILED, order.paymentStatus?.title)
-                paid || cookedOrLater -> Step("To‘lov tasdiqlandi", StepState.DONE, order.verifiedAtMillis?.let { formatClock(it) })
-                order.paymentStatus == PaymentStatus.MATCHED_UNVERIFIED -> Step("To‘lov tekshiruvda", StepState.CURRENT, "bank hisobingizni tekshiring")
+                paid || cookedOrLater -> Step("To‘langan", StepState.DONE, order.verifiedAtMillis?.let { formatClock(it) })
+                order.paymentStatus == PaymentStatus.MATCHED_UNVERIFIED -> Step("To‘lov keldi", StepState.CURRENT, "tasdiqlanmoqda")
                 else -> Step("To‘lov", StepState.CURRENT, order.paymentStatus?.title ?: "kutilmoqda")
             }
         )
@@ -689,16 +665,16 @@ private fun TimelineCard(order: Order) {
                         TaxiStage.NEEDS_HELP, TaxiStage.CANCELLED -> StepState.FAILED
                         null -> StepState.PENDING
                     },
-                    stage?.let { taxiStageText(it) } ?: "tayyorlash boshlangach avtomatik so‘raladi"
+                    stage?.let { taxiStageText(it) } ?: "o‘zi chaqiriladi"
                 )
             )
-            add(Step("Yetkazildi", if (s == OrderStatus.COMPLETED) StepState.DONE else StepState.PENDING, if (s == OrderStatus.COMPLETED) "taksi operatori tasdiqladi" else null))
+            add(Step("Yetkazildi", if (s == OrderStatus.COMPLETED) StepState.DONE else StepState.PENDING, null))
         }
         if (ended) add(Step(s.title, StepState.FAILED, null))
     }
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Buyurtma bosqichlari", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Holati", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
             steps.forEach { step ->
                 val color = when (step.state) {
@@ -731,7 +707,7 @@ private fun TimelineCard(order: Order) {
 private fun CustomerCard(order: Order) {
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Mijoz va yetkazish manzili", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Mijoz", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Person, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(18.dp))
@@ -750,7 +726,6 @@ private fun CustomerCard(order: Order) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(order.addressText ?: "Manzil ko‘rsatilmagan", style = MaterialTheme.typography.bodyMedium)
             }
-            Text("Yetkazish narxini taksi xizmati belgilaydi; u taomlar summasiga kirmaydi.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -821,8 +796,7 @@ private fun AttentionBanner(order: Order) {
             Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
             Column {
-                Text("E’tibor talab qiladi", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = WarningOrange)
-                lines.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface) }
+                lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
             }
         }
     }
@@ -851,7 +825,7 @@ private fun RefundReceiptDialog(submitting: Boolean, onSend: (ByteArray) -> Unit
         title = { Text("Pul qaytarildi", fontWeight = FontWeight.Bold) },
         text = {
             Column {
-                Text("Bank chekining rasmini yuklang. Bu sizning bayonotingiz: to‘liq tasdiq mijoz yoki administrator tomonidan qilinadi.", style = MaterialTheme.typography.bodySmall)
+                Text("Bank chekining rasmini yuklang.", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !reading && !submitting, modifier = Modifier.fillMaxWidth()) {
                     Text(if (photo == null) "Chek rasmini tanlash" else "Boshqa rasm tanlash")
@@ -868,7 +842,7 @@ private fun RefundReceiptDialog(submitting: Boolean, onSend: (ByteArray) -> Unit
                 colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) { Text("Yuborish") }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Bekor qilish") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Yopish") } },
         shape = RoundedCornerShape(16.dp)
     )
 }
@@ -879,22 +853,11 @@ private fun PaymentEvidenceCard(order: Order) {
     if (ev.status != "MATCHED_UNVERIFIED" && ev.status != "CONFIRMED_MANUAL") return
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("To‘lov tekshiruvi", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+            Text("To‘lov", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Kutilgan summa: ${som(ev.expectedAmountSom)}", style = MaterialTheme.typography.bodyMedium)
-            Text("To‘lov raqami: #${ev.reference}" + (ev.cardLast4?.let { " • karta ***$it" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            ev.signalSource?.let {
-                Text(
-                    "Xabar: $it" + (ev.signalAmountSom?.let { a -> " • ${som(a)}" } ?: "") + (if (ev.signalAmountMatches == false) " • summa mos emas" else ""),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            ev.matchedAt?.let { Text("Mos kelgan vaqt: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            ev.verifiedAt?.let { Text("Restoran tasdiqlagan: $it", style = MaterialTheme.typography.bodySmall, color = SuccessGreen) }
-            if (ev.notBankProof && ev.verifiedAt == null) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Text("Bu faqat signal — bank tasdig‘i emas.", style = MaterialTheme.typography.bodySmall, color = WarningOrange)
-            }
+            Text(som(ev.expectedAmountSom) + (ev.cardLast4?.let { " • karta ***$it" } ?: ""), style = MaterialTheme.typography.bodyLarge)
+            ev.matchedAt?.let { Text("Pul keldi: $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            ev.verifiedAt?.let { Text("Tasdiqlandi: $it", style = MaterialTheme.typography.bodyMedium, color = SuccessGreen) }
         }
     }
 }
@@ -904,21 +867,21 @@ private fun RefundCard(order: Order) {
     val r = order.refund ?: return
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Bekor qilish / pulni qaytarish #${r.number}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Bekor qilish #${r.number}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(6.dp))
             val statusText = when (r.status) {
-                "REQUESTED" -> "Mijoz bekor qilishni so‘radi — qaror kutilmoqda"
-                "APPROVED" -> "Qabul qilingan — pulni qaytaring va ma’lumotnomani kiriting"
-                "SENT" -> "Qaytarildi (restoran bayoni) — mijoz tasdig‘i kutilmoqda"
-                "DISPUTED" -> "Mijoz pul kelmadi dedi — tekshirib, qayta kiriting"
-                "CONFIRMED" -> "Mijoz/administrator tasdiqladi"
+                "REQUESTED" -> "Mijoz bekor qilmoqchi. Qaror kerak."
+                "APPROVED" -> "Pulni qaytaring va chekni yuklang."
+                "SENT" -> "Qaytarildi. Mijoz tasdig‘i kutilmoqda."
+                "DISPUTED" -> "Mijoz pul kelmadi, deydi. Tekshirib, chekni qayta yuklang."
+                "CONFIRMED" -> "Qaytarish tasdiqlandi."
                 "REJECTED" -> "Rad etilgan"
                 else -> r.status
             }
             Text(statusText, style = MaterialTheme.typography.bodyMedium)
-            Text("To‘langan: ${som(r.paidAmountSom)}" + (r.approvedAmountSom?.let { " • qaytariladi: ${som(it)}" } ?: ""), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (r.hasReceipt) Text("Bank cheki rasmi yuklangan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else r.bankReference?.let { Text("Ma’lumotnoma: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Text("To‘langan: ${som(r.paidAmountSom)}" + (r.approvedAmountSom?.let { " • qaytariladi: ${som(it)}" } ?: ""), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (r.hasReceipt) Text("Chek yuklangan", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else r.bankReference?.let { Text("Chek raqami: $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }

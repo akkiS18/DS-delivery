@@ -625,68 +625,66 @@ class RestaurantRepositoryImpl(
 
         return when (e.code()) {
             400 -> when (parsedCode) {
-                "CARD_NUMBER_INVALID" -> "Karta raqami noto‘g‘ri. 16 xonali raqamni tekshiring."
-                "Validation failed" -> "Kiritilgan ma'lumotlar talabga javob bermaydi (Format yoki maydonlar xato)."
-                "DATE_FILTER_INVALID" -> "Sana oralig‘i noto‘g‘ri."
-                "DATE_RANGE_TOO_LARGE" -> "Sana oralig‘i juda katta (ko‘pi bilan 366 kun)."
-                else -> parsedCode ?: "So‘rov formati noto‘g‘ri (HTTP 400)."
+                "CARD_NUMBER_INVALID" -> "Karta raqami noto‘g‘ri."
+                "Validation failed" -> "Ma’lumotlar noto‘g‘ri kiritilgan."
+                "DATE_FILTER_INVALID" -> "Sana noto‘g‘ri."
+                "DATE_RANGE_TOO_LARGE" -> "Sana oralig‘i juda katta (eng ko‘pi 366 kun)."
+                else -> parsedCode ?: "So‘rov noto‘g‘ri."
             }
             401 -> when (parsedCode) {
-                "INVALID_CREDENTIALS" -> "Restoran identifikatori (slug) yoki paroli noto‘g‘ri."
-                "UNAUTHENTICATED" -> "Sessiya muddati tugagan yoki ruxsat yo‘q. Qayta kiring."
-                else -> "Autentifikatsiya xatosi (HTTP 401)."
+                "INVALID_CREDENTIALS" -> "Restoran kodi yoki parol noto‘g‘ri."
+                "UNAUTHENTICATED" -> "Qayta kiring."
+                else -> "Qayta kiring."
             }
             403 -> when (parsedCode) {
                 "PASSWORD_INVALID" -> "Parol noto‘g‘ri."
-                "RESTAURANT_INACTIVE" -> "Restoran faoliyati to‘xtatilgan (Hisob ma'murlar tomonidan bloklangan)."
-                else -> "Ushbu amalni bajarish uchun ruxsat yo‘q (HTTP 403)."
+                "RESTAURANT_INACTIVE" -> "Restoran to‘xtatilgan. Administrator bilan bog‘laning."
+                else -> "Ruxsat yo‘q."
             }
             404 -> when (parsedCode) {
-                "NOT_FOUND" -> "So‘ralgan element topilmadi."
-                else -> "Resurs topilmadi (HTTP 404)."
+                "NOT_FOUND" -> "Topilmadi."
+                else -> "Topilmadi."
             }
             409 -> when (parsedCode) {
-                "VERSION_CONFLICT" -> "Versiya to‘qnashuvi (VERSION_CONFLICT): Ushbu element boshqa sessiyada tahrirlangan. Iltimos, ma'lumotlarni yangilang."
-                "DUPLICATE_NAME" -> "Bunday nomdagi mahsulot yoki toifa allaqachon mavjud."
-                "CATEGORY_NOT_EMPTY" -> "Ushbu toifada faol mahsulotlar mavjud. O‘chirish uchun ularni boshqa toifaga o‘tkazing yoki toifasiz qiling."
-                "ARCHIVED" -> "Mahsulot allaqachon arxivlangan."
-                "STALE" -> "Buyurtma holati allaqachon o‘zgargan (Telegram yoki boshqa qurilmada). Ma'lumot yangilandi."
-                "INVALID_STATE" -> "Bu amal hozirgi holatda mumkin emas. To‘lov bank orqali tekshirilgandan keyingina tayyorlash mumkin."
-                "TIMED_OUT" -> "Javob muddati tugagan, buyurtma bekor qilindi."
-                "RESTAURANT_CLOSED" -> "Restoran faol emas yoki pauzada. Avval pauzani o‘chiring yoki buyurtmani rad eting."
-                "PAYMENT_EVIDENCE_INVALID" -> "To‘lov ma’lumotlari mos emas (summa yoki manba). To‘lovni tasdiqlab bo‘lmaydi; bank hisobini tekshiring yoki administratorga murojaat qiling."
-                "PRICE_EDIT_REQUIRES_PAUSE" -> "Narxni o‘zgartirish uchun avval Sozlamalarda restoranni pauzaga qo‘ying. Narxlar buyurtma berilishidan oldin mijozga ko‘rsatilib, buyurtmada qotiriladi."
-                "PRICE_PROPOSALS_REMOVED" -> "Buyurtmadan keyin narxni o‘zgartirish bekor qilingan: narxlar to‘lovdan oldin tekshiriladi."
-                "REFUND_ALREADY_OPEN" -> "Bu buyurtma uchun qaytarish so‘rovi allaqachon ochilgan."
-                "NO_OPEN_REFUND" -> "Ochiq qaytarish so‘rovi topilmadi (holat o‘zgargan). Ma’lumot yangilandi."
+                "VERSION_CONFLICT" -> "Boshqa joyda o‘zgartirilgan. Yangilab, qayta urinib ko‘ring."
+                "DUPLICATE_NAME" -> "Bunday nom allaqachon bor."
+                "CATEGORY_NOT_EMPTY" -> "Toifada taomlar bor. Avval ularni boshqa toifaga o‘tkazing."
+                "ARCHIVED" -> "Taom allaqachon olib tashlangan."
+                "STALE" -> "Buyurtma allaqachon o‘zgargan. Yangilandi."
+                "INVALID_STATE" -> "Hozir bu amalni bajarib bo‘lmaydi."
+                "TIMED_OUT" -> "Vaqt tugadi, buyurtma bekor qilindi."
+                "RESTAURANT_CLOSED" -> "Qabul to‘xtatilgan. Sozlamalarda yoqing yoki buyurtmani rad eting."
+                "PAYMENT_EVIDENCE_INVALID" -> "To‘lov mos kelmadi. Administrator bilan bog‘laning."
+                "PRICE_EDIT_REQUIRES_PAUSE" -> "Narxni o‘zgartirish uchun avval Sozlamalarda qabulni to‘xtating."
+                "PRICE_PROPOSALS_REMOVED" -> "Buyurtmadan keyin narxni o‘zgartirib bo‘lmaydi."
+                "REFUND_ALREADY_OPEN" -> "Bu buyurtma uchun bekor qilish so‘rovi allaqachon bor."
+                "NO_OPEN_REFUND" -> "So‘rov topilmadi. Yangilandi."
                 "ORDER_PROBLEMS" -> "Qabul qilib bo‘lmaydi: menyu yoki narx o‘zgargan. Buyurtmani rad eting."
-                "CARD_TAKEN" -> "Bu kartani qo‘shib bo‘lmaydi: oxirgi 4 raqami band. Administratorga murojaat qiling."
+                "CARD_TAKEN" -> "Bu kartani qo‘shib bo‘lmaydi: oxirgi 4 raqami band. Administrator bilan bog‘laning."
                 "CARD_EXISTS" -> "Bu karta ro‘yxatda bor. Uni yoqing."
                 "CARD_LIMIT" -> "Kartalar soni chegaraga yetdi."
                 "CARD_PENDING_LIMIT" -> "Tasdiq kutayotgan kartalar bor. Administrator tasdiqlagach yana qo‘shing."
-                "NOT_APPROVED" -> "Karta hali administrator tomonidan tasdiqlanmagan."
-                else -> "To‘qnashuv yuz berdi (HTTP 409): ${parsedCode ?: ""}"
+                "NOT_APPROVED" -> "Karta hali tasdiqlanmagan."
+                else -> "Bajarib bo‘lmadi. Yangilab, qayta urinib ko‘ring."
             }
             422 -> when (parsedCode) {
-                "INVALID_CATEGORY" -> "Noto‘g‘ri toifa tanlandi (Ushbu toifa mavjud emas yoki boshqa restoranga tegishli)."
-                else -> "Ma'lumotlar qabul qilinmadi (HTTP 422)."
+                "INVALID_CATEGORY" -> "Toifa noto‘g‘ri tanlangan."
+                else -> "Ma’lumotlar noto‘g‘ri."
             }
             429 -> when (parsedCode) {
-                "TOO_MANY_ATTEMPTS" -> "Kirish urinishlari soni oshib ketdi. Xavfsizlik yuzasidan vaqtincha bloklandi. Birozdan keyin qayta urining."
-                else -> "So‘rovlar soni me'yoridan oshdi (HTTP 429)."
+                "TOO_MANY_ATTEMPTS" -> "Juda ko‘p urinish. Birozdan keyin qayta urining."
+                else -> "Juda ko‘p so‘rov. Birozdan keyin qayta urining."
             }
-            500 -> "Serverda ichki xatolik yuz berdi (HTTP 500)."
-            else -> "Server xatosi: HTTP ${e.code()} (${e.message()})"
+            else -> "Server javob bermadi. Birozdan keyin qayta urining."
         }
     }
 
     private fun parseGenericException(e: Exception): String {
         return when (e) {
-            is ConnectException -> "Backend serverga ulanib bo‘lmadi. Server 'PORT=4000' da ishlayotganini va Wi-Fi IP to‘g‘riligini tekshiring."
-            is SocketTimeoutException -> "Ulanish vaqti tugadi (Timeout). Tarmoq aloqasini tekshiring."
-            is UnknownHostException -> "Server manzili topilmadi. Host IP manzilini tekshiring."
-            is IOException -> "Tarmoq xatosi: ${e.localizedMessage ?: "Aloqa uzildi"}"
-            else -> "Kutilmagan xatolik: ${e.localizedMessage ?: e.javaClass.simpleName}"
+            is ConnectException, is UnknownHostException -> "Serverga ulanib bo‘lmadi. Internetni tekshiring."
+            is SocketTimeoutException -> "Internet sekin. Qayta urining."
+            is IOException -> "Internet yo‘q."
+            else -> "Xatolik yuz berdi. Qayta urining."
         }
     }
 }

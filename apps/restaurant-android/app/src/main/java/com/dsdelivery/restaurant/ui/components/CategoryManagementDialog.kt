@@ -87,7 +87,7 @@ fun CategoryManagementDialog(
         },
         title = {
             Text(
-                text = "Toifalarni Boshqarish",
+                text = "Toifalar",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
             )
         },
@@ -102,15 +102,6 @@ fun CategoryManagementDialog(
                     )
                 }
 
-                // Existing Categories List
-                Text(
-                    text = "Mavjud toifalar (${categories.size}):",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -120,7 +111,7 @@ fun CategoryManagementDialog(
                     if (categories.isEmpty()) {
                         item {
                             Text(
-                                text = "Hozircha toifalar mavjud emas.",
+                                text = "Toifa yo‘q",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(8.dp)
@@ -149,9 +140,8 @@ fun CategoryManagementDialog(
                                             fontWeight = FontWeight.Medium
                                         )
                                         Text(
-                                            text = "Tartib: ${cat.position} • Mahsulotlar: ${cat.productCount} ta (v${cat.version})",
+                                            text = "${cat.productCount} ta taom",
                                             style = MaterialTheme.typography.bodySmall,
-                                            fontSize = 11.sp,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -202,16 +192,10 @@ fun CategoryManagementDialog(
 
                 // If editing a category
                 if (editingCategory != null) {
-                    Text(
-                        text = "Toifani tahrirlash (v${editingCategory!!.version}):",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = editName,
                         onValueChange = { editName = it },
-                        label = { Text("Toifa nomi (1-60 belgi)") },
+                        label = { Text("Toifa nomi") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -221,7 +205,7 @@ fun CategoryManagementDialog(
                         horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(onClick = { editingCategory = null }) {
-                            Text("Bekor qilish")
+                            Text("Yopish")
                         }
                         Spacer(modifier = Modifier.width(6.dp))
                         Button(
@@ -243,14 +227,6 @@ fun CategoryManagementDialog(
                     }
                 } else {
                     // Add new category
-                    Text(
-                        text = "Yangi toifa qo‘shish:",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -259,8 +235,7 @@ fun CategoryManagementDialog(
                         OutlinedTextField(
                             value = newCategoryName,
                             onValueChange = { newCategoryName = it },
-                            label = { Text("Toifa nomi") },
-                            placeholder = { Text("Masalan: Ichimliklar") },
+                            label = { Text("Yangi toifa") },
                             singleLine = true,
                             modifier = Modifier.weight(1f)
                         )
@@ -313,7 +288,7 @@ fun CategoryManagementDialog(
             },
             title = {
                 Text(
-                    text = "\"${cat.name}\" toifasini o‘chirish",
+                    text = "\"${cat.name}\" o‘chirilsinmi?",
                     fontWeight = FontWeight.Bold
                 )
             },
@@ -321,8 +296,8 @@ fun CategoryManagementDialog(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     if (cat.productCount > 0) {
                         Text(
-                            text = "Diqqat: Ushbu toifada ${cat.productCount} ta faol mahsulot mavjud. Toifani o‘chirish uchun mahsulotlarni nima qilishni tanlang:",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Bu toifada ${cat.productCount} ta taom bor. Ularni nima qilamiz?",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = BrandDark
                         )
 
@@ -341,7 +316,7 @@ fun CategoryManagementDialog(
                                     onClick = { reassignMode = "targetCategory" },
                                     colors = RadioButtonDefaults.colors(selectedColor = BrandPrimary)
                                 )
-                                Text("Boshqa toifaga ko‘chirish:", style = MaterialTheme.typography.bodySmall)
+                                Text("Boshqa toifaga ko‘chirish", style = MaterialTheme.typography.bodyMedium)
                             }
 
                             if (reassignMode == "targetCategory") {
@@ -392,11 +367,11 @@ fun CategoryManagementDialog(
                                 onClick = { reassignMode = "none" },
                                 colors = RadioButtonDefaults.colors(selectedColor = BrandPrimary)
                             )
-                            Text("Toifasiz qoldirish (none)", style = MaterialTheme.typography.bodySmall)
+                            Text("Toifasiz qoldirish", style = MaterialTheme.typography.bodyMedium)
                         }
                     } else {
                         Text(
-                            text = "Rostdan ham \"${cat.name}\" toifasini o‘chirmoqchimisiz?",
+                            text = "Toifa o‘chiriladi.",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -420,7 +395,7 @@ fun CategoryManagementDialog(
             },
             dismissButton = {
                 TextButton(onClick = { categoryToDelete = null }) {
-                    Text("Bekor qilish")
+                    Text("Yopish")
                 }
             }
         )

@@ -188,16 +188,16 @@ fun OrdersContent(
                     Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "${state.attentionOrdersCount} ta buyurtma e’tibor talab qiladi (to‘lovni tasdiqlash, bekor qilish so‘rovi, taksi muammosi)",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "${state.attentionOrdersCount} ta buyurtmaga e’tibor kerak",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = WarningOrange
                     )
                 }
             }
             if (state.pollFailed) {
                 Text(
-                    text = "Yangi buyurtmalarni tekshirib bo‘lmadi (tarmoq yoki server). Ilova qayta urinadi.",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "Internet yo‘q. Qayta urinilmoqda...",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
                 )
@@ -212,7 +212,7 @@ fun OrdersContent(
                 OutlinedTextField(
                     value = state.searchQuery,
                     onValueChange = onSearchQueryChange,
-                    placeholder = { Text("Buyurtma raqami, mijoz yoki taomdan izlash...") },
+                    placeholder = { Text("Qidirish") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -269,19 +269,15 @@ fun OrdersContent(
             // Main Content: Loading / Empty / Orders List
             when {
                 state.isLoading -> {
-                    LoadingView(message = "Buyurtmalar yuklanmoqda...")
+                    LoadingView(message = "Yuklanmoqda...")
                 }
                 state.errorMessage != null && state.orders.isEmpty() -> {
                     ErrorView(message = state.errorMessage, onRetry = onRefresh)
                 }
                 state.filteredOrders.isEmpty() -> {
                     EmptyView(
-                        title = "Buyurtmalar mavjud emas",
-                        subtitle = if (state.searchQuery.isNotEmpty()) {
-                            "Qidiruv bo‘yicha buyurtma topilmadi."
-                        } else {
-                            "Yangi buyurtmalar kelib tushganda shu yerda paydo bo‘ladi."
-                        }
+                        title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Buyurtma yo‘q",
+                        subtitle = null
                     )
                 }
                 else -> {
@@ -311,7 +307,7 @@ fun OrdersContent(
                                     if (state.isLoadingMore) {
                                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                     } else {
-                                        Text("Ko‘proq yuklash")
+                                        Text("Yana ko‘rsatish")
                                     }
                                 }
                             }

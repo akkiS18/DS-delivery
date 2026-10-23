@@ -91,6 +91,7 @@ Admin commands work only for the support admins (SUPPORT_ADMIN_1/2 in the stagin
 | H16 | Restaurant APK: pause / working hours / prep time screens | No more "serverga hali saqlanmaydi" notes; values are saved |
 | H17 | (Stage 8D, production rehearsal R1) Real money: order, pay the exact amount | No admin or restaurant tap: the order confirms itself, cooking starts, the customer sees "to‘lovingiz qabul qilindi"; only wrong/late/odd money reaches `/money` |
 | H18 | (Stage 8D) Staging stays MOCK, so MOCK orders confirm themselves as before; the "fallback" (`GMAIL_AUTO_CONFIRM=false`) is proven on production as R11 | MOCK flow unchanged |
+| H19 | (Restaurant app UI pass 2026-10-23, needs the NEW restaurant APK; not compiled/run when written) Walk every tab: Buyurtmalar, Menyu, Moliya, Sozlamalar; add a card (type 16 digits: the cursor must stay at the end and spaces appear by themselves); open an order; open Toifalar and the product form | No English/developer words (Stage, slug, VERSION_CONFLICT, Server sozlamasi, Demo); tab names equal screen titles; Sozlamalar order = Qabul, To‘lov kartalari, Tayyorlash vaqti, Ish vaqti, Hisob; no "please verify the payment" wording unless the manual fallback is active; texts short |
 
 ## I. Infrastructure steps (done by the assistant with the owner's go, in this order; see docs/RUNBOOK_PRODUCTION.md)
 1. Package + deploy the new release to staging, check migrations (5 new) and `/health/ready`.

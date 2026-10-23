@@ -81,7 +81,7 @@ class LoginViewModel(
 
         if (slug.length !in 2..40 || !slug.matches(Regex("^[a-z0-9-]+$"))) {
             _uiState.update {
-                it.copy(errorMessage = "Restoran slug formati noto‘g‘ri (2-40 kichik lotin harflari, raqamlar va chiziqcha)")
+                it.copy(errorMessage = "Restoran kodi noto‘g‘ri.")
             }
             return
         }

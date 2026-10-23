@@ -189,7 +189,7 @@ fun ProductCard(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (product.isAvailable) "Sotuvda faol" else "To‘xtatilgan",
+                            text = if (product.isAvailable) "Sotuvda" else "Sotuvda emas",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 12.sp,
                             color = if (product.isAvailable) BrandPrimary else WarningOrange,

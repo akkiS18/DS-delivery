@@ -58,6 +58,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.dsdelivery.restaurant.BuildConfig
 import com.dsdelivery.restaurant.data.model.Restaurant
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.components.ServerConfigDialog
@@ -83,7 +84,7 @@ fun LoginScreen(
     }
 
     if (state.isRestoringSession) {
-        LoadingView(message = "Sessiya tiklanmoqda...")
+        LoadingView(message = "Yuklanmoqda...")
         return
     }
 
@@ -160,27 +161,12 @@ fun LoginContent(
             )
 
             Text(
-                text = "Restoran Boshqaruvi",
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Restoran",
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            // Stage 3 pill badge
-            Spacer(modifier = Modifier.height(8.dp))
-            Surface(
-                shape = CircleShape,
-                color = BrandPrimary.copy(alpha = 0.12f)
-            ) {
-                Text(
-                    text = "Stage 3 — Real Auth & Catalog CRUD",
-                    color = BrandPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Session Expired Notice Card
             if (state.sessionExpiredNotice != null) {
@@ -224,20 +210,11 @@ fun LoginContent(
                     modifier = Modifier.padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Restoranga Kirish",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Restaurant Slug Field
+                    // Restaurant code (the slug)
                     OutlinedTextField(
                         value = state.restaurantSlug,
                         onValueChange = onSlugChanged,
-                        label = { Text("Restoran slug identifikatori") },
-                        placeholder = { Text("demo-restoran") },
+                        label = { Text("Restoran kodi") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Storefront,
@@ -259,8 +236,7 @@ fun LoginContent(
                     OutlinedTextField(
                         value = state.password,
                         onValueChange = onPasswordChanged,
-                        label = { Text("Xodim paroli") },
-                        placeholder = { Text("••••••••") },
+                        label = { Text("Parol") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Default.Lock,
@@ -318,50 +294,34 @@ fun LoginContent(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Demo Menu Direct Button
-                    OutlinedButton(
-                        onClick = onDemoClick,
-                        enabled = !state.isLoading,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Text(
-                            "Ochiq menyuni ko‘rish (Demo)",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Server Base URL Configuration Status Chip
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                modifier = Modifier.clickable { onOpenServerConfig() }
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // Developer-only: the server address does not exist in the release app.
+            if (BuildConfig.DEBUG) {
+                Spacer(modifier = Modifier.height(24.dp))
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.clickable { onOpenServerConfig() }
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Dns,
-                        contentDescription = null,
-                        tint = BrandPrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "API: ${state.currentBaseUrl}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Dns,
+                            contentDescription = null,
+                            tint = BrandPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "API: ${state.currentBaseUrl}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }

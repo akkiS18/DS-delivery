@@ -179,20 +179,20 @@ fun PaymentPill(order: Order, modifier: Modifier = Modifier) {
 /** The one-line, human reason an order needs attention (most important first). Shared by the list and the detail screen. */
 fun attentionLine(codes: List<String>): String? = codes.firstNotNullOfOrNull { ATTENTION_TEXT[it] }
 val ATTENTION_TEXT: Map<String, String> = mapOf(
-    "VERIFY_PAYMENT" to "To‘lov sizning tekshiruvingizni kutmoqda: bank hisobini tekshirib, tasdiqlang.",
-    "CANCELLATION_REQUESTED" to "Mijoz buyurtmani bekor qilishni so‘radi — qaror kerak.",
-    "REFUND_PENDING" to "Pulni qaytarib, bank ma’lumotnomasini kiriting.",
-    "AUTO_START_FAILED" to "Tayyorlash avtomatik boshlanmadi — qo‘lda boshlang.",
-    "MENU_PROBLEM" to "Menyudagi mahsulot mavjud emas yoki o‘chirilgan.",
-    "PRICE_CHANGED" to "Menyu narxi o‘zgargan — buyurtmani rad eting.",
-    "TAXI_NEEDS_HELP" to "Taksi bo‘yicha yordam kerak (administrator hal qiladi)."
+    "VERIFY_PAYMENT" to "To‘lov hali tasdiqlanmadi. Tekshirib tasdiqlang.",
+    "CANCELLATION_REQUESTED" to "Mijoz bekor qilmoqchi. Qaror kerak.",
+    "REFUND_PENDING" to "Pulni qaytaring va chekni yuklang.",
+    "AUTO_START_FAILED" to "Tayyorlash boshlanmadi. Qo‘lda boshlang.",
+    "MENU_PROBLEM" to "Menyudagi taom mavjud emas.",
+    "PRICE_CHANGED" to "Narx o‘zgargan. Buyurtmani rad eting.",
+    "TAXI_NEEDS_HELP" to "Taksi muammosi. Administrator hal qiladi."
 )
 
 fun taxiStageText(stage: TaxiStage): String = when (stage) {
-    TaxiStage.SCHEDULED -> "rejalashtirilgan"
-    TaxiStage.REQUESTED -> "so‘rov yuborildi"
-    TaxiStage.ACCEPTED -> "operator qabul qildi"
-    TaxiStage.DISPATCHED -> "taksi yuborildi"
+    TaxiStage.SCHEDULED -> "kutilmoqda"
+    TaxiStage.REQUESTED -> "chaqirildi"
+    TaxiStage.ACCEPTED -> "qabul qilindi"
+    TaxiStage.DISPATCHED -> "yo‘lda"
     TaxiStage.DELIVERED -> "yetkazildi"
     TaxiStage.NEEDS_HELP -> "yordam kerak"
     TaxiStage.CANCELLED -> "bekor qilingan"
@@ -322,7 +322,7 @@ fun ActionConfirmDialog(
     title: String,
     message: String,
     confirmText: String = "Tasdiqlash",
-    cancelText: String = "Bekor qilish",
+    cancelText: String = "Yopish",
     confirmButtonColor: Color = BrandPrimary,
     warningNote: String? = null,
     onConfirm: () -> Unit,

@@ -124,21 +124,21 @@ class OrderDetailViewModel(
     // ---- actions ---------------------------------------------------------------------------------------------
     override fun confirmAccept() {
         val override = _uiState.value.prepOverride
-        runAction("Buyurtma qabul qilindi. Mijozga to‘lov rekvizitlari yuboriladi.") { expected ->
+        runAction("Qabul qilindi.") { expected ->
             repository.acceptOrder(orderId, override, expected)
         }
     }
 
     override fun confirmReject() {
         val reason = _uiState.value.selectedRejectReason
-        runAction("Buyurtma rad etildi. Mijozga xabar yuboriladi.") { expected ->
+        runAction("Rad etildi.") { expected ->
             repository.rejectOrder(orderId, reason.code, expected)
         }
     }
 
     override fun confirmVerify() {
         if (!_uiState.value.verifyChecked) return
-        runAction("To‘lov tasdiqlandi. Tayyorlash avtomatik boshlanadi.") { expected ->
+        runAction("To‘lov tasdiqlandi.") { expected ->
             repository.verifyPayment(orderId, expected)
         }
     }
@@ -151,34 +151,34 @@ class OrderDetailViewModel(
     }
 
     override fun confirmReady() {
-        runAction("Buyurtma tayyor deb belgilandi.") { expected ->
+        runAction("Tayyor.") { expected ->
             repository.setOrderReady(orderId, expected)
         }
     }
 
     override fun confirmCancel() {
         val reason = _uiState.value.selectedCancelReason
-        runAction("Buyurtma bekor qilindi. Pulni o‘z hisobingizdan qaytarib, bank ma’lumotnomasini kiriting.") { expected ->
+        runAction("Bekor qilindi. Pulni qaytaring va chekni yuklang.") { expected ->
             repository.cancelOrder(orderId, reason.code, expected)
         }
     }
 
     override fun confirmRefundApprove() {
-        runAction("Qaytarish qabul qilindi. Pulni qaytarib, bank ma’lumotnomasini kiriting.") { expected ->
+        runAction("Rozi bo‘ldingiz. Pulni qaytaring va chekni yuklang.") { expected ->
             repository.approveRefund(orderId, expected)
         }
     }
 
     override fun confirmRefundReject() {
         val reason = _uiState.value.selectedRefundRejectReason
-        runAction("Bekor qilish so‘rovi rad etildi. Buyurtma davom etadi.") { expected ->
+        runAction("Bekor qilish rad etildi.") { expected ->
             repository.rejectRefund(orderId, reason.code, expected)
         }
     }
 
     override fun confirmRefundSent(receiptJpeg: ByteArray) {
         if (receiptJpeg.size < 1024) return
-        runAction("Qaytarish qayd etildi. Mijoz tasdiqlashi kutiladi.") { expected ->
+        runAction("Yuborildi. Mijoz tasdig‘i kutilmoqda.") { expected ->
             repository.uploadRefundReceipt(orderId, receiptJpeg, expected)
         }
     }

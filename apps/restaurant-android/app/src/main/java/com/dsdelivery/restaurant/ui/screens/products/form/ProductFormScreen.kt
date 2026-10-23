@@ -119,7 +119,7 @@ fun ProductFormContent(
             TopAppBar(
                 title = {
                     Text(
-                        text = if (state.isEditMode) "Mahsulotni Tahrirlash" else "Yangi Mahsulot Qo‘shish",
+                        text = if (state.isEditMode) "Taomni tahrirlash" else "Yangi taom",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
@@ -143,7 +143,7 @@ fun ProductFormContent(
     ) { innerPadding ->
         if (state.isLoadingProduct) {
             LoadingView(
-                message = "Mahsulot ma'lumotlari yuklanmoqda...",
+                message = "Yuklanmoqda...",
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -203,15 +203,12 @@ fun ProductFormContent(
             OutlinedTextField(
                 value = state.name,
                 onValueChange = onNameChange,
-                label = { Text("Mahsulot nomi *") },
-                placeholder = { Text("Masalan: Klassik Burger") },
+                label = { Text("Taom nomi") },
                 singleLine = true,
                 isError = state.nameError != null,
                 supportingText = {
                     if (state.nameError != null) {
                         Text(state.nameError, color = MaterialTheme.colorScheme.error)
-                    } else {
-                        Text("${state.name.length}/100 belgi")
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -226,8 +223,7 @@ fun ProductFormContent(
             OutlinedTextField(
                 value = state.priceInput,
                 onValueChange = onPriceChange,
-                label = { Text("Narxi (so‘mda) *") },
-                placeholder = { Text("Masalan: 25000") },
+                label = { Text("Narxi") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 trailingIcon = { Text("so‘m", modifier = Modifier.padding(end = 12.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) },
@@ -237,10 +233,12 @@ fun ProductFormContent(
                         if (state.priceError != null) {
                             Text(state.priceError, color = MaterialTheme.colorScheme.error)
                         } else if (formattedPricePreview != null) {
-                            Text("Ko‘rinishi: $formattedPricePreview", color = BrandPrimary, fontWeight = FontWeight.Medium)
+                            Text(formattedPricePreview, color = BrandPrimary, fontWeight = FontWeight.Medium)
                         }
                         // Server rule (Stage 6F): an existing product's price can only be changed while the restaurant is paused.
-                        Text("Mavjud mahsulot narxini o‘zgartirish uchun avval Sozlamalarda restoranni pauzaga qo‘ying.")
+                        if (state.isEditMode) {
+                            Text("Narxni o‘zgartirish uchun avval Sozlamalarda qabulni to‘xtating.")
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -250,7 +248,7 @@ fun ProductFormContent(
             if (state.categories.isNotEmpty()) {
                 Column {
                     Text(
-                        text = "Toifa tanlang:",
+                        text = "Toifa",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
@@ -297,17 +295,17 @@ fun ProductFormContent(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Sotuvda mavjudligi",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
+                            text = "Sotuvda",
+                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = if (state.isAvailable) "Mijozlar ushbu mahsulotga buyurtma bera oladi" else "Mahsulot menyuda vaqtincha to‘xtatilgan ko‘rinadi",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (state.isAvailable) BrandPrimary else WarningOrange
-                        )
+                        if (!state.isAvailable) {
+                            Text(
+                                text = "Vaqtincha to‘xtatilgan",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = WarningOrange
+                            )
+                        }
                     }
 
                     Switch(
@@ -327,20 +325,16 @@ fun ProductFormContent(
             OutlinedTextField(
                 value = state.description,
                 onValueChange = onDescriptionChange,
-                label = { Text("Tavsif (ixtiyoriy)") },
-                placeholder = { Text("Tarkibi, vazni yoki tayyorlanish usuli haqida qisqacha ma'lumot...") },
+                label = { Text("Tavsif") },
                 minLines = 3,
                 maxLines = 5,
-                supportingText = {
-                    Text("${state.description.length}/1000 belgi")
-                },
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Image Preview Card & Read-Only Notice (Stage 5B Contract)
-            Column(modifier = Modifier.fillMaxWidth()) {
+            // Photo: shown only when the server already has one (uploading is not available yet, so nothing is offered).
+            if (!state.imageUrl.isNullOrBlank()) Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Mahsulot fotosi",
+                    text = "Surat",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -395,32 +389,6 @@ fun ProductFormContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(6.dp))
-
-                Surface(
-                    color = BrandMint.copy(alpha = 0.35f),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = BrandPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Backend Stage 5B arxitekturasida rasm yuklash API kiritilmagan. Mahsulot fotosi serverda saqlangan bo‘lsa o‘qish rejimida ko‘rsatiladi.",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontSize = 11.sp,
-                            color = BrandDark
-                        )
-                    }
-                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -464,7 +432,7 @@ fun ProductFormContent(
                         Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (state.isEditMode) "O‘zgarishni saqlash" else "Mahsulot yaratish",
+                            text = if (state.isEditMode) "Saqlash" else "Qo‘shish",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -489,13 +457,13 @@ fun ProductFormContent(
                 },
                 title = {
                     Text(
-                        text = "Versiya to‘qnashuvi (Conflict)",
+                        text = "Boshqa joyda o‘zgartirilgan",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
                 text = {
                     Text(
-                        text = "Ushbu mahsulot boshqa sessiyada o‘zgartirilgan (versiya mos kelmadi). O‘zgarishlaringiz ustiga yozilib ketmasligi uchun so‘nggi ma'lumotlarni serverdan qayta yuklang.",
+                        text = "Bu taom boshqa qurilmada o‘zgartirilgan. Yangilab, qayta urinib ko‘ring.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -507,7 +475,7 @@ fun ProductFormContent(
                     ) {
                         Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Qayta yuklash")
+                        Text("Yangilash")
                     }
                 },
                 dismissButton = {
