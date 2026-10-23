@@ -9,7 +9,7 @@
 # Decrypt on the owner's PC:  age -d -i <private-key-file> -o restored.dump <file>.age
 set -euo pipefail
 . "$(dirname "$(readlink -f "$0")")/../lib/env.sh"
-get() { grep -m1 "^$1=" "$CONF" | cut -d= -f2-; }
+get() { { grep -m1 "^$1=" "$CONF" || true; } | cut -d= -f2-; }   # a setting that is not there yet (no bucket) is empty, not a pipefail exit
 RECIPIENT="$(get BACKUP_AGE_RECIPIENT)"; REMOTE="$(get OFFSITE_RCLONE_REMOTE)"
 [ -n "$RECIPIENT" ] || { echo "[offsite] BACKUP_AGE_RECIPIENT is not set: nothing is uploaded"; exit 0; }
 [[ "$RECIPIENT" =~ ^age1[a-z0-9]{50,}$ ]] || { echo "[offsite] BACKUP_AGE_RECIPIENT is not an age public key"; exit 1; }
