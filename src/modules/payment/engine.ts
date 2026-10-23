@@ -358,9 +358,17 @@ export class PaymentEngineV3 {
         input.occurredAt.getTime(), payment.assignedAt.getTime(), payment.expiresAt.getTime(), input.minutePrecision,
       )) return reviewed('OPERATION_OUTSIDE_WINDOW', payment.number);
       // Prior allocation of same pair: an old payer could be late; bank mail has no sender ID.
+      // Stage 9: only a prior attempt that can still be PAID counts. EXPIRED (nobody paid, a late transfer is plausible) always does; a CANCELLED or an
+      // already MATCHED/CONFIRMED one only while the operator keeps a cooldown for it (cancelCooldownMs / matchCooldownMs; 0 = the card was released at
+      // once, so that attempt cannot be the sender). Production runs with 0, so an ordinary repeat order of the same dish is not held for review.
+      const priorStatuses = [
+        'EXPIRED',
+        ...((this.options.cancelCooldownMs ?? this.options.cooldownMs) > 0 ? ['CANCELLED'] : []),
+        ...((this.options.matchCooldownMs ?? this.options.cooldownMs) > 0 ? ['MATCHED_UNVERIFIED', 'CONFIRMED_MANUAL'] : []),
+      ];
       const preceding = await tx.payment.findMany({
         where: {
-          cardId: card.id, amountTiyin: input.amountTiyin,
+          cardId: card.id, amountTiyin: input.amountTiyin, status: { in: priorStatuses },
           id: { not: payment.id }, assignedAt: {
             lt: payment.assignedAt,
             gte: new Date(input.occurredAt.getTime() - this.options.ambiguityMs - 60_000),

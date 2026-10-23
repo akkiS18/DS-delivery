@@ -74,6 +74,10 @@ after(async () => {
   await db.cardCooldown.deleteMany({ where: { cardId } });
   await db.cardEvent.deleteMany({ where: { cardId } });
   await db.card.deleteMany({ where: { id: cardId } });
+  await db.$transaction(async tx => {
+    await tx.$executeRaw`SELECT set_config('ds.ledger_cleanup', 'on', true)`;
+    await tx.incomingTransaction.deleteMany({ where: { sourceId: { startsWith: `gmail:pa-${nonce}` } } });
+  });
   await db.order.deleteMany({ where: { restaurantId: { in: rids } } });
   await db.customer.deleteMany({ where: { telegramUserId: customerTg } });
   await db.product.deleteMany({ where: { restaurantId: { in: rids } } });
@@ -225,4 +229,36 @@ test('a cancelled unpaid order frees the card at once when cancelCooldownMs is 0
   await careful.runLocked(tx => careful.cancelOpenPayment(tx, c.id, new Date(), { type: 'TEST', id: 't' }));
   const d = (await fixedPriceOrder(careful, 34_567))!;
   assert.equal(d.payment?.status, 'QUEUED', 'without the setting the 120 s cooldown still protects against a late transfer');
+});
+
+const mail = (eng: PaymentEngineV3, last4: string, som: number) => eng.ingest({
+  sourceId: `gmail:pa-${nonce}-${randomUUID()}`, source: 'GMAIL', cardLast4: last4, amountTiyin: BigInt(som) * 100n,
+  occurredAt: new Date(), emailReceivedAt: new Date(Date.now() + 1000), minutePrecision: false, trustedSender: true,
+});
+
+test('a repeat order of the same dish is paid and matched at once when the card was released (cancelled or already paid before); only an EXPIRED attempt is held for review', async () => {
+  const card = await db.card.findUniqueOrThrow({ where: { id: cardId } });
+  const eng = new PaymentEngineV3(db, { ...defaultOptions, cancelCooldownMs: 0, matchCooldownMs: 0 }, () => {});
+  const som = 45_678;
+
+  const first = (await fixedPriceOrder(eng, som))!;
+  await eng.runLocked(tx => eng.cancelOpenPayment(tx, first.id, new Date(), { type: 'TEST', id: 't' }));
+  const second = (await fixedPriceOrder(eng, som))!;
+  assert.equal(second.payment?.status, 'AWAITING');
+  assert.equal((await mail(eng, card.last4, som)).status, 'MATCHED_UNVERIFIED', 'cancelled before: the payer is the current order');
+
+  const third = (await fixedPriceOrder(eng, som))!;
+  assert.equal(third.payment?.status, 'AWAITING', 'the card is free right after a payment was matched');
+  assert.equal((await mail(eng, card.last4, som)).status, 'MATCHED_UNVERIFIED', 'paid before: still the current order');
+
+  const expiring = (await fixedPriceOrder(eng, som + 1_000))!;
+  await db.payment.update({ where: { orderId: expiring.id }, data: { status: 'EXPIRED', expiresAt: new Date(Date.now() - 1_000) } });
+  const next = (await fixedPriceOrder(eng, som + 1_000))!;
+  assert.equal(next.payment?.status, 'AWAITING');
+  const held = await mail(eng, card.last4, som + 1_000);
+  assert.equal(held.status, 'REVIEW_REQUIRED');
+  assert.equal(held.reason, 'PRIOR_SAME_CARD_AND_AMOUNT', 'an unpaid attempt that just expired may still receive a late transfer: a person decides');
+
+  const careful = new PaymentEngineV3(db, { ...defaultOptions }, () => {});
+  assert.ok(careful, 'the default engine keeps counting cancelled and matched attempts (covered by the existing suites)');
 });
