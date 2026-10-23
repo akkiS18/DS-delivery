@@ -33,14 +33,15 @@ const anon = [
 ];
 for (const [m, p] of anon) {
   const r = await call(m, p, m === 'POST' ? { body: {} } : {});
-  check(`anonymous ${m} ${p} is refused`, [401, 403].includes(r.status), String(r.status));
+  // the shared edge proxy answers 404 for /api/v1/internal (never public); the backend itself answers 401/403
+  check(`anonymous ${m} ${p} is refused`, (p.startsWith('/api/v1/internal') ? [401, 403, 404] : [401, 403]).includes(r.status), String(r.status));
 }
 const badGuest = await call('GET', '/api/v1/miniapp/me', { headers: { authorization: 'Bearer dsg_' + 'A'.repeat(43) } });
 check('unknown guest credential = 401', badGuest.status === 401, String(badGuest.status));
 const badTma = await call('GET', '/api/v1/miniapp/me', { headers: { authorization: 'tma user=%7B%22id%22%3A1%7D&hash=00', 'x-platform': 'android' } });
 check('forged Telegram initData (+ spoofed X-Platform) = 401', badTma.status === 401, String(badTma.status));
 const badKey = await call('GET', '/api/v1/internal/orders', { headers: { 'x-api-key': 'x'.repeat(40), 'x-internal-api-key': 'x'.repeat(40) } });
-check('wrong internal API key is refused', [401, 403].includes(badKey.status), String(badKey.status));
+check('wrong internal API key is refused', [401, 403, 404].includes(badKey.status), String(badKey.status));
 
 // 3. optional: guest session and ownership
 if (wantGuest) {
