@@ -316,6 +316,8 @@ model Card {
   decidedAt       DateTime?      @db.Timestamptz(3)
   decidedBy       String?
   adminNotifiedAt DateTime?      @db.Timestamptz(3)
+  // Stage 9: the name printed on the card, shown to the paying customer so they can see they are paying the right person.
+  holderName      String?
 
   @@index([restaurantId, isTest, active])
 }

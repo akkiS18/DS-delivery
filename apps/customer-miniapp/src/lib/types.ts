@@ -70,6 +70,8 @@ export interface PaymentInstructions {
   /** The payee card number from operator configuration. null = not configured: the customer must NOT pay. */
   cardNumber: string | null;
   recipientUnavailable: boolean;
+  /** The name on the card (null for older cards: the screen then shows the restaurant name). */
+  cardHolder?: string | null;
   expiresAt: string | null;
 }
 

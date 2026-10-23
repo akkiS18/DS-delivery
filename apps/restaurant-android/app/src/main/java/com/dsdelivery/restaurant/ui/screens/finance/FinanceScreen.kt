@@ -53,6 +53,7 @@ import com.dsdelivery.restaurant.data.model.FinanceCountSom
 import com.dsdelivery.restaurant.data.model.FinanceDateFilter
 import com.dsdelivery.restaurant.data.model.FinanceRefundAmount
 import com.dsdelivery.restaurant.data.model.FinanceSummary
+import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.theme.BrandDark
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
@@ -95,19 +96,6 @@ fun FinanceContent(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
-                actions = {
-                    IconButton(onClick = onRefresh, enabled = !state.isLoading) {
-                        if (state.isLoading) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Yangilash", tint = Color.White)
-                        }
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BrandPrimary,
                     titleContentColor = Color.White,
@@ -117,11 +105,14 @@ fun FinanceContent(
         },
         modifier = modifier
     ) { innerPadding ->
+        PullRefresh(
+            isRefreshing = state.isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -163,6 +154,7 @@ fun FinanceContent(
             }
 
             Spacer(modifier = Modifier.height(80.dp))
+        }
         }
     }
 }

@@ -8,6 +8,7 @@ import { gmailHealth } from '../modules/payment/gmail-health.js';
 import { REAL_PAYMENTS_KEY, realPaymentsOpen, setRealPaymentsOpen } from '../modules/platform/settings.js';
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin, slugFromName } from '../modules/restaurant/provision.js';
 import { attemptKey, authenticate, login } from '../modules/restaurant-auth/service.js';
+import { holderNameSchema } from '../modules/restaurant-cards/service.js';
 import { renderPayments } from '../bot/platform-admin.js';
 import { customerOrderView, loadCustomerOrder } from '../modules/miniapp/views.js';
 
@@ -52,7 +53,7 @@ before(async () => {
   for (;;) {
     const last4 = String(randomInt(1000, 9999));
     if (await db.card.findUnique({ where: { last4 } })) continue;
-    cardId = (await db.card.create({ data: { restaurantId, last4, isTest: false, active: true, approvalStatus: 'APPROVED', number: `860000000000${last4}` } })).id;
+    cardId = (await db.card.create({ data: { restaurantId, last4, isTest: false, active: true, approvalStatus: 'APPROVED', number: `860000000000${last4}`, holderName: 'ALI VALIYEV' } })).id;
     break;
   }
 });
@@ -211,6 +212,7 @@ test('the Mini App shows the approved card number to pay to (not "recipient not 
   const card = await db.card.findUniqueOrThrow({ where: { id: cardId } });
   assert.equal(ins.recipientUnavailable, false);
   assert.equal(ins.cardNumber, card.number);
+  assert.equal((ins as unknown as { cardHolder: string | null }).cardHolder, 'ALI VALIYEV', 'the customer sees whose card it is');
   await db.$transaction(tx => engine.cancelOpenPayment(tx, placed.id, new Date(), { type: 'TEST', id: 't' })); // frees the card for the next test
 });
 
@@ -261,4 +263,37 @@ test('a repeat order of the same dish is paid and matched at once when the card 
 
   const careful = new PaymentEngineV3(db, { ...defaultOptions }, () => {});
   assert.ok(careful, 'the default engine keeps counting cancelled and matched attempts (covered by the existing suites)');
+});
+
+test('the cardholder name: letters, spaces and apostrophes only, 3-40 characters, spaces collapsed', () => {
+  assert.equal(holderNameSchema.parse('  Ali   Valiyev '), 'Ali Valiyev');
+  assert.equal(holderNameSchema.parse("Sa'dulla O‘ktamov"), "Sa'dulla O‘ktamov");
+  for (const bad of ['', 'Al', '1234', '<script>', 'A'.repeat(41)]) assert.equal(holderNameSchema.safeParse(bad).success, false, bad);
+});
+
+test('the Android app (a guest session, no Telegram) pays for a REAL order exactly like the Mini App: same card, same name', async () => {
+  const guest = await db.customer.create({ data: { displayName: 'Guest ' + nonce } });
+  try {
+    const p = await db.product.create({ data: { restaurantId, name: 'G' + randomUUID().slice(0, 6), priceSom: 56_789, isAvailable: true } });
+    const placed = (await placeOrder(engine, {
+      restaurantId, customerId: guest.id, customerName: 'Guest', phone: '+998901234567', addressText: 'Test manzil',
+      taxiCompanyId: taxiId, checkoutKey: randomUUID(), createdViaBot: true, paymentMode: 'REAL', items: [{ productId: p.id, quantity: 1 }],
+    }))!;
+    const view = customerOrderView((await loadCustomerOrder({ customerId: guest.id }, placed.id))!);
+    const ins = view.payment?.instructions as { cardNumber: string | null; cardHolder: string | null; recipientUnavailable: boolean };
+    const card = await db.card.findUniqueOrThrow({ where: { id: cardId } });
+    assert.equal(view.payment?.mode, 'REAL');
+    assert.equal(ins.cardNumber, card.number);
+    assert.equal(ins.cardHolder, 'ALI VALIYEV');
+    assert.equal(await loadCustomerOrder(customerTg, placed.id), null, 'another customer cannot read it');
+    await db.$transaction(tx => engine.cancelOpenPayment(tx, placed.id, new Date(), { type: 'TEST', id: 't' }));
+  } finally {
+    const orders = (await db.order.findMany({ where: { customerId: guest.id }, select: { id: true } })).map(o => o.id);
+    const pays = await db.payment.findMany({ where: { orderId: { in: orders } }, select: { id: true } });
+    await db.paymentEvent.deleteMany({ where: { paymentId: { in: pays.map(x => x.id) } } });
+    await db.payment.deleteMany({ where: { id: { in: pays.map(x => x.id) } } });
+    await db.taxiDispatch.deleteMany({ where: { orderId: { in: orders } } });
+    await db.order.deleteMany({ where: { customerId: guest.id } });
+    await db.customer.deleteMany({ where: { id: guest.id } });
+  }
 });

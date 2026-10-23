@@ -12,12 +12,15 @@ import { Menu } from './screens/Menu';
 import { OrderScreen } from './screens/Order';
 import { Orders } from './screens/Orders';
 import { Profile } from './screens/Profile';
+import { useRefreshEpoch } from './lib/refresh';
 import { useApp, useRoute } from './state';
 
 export function App() {
   const { status, error, reload } = useApp();
   const [route, go] = useRoute();
   useViewportLayout();
+  // Pull down / coming back to the app reloads the current screen (not the checkout form: typed input must survive).
+  const { epoch, pull, refreshing } = useRefreshEpoch(route.name !== 'checkout');
 
   // Telegram's native back button follows an explicit parent map so it never leaves the app or loops.
   useEffect(() => {
@@ -40,7 +43,8 @@ export function App() {
   }
   return (
     <div className="app">
-      <main className="app-main">{screen(route, go)}</main>
+      {(pull > 0 || refreshing) && <div className="ptr" style={{ height: refreshing ? 52 : pull }} aria-hidden><div><span className="spinner" style={{ width: 18, height: 18, margin: 0, borderWidth: 2, animationPlayState: refreshing || pull >= 60 ? 'running' : 'paused' }} /></div></div>}
+      <main className="app-main" key={`${route.name}:${'id' in route ? route.id : ''}:${epoch}`}>{screen(route, go)}</main>
       <TabBar route={route} go={r => go(r)} orders={0} />
     </div>
   );

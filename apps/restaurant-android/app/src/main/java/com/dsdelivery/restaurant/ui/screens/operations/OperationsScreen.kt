@@ -58,6 +58,7 @@ import com.dsdelivery.restaurant.BuildConfig
 import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.model.WorkingDay
 import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
+import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.components.ServerConfigDialog
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.DSRestaurantTheme
@@ -101,7 +102,7 @@ fun OperationsScreen(
         onDismissAddCard = { viewModel.showAddCard(false) },
         onSubmitCard = viewModel::submitCard,
         onToggleCard = viewModel::toggleCard,
-        onReloadCards = viewModel::loadCards,
+        onReloadCards = { viewModel.loadOperations(); viewModel.loadCards() },
         modifier = modifier
     )
 }
@@ -162,7 +163,7 @@ fun OperationsContent(
     onDismissNotice: () -> Unit,
     onAddCard: () -> Unit,
     onDismissAddCard: () -> Unit,
-    onSubmitCard: (String, String) -> Unit,
+    onSubmitCard: (String, String, String) -> Unit,
     onToggleCard: (PayeeCard) -> Unit,
     onReloadCards: () -> Unit,
     modifier: Modifier = Modifier
@@ -182,11 +183,14 @@ fun OperationsContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier
     ) { innerPadding ->
+        PullRefresh(
+            isRefreshing = state.cardsLoading,
+            onRefresh = onReloadCards,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(scrollState)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -322,6 +326,7 @@ fun OperationsContent(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
         }
 
         if (state.showAddCardDialog) {
@@ -489,7 +494,7 @@ private fun OperationsScreenPreview() {
             onDismissNotice = {},
             onAddCard = {},
             onDismissAddCard = {},
-            onSubmitCard = { _, _ -> },
+            onSubmitCard = { _, _, _ -> },
             onToggleCard = {},
             onReloadCards = {}
         )

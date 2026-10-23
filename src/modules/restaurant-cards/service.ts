@@ -64,7 +64,9 @@ export type AddCardResult =
   | { ok: false; code: 'CARD_TAKEN' | 'CARD_EXISTS' | 'CARD_LIMIT' | 'CARD_PENDING_LIMIT' };
 
 /** Creates a PENDING card. The last four digits are the key the bank e-mail is matched on, so they must be unique platform-wide. */
-export async function addCard(restaurantId: string, number: string, actorId: string, env: NodeJS.ProcessEnv = process.env): Promise<AddCardResult> {
+export const holderNameSchema = z.string().trim().min(3).max(40).regex(/^\p{L}[\p{L}\s.'‘’ʻ-]*$/u).transform(v => v.replace(/\s+/g, ' '));
+
+export async function addCard(restaurantId: string, number: string, actorId: string, env: NodeJS.ProcessEnv = process.env, holderName: string | null = null): Promise<AddCardResult> {
   const last4 = number.slice(-4);
   try {
     return await db.$transaction(async tx => {
@@ -78,7 +80,7 @@ export async function addCard(restaurantId: string, number: string, actorId: str
           if (mine.filter(c => c.approvalStatus === 'PENDING').length >= MAX_PENDING) return { ok: false, code: 'CARD_PENDING_LIMIT' } as const;
           const { count } = await tx.card.updateMany({
             where: { id: existing.id, approvalStatus: 'REJECTED' },
-            data: { number, approvalStatus: 'PENDING', active: false, decidedAt: null, decidedBy: null, adminNotifiedAt: null },
+            data: { number, approvalStatus: 'PENDING', active: false, decidedAt: null, decidedBy: null, adminNotifiedAt: null, ...(holderName ? { holderName } : {}) },
           });
           if (count !== 1) return { ok: false, code: 'CARD_TAKEN' } as const;
           await record(tx, existing.id, 'RESUBMITTED', 'RESTAURANT', actorId);
@@ -88,7 +90,7 @@ export async function addCard(restaurantId: string, number: string, actorId: str
       }
       if (mine.filter(c => c.approvalStatus !== 'REJECTED').length >= maxCards(env)) return { ok: false, code: 'CARD_LIMIT' } as const;
       if (mine.filter(c => c.approvalStatus === 'PENDING').length >= MAX_PENDING) return { ok: false, code: 'CARD_PENDING_LIMIT' } as const;
-      const card = await tx.card.create({ data: { restaurantId, last4, number, isTest: false, active: false, approvalStatus: 'PENDING', label: 'UZCARD' } });
+      const card = await tx.card.create({ data: { restaurantId, last4, number, holderName, isTest: false, active: false, approvalStatus: 'PENDING', label: 'UZCARD' } });
       await record(tx, card.id, 'ADDED', 'RESTAURANT', actorId);
       return { ok: true, card: view(card) } as const;
     });
@@ -145,7 +147,7 @@ export async function decideCard(input: { cardId: string; adminId: string; decis
 /** What an administrator needs to compare with the restaurant: full number, restaurant, who/when. Never exposed to restaurants. */
 export async function cardForAdmin(cardId: string) {
   const c = await db.card.findFirst({ where: { id: cardId, isTest: false }, include: { restaurant: { select: { name: true, slug: true, pickupPhone: true } } } });
-  return c ? { id: c.id, last4: c.last4, number: c.number, status: statusOf(c), restaurant: c.restaurant, createdAt: c.createdAt } : null;
+  return c ? { id: c.id, last4: c.last4, number: c.number, holderName: c.holderName, status: statusOf(c), restaurant: c.restaurant, createdAt: c.createdAt } : null;
 }
 
 export async function cardsForAdmin(limit = 30) {

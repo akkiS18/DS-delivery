@@ -15,6 +15,7 @@ export async function renderPendingCard(cardId: string): Promise<{ text: string;
     '💳 <b>Yangi to‘lov kartasi tasdig‘i</b>',
     `Restoran: <b>${escapeHtml(c.restaurant?.name ?? '—')}</b>${c.restaurant?.pickupPhone ? ` (${escapeHtml(c.restaurant.pickupPhone)})` : ''}`,
     `Karta: <code>${groupCard(c.number)}</code>`,
+    ...(c.holderName ? [`Karta egasi: <b>${escapeHtml(c.holderName)}</b>`] : []),
     '',
     '⚠️ Mijozlarning puli shu kartaga tushadi. Restoran egasiga qo‘ng‘iroq qilib, karta aynan restoranniki ekanini tasdiqlang. Ishonchingiz komil bo‘lmasa rad eting.',
   ].join('\n');

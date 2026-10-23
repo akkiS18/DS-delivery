@@ -57,6 +57,7 @@ import com.dsdelivery.restaurant.ui.components.EmptyView
 import com.dsdelivery.restaurant.ui.components.ErrorView
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.components.OrderCard
+import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.components.rememberNowElapsed
 import com.dsdelivery.restaurant.data.model.OrderStatus
 import com.dsdelivery.restaurant.ui.preview.SampleData
@@ -120,23 +121,6 @@ fun OrdersContent(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
-                actions = {
-                    IconButton(onClick = onRefresh) {
-                        if (state.isRefreshing) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Yangilash",
-                                tint = Color.White
-                            )
-                        }
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BrandPrimary,
                     titleContentColor = Color.White,
@@ -146,12 +130,12 @@ fun OrdersContent(
         },
         modifier = modifier
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+        PullRefresh(
+            isRefreshing = state.isRefreshing,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)
         ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // Filter Chips Row
             val filterScrollState = rememberScrollState()
             Row(
@@ -275,10 +259,16 @@ fun OrdersContent(
                     ErrorView(message = state.errorMessage, onRetry = onRefresh)
                 }
                 state.filteredOrders.isEmpty() -> {
-                    EmptyView(
-                        title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Buyurtma yo‘q",
-                        subtitle = null
-                    )
+                    // A scrollable (empty) list, so the pull-down gesture also works when there is nothing to show yet.
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        item {
+                            EmptyView(
+                                title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Buyurtma yo‘q",
+                                subtitle = null,
+                                modifier = Modifier.fillParentMaxSize()
+                            )
+                        }
+                    }
                 }
                 else -> {
                     LazyColumn(
@@ -315,6 +305,7 @@ fun OrdersContent(
                     }
                 }
             }
+        }
         }
     }
 }

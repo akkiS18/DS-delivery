@@ -29,9 +29,10 @@ class ProductManagementViewModel(
         loadData()
     }
 
-    fun loadData() {
+    /** `silent` (pull-down, returning to the app) keeps the current list on screen instead of replacing it with a spinner. */
+    fun loadData(silent: Boolean = false) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            if (!silent) _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
             // 1. Fetch real products from server
             val productsResult = repository.getProducts(includeArchived = false)

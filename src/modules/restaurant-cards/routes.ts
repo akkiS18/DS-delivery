@@ -4,10 +4,10 @@ import { db } from '../../lib/db.js';
 import { RateLimiter } from '../../lib/rate-limit.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
 import { verifyPassword } from '../restaurant-auth/password.js';
-import { addCard, cardNumberSchema, listCards, setCardActive } from './service.js';
+import { addCard, cardNumberSchema, holderNameSchema, listCards, setCardActive } from './service.js';
 
 const httpError = (statusCode: number, message: string): Error => Object.assign(new Error(message), { statusCode });
-const addSchema = z.object({ number: cardNumberSchema, password: z.string().min(1).max(200) }).strict();
+const addSchema = z.object({ number: cardNumberSchema, password: z.string().min(1).max(200), holderName: holderNameSchema.optional() }).strict();
 const idSchema = z.object({ id: z.string().min(1).max(40) });
 
 /**
@@ -32,7 +32,7 @@ export async function restaurantCardsRoutes(app: FastifyInstance, options: { lim
     const credential = await db.restaurantCredential.findUnique({ where: { restaurantId: s.restaurant.id } });
     // 403 (not 401): a wrong confirmation password must not make the app drop the session.
     if (!credential || !(await verifyPassword(parsed.data.password, credential.passwordHash))) throw httpError(403, 'PASSWORD_INVALID');
-    const r = await addCard(s.restaurant.id, parsed.data.number, `restaurant:${s.restaurant.slug}`);
+    const r = await addCard(s.restaurant.id, parsed.data.number, `restaurant:${s.restaurant.slug}`, process.env, parsed.data.holderName ?? null);
     if (!r.ok) throw httpError(409, r.code);
     return reply.code(201).send({ card: r.card });
   });

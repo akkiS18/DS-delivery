@@ -79,7 +79,7 @@ interface RestaurantRepository {
 
     // --- Stage 8B: payee cards ---
     suspend fun getCards(): Resource<List<com.dsdelivery.restaurant.data.model.PayeeCard>>
-    suspend fun addCard(number: String, password: String): Resource<com.dsdelivery.restaurant.data.model.PayeeCard>
+    suspend fun addCard(number: String, holderName: String, password: String): Resource<com.dsdelivery.restaurant.data.model.PayeeCard>
     suspend fun setCardActive(id: String, active: Boolean): Resource<com.dsdelivery.restaurant.data.model.PayeeCard>
 
     // --- Stage 4: Finance ---

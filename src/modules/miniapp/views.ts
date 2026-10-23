@@ -79,7 +79,7 @@ const orderInclude = {
   restaurant: { select: { name: true, defaultPrepMinutes: true } },
   items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
-  payment: { include: { card: { select: { last4: true, isTest: true, number: true } } } },
+  payment: { include: { card: { select: { last4: true, isTest: true, number: true, holderName: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' as const }, take: 1, select: { status: true, deliveredAt: true, taxiCompany: { select: { name: true } } } },
   refundRequests: { orderBy: { number: 'desc' as const }, take: 1, select: { status: true, receiptKey: true } },
 } as const;
@@ -110,6 +110,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
       cardLast4: pay.card.last4, isTest: pay.card.isTest,
       // The payee number is the approved Card.number (or the legacy operator configuration); if neither exists the customer is told NOT to pay.
       cardNumber: requisite, recipientUnavailable: !pay.card.isTest && !requisite,
+      // The name on the card, so the customer can check they are paying the right person (legacy cards have none: the app shows the restaurant name).
+      cardHolder: pay.card.holderName ?? null,
       expiresAt: pay.expiresAt?.toISOString() ?? null,
     };
   }

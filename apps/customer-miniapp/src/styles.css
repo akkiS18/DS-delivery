@@ -59,7 +59,7 @@ h1, h2, h3, p { margin: 0; }
 
 
 .btn { min-height: 50px; padding: 0 18px; border-radius: 14px; border: 0; font-weight: 700; font-size: 16px; width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--primary); color: #fff; }
-.btn:active:not(:disabled) { background: var(--primary-dark); }
+.btn:active:not(:disabled) { filter: brightness(0.92); } /* every variant keeps its own colours while pressed (a dark fill under dark text made the label unreadable) */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.secondary { background: var(--mint-soft); color: var(--primary-dark); }
 .btn.ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--line); }
@@ -153,3 +153,18 @@ h1, h2, h3, p { margin: 0; }
 .ocard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
 .status-line { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--primary-dark); }
 .card.attn .status-line { color: var(--warn); }
+
+/* Payee card, drawn like a bank card: number on one line, owner below. */
+.paycard { border-radius: 18px; padding: 16px 18px; color: #fff; background: linear-gradient(135deg, #0b8f66 0%, #066a4c 55%, #04503a 100%); box-shadow: 0 6px 18px rgba(6, 106, 76, 0.28); display: flex; flex-direction: column; gap: 14px; }
+.paycard-top { display: flex; align-items: center; justify-content: space-between; }
+.paycard-chip { width: 38px; height: 28px; border-radius: 6px; background: linear-gradient(135deg, #f1d98a, #c9a64b); }
+.paycard-brand { font-size: 12px; font-weight: 800; letter-spacing: 0.18em; opacity: 0.85; }
+.paycard-number { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; font-size: clamp(15px, 5.4vw, 25px); letter-spacing: 0.04em; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); -webkit-tap-highlight-color: transparent; }
+.paycard-number:active { opacity: 0.8; }
+.paycard-holder { display: flex; flex-direction: column; gap: 2px; }
+.paycard-cap { font-size: 10px; letter-spacing: 0.16em; opacity: 0.75; font-weight: 700; }
+.paycard-name { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; overflow-wrap: anywhere; }
+
+/* Pull down to refresh (drawn by App.tsx). */
+.ptr { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; pointer-events: none; z-index: 40; transition: height 0.15s ease; }
+.ptr > div { margin-bottom: 8px; width: 34px; height: 34px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); display: flex; align-items: center; justify-content: center; }

@@ -62,6 +62,7 @@ import com.dsdelivery.restaurant.ui.components.EmptyView
 import com.dsdelivery.restaurant.ui.components.ErrorView
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.components.ProductCard
+import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.preview.SampleData
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.DSRestaurantTheme
@@ -91,7 +92,7 @@ fun ProductManagementScreen(
         state = state,
         snackbarHostState = snackbarHostState,
         onNavigateBack = onNavigateBack,
-        onRefresh = viewModel::loadData,
+        onRefresh = { viewModel.loadData(silent = true) },
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onCategorySelected = viewModel::selectCategory,
         onToggleAvailability = viewModel::toggleAvailability,
@@ -175,15 +176,6 @@ fun ProductManagementContent(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
-                actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Yangilash",
-                            tint = Color.White
-                        )
-                    }
-                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BrandPrimary,
                     titleContentColor = Color.White,
@@ -203,14 +195,14 @@ fun ProductManagementContent(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         modifier = modifier
     ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+        PullRefresh(
+            isRefreshing = state.isLoading,
+            onRefresh = onRefresh,
+            modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)
         ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             when {
-                state.isLoading -> {
+                state.isLoading && state.products.isEmpty() -> {
                     LoadingView(message = "Yuklanmoqda...")
                 }
 
@@ -289,10 +281,16 @@ fun ProductManagementContent(
 
                         // Products List
                         if (state.filteredProducts.isEmpty()) {
-                            EmptyView(
-                                title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Menyu bo‘sh",
-                                subtitle = null
-                            )
+                            // A scrollable (empty) list, so the pull-down gesture also works on an empty menu.
+                            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                item {
+                                    EmptyView(
+                                        title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Menyu bo‘sh",
+                                        subtitle = null,
+                                        modifier = Modifier.fillParentMaxSize()
+                                    )
+                                }
+                            }
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -397,6 +395,7 @@ fun ProductManagementContent(
                     }
                 )
             }
+        }
         }
     }
 }

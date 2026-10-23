@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, MapPin } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
+import { PayCard } from '../components/PayCard';
 import { api, ApiError } from '../lib/api';
 import { clock, mmss, som } from '../lib/format';
 import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, STAGE_LABEL, timeline, type Anchor } from '../lib/order';
 import { confirmDialog, haptic } from '../lib/telegram';
 import type { OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
-
-const groupCard = (n: string) => n.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
 
 export function OrderScreen({ id }: { id: string }) {
   const { config, toast } = useApp();
@@ -133,8 +132,7 @@ export function OrderScreen({ id }: { id: string }) {
               : (
                 <div className="stack">
                   <div className="sub small">Quyidagi kartaga aynan shu summani o‘tkazing:</div>
-                  <div className="row between"><span className="mono bold" style={{ fontSize: 22, letterSpacing: 1 }}>{groupCard(ins.cardNumber)}</span><Button small variant="secondary" onClick={() => void copy(ins.cardNumber!)}>Nusxa</Button></div>
-                  <div className="sub small">Karta egasi — restoran. To‘lov restoran xodimi tomonidan tekshiriladi.</div>
+                  <PayCard number={ins.cardNumber} holder={ins.cardHolder ?? o.restaurantName} onCopy={d => void copy(d)} />
                 </div>
               )
           )}

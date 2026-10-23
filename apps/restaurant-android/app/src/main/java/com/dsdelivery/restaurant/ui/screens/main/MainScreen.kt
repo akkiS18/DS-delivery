@@ -21,6 +21,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +71,29 @@ fun MainScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val notifier = remember { NewOrderNotifier(context.applicationContext) }
+
+    // Anything that changed while the app was away (a card the administrator approved, a new order, the menu on another phone) shows up
+    // as soon as the app is opened again or a tab is selected; no need to close the app.
+    var firstResume by remember { mutableStateOf(true) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (firstResume) { firstResume = false; return@LifecycleEventEffect }
+        ordersViewModel.loadOrders(silent = true)
+        productManagementViewModel.loadData(silent = true)
+        financeViewModel.refresh()
+        operationsViewModel.loadOperations()
+        operationsViewModel.loadCards()
+    }
+    var shownTab by remember { mutableStateOf(selectedTab) }
+    LaunchedEffect(selectedTab) {
+        if (shownTab == selectedTab) return@LaunchedEffect
+        shownTab = selectedTab
+        when (selectedTab) {
+            MainTab.ORDERS -> ordersViewModel.loadOrders(silent = true)
+            MainTab.MENU -> productManagementViewModel.loadData(silent = true)
+            MainTab.FINANCE -> financeViewModel.refresh()
+            MainTab.OPERATIONS -> { operationsViewModel.loadOperations(); operationsViewModel.loadCards() }
+        }
+    }
 
     // A genuinely new order: one in-app message and (if allowed) one system notification, never repeated for the same id.
     LaunchedEffect(ordersViewModel) {

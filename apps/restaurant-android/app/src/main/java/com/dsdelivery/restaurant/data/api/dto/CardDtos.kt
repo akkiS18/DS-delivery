@@ -20,6 +20,7 @@ data class CardResponseDto(@SerializedName("card") val card: CardDto? = null)
 /** The number and the account password are sent once and never stored by the app. */
 data class AddCardRequestDto(
     @SerializedName("number") val number: String,
+    @SerializedName("holderName") val holderName: String,
     @SerializedName("password") val password: String
 )
 
