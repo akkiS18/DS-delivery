@@ -58,6 +58,8 @@ Gmail files (**OWNER**, from the PC): `scp credentials.json gmail-token.json ds-
 
 **GO (real-money switch, still IP-locked):** `set-secret.sh GMAIL_ENABLED --value true`, `set-secret.sh CONFIRM_REAL_PAYMENTS --value yes`, then `release.sh restart backend`. Check, from the server: `docker exec ds-prod-backend-1 node -e "fetch('http://127.0.0.1:4000/health/ready').then(r=>r.json()).then(j=>console.log(JSON.stringify(j)))"` → `database: up`, both bots `polling`, `gmail: ok`.
 
+**Stage 9, the payments door:** even with the steps above the production backend takes no REAL order until an administrator opens the door in the customer bot: `/payments` → "Real to‘lovni yoqish" → "Ha, yoqaman" (refused while Gmail is not `ok` or no approved active card exists; closing is always allowed and never touches orders already created). The row `real_payments_open` in `PlatformSetting` is absent = closed; every change is in `AdminAuditEvent`. Real money therefore needs three things: the server config (`CONFIRM_REAL_PAYMENTS=yes` etc., set by the server owner), the door opened by an administrator, and a card approved by an administrator.
+
 Operations that must exist before any rehearsal:
 ```
 # cron (deploy user), staggered:  */2 * * * * DS_ENV=production .../watchdog.sh     15 3 * * * DS_ENV=production .../backup-db.sh && DS_ENV=production .../backup-offsite.sh
@@ -75,6 +77,8 @@ $C dist/src/tools/set-restaurant-password.js <slug>             # hidden prompt,
 $C dist/src/tools/link-staff.js <slug> <staff telegram id>      # staff gets the "open the app" Telegram alerts
 $C dist/src/tools/add-taxi.js / link-taxi.js ...                # see docs for the taxi operator tools; TAXI_OPERATOR_ALLOWLIST must contain the operator's id
 ```
+**Stage 9, no SSH needed for the usual setup:** administrators can do steps above in the customer bot: `/newrestaurant Nomi | Manzil | +998…` (starts PAUSED, prints the login code and a one-time password), `/resetpassword <kod>`, `/linkstaff <kod> <telegram id>`. The CLI tools below remain for the server owner.
+
 The restaurant installs the release APK, signs in, adds its card under **Operatsiyalar → To‘lov kartalari** (number + account password). You get a Telegram message with the full number: call the owner of the restaurant, then confirm with the two-step button. Until then customers cannot order from that restaurant.
 
 ## 5. Real-money rehearsal (owner's own cards, small amounts, restaurant account the owner controls)

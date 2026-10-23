@@ -805,3 +805,11 @@ model NotificationLog {
 
   @@index([orderId])
 }
+
+/// Stage 9: a few platform-wide switches an administrator flips from Telegram (audited in AdminAuditEvent). Absent row = the safe default.
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedBy String?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

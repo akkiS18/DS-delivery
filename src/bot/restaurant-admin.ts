@@ -38,6 +38,10 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/cards — restoran kartalari va yangi karta tasdig‘i',
       '/commission — haftalik komissiya hisobi',
       '/restaurants — restoranni to‘xtatish / yoqish',
+      '/newrestaurant — yangi restoran qo‘shish',
+      '/resetpassword — restoran parolini yangilash',
+      '/linkstaff — restoran xodimining Telegramini ulash',
+      '/payments — real to‘lovni yoqish / yopish',
       '/tickets — mijoz murojaatlari',
       'Taksi muammolari: taksi botida /taxiadmin',
     ].join('\n'), { parse_mode: 'HTML' });

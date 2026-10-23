@@ -18,6 +18,7 @@ import { registerCardAdminHandlers } from './card-admin.js';
 import { registerMoneyAdminHandlers } from './money-admin.js';
 import { registerCommissionAdminHandlers } from './commission-admin.js';
 import { registerRestaurantAdminHandlers } from './restaurant-admin.js';
+import { registerPlatformAdminHandlers } from './platform-admin.js';
 import { registerOrderCancelHandler } from './order-cancel.js';
 import { registerRefundHandlers } from './refunds.js';
 import { handleLinkStart, isLinkPayload, registerTelegramLinkHandlers } from './telegram-link.js';
@@ -629,6 +630,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
   }
   registerSupportHandlers(bot);
   registerCardAdminHandlers(bot); // /cards + approval of restaurant-added payee cards (support admins only)
+  registerPlatformAdminHandlers(bot); // /payments (real-payment door), /newrestaurant, /resetpassword, /linkstaff (support admins only)
   registerRestaurantAdminHandlers(bot); // /restaurants: suspend / resume a restaurant (support admins only, audited)
   registerCommissionAdminHandlers(bot); // /commission: weekly commission due per restaurant + recorded bank confirmation (support admins only)
   registerMoneyAdminHandlers(bot); // /money: unmatched incoming money and long-unconfirmed payments (support admins only)

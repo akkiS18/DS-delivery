@@ -5,6 +5,7 @@ import type { PaymentEngineV3 } from '../payment/engine.js';
 import { eligibleCompanyWhere } from '../taxi/assignment.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.js';
+import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
 
 export const orderSchema = z.object({
   restaurantId: z.string().min(1),
@@ -205,6 +206,8 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
         const found = await tx.order.findUnique({ where: { checkoutKey: data.checkoutKey } });
         if (found) throw new Error('CHECKOUT_ALREADY_CREATED');
       }
+      // Stage 9: in production a REAL order is taken only while an administrator has the payments door open (/payments).
+      if (data.paymentMode === 'REAL' && realPaymentsGateActive() && !(await realPaymentsOpen(tx))) throw new CheckoutError('TOLOV_YOPIQ', 409);
       const checked = await validateCheckout(tx, data);
       if (!checked.ok) throw checkoutErrorFor(checked.issues, checked.lines, checked.totalSom);
       // New flow only: the order is payable immediately, so a REAL order must already be dispatchable. (The legacy accept-first flow

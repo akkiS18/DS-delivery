@@ -41,6 +41,8 @@ export function describeCheckoutError(e: unknown): Described {
       return { kind: 'CLOSED', retryable: false, message: 'Restoran hozircha buyurtma qabul qila olmaydi. Keyinroq urinib ko‘ring.' };
     case 'RESTORAN_TOLOV_QABUL_QILMAYDI':
       return { kind: 'CLOSED', retryable: false, message: 'Restoran hozircha to‘lov qabul qila olmaydi. Keyinroq urinib ko‘ring; pul olinmadi.' };
+    case 'TOLOV_YOPIQ':
+      return { kind: 'CLOSED', retryable: false, message: 'Buyurtma qabul qilish hozircha yopiq. Keyinroq urinib ko‘ring; pul olinmadi.' };
     case 'KOP_TOLANMAGAN_BUYURTMA':
       return { kind: 'LIMIT', retryable: false, message: 'To‘lanmagan buyurtmangiz bor. Avval uni to‘lang yoki bekor qiling, keyin yangisini bering.' };
     case 'PHONE_REQUIRED':
