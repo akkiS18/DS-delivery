@@ -303,6 +303,24 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     return { order: await ownedView(request, id) };
   });
 
+  // "I received my order": once, only for the order's own customer, only while the taxi is on its way or delivered. Idempotent.
+  app.post<{ Params: { id: string } }>('/orders/:id/received', async request => {
+    strict(request, 'received', 10);
+    const id = idParam.parse(request.params.id);
+    const order = await loadCustomerOrder(owner(request), id);
+    if (!order) throw httpError(404, 'NOT_FOUND');
+    const view = customerOrderView(order);
+    if (view.receivedAt) return { order: view };
+    if (!view.canConfirmReceived) throw httpError(409, 'NOT_YET');
+    await db.$transaction(async tx => {
+      const { count } = await tx.order.updateMany({ where: { id, customerReceivedAt: null }, data: { customerReceivedAt: new Date() } });
+      if (count === 1) {
+        await tx.orderEvent.create({ data: { orderId: id, actorTelegramId: audit(request), actorType: 'CUSTOMER', action: 'CUSTOMER_RECEIVED', fromStatus: order.status, toStatus: order.status } });
+      }
+    });
+    return { order: await ownedView(request, id) };
+  });
+
   // MOCK mode only (never in production): the safe test payment, the same path as the bot's MOCK button.
   app.post<{ Params: { id: string } }>('/orders/:id/mock-payment', async (request, reply: FastifyReply) => {
     strict(request, 'mockpay', 20);

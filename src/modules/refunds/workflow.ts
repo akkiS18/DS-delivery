@@ -32,7 +32,7 @@ export type CancelPlan =
 
 const WAITING = ['WAITING_RESTAURANT', 'WAITING_CUSTOMER_CONSENT'];
 /** Which cancellation path an order state allows. Customers may start a refund request while the restaurant has not
- *  finished cooking; only the restaurant may cancel a READY order, and only after it verified the money itself. */
+ *  finished cooking. Once the restaurant pressed "ready" nobody can cancel (Stage 9): the food exists and a driver is being arranged. */
 export function cancellationPlan(orderStatus: string, initiator: 'CUSTOMER' | 'RESTAURANT_STAFF'): CancelPlan {
   if (WAITING.includes(orderStatus)) return initiator === 'CUSTOMER' ? { kind: 'WAITING' } : { kind: 'DENIED', reason: 'USE_REJECT' };
   if (orderStatus === 'PAYMENT_PENDING') return initiator === 'CUSTOMER' ? { kind: 'UNPAID' } : { kind: 'DENIED', reason: 'NOT_PAID' };
@@ -40,7 +40,7 @@ export function cancellationPlan(orderStatus: string, initiator: 'CUSTOMER' | 'R
     return ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(orderStatus)
       ? { kind: 'REFUND', viaRequest: true } : { kind: 'DENIED', reason: 'INVALID_STATE' };
   }
-  return ['PAYMENT_CONFIRMED', 'PREPARING', 'READY'].includes(orderStatus)
+  return ['PAYMENT_CONFIRMED', 'PREPARING'].includes(orderStatus)
     ? { kind: 'REFUND', viaRequest: false } : { kind: 'DENIED', reason: 'INVALID_STATE' };
 }
 

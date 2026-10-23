@@ -215,12 +215,13 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string, operatorBot: Bot =
       }
     }
     const newer = d.order.taxiDispatches.some(x => x.attemptNo > d.attemptNo);
-    const label = d.status === 'ACCEPTED'
-      ? `🚕 #${d.order.number}: ${d.taxiCompany.name} buyurtmani qabul qildi, haydovchi yuboriladi.`
+    // The customer hears the four things that matter (paid, cooking, on the way, delivered) plus problems; "operator accepted" is internal.
+    const label: string | null = d.status === 'ACCEPTED'
+      ? null
       : d.status === 'DELIVERED'
-      ? `✅ #${d.order.number}: buyurtma yetkazildi (${d.taxiCompany.name} operatori tasdiqladi).`
+      ? `✅ #${d.order.number}: buyurtma yetkazildi. Yoqimli ishtaha!`
       : d.status === 'ASSIGNED'
-      ? `🚕 #${d.order.number}: ${d.taxiCompany.name} operatori haydovchi yuborilganini bildirdi. Yetkazish narxi taksi tarifiga ko‘ra.`
+      ? `🚕 #${d.order.number}: buyurtmangiz yo‘lda.`
       : d.status === 'DECLINED' && newer
       ? `🔄 #${d.order.number}: ${d.taxiCompany.name}da bo‘sh taksi yo‘q. Roziligingiz asosida boshqa kompaniyadan qidiryapmiz.`
       : d.status === 'DECLINED'
@@ -236,7 +237,7 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string, operatorBot: Bot =
       ['staffNotifiedAt', restaurantTelegramEnabled() ? d.order.restaurant.staffTelegramUserId : null],
     ] as const) {
       if (d[key]) continue;
-      if (!chatId) {
+      if (!chatId || label === null) {
         await db.taxiDispatch.updateMany({ where: { id: d.id, status: d.status, [key]: null }, data: { [key]: new Date() } });
         continue;
       }

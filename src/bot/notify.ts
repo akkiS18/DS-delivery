@@ -25,13 +25,17 @@ export function startBotPaymentNotifier(bot: Telegraf<any>): () => void {
         }
         const n = payment.order.number;
         const msgs: Record<string, string> = {
-          AWAITING: `🟡 #${n}: karta ajratildi. Botda /orders buyrug‘i orqali rekvizitlarni ko‘ring.`,
-          MATCHED_UNVERIFIED: `🔎 #${n}: kirim xabari mos keldi, ammo bank to‘lovi hali mustaqil tasdiqlanmagan. Restoran tasdig‘i kutilmoqda.`,
-          EXPIRED: `⌛ #${n}: to‘lov muddati tugadi. Agar pul yuborgan bo‘lsangiz, qaytadan to‘lamang; tekshiruv uchun administratorga murojaat qiling.`,
-          QUEUE_EXPIRED: `⌛ #${n}: karta ajratish navbati muddati tugadi. Pul yubormang; yangi buyurtma ochishingiz mumkin.`,
+          // Only what the customer must act on. "card assigned" and "payment seen" are on the order screen; the next real news is "paid, cooking".
+          EXPIRED: `⌛ #${n}: to‘lov muddati tugadi. Pul o‘tkazgan bo‘lsangiz, qayta to‘lamang va administratorga yozing.`,
+          QUEUE_EXPIRED: `⌛ #${n}: to‘lov navbati tugadi. Pul o‘tkazmang; yangi buyurtma bering.`,
         };
+        const text = msgs[payment.status];
+        if (!text) { // no message for this state: settle the marker so the row is not re-read every cycle
+          await db.payment.updateMany({ where: { id: payment.id, status: payment.status }, data: { botLastNotifiedStatus: payment.status } });
+          continue;
+        }
         try {
-          await bot.telegram.sendMessage(id, msgs[payment.status]!);
+          await bot.telegram.sendMessage(id, text);
           await db.payment.updateMany({
             where: { id: payment.id, status: payment.status },
             data: { botLastNotifiedStatus: payment.status },

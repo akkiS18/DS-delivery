@@ -40,7 +40,8 @@ test('cancellation plan: waiting, unpaid, refund and denied paths', () => {
 });
 
 test('restaurant-initiated cancellation only for orders whose money the restaurant verified', () => {
-  for (const s of ['PAYMENT_CONFIRMED', 'PREPARING', 'READY']) assert.deepEqual(cancellationPlan(s, 'RESTAURANT_STAFF'), { kind: 'REFUND', viaRequest: false }, s);
+  for (const s of ['PAYMENT_CONFIRMED', 'PREPARING']) assert.deepEqual(cancellationPlan(s, 'RESTAURANT_STAFF'), { kind: 'REFUND', viaRequest: false }, s);
+  assert.equal(cancellationPlan('READY', 'RESTAURANT_STAFF').kind, 'DENIED', 'nobody cancels once the restaurant pressed ready');
   for (const s of ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_PENDING', 'WAITING_RESTAURANT', 'CANCELLED', 'CANCELLATION_REQUESTED']) {
     assert.equal(cancellationPlan(s, 'RESTAURANT_STAFF').kind, 'DENIED', s);
   }

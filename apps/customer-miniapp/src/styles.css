@@ -168,3 +168,20 @@ h1, h2, h3, p { margin: 0; }
 /* Pull down to refresh (drawn by App.tsx). */
 .ptr { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: center; align-items: flex-end; overflow: hidden; pointer-events: none; z-index: 40; transition: height 0.15s ease; }
 .ptr > div { margin-bottom: 8px; width: 34px; height: 34px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); display: flex; align-items: center; justify-content: center; }
+
+/* Order status hero: one big icon and four big stages. */
+.hero { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.hero-ico { width: 104px; height: 104px; border-radius: 50%; background: var(--mint); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; }
+.hero-ico.done { background: var(--primary); color: #fff; }
+.hero-ico.bad { background: var(--bad-bg); color: var(--bad); }
+.hero-title { font-size: 24px; font-weight: 800; line-height: 1.15; }
+.phases { list-style: none; padding: 0; margin: 6px 0 0; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; position: relative; }
+.phase { display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; color: var(--ink-soft); }
+.phase::before { content: ''; position: absolute; top: 20px; left: -50%; width: 100%; height: 3px; background: var(--line); z-index: 0; }
+.phase:first-child::before { display: none; }
+.phase.done::before, .phase.current::before { background: var(--primary); }
+.phase-dot { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 3px solid var(--line); background: #fff; position: relative; z-index: 1; }
+.phase.done .phase-dot { background: var(--primary); border-color: var(--primary); color: #fff; }
+.phase.current .phase-dot { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 5px var(--mint); }
+.phase-label { font-size: 12px; font-weight: 700; line-height: 1.15; }
+.phase.current .phase-label, .phase.done .phase-label { color: var(--ink); }

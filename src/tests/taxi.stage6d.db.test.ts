@@ -329,7 +329,7 @@ test('request -> accept -> dispatched: ordered, company-isolated, exactly-once, 
   const m1 = calls.length;
   await runCycle(customerBot, order.id, taxiBot);
   await runCycle(customerBot, order.id, taxiBot);
-  assert.equal(custMsgs(customerTg, m1).filter(t => t.includes(`#${order.number}`) && t.includes('qabul qildi')).length, 1);
+  assert.equal(custMsgs(customerTg, m1).filter(t => t.includes(`#${order.number}`)).length, 0, 'Stage 9: "operator accepted" is internal, the customer is told nothing yet');
   assert.equal(custMsgs(staffA, m1).length, 0, 'restaurant staff are no longer notified through Telegram (RESTAURANT_TELEGRAM_ENABLED is off)');
   // dispatched
   await Promise.all([1, 2].map(() => press(taxiBot, opA, `taxi:sent:${dispatch.id}`)));
@@ -341,7 +341,7 @@ test('request -> accept -> dispatched: ordered, company-isolated, exactly-once, 
   const m2 = calls.length;
   await runCycle(customerBot, order.id, taxiBot);
   await runCycle(customerBot, order.id, taxiBot);
-  assert.equal(custMsgs(customerTg, m2).filter(t => t.includes(`#${order.number}`) && t.includes('haydovchi yuborilganini')).length, 1);
+  assert.equal(custMsgs(customerTg, m2).filter(t => t.includes(`#${order.number}`) && t.includes('yo‘lda')).length, 1);
   assert.equal(custMsgs(staffA, m2).length, 0);
   assert.equal(await db.commissionEntry.count({ where: { orderId: order.id } }), 0, 'dispatch never accrues commission');
   assert.equal((await row(order.id)).status, 'PREPARING', 'dispatch alone never changes the order');
@@ -542,7 +542,7 @@ test('#645: one logical notification per chat and event, even when customer and 
     const m0 = calls.length;
     // several workers (two bot instances = two processes) cycle at the same time, many times
     await Promise.all([1, 2, 3].flatMap(() => [runCycle(customerBot, order.id, taxiBot), runCycle(worker2Customer, order.id, taxiBot)]));
-    const sentMsgs = () => custMsgs(customerTg, m0).filter(t => t.includes(`#${order.number}`) && t.includes('haydovchi yuborilganini'));
+    const sentMsgs = () => custMsgs(customerTg, m0).filter(t => t.includes(`#${order.number}`) && t.includes('yo‘lda'));
     assert.equal(sentMsgs().length, 1, '"taxi sent": one message although two roles and two workers');
     // a restart that lost the in-row markers must not repeat it either: the durable log is the authority
     await db.taxiDispatch.update({ where: { id: dispatch.id }, data: { customerNotifiedAt: null, staffNotifiedAt: null } });
@@ -574,17 +574,18 @@ test('#645: one logical notification per chat and event, even when customer and 
 test('failed Telegram delivery is retried without ever sending twice', async () => {
   const { order, dispatch } = await requested(companyA);
   await press(taxiBot, opA, `taxi:acc:${dispatch.id}`);
+  await press(taxiBot, opA, `taxi:sent:${dispatch.id}`);
   const m0 = calls.length;
   failChats.add(customerTg);
   await runCycle(customerBot, order.id, taxiBot);
   await runCycle(customerBot, order.id, taxiBot);
-  const log = await db.notificationLog.findFirstOrThrow({ where: { orderId: order.id, dedupeKey: { contains: ':ACCEPTED:' } } });
+  const log = await db.notificationLog.findFirstOrThrow({ where: { orderId: order.id, dedupeKey: { contains: ':ASSIGNED:' } } });
   assert.equal(log.sentAt, null);
   assert.ok(log.attempts >= 2 && log.lastError);
   failChats.clear();
   await runCycle(customerBot, order.id, taxiBot);
   await runCycle(customerBot, order.id, taxiBot);
-  assert.equal(custMsgs(customerTg, m0).filter(t => t.includes(`#${order.number}`) && t.includes('qabul qildi')).length, 1);
+  assert.equal(custMsgs(customerTg, m0).filter(t => t.includes(`#${order.number}`) && t.includes('yo‘lda')).length, 1);
   assert.ok((await db.notificationLog.findUniqueOrThrow({ where: { id: log.id } })).sentAt);
   // an expired lease from a crashed worker is retaken; a live lease is respected
   const { sendOnce } = await import('../lib/notify-once.js');

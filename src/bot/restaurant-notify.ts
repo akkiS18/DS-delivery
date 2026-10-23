@@ -62,10 +62,13 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
             CUSTOMER_CANCELLED: `❌ #${order.number}: buyurtma bekor qilindi. Pul yubormang.`,
             RESTAURANT_REJECTED: `🚫 #${order.number}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.number}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
-            PAYMENT_CONFIRMED: `✅ #${order.number}: to‘lovingiz qabul qilindi. Tayyorlash boshlanishini kuting.`,
-            PREPARING: `👨‍🍳 #${order.number}: restoran buyurtmangizni tayyorlashni boshladi.`,
-            READY: `🍽 #${order.number}: taom tayyor. Taksi operatori bosqichini /orders orqali tekshiring. Bu yetkazildi degani emas.`,
+            PAYMENT_CONFIRMED: `✅ #${order.number}: to‘lov qabul qilindi.`,
+            PREPARING: `👨‍🍳 #${order.number}: buyurtmangiz tayyorlanmoqda.`,
           };
+          if (!messages[order.status]) { // READY has no message of its own: the next news is "on the way"
+            await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
+            continue;
+          }
           try {
             const outcome = await sendOnce(bot, { key: notificationKey('order-customer', order.id, order.status, customerChat), kind: 'order-customer',
               chatId: customerChat, orderId: order.id, text: messages[order.status]! });

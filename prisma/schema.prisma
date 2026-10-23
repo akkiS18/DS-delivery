@@ -235,6 +235,8 @@ model Order {
   prepMinutes                Int?
   preparingStartedAt         DateTime?            @db.Timestamptz(3)
   readyAt                    DateTime?            @db.Timestamptz(3)
+  // Stage 9: the customer said "I received it" (a signal next to the taxi operator's confirmation, never a replacement for it).
+  customerReceivedAt         DateTime?            @db.Timestamptz(3)
   staffLastNotifiedStatus    String?
   customerLastNotifiedStatus String?
   events                     OrderEvent[]

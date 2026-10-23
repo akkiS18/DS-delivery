@@ -107,8 +107,6 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblem
     actions.push('START_PREPARING', 'CANCEL_ORDER');
   } else if (o.status === 'PREPARING' && o.paymentStatus === 'CONFIRMED_MANUAL' && !openRefund) {
     actions.push('MARK_READY', 'CANCEL_ORDER');
-  } else if (o.status === 'READY' && o.paymentStatus === 'CONFIRMED_MANUAL' && !openRefund) {
-    actions.push('CANCEL_ORDER');
   }
   if (openRefund === 'REQUESTED') actions.push('REFUND_APPROVE', 'REFUND_REJECT');
   if (openRefund === 'APPROVED' || openRefund === 'DISPUTED') actions.push('REFUND_SENT');

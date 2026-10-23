@@ -134,6 +134,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     readyAt: o.readyAt?.toISOString() ?? null,
     taxi: taxi ? { stage: taxiSt, companyName: taxi.taxiCompany.name } : null,
     deliveredAt: taxi?.deliveredAt?.toISOString() ?? null, // the operator-confirmed time; nothing earlier counts as delivered
+    // "Did you receive it?": asked once the taxi is on its way (or the operator says delivered). A signal only: it never changes the order status.
+    receivedAt: o.customerReceivedAt?.toISOString() ?? null,
+    canConfirmReceived: o.customerReceivedAt === null && (stage === 'TAXI_SENT' || stage === 'DELIVERED'),
     cancel: { allowed: cancel !== null, kind: cancel },
     refund: refund ? { status: refund.status, hasReceipt: refund.receiptKey !== null } : null,
   };

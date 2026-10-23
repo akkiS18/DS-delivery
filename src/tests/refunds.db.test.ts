@@ -227,7 +227,7 @@ test('cancellation request racing "start cooking": an open request always means 
 });
 
 test('approval with a taxi already requested keeps that dispatch and flags it for manual follow-up', async () => {
-  const o = await paidOrder('READY');
+  const o = await paidOrder('PREPARING');
   const taxi = await dispatch(o.id, 'REQUESTED');
   const r = await staffCancel(o.id);
   assert.equal(r.result, 'APPROVED');

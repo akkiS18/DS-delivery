@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Check, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
+import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { clock, mmss, som } from '../lib/format';
-import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, STAGE_LABEL, timeline, type Anchor } from '../lib/order';
+import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, type Anchor } from '../lib/order';
 import { confirmDialog, haptic } from '../lib/telegram';
 import type { OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
@@ -14,7 +15,7 @@ export function OrderScreen({ id }: { id: string }) {
   const [order, setOrder] = useState<OrderView | null>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [busy, setBusy] = useState<'pay' | 'cancel' | null>(null);
+  const [busy, setBusy] = useState<'pay' | 'cancel' | 'received' | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [receipt, setReceipt] = useState<{ mime: string; dataBase64: string } | null>(null);
   const [receiptBusy, setReceiptBusy] = useState(false);
@@ -53,7 +54,6 @@ export function OrderScreen({ id }: { id: string }) {
 
   const o = order;
   const rem = counting && anchor ? remainingSeconds(o.prep, anchor, perfNow) : null;
-  const steps = timeline(o);
   const pay = o.payment;
   const ins = pay?.instructions ?? null;
   const awaiting = o.stage === 'PAYMENT_PENDING';
@@ -63,6 +63,13 @@ export function OrderScreen({ id }: { id: string }) {
     setBusy('pay');
     try { adopt((await api.mockPay(o.id)).order); haptic.success(); }
     catch (e) { haptic.error(); toast(e instanceof ApiError && e.status === 429 ? 'Biroz kuting va qayta urinib ko‘ring' : 'To‘lovni qayd etib bo‘lmadi'); }
+    finally { setBusy(null); }
+  };
+  const received = async () => {
+    if (busy) return;
+    setBusy('received');
+    try { adopt((await api.confirmReceived(o.id)).order); haptic.success(); }
+    catch { haptic.error(); toast('Saqlab bo‘lmadi. Qayta urinib ko‘ring'); }
     finally { setBusy(null); }
   };
   const cancel = async () => {
@@ -87,18 +94,21 @@ export function OrderScreen({ id }: { id: string }) {
         {o.isTest && <span className="badge test">TEST</span>}
       </div>
 
-      <div className="card stack" aria-live="polite">
-        <div className="bold" style={{ fontSize: 20 }}>{STAGE_LABEL[o.stage]}</div>
+      <div className="card stack">
+        <StatusHero stage={o.stage} />
         {rem !== null && (
           rem > 0
             ? <div><span className="mono bold" style={{ fontSize: 34 }}>{mmss(rem)}</span><span className="sub"> • tayyor bo‘lish taxminan {clock(o.prep.estimatedReadyAt)}</span></div>
             : <div className="banner warn" role="status"><strong>Kechikish: {overdueMinutes(rem)} daqiqa</strong><br />Restoran buyurtmani hali tayyorlayapti. Kechikkanimiz uchun uzr.</div>
         )}
-        {o.stage === 'READY' && <p className="sub">Taom tayyor — taksi operatoriga uzatilmoqda.</p>}
-        {o.stage === 'TAXI_REQUESTED' && <p className="sub">Taksi xizmatiga so‘rov yuborildi. Hali qabul qilinmagan bo‘lishi mumkin.</p>}
-        {o.stage === 'TAXI_ACCEPTED' && <p className="sub">Operator buyurtmani qabul qildi. Haydovchi hali yo‘lga chiqmagan bo‘lishi mumkin.</p>}
-        {o.stage === 'TAXI_SENT' && <p className="sub">{o.taxi?.companyName ? `${o.taxi.companyName} haydovchi yubordi.` : 'Haydovchi yo‘lga chiqdi.'}</p>}
-        {o.stage === 'DELIVERED' && <p className="sub">Yetkazildi{o.deliveredAt ? ` • ${clock(o.deliveredAt)}` : ''}. Yoqimli ishtaha!</p>}
+        {o.stage === 'DELIVERED' && <p className="sub center">{o.deliveredAt ? `${clock(o.deliveredAt)} • ` : ''}Yoqimli ishtaha!</p>}
+        {o.canConfirmReceived && !o.receivedAt && (
+          <div className="stack">
+            <div className="bold center">Buyurtmani oldingizmi?</div>
+            <Button loading={busy === 'received'} onClick={() => void received()}>Ha, oldim</Button>
+          </div>
+        )}
+        {o.receivedAt && <p className="sub center">Qabul qilganingiz uchun rahmat!</p>}
         {o.stage === 'NEEDS_HELP' && <div className="banner warn">Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.</div>}
         {o.stage === 'EXPIRED' && <div className="banner bad">To‘lov muddati tugadi. Yangi buyurtma bering.</div>}
         {o.refund && <div className="banner">Pulni qaytarish holati: <strong>{o.refund.status}</strong></div>}
@@ -146,18 +156,6 @@ export function OrderScreen({ id }: { id: string }) {
           {o.stage === 'PAYMENT_PENDING' && pay.mode === 'REAL' && <p className="sub small">O‘tkazgandan so‘ng bu sahifada qoling — holat o‘zi yangilanadi.</p>}
         </div>
       )}
-
-      <div className="card">
-        <h2 style={{ fontSize: 17, marginBottom: 6 }}>Holat</h2>
-        <ol className="timeline" style={{ listStyle: 'none', padding: 0 }}>
-          {steps.map(s => (
-            <li key={s.key} className={`step ${s.state}`} aria-current={s.state === 'current' ? 'step' : undefined}>
-              <span className="mark" aria-hidden>{s.state === 'done' ? <Icon as={Check} size={14} /> : s.state === 'bad' ? <Icon as={AlertTriangle} size={14} /> : null}</span>
-              <div><div>{s.label}</div>{s.note && <div className="sub small">{s.note}</div>}</div>
-            </li>
-          ))}
-        </ol>
-      </div>
 
       <div className="card stack">
         <h2 style={{ fontSize: 17 }}>Buyurtma tarkibi</h2>

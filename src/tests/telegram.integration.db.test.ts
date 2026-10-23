@@ -275,16 +275,12 @@ test('Android and Telegram show the same state; payment verification cannot be b
   assert.equal((await call('GET', `/orders/${o.id}`, tokenA)).json().status, 'READY');
   assert.equal((await db.taxiDispatch.findFirstOrThrow({ where: { orderId: o.id } })).status, 'SCHEDULED');
   assert.equal(attempts(operatorTg, sent0), 0, 'dispatch is only scheduled; the taxi operator was not messaged');
-  // customer notices: exactly one for the current status, failed delivery retried, repeats silent
+  // Stage 9: "food ready" is not announced to the customer (the next news is "on the way"); the marker is settled so the row is not re-read
   const mark3 = calls.length;
-  failChats.add(customerTg);
-  await notifyOnce();
-  assert.equal((await row(o.id)).customerLastNotifiedStatus, null, 'failed customer delivery leaves the notice pending');
-  failChats.clear();
   await notifyOnce();
   await notifyOnce();
-  const ready = texts(customerTg, mark3).filter(t => t.includes(`#${o.number}`) && t.includes('tayyor'));
-  assert.equal(ready.length, 1);
+  assert.equal(texts(customerTg, mark3).filter(t => t.includes(`#${o.number}`)).length, 0, 'no message for READY');
+  assert.equal((await row(o.id)).customerLastNotifiedStatus, 'READY');
 });
 
 test('Android rejection reaches the customer exactly once and Telegram sees the rejected state', async () => {

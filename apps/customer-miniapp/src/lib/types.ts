@@ -104,6 +104,9 @@ export interface OrderView {
   readyAt: string | null;
   taxi: { stage: string | null; companyName: string } | null;
   deliveredAt: string | null;
+  /** "Did you receive it?" is asked once the taxi is on its way; a signal only. */
+  receivedAt?: string | null;
+  canConfirmReceived?: boolean;
   cancel: { allowed: boolean; kind: 'UNPAID' | 'REFUND_REQUEST' | null };
   refund: { status: string; hasReceipt: boolean } | null;
 }
