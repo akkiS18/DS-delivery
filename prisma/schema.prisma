@@ -80,6 +80,35 @@ model TaxiCompany {
   orders                 Order[]
   dispatches             TaxiDispatch[]
   invites                TaxiOperatorInvite[]
+  credential             TaxiCredential?
+  sessions               TaxiSession[]
+}
+
+/// Taxi operator app login (one shared login per company). passwordHash is Argon2id and never returned by any API.
+model TaxiCredential {
+  id                String      @id @default(cuid())
+  taxiCompanyId     String      @unique
+  taxiCompany       TaxiCompany @relation(fields: [taxiCompanyId], references: [id], onDelete: Cascade)
+  login             String      @unique
+  passwordHash      String
+  passwordVersion   Int         @default(1)
+  passwordChangedAt DateTime    @default(now()) @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @db.Timestamptz(3)
+}
+
+/// Only a SHA-256 of the bearer token is stored. lastSeenAt doubles as the operator app heartbeat.
+model TaxiSession {
+  id              String      @id @default(cuid())
+  tokenHash       String      @unique
+  taxiCompanyId   String
+  taxiCompany     TaxiCompany @relation(fields: [taxiCompanyId], references: [id], onDelete: Cascade)
+  passwordVersion Int
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+  expiresAt       DateTime    @db.Timestamptz(3)
+  lastSeenAt      DateTime    @default(now()) @db.Timestamptz(3)
+  revokedAt       DateTime?   @db.Timestamptz(3)
+
+  @@index([taxiCompanyId, revokedAt, expiresAt])
 }
 
 model TaxiOperatorInvite {

@@ -58,9 +58,15 @@ export async function taxiCompanyForOperator(telegramUserId: string) {
   });
 }
 
-export async function taxiDispatchDetails(telegramUserId: string, dispatchId: string) {
+/** The operator side of a dispatch is authorized either by the Telegram id linked to the company (bot) or, for the DS Taxi app, by the company
+ *  its session belongs to. Both compare against the dispatch's OWN company, so one operator can never reach another company's requests. */
+export type TaxiActor = { actorTelegramId: string; actorCompanyId?: string };
+const isCompanyActor = (d: { taxiCompanyId: string; taxiCompany: { operatorTelegramUserId: string | null } }, a: TaxiActor): boolean =>
+  a.actorCompanyId !== undefined ? d.taxiCompanyId === a.actorCompanyId : d.taxiCompany.operatorTelegramUserId === a.actorTelegramId;
+
+export async function taxiDispatchDetails(telegramUserId: string, dispatchId: string, companyId?: string) {
   return db.taxiDispatch.findFirst({
-    where: { id: dispatchId, taxiCompany: { operatorTelegramUserId: telegramUserId } },
+    where: { id: dispatchId, taxiCompany: companyId !== undefined ? { id: companyId } : { operatorTelegramUserId: telegramUserId } },
     include: {
       taxiCompany: { select: { name: true, operatorTelegramUserId: true } },
       order: { include: {
@@ -84,6 +90,7 @@ export type TaxiActionResult = {
  */
 export async function respondToTaxi(input: {
   actorTelegramId: string;
+  actorCompanyId?: string;
   dispatchId: string;
   action: OperatorAction;
 }): Promise<TaxiActionResult> {
@@ -95,7 +102,7 @@ export async function respondToTaxi(input: {
       where: { id: input.dispatchId },
       include: { taxiCompany: true, order: true },
     });
-    if (!dispatch || dispatch.taxiCompany.operatorTelegramUserId !== input.actorTelegramId) {
+    if (!dispatch || !isCompanyActor(dispatch, input)) {
       throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
     }
     if (!['REQUESTED', 'ACCEPTED', 'CANCELLATION_PENDING', 'NEEDS_HELP'].includes(dispatch.status)) {
@@ -162,7 +169,7 @@ export type DeliveryResult =
  * Errors: TAKSI_SOROVI_TOPILMADI, TAKSI_OPERATOR_RUXSAT_YOQ (also for another company's operator),
  * TAKSI_HALI_YUBORILMAGAN, BUYURTMA_HALI_TAYYOR_EMAS, BUYURTMA_BEKOR_QILINGAN, QAYTARISH_JARAYONIDA, TOLOV_TASDIQLANMAGAN.
  */
-export async function completeDelivery(input: { actorTelegramId: string; dispatchId: string }): Promise<DeliveryResult> {
+export async function completeDelivery(input: { actorTelegramId: string; actorCompanyId?: string; dispatchId: string }): Promise<DeliveryResult> {
   return db.$transaction(async tx => {
     const candidate = await tx.taxiDispatch.findUnique({ where: { id: input.dispatchId }, select: { orderId: true } });
     if (!candidate) throw new Error('TAKSI_SOROVI_TOPILMADI');
@@ -174,7 +181,7 @@ export async function completeDelivery(input: { actorTelegramId: string; dispatc
         order: { include: { payment: { select: { status: true, isTest: true } }, refundRequests: { select: { status: true } } } },
       },
     });
-    if (!dispatch || dispatch.taxiCompany.operatorTelegramUserId !== input.actorTelegramId) throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
+    if (!dispatch || !isCompanyActor(dispatch, input)) throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
     const order = dispatch.order;
     if (dispatch.status === 'DELIVERED') return { changed: false, orderNumber: order.number, reason: 'ALREADY_DELIVERED' };
     if (dispatch.status !== 'ASSIGNED') throw new Error('TAKSI_HALI_YUBORILMAGAN');

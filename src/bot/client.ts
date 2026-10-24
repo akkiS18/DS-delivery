@@ -10,9 +10,10 @@ import { db } from '../lib/db.js';
 import type { Cart } from './cart.js';
 import { cartTotal, changeQuantity, countItems, removeItem } from './cart.js';
 import { registerRestaurantDisabledHandlers, registerRestaurantHandlers } from './restaurant.js';
-import { restaurantTelegramEnabled } from '../lib/features.js';
+import { restaurantTelegramEnabled, TAXI_TELEGRAM_DISABLED_MESSAGE, taxiTelegramEnabled } from '../lib/features.js';
 import { advanceMockOrder } from '../modules/restaurant-orders/auto.js';
 import { registerTaxiHandlers } from './taxi.js';
+import { registerTaxiAdminHandlers } from './taxi-admin.js';
 import { registerSupportHandlers } from './support.js';
 import { registerCardAdminHandlers } from './card-admin.js';
 import { registerMoneyAdminHandlers } from './money-admin.js';
@@ -349,7 +350,7 @@ async function taxiOptions(ctx: ClientContext): Promise<void> {
   const check = currentSession(ctx).checkout;
   if (!check || !check.addressText || !check.phone) return;
   check.step = 'taxi';
-  const taxis = await db.taxiCompany.findMany({ where: { isActive: true, ...(mode() === 'REAL' ? { operatorTelegramUserId: { not: null } } : {}) }, orderBy: { name: 'asc' }, take: 20 });
+  const taxis = await db.taxiCompany.findMany({ where: { isActive: true, ...(mode() === 'REAL' ? { OR: [{ operatorTelegramUserId: { not: null } }, { credential: { isNot: null } }] } : {}) }, orderBy: { name: 'asc' }, take: 20 });
   if (!taxis.length) {
     await ctx.reply('Hozircha taksi xizmati qo‘shilmagan. Administrator taksi xizmatini kiritishi kerak.'); return;
   }
@@ -622,11 +623,16 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
   // Register /staff and /myid before the generic text handler, which consumes messages.
   if (restaurantTelegramEnabled()) registerRestaurantHandlers(bot, engine); // legacy staff panel, rollback only
   else registerRestaurantDisabledHandlers(bot);
-  if (process.env.TAXI_BOT_TOKEN?.trim()) {
+  if (!taxiTelegramEnabled()) {
+    // Taxi operators work in the DS Taxi app. The Telegram taxi panel is off; platform administrators still recover stuck dispatches here (/taxiadmin).
+    bot.command('taxi', async ctx => { await ctx.reply(TAXI_TELEGRAM_DISABLED_MESSAGE); });
+    registerTaxiAdminHandlers(bot);
+  } else if (process.env.TAXI_BOT_TOKEN?.trim()) {
     // Stage 6D: taxi operators work in the dedicated taxi bot; this bot never shows or answers dispatch requests.
     bot.command('taxi', async ctx => { await ctx.reply('Taksi operatorlari uchun alohida DS Taxi bot ishlatiladi.'); });
   } else {
     registerTaxiHandlers(bot);
+    registerTaxiAdminHandlers(bot); // the taxi bot is not running, so the recovery buttons of the dispatcher's alerts are answered here
   }
   registerSupportHandlers(bot);
   registerCardAdminHandlers(bot); // /cards + approval of restaurant-added payee cards (support admins only)

@@ -12,7 +12,7 @@ import { startReceiptRetention } from './modules/refunds/retention.js';
 import { createClientBot } from './bot/client.js';
 import { createTaxiBot } from './bot/taxi-bot.js';
 import { chatCheckoutEnabled, miniAppUrl, setMiniAppMenuButton } from './bot/miniapp-launch.js';
-import { restaurantTelegramEnabled } from './lib/features.js';
+import { restaurantTelegramEnabled, taxiTelegramEnabled } from './lib/features.js';
 import { startBotPaymentNotifier } from './bot/notify.js';
 import { startRestaurantOrderNotifier } from './bot/restaurant-notify.js';
 import { startSupportNotifier } from './bot/support-notify.js';
@@ -118,6 +118,7 @@ try {
     app.log.info({ database: dbName, paymentMode: process.env.BOT_PAYMENT_MODE === 'REAL' ? 'REAL' : 'MOCK',
       checkout: process.env.RESTAURANT_MANUAL_ACCEPTANCE === 'true' ? 'LEGACY manual acceptance' : 'automatic (validated, payment is the last step)',
       restaurantTelegramPanel: restaurantTelegramEnabled() ? 'ENABLED (legacy rollback)' : 'disabled (restaurants use the app)',
+      taxiTelegramPanel: taxiTelegramEnabled() ? 'enabled' : 'disabled (operators use the DS Taxi app)',
       taxiOperatorAllowlist: Boolean(process.env.TAXI_OPERATOR_ALLOWLIST?.trim()) }, 'Telegram bot configuration');
     clientBot = createClientBot(token, engine);
     await launchPolling(clientBot, 'customer bot');
@@ -133,7 +134,7 @@ try {
     stopBotNotifier = startBotPaymentNotifier(clientBot);
     stopRestaurantNotifier = startRestaurantOrderNotifier(clientBot);
     const taxiToken = process.env.TAXI_BOT_TOKEN?.trim();
-    if (taxiToken) {
+    if (taxiToken && taxiTelegramEnabled()) {
       if (!/^\d+:[a-zA-Z0-9_-]{20,}$/.test(taxiToken)) throw new Error('TAXI_BOT_TOKEN formati noto‘g‘ri');
       if (taxiToken === token) throw new Error('TAXI_BOT_TOKEN mijoz boti tokenidan farq qilishi kerak (bir token ikki marta polling qila olmaydi)');
       taxiBot = createTaxiBot(taxiToken);
@@ -141,6 +142,8 @@ try {
       taxiBotStarted = true;
       runtime.taxiBot = 'polling';
       app.log.info('Telegram taxi operator bot started in polling mode');
+    } else if (!taxiTelegramEnabled()) {
+      app.log.info('Taxi Telegram panel is off (TAXI_TELEGRAM_ENABLED=false): taxi operators use the DS Taxi app');
     } else {
       app.log.warn('TAXI_BOT_TOKEN is not set: taxi operators are served by the customer bot (legacy mode)');
     }

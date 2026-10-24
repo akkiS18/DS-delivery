@@ -1,15 +1,18 @@
 import type { Prisma } from '@prisma/client';
+import { taxiTelegramEnabled } from '../../lib/features.js';
 
 type Tx = Prisma.TransactionClient;
 
 /**
- * A company that can receive a booking right now: active and with a linked operator. When TAXI_OPERATOR_ALLOWLIST is set (development
- * safety) only companies whose operator is on that list are eligible, so automatic assignment/fallback never picks an operator the
- * sender would refuse to message anyway.
+ * A company that can receive a booking right now: active and reachable - it has an app login (DS Taxi app) or, while the Telegram taxi panel is on,
+ * a linked operator. When TAXI_OPERATOR_ALLOWLIST is set (development safety) only Telegram operators on that list count, so automatic
+ * assignment/fallback never picks an operator the sender would refuse to message anyway. An app login is not a Telegram id and is not filtered.
  */
-export function eligibleCompanyWhere(env: NodeJS.ProcessEnv = process.env) {
+export function eligibleCompanyWhere(env: NodeJS.ProcessEnv = process.env): Prisma.TaxiCompanyWhereInput {
   const allow = (env.TAXI_OPERATOR_ALLOWLIST ?? '').split(',').map(v => v.trim()).filter(Boolean);
-  return { isActive: true, operatorTelegramUserId: allow.length ? { in: allow } : { not: null } } as { isActive: true; operatorTelegramUserId: { in: string[] } | { not: null } };
+  const viaApp: Prisma.TaxiCompanyWhereInput = { credential: { isNot: null } };
+  if (!taxiTelegramEnabled(env)) return { isActive: true, ...viaApp };
+  return { isActive: true, OR: [viaApp, { operatorTelegramUserId: allow.length ? { in: allow } : { not: null } }] };
 }
 
 /** Next company for an order that has not been tried yet (alphabetical, deterministic). Used by every automatic fallback. */

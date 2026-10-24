@@ -11,6 +11,7 @@ import { miniAppRoutes } from './modules/miniapp/routes.js';
 import { registerMiniAppStatic } from './modules/miniapp/static.js';
 import type { PaymentEngineV3 } from './modules/payment/engine.js';
 import { restaurantAuthRoutes } from './modules/restaurant-auth/routes.js';
+import { taxiAppRoutes } from './modules/taxi-app/routes.js';
 import { restaurantCatalogRoutes } from './modules/restaurant-catalog/routes.js';
 import { restaurantOrdersRoutes } from './modules/restaurant-orders/routes.js';
 import { restaurantOperationsRoutes } from './modules/restaurant-operations/routes.js';
@@ -55,6 +56,7 @@ export function buildApp(engine: PaymentEngineV3, deps: { pingDatabase?: () => P
   app.register(async health => { await healthRoutes(health, { pingDatabase: deps.pingDatabase ?? (async () => { await db.$queryRaw`SELECT 1`; }) }); });
   app.register(catalogRoutes, { prefix: '/api/v1' });
   app.register(restaurantAuthRoutes, { prefix: '/api/v1/restaurant' });
+  app.register(taxiAppRoutes, { prefix: '/api/v1/taxi' }); // DS Taxi app: operators sign in per company
   app.register(restaurantCatalogRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantFinanceRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantOperationsRoutes, { prefix: '/api/v1/restaurant' });

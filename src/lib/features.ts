@@ -8,3 +8,13 @@ export const restaurantTelegramEnabled = (env: NodeJS.ProcessEnv = process.env):
 
 export const RESTAURANT_TELEGRAM_DISABLED_MESSAGE =
   'ℹ️ Restoran boshqaruvi endi DS Restoran ilovasida (Android). Telegram orqali restoran amallari o‘chirilgan; hech narsa o‘zgartirilmadi.';
+
+/**
+ * Taxi operators work in the DS Taxi Android app. The Telegram taxi panel (/taxi, taxi:* buttons, request messages to operators) stays in the code
+ * for rollback and is ON unless this is explicitly "false". Customer, restaurant and administrator Telegram features never depend on it.
+ */
+export const taxiTelegramEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
+  env.TAXI_TELEGRAM_ENABLED?.trim().toLowerCase() !== 'false';
+
+export const TAXI_TELEGRAM_DISABLED_MESSAGE =
+  'ℹ️ Taksi operatorlari endi DS Taxi ilovasida (Android) ishlaydi. Telegram orqali taksi amallari o‘chirilgan; hech narsa o‘zgartirilmadi.';

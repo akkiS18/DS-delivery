@@ -224,7 +224,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       if (data.taxiCompanyId) {
         const taxi = await tx.taxiCompany.findUnique({ where: { id: data.taxiCompanyId } });
         if (!taxi?.isActive) throw new Error('TAKSI_XIZMATI_MAVJUD_EMAS');
-        if (data.paymentMode === 'REAL' && !taxi.operatorTelegramUserId) throw new Error('TAKSI_OPERATOR_BIRIKTIRILMAGAN');
+        if (data.paymentMode === 'REAL' && !taxi.operatorTelegramUserId && !(await tx.taxiCredential.count({ where: { taxiCompanyId: taxi.id } }))) throw new Error('TAKSI_OPERATOR_BIRIKTIRILMAGAN');
       }
       const { lines, totalSom } = checked; // prices below are the frozen, server-read snapshot
       const customer = data.customerId

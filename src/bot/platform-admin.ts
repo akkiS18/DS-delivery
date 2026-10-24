@@ -1,6 +1,7 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
+import { createTaxiCompanyByAdmin, resetTaxiAccessByAdmin } from '../modules/taxi-app/provision.js';
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin } from '../modules/restaurant/provision.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -100,6 +101,37 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     const r = await resetRestaurantPasswordByAdmin({ adminId, slug });
     if (!r) { await ctx.reply('Bunday restoran yo‘q.'); return; }
     await ctx.reply(`🔑 <b>${escapeHtml(r.name)}</b>\nYangi parol: <code>${escapeHtml(r.password)}</code>\nEski parol va barcha kirgan qurilmalar o‘chirildi.`, { parse_mode: 'HTML' });
+  });
+
+  bot.command('newtaxi', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const name = argsOf(ctx);
+    if (!name) { await ctx.reply('Yozing:\n<code>/newtaxi Taksi kompaniya nomi</code>', { parse_mode: 'HTML' }); return; }
+    try {
+      const r = await createTaxiCompanyByAdmin({ adminId, name });
+      await ctx.reply([
+        `✅ <b>${escapeHtml(r.name)}</b> taksi kompaniyasi qo‘shildi.`,
+        `Login: <code>${escapeHtml(r.login)}</code>`,
+        `Parol: <code>${escapeHtml(r.password)}</code>`,
+        '',
+        'DS Taxi ilovasiga shu login va parol bilan kiriladi. Parol faqat shu yerda ko‘rsatiladi: operatorga o‘zingiz yetkazing.',
+        `Yo‘qolsa: <code>/taxiapp ${escapeHtml(r.login)}</code>`,
+      ].join('\n'), { parse_mode: 'HTML' });
+    } catch (err) {
+      const m = err instanceof Error ? err.message : '';
+      await ctx.reply(m === 'KOMPANIYA_BOR' ? 'Bunday nomli kompaniya bor. Parol uchun: /taxiapp Nomi' : m === 'NOM_QISQA' ? 'Nom juda qisqa.' : 'Qo‘shib bo‘lmadi.');
+    }
+  });
+
+  bot.command('taxiapp', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const ref = argsOf(ctx);
+    if (!ref) { await ctx.reply('Yozing: <code>/taxiapp login</code> yoki <code>/taxiapp Kompaniya nomi</code>\nYangi parol beriladi, eski parol va kirgan qurilmalar o‘chadi.', { parse_mode: 'HTML' }); return; }
+    const r = await resetTaxiAccessByAdmin({ adminId, ref });
+    if (!r) { await ctx.reply('Bunday taksi kompaniyasi yo‘q.'); return; }
+    await ctx.reply(`🔑 <b>${escapeHtml(r.name)}</b>\nLogin: <code>${escapeHtml(r.login)}</code>\nYangi parol: <code>${escapeHtml(r.password)}</code>\nEski parol va barcha kirgan qurilmalar o‘chirildi.`, { parse_mode: 'HTML' });
   });
 
   bot.command('linkstaff', async ctx => {

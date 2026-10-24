@@ -1,7 +1,7 @@
 import { Markup, type Telegraf } from 'telegraf';
 import { db } from '../../lib/db.js';
 import { isDelivered, notificationKey, sendOnce } from '../../lib/notify-once.js';
-import { restaurantTelegramEnabled } from '../../lib/features.js';
+import { restaurantTelegramEnabled, taxiTelegramEnabled } from '../../lib/features.js';
 import { needsCancellationAcknowledgement } from './workflow.js';
 import { escalateSilentDispatch } from './recovery.js';
 import { supportAdminIds } from '../support/service.js';
@@ -17,6 +17,8 @@ const operatorAllowlist = (process.env.TAXI_OPERATOR_ALLOWLIST ?? '').split(',')
 const silenceEscalationSeconds = Number(process.env.TAXI_SILENCE_ESCALATION_SECONDS ?? 300);
 // Opt-in only: re-dispatching after silence can double-book if the operator did send a car. Audited when used.
 const autoFallbackOnSilence = process.env.TAXI_AUTO_FALLBACK_ON_SILENCE === 'true';
+/** The DS Taxi app counts as online when it polled within this window (the app polls every few seconds while its service runs). */
+const APP_ONLINE_SECONDS = 90;
 const callback = (verb: string, id: string) => `taxi:${verb}:${id}`;
 const currency = new Intl.NumberFormat('uz-UZ');
 
@@ -73,7 +75,7 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
     take: 20,
     include: {
-      taxiCompany: true,
+      taxiCompany: { include: { credential: { select: { id: true } } } },
       order: { include: {
         restaurant: { select: { name: true, pickupAddress: true, pickupPhone: true } },
         payment: { select: { isTest: true, status: true } },
@@ -87,15 +89,19 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     });
     if (!claimed.count) continue;
     const operator = item.taxiCompany.operatorTelegramUserId;
+    // Two ways to reach a company: its DS Taxi app login (the request simply appears in the app) and, while the Telegram taxi panel is on, a message
+    // to the linked operator (limited by TAXI_OPERATOR_ALLOWLIST in development). At least one must work or the request goes to the administrators.
+    const viaApp = Boolean(item.taxiCompany.credential);
+    const viaTelegram = taxiTelegramEnabled() && Boolean(operator) && (!operatorAllowlist.length || operatorAllowlist.includes(operator!));
     const validOrder = item.order.createdViaBot && ['PREPARING', 'READY'].includes(item.order.status)
       && item.order.payment?.status === 'CONFIRMED_MANUAL';
     const pickupSet = Boolean(item.order.restaurant.pickupAddress?.trim());
-    if (operator && operatorAllowlist.length && !operatorAllowlist.includes(operator)) {
+    if (!viaApp && operator && taxiTelegramEnabled() && !viaTelegram) {
       console.error(`[TAXI] #${item.order.number}: operator is not in TAXI_OPERATOR_ALLOWLIST, nothing was sent`);
       await db.taxiDispatch.updateMany({ where: { id: item.id, status: 'SENDING' }, data: { status: 'NEEDS_HELP', leaseAt: null } });
       continue;
     }
-    if (!validOrder || !item.taxiCompany.isActive || !operator || (!item.order.payment?.isTest && !pickupSet)) {
+    if (!validOrder || !item.taxiCompany.isActive || !(viaApp || viaTelegram) || (!item.order.payment?.isTest && !pickupSet)) {
       await db.taxiDispatch.updateMany({ where: { id: item.id, status: 'SENDING' }, data: { status: 'NEEDS_HELP', leaseAt: null } });
       continue;
     }
@@ -118,14 +124,17 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
       'Avval buyurtmani qabul qiling yoki rad eting; haydovchi yuborilgach „Taksi yuborildi“ni bosing.',
       `Javob muddati: ${responseSeconds} soniya. Javob bo‘lmasa avtomatik boshqa taksi chaqirilmaydi.`,
     ].join('\n');
-    try {
-      const response = await bot.telegram.sendMessage(operator, message, requestKeyboard(item.id));
-      await db.taxiDispatch.updateMany({
-        where: { id: item.id, status: 'SENDING' },
-        data: { status: 'REQUESTED', sentAt: new Date(), expiresAt: new Date(Date.now() + responseSeconds * 1000),
-          telegramMessageId: response.message_id, leaseAt: null, sendTries: { increment: 1 } },
-      });
-    } catch (err) {
+    let telegramMessageId: number | null = null;
+    let telegramFailed = false;
+    if (viaTelegram) {
+      try {
+        telegramMessageId = (await bot.telegram.sendMessage(operator!, message, requestKeyboard(item.id))).message_id;
+      } catch (err) {
+        telegramFailed = true;
+        console.error(`[TAXI REQUEST] #${item.order.number}:`, err instanceof Error ? err.message : err);
+      }
+    }
+    if (telegramFailed && !viaApp) {
       // Even a transport timeout can follow a successful Telegram delivery.
       // Require the original operator to confirm SENT / NO_TAXI through /taxi.
       await db.taxiDispatch.updateMany({
@@ -133,8 +142,23 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
         data: { status: 'NEEDS_HELP', leaseAt: null, sendTries: { increment: 1 },
           customerNotifiedAt: null, staffNotifiedAt: null, adminNotifiedAt: null },
       });
-      console.error(`[TAXI REQUEST] #${item.order.number}:`, err instanceof Error ? err.message : err);
-
+      continue;
+    }
+    // With the app channel the request is simply "REQUESTED": the app shows it and rings until the operator answers.
+    await db.taxiDispatch.updateMany({
+      where: { id: item.id, status: 'SENDING' },
+      data: { status: 'REQUESTED', sentAt: new Date(), expiresAt: new Date(Date.now() + responseSeconds * 1000),
+        telegramMessageId, leaseAt: null, sendTries: { increment: 1 } },
+    });
+    if (viaApp && telegramMessageId === null) {
+      // Nobody is looking at the app right now: do not wait for the response timeout, tell the administrators at once.
+      const online = await db.taxiSession.count({
+        where: { taxiCompanyId: item.taxiCompanyId, revokedAt: null, expiresAt: { gt: now }, lastSeenAt: { gt: new Date(Date.now() - APP_ONLINE_SECONDS * 1000) } },
+      });
+      if (online === 0) {
+        await reportAlert(bot, `#${item.order.number} (${item.taxiCompany.name}): taksi operatorining ilovasi hozir ulanmagan, so‘rovni ko‘rmayapti. Operatorga telefon qiling.`,
+          `${item.id}:APP_OFFLINE`, item.orderId, item.id);
+      }
     }
   }
 }
@@ -178,16 +202,18 @@ async function enforceTimeout(bot: Bot, onlyOrderId?: string): Promise<void> {
       ...(onlyOrderId ? { orderId: onlyOrderId } : {}),
       OR: [{ cancelNoticeAt: null }, { cancelNoticeAt: { lt: new Date(Date.now() - 90_000) } }],
     }, take: 20,
-    include: { taxiCompany: { select: { operatorTelegramUserId: true } }, order: { select: { number: true } } },
+    include: { taxiCompany: { select: { operatorTelegramUserId: true, credential: { select: { id: true } } } }, order: { select: { number: true } } },
   });
   for (const dispatch of needsConfirm) {
     const operator = dispatch.taxiCompany.operatorTelegramUserId;
-    if (!operator) continue;
+    if (!operator && !dispatch.taxiCompany.credential) continue;
     const claim = await db.taxiDispatch.updateMany({
       where: { id: dispatch.id, status: 'CANCELLATION_PENDING', cancelNoticeTries: dispatch.cancelNoticeTries },
       data: { cancelNoticeAt: new Date(), cancelNoticeTries: { increment: 1 } },
     });
     if (!claim.count) continue;
+    // In the app the question stays on screen (and keeps ringing); the reminders are only counted so the escalation to the administrators still runs.
+    if (!operator || !taxiTelegramEnabled()) continue;
     try {
       await bot.telegram.sendMessage(operator,
         `⚠️ #${dispatch.order.number}: javob muddati tugadi. Bir xil buyurtmaga ikkita taksi yuborilmasligi uchun aniqlashtiring:\n` +
