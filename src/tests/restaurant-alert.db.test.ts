@@ -72,7 +72,7 @@ test('a REAL payment that reached the restaurant sends exactly one "open the app
   assert.equal(order.status, 'PAYMENT_MATCHED_UNVERIFIED');
   await deliverPaidOrderAlerts(bot);
   assert.equal(mine().length, 1);
-  assert.match(mine()[0]!.text, new RegExp(`#${order.number}`));
+  assert.match(mine()[0]!.text, new RegExp(`#${order.code}`));
   assert.match(mine()[0]!.text, /tasdiqlash/i);
   assert.ok(!mine()[0]!.text.includes(last4), 'no card digits in the alert');
   await deliverPaidOrderAlerts(bot);
@@ -86,11 +86,11 @@ test('one reminder when the confirmation is overdue, and only one', async () => 
   const afterFirst = mine().length;
   await db.payment.update({ where: { id: pay.id }, data: { matchedAt: new Date(Date.now() - REMINDER_AFTER_MS - 60_000) } });
   await deliverPaidOrderAlerts(bot);
-  const reminders = mine().filter(s => s.text.startsWith('⏰') && s.text.includes(`#${order.number}`));
+  const reminders = mine().filter(s => s.text.startsWith('⏰') && s.text.includes(`#${order.code}`));
   assert.equal(reminders.length, 1);
   assert.equal(mine().length, afterFirst + 1);
   await deliverPaidOrderAlerts(bot);
-  assert.equal(mine().filter(s => s.text.startsWith('⏰') && s.text.includes(`#${order.number}`)).length, 1);
+  assert.equal(mine().filter(s => s.text.startsWith('⏰') && s.text.includes(`#${order.code}`)).length, 1);
 });
 
 test('nothing is sent for unpaid orders, old orders, restaurants without a linked staff account, or when switched off', async () => {
@@ -103,14 +103,14 @@ test('nothing is sent for unpaid orders, old orders, restaurants without a linke
   const n0 = mine().length;
   await deliverPaidOrderAlerts(bot);
   assert.equal(mine().length, n0);
-  assert.ok(!mine().some(s => s.text.includes(`#${unpaid!.number}`)));
+  assert.ok(!mine().some(s => s.text.includes(`#${unpaid!.code}`)));
 
   // old: a matched order last touched 3 hours ago is not announced
   const { order: old } = await realOrderMatched();
   await db.order.update({ where: { id: old.id }, data: { updatedAt: new Date(Date.now() - 3 * 3600_000) } });
   await db.$executeRaw`UPDATE "Order" SET "updatedAt" = now() - interval '3 hours' WHERE id = ${old.id}`;
   await deliverPaidOrderAlerts(bot);
-  assert.ok(!mine().some(s => s.text.includes(`#${old.number}`) && !s.text.startsWith('⏰')), 'stale orders are not announced');
+  assert.ok(!mine().some(s => s.text.includes(`#${old.code}`) && !s.text.startsWith('⏰')), 'stale orders are not announced');
 
   // no staff link
   await db.restaurant.update({ where: { id: restaurantId }, data: { staffTelegramUserId: null } });
@@ -145,7 +145,7 @@ test('MOCK orders are announced as tests, and a failing Telegram send is retried
   assert.equal(mine().length, before, 'the failed send delivered nothing');
   fail = false;
   await deliverPaidOrderAlerts(flaky);
-  const got = mine().filter(s => s.text.includes(`#${o!.number}`));
+  const got = mine().filter(s => s.text.includes(`#${o!.code}`));
   assert.equal(got.length, 1);
   assert.match(got[0]!.text, /SINOV/);
 });

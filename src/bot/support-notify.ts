@@ -19,7 +19,7 @@ export function escapeHtml(s: string): string {
 export function renderAdminTicket(t: AdminTicket, viewerTelegramId: string) {
   const lines = [
     `🎫 <b>Murojaat #${t.number}</b> — ${statusLabel(t.status)}`,
-    `Buyurtma: #${t.order.number} (${escapeHtml(t.order.restaurant.name)}, ${escapeHtml(t.order.status)})`,
+    `Buyurtma: #${t.order.code} (${escapeHtml(t.order.restaurant.name)}, ${escapeHtml(t.order.status)})`,
     `Mijoz: ${escapeHtml(t.customer.displayName ?? 'noma’lum')}, ${escapeHtml(t.customer.phone ?? 'telefon yo‘q')}`,
     '',
     escapeHtml(t.message),
@@ -94,7 +94,7 @@ export async function deliverSupportNotifications<C extends Context>(bot: Telegr
   }
   const resolved = await db.supportTicket.findMany({
     where: { status: 'RESOLVED', customerNotifiedAt: null }, orderBy: { resolvedAt: 'asc' }, take: 20,
-    select: { id: true, number: true, customer: { select: { telegramUserId: true } }, order: { select: { number: true } } },
+    select: { id: true, number: true, customer: { select: { telegramUserId: true } }, order: { select: { code: true } } },
   });
   for (const t of resolved) {
     const key = `resolved:${t.id}`;
@@ -108,7 +108,7 @@ export async function deliverSupportNotifications<C extends Context>(bot: Telegr
       if (!t.customer.telegramUserId) continue; // unlinked Android guest: nobody to message (the marker stays claimed)
       try {
         await bot.telegram.sendMessage(t.customer.telegramUserId,
-          `✅ Murojaatingiz #${t.number} (buyurtma #${t.order.number}) hal qilindi. Rahmat!`);
+          `✅ Murojaatingiz #${t.number} (buyurtma #${t.order.code}) hal qilindi. Rahmat!`);
         backoff.delete(key);
       } catch (err) {
         await db.supportTicket.updateMany({ where: { id: t.id }, data: { customerNotifiedAt: null } });

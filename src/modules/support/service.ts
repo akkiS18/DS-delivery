@@ -26,7 +26,7 @@ export async function listCustomerOrders(telegramUserId: string) {
   return db.order.findMany({
     where: { customer: { telegramUserId } },
     orderBy: { createdAt: 'desc' }, take: 10,
-    select: { id: true, number: true, status: true },
+    select: { id: true, code: true, status: true },
   });
 }
 
@@ -164,14 +164,14 @@ export async function listActiveTickets(actorTelegramId: string) {
   requireAdmin(actorTelegramId);
   return db.supportTicket.findMany({
     where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }, orderBy: { createdAt: 'asc' }, take: 20,
-    select: { id: true, number: true, status: true, assignedAdminName: true, order: { select: { number: true } } },
+    select: { id: true, number: true, status: true, assignedAdminName: true, order: { select: { code: true } } },
   });
 }
 
 const ticketView = {
   id: true, number: true, message: true, status: true, assignedAdminTelegramId: true,
   assignedAdminName: true, createdAt: true,
-  order: { select: { number: true, totalSom: true, status: true, restaurant: { select: { name: true } } } },
+  order: { select: { code: true, totalSom: true, status: true, restaurant: { select: { name: true } } } },
   customer: { select: { displayName: true, phone: true } },
 } satisfies Prisma.SupportTicketSelect;
 
@@ -186,7 +186,7 @@ export type AdminTicket = NonNullable<Awaited<ReturnType<typeof ticketForAdmin>>
 export async function listCustomerTickets(telegramUserId: string) {
   return db.supportTicket.findMany({
     where: { customer: { telegramUserId } }, orderBy: { createdAt: 'desc' }, take: 10,
-    select: { number: true, status: true, createdAt: true, order: { select: { number: true } } },
+    select: { number: true, status: true, createdAt: true, order: { select: { code: true } } },
   });
 }
 

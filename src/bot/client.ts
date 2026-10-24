@@ -391,7 +391,7 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
   }
   const pay = order.payment;
   const lines = [
-    `🧾 <b>Buyurtma #${order.number}</b>`,
+    `🧾 <b>Buyurtma #${order.code}</b>`,
     `Restoran: ${escapeHtml(order.restaurantName)}`,
     `Tanlangan taksi: ${escapeHtml(order.taxiCompanyName ?? 'Tanlanmagan')}`,
     `Taomlar: <b>${som(order.totalSom)}</b>`,
@@ -467,11 +467,11 @@ async function listMyOrders(ctx: ClientContext): Promise<void> {
   const orders = await db.order.findMany({
     where: { createdViaBot: true, customer: { telegramUserId: botUserId(ctx) } },
     orderBy: { createdAt: 'desc' }, take: 10,
-    select: { id: true, number: true, status: true, totalSom: true },
+    select: { id: true, code: true, status: true, totalSom: true },
   });
   if (!orders.length) { await ctx.reply('Hozircha buyurtmangiz yo‘q.'); return; }
   await ctx.reply('🧾 Buyurtmalaringiz:', Markup.inlineKeyboard(orders.map(o => [
-    Markup.button.callback(`#${o.number} • ${som(o.totalSom)} • ${o.status}`, `checkout:status:${o.id}`),
+    Markup.button.callback(`#${o.code} • ${som(o.totalSom)} • ${o.status}`, `checkout:status:${o.id}`),
   ])));
 }
 

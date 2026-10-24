@@ -23,7 +23,7 @@ export function startBotPaymentNotifier(bot: Telegraf<any>): () => void {
           await db.payment.updateMany({ where: { id: payment.id, status: payment.status }, data: { botLastNotifiedStatus: payment.status } });
           continue;
         }
-        const n = payment.order.number;
+        const n = payment.order.code;
         const msgs: Record<string, string> = {
           // Only what the customer must act on. "card assigned" and "payment seen" are on the order screen; the next real news is "paid, cooking".
           EXPIRED: `⌛ #${n}: to‘lov muddati tugadi. Pul o‘tkazgan bo‘lsangiz, qayta to‘lamang va administratorga yozing.`,

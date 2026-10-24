@@ -149,7 +149,7 @@ export async function orderDetails(orderId: string) {
   });
   if (!order) return null;
   return {
-    id: order.id, number: order.number, status: order.status,
+    id: order.id, number: order.number, code: order.code, status: order.status,
     totalSom: order.totalSom, addressText: order.addressText,
     phone: order.phoneSnapshot, customerTelegramUserId: order.customer.telegramUserId,
     restaurantName: order.restaurant.name, taxiCompanyName: order.taxiCompany?.name ?? null,

@@ -32,7 +32,7 @@ export const ERRORS: Record<string, string> = {
 
 const include = {
   order: { select: {
-    number: true, status: true, addressText: true, deliveryLat: true, deliveryLng: true, phoneSnapshot: true, totalSom: true,
+    code: true, status: true, addressText: true, deliveryLat: true, deliveryLng: true, phoneSnapshot: true, totalSom: true,
     prepMinutes: true, preparingStartedAt: true, readyAt: true, paymentIsTest: true,
     restaurant: { select: { name: true, pickupAddress: true, pickupPhone: true } },
   } },
@@ -47,7 +47,7 @@ export function toRequestView(d: Row) {
   const ready = o.status === 'READY';
   return {
     id: d.id,
-    orderNumber: o.number,
+    orderCode: o.code,
     status: d.status,
     attention: ATTENTION.includes(d.status),
     attemptNo: d.attemptNo,

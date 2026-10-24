@@ -182,7 +182,7 @@ test('tenant isolation: a restaurant only sees its own orders; client-supplied r
   assert.equal(own.json().id, orderA);
   // Stage 6C extended the detail view; the original fields are still present and no internal ids leak.
   const keys = Object.keys(own.json());
-  for (const k of ['createdAt', 'estimatedPrepMinutes', 'id', 'items', 'number', 'payment', 'status', 'totalSom', 'allowedActions']) assert.ok(keys.includes(k), k);
+  for (const k of ['createdAt', 'estimatedPrepMinutes', 'id', 'items', 'code', 'payment', 'status', 'totalSom', 'allowedActions']) assert.ok(keys.includes(k), k);
   for (const k of ['restaurantId', 'customerId', 'customerTelegramUserId', 'staffTelegramUserId']) assert.ok(!keys.includes(k), k);
   assert.equal((await get(`/api/v1/restaurant/orders/${orderB}`, ta)).statusCode, 404);
   assert.equal((await get(`/api/v1/restaurant/orders/${orderA}`, tb)).statusCode, 404);

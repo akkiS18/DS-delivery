@@ -170,8 +170,8 @@ test('restaurant alerts: no "please confirm" while it confirms itself; "new paid
   const mine = () => sent.filter(s => s.to === staffTg);
   // 1) matched seconds ago: silent
   const a = await realOrderMatched();
-  const num = (await order(a.id)).number;
-  const about = (n: number) => mine().filter(s => s.text.includes(`#${n}`));
+  const num = (await order(a.id)).code;
+  const about = (n: string) => mine().filter(s => s.text.includes(`#${n}`));
   await deliverPaidOrderAlerts(bot);
   assert.equal(about(num).length, 0, 'inside the grace period nothing is announced for an unconfirmed match');
   // 2) it confirmed itself: one "paid order" message without the old "confirm" request
@@ -187,7 +187,7 @@ test('restaurant alerts: no "please confirm" while it confirms itself; "new paid
   await autoConfirmRealOrders(50);
   await db.payment.update({ where: { id: b.pay.id }, data: { matchedAt: new Date(Date.now() - AUTO_GRACE_MS - 5_000) } });
   await deliverPaidOrderAlerts(bot);
-  const numB = (await order(b.id)).number;
+  const numB = (await order(b.id)).code;
   const mineB = mine().filter(s => s.text.includes(`#${numB}`) && !s.text.startsWith('⏰'));
   assert.equal(mineB.length, 1);
   assert.match(mineB[0]!.text, /avtomatik tasdiqlanmadi/);

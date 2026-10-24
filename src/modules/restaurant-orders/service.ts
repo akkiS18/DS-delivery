@@ -9,6 +9,7 @@ import { decideRefund, markRefundSent, requestCancellation } from '../refunds/se
 import type { StoredReceipt } from '../refunds/receipts.js';
 import { REJECT_REASONS as REFUND_REJECT_REASONS, RESTAURANT_REASONS } from '../refunds/workflow.js';
 import { taxiStage } from '../taxi/workflow.js';
+import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
 import { autoStartPreparing } from './auto.js';
 
 /** Same buckets the Android tabs use. */
@@ -28,8 +29,8 @@ export const FILTERS = {
 export const listQuerySchema = z.object({
   filter: z.enum(['all', 'incoming', 'inProgress', 'toCook', 'ready', 'history']).default('all'),
   limit: z.coerce.number().int().min(1).max(50).default(20),
-  /** Keyset cursor: the `number` of the last order of the previous page. */
-  cursor: z.coerce.number().int().min(1).optional(),
+  /** Opaque keyset cursor (the previous page's nextCursor). */
+  cursor: cursorParam.optional(),
 }).strict();
 
 const idSchema = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
@@ -56,7 +57,7 @@ export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPAR
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 const detailSelect = {
-  id: true, number: true, status: true, totalSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true,
+  id: true, code: true, status: true, totalSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true,
   addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, rejectReason: true,
   restaurantDeadlineAt: true, acceptedAt: true, paymentVerifiedAt: true, preparingStartedAt: true, readyAt: true,
   restaurantId: true,
@@ -150,7 +151,7 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
   return {
     serverNow: now.toISOString(),
     prep: prepClock(o, now),
-    id: o.id, number: o.number, status: o.status, totalSom: o.totalSom, createdAt: o.createdAt.toISOString(),
+    id: o.id, code: o.code, status: o.status, totalSom: o.totalSom, createdAt: o.createdAt.toISOString(),
     estimatedPrepMinutes: o.estimatedPrepMinutes ?? o.prepMinutes,
     /** Pre-selected preparation time for accept / start: the restaurant default (override is optional). */
     defaultPrepMinutes: o.estimatedPrepMinutes ?? o.restaurant.defaultPrepMinutes,
@@ -161,7 +162,7 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
     },
     /** What the restaurant checks before confirming real money. A Gmail signal is NEVER proof of a bank credit. */
     paymentEvidence: o.payment && {
-      reference: o.payment.number, expectedAmountSom: som(o.payment.amountTiyin), status: o.payment.status, isTest: o.payment.isTest,
+      expectedAmountSom: som(o.payment.amountTiyin), status: o.payment.status, isTest: o.payment.isTest,
       cardLast4: o.payment.card?.last4 ?? null, assignedAt: iso(o.payment.assignedAt), matchedAt: iso(o.payment.matchedAt),
       verifiedAt: iso(o.paymentVerifiedAt),
       signal: extras.incoming && {
@@ -189,7 +190,7 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
     preparingStartedAt: iso(o.preparingStartedAt), readyAt: iso(o.readyAt),
     menuProblems: extras.menuProblems.map(p => ({ kind: p.kind, name: p.name })),
     refund: refund && {
-      id: refund.id, number: refund.number, kind: refund.kind, status: refund.status, reasonCode: refund.reasonCode, requestedBy: refund.requestedByType,
+      id: refund.id, kind: refund.kind, status: refund.status, reasonCode: refund.reasonCode, requestedBy: refund.requestedByType,
       paidAmountSom: som(refund.paidAmountTiyin), approvedAmountSom: refund.approvedAmountTiyin === null ? null : som(refund.approvedAmountTiyin),
       bankReference: refund.bankReference, hasReceipt: refund.receiptKey !== null, sentAt: iso(refund.sentAt), rejectReason: refund.rejectReason, requestedAt: refund.requestedAt.toISOString(),
     },
@@ -227,10 +228,10 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
   const statusIn = (s: readonly OrderStatus[]): Prisma.OrderWhereInput => ({ ...base, status: { in: [...s] } });
   const where: Prisma.OrderWhereInput = {
     ...(q.filter === 'all' ? base : statusIn(FILTERS[q.filter])),
-    ...(q.cursor ? { number: { lt: q.cursor } } : {}),
+    ...(q.cursor ? beforeCursor('createdAt', q.cursor) : {}),
   };
   const [rows, grouped, attention] = await Promise.all([
-    db.order.findMany({ where, orderBy: { number: 'desc' }, take: q.limit + 1, select: detailSelect }),
+    db.order.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: q.limit + 1, select: detailSelect }),
     db.order.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
     db.order.count({ where: { ...base, OR: [
       { status: 'CANCELLATION_REQUESTED' }, // unverified/confirmed orders are already counted in `incoming`
@@ -242,7 +243,7 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
   const count = (s: readonly OrderStatus[]) => grouped.filter(g => s.includes(g.status)).reduce((n, g) => n + g._count._all, 0);
   return {
     orders: page.map(r => orderView(r)),
-    nextCursor: rows.length > q.limit ? page[page.length - 1]!.number : null,
+    nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null,
     counts: { incoming: count(FILTERS.incoming), inProgress: count(FILTERS.inProgress), toCook: count(FILTERS.toCook), ready: count(FILTERS.ready), attention },
   };
 }

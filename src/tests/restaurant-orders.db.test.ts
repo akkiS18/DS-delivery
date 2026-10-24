@@ -126,7 +126,8 @@ test('list: pagination, filters, counts, and strict tenant isolation', async () 
   const p2 = (await call('GET', `/orders?filter=incoming&limit=2&cursor=${p1.nextCursor}`, ta)).json();
   const seen = [...p1.orders, ...p2.orders].map((x: { id: string }) => x.id);
   assert.equal(new Set(seen).size, seen.length);
-  assert.ok(p2.orders.every((x: { number: number }) => x.number < p1.nextCursor));
+  assert.ok(p2.orders.every((x: { id: string }) => !p1.orders.some((y: { id: string }) => y.id === x.id)));
+  assert.ok(Number.isNaN(Number(p1.nextCursor)), 'the cursor is opaque: it never carries an order number');
   const all = (await call('GET', '/orders?limit=50', ta)).json();
   assert.ok(all.orders.every((x: { id: string }) => x.id !== other.id));
   assert.ok(mine.every(m => all.orders.some((x: { id: string }) => x.id === m.id)));

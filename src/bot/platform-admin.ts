@@ -1,6 +1,8 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
+import { db } from '../lib/db.js';
+import { planRestaurantRemoval, planTaxiRemoval, removeRestaurant, removeTaxiCompany, type RemovalOutcome, type RemovalPlan } from '../modules/platform/removal.js';
 import { createTaxiCompanyByAdmin, resetTaxiAccessByAdmin } from '../modules/taxi-app/provision.js';
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin } from '../modules/restaurant/provision.js';
 
@@ -23,6 +25,28 @@ export async function renderPayments(): Promise<{ text: string; keyboard: Return
   if (p.open) lines.push('Yopsangiz ham, allaqachon berilgan buyurtmalar to‘lovi davom etadi.');
   return { text: lines.join('\n'), keyboard: Markup.inlineKeyboard([[button]]) };
 }
+
+const BLOCK_TEXT: Record<string, string> = {
+  OPEN_ORDERS: 'tugallanmagan buyurtma bor',
+  OPEN_REFUNDS: 'hal qilinmagan pul qaytarish bor',
+  OPEN_DISPATCHES: 'javob kutayotgan yoki yo‘ldagi taksi so‘rovi bor',
+};
+
+/** What the confirmation screen tells the administrator before anything is touched. */
+function removalQuestion(kind: 'r' | 't', plan: RemovalPlan): string | null {
+  if (plan.result === 'NOT_FOUND') return null;
+  const what = kind === 'r' ? 'restoran' : 'taksi kompaniyasi';
+  if (plan.result === 'BLOCKED') return `⛔ <b>${escapeHtml(plan.name)}</b> hozir o‘chirib bo‘lmaydi: ${plan.count} ta ${BLOCK_TEXT[plan.reason]}. Avval ularni tugating yoki bekor qiling.`;
+  if (plan.result === 'DELETE') return `🗑 <b>${escapeHtml(plan.name)}</b> (${what}) butunlay o‘chiriladi. Hech qanday buyurtma yoki to‘lov yo‘q. Qaytarib bo‘lmaydi.`;
+  return [
+    `🗄 <b>${escapeHtml(plan.name)}</b> (${what}) arxivlanadi.`,
+    `Unda ${plan.orders} ta yozuv bor (buyurtma, to‘lov, komissiya hisobi o‘chirilmaydi): shuning uchun u o‘chirilib, mijozlarga ko‘rinmay qoladi, kirish yopiladi, nomi bo‘shatiladi.`,
+    ...(plan.dueSom > 0 ? [`Komissiya hisobi (${plan.dueSom.toLocaleString('en-US').replace(/,/g, ' ')} so‘m) saqlanadi va /commission da qoladi.`] : []),
+  ].join('\n');
+}
+const removalDone = (o: RemovalOutcome): string =>
+  o.result === 'DELETED' ? `🗑 <b>${escapeHtml(o.name)}</b> o‘chirildi.` : o.result === 'ARCHIVED' ? `🗄 <b>${escapeHtml(o.name)}</b> arxivlandi.`
+    : o.result === 'BLOCKED' ? `⛔ <b>${escapeHtml(o.name)}</b> o‘chirilmadi: ${o.count} ta ${BLOCK_TEXT[o.reason]}.` : 'Topilmadi.';
 
 export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C>): void {
   const admin = (ctx: Context): string | null => {
@@ -133,6 +157,45 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     if (!r) { await ctx.reply('Bunday taksi kompaniyasi yo‘q.'); return; }
     await ctx.reply(`🔑 <b>${escapeHtml(r.name)}</b>\nLogin: <code>${escapeHtml(r.login)}</code>\nYangi parol: <code>${escapeHtml(r.password)}</code>\nEski parol va barcha kirgan qurilmalar o‘chirildi.`, { parse_mode: 'HTML' });
   });
+
+  // ---- remove a test restaurant / taxi company (two taps; deleted if it has no history, archived otherwise) ----
+  bot.command('deleterestaurant', async ctx => {
+    if (!admin(ctx)) return;
+    const rows = await db.restaurant.findMany({ where: { NOT: { slug: { startsWith: 'arxiv-' } } }, orderBy: { name: 'asc' }, take: 40, select: { id: true, name: true, slug: true } });
+    if (!rows.length) { await ctx.reply('O‘chiriladigan restoran yo‘q.'); return; }
+    await ctx.reply('Qaysi restoranni o‘chiramiz?', Markup.inlineKeyboard(rows.map(r => [Markup.button.callback(`${r.name} (${r.slug})`.slice(0, 60), `rm:r:ask:${r.id}`)])));
+  });
+  bot.command('deletetaxi', async ctx => {
+    if (!admin(ctx)) return;
+    const rows = await db.taxiCompany.findMany({ where: { NOT: { name: { contains: '[arxiv' } } }, orderBy: { name: 'asc' }, take: 40, select: { id: true, name: true } });
+    if (!rows.length) { await ctx.reply('O‘chiriladigan taksi kompaniyasi yo‘q.'); return; }
+    await ctx.reply('Qaysi taksi kompaniyasini o‘chiramiz?', Markup.inlineKeyboard(rows.map(r => [Markup.button.callback(r.name.slice(0, 60), `rm:t:ask:${r.id}`)])));
+  });
+  bot.action(/^rm:(r|t):(ask|go):([a-zA-Z0-9_-]+)$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const [, kind, step, id] = ctx.match as unknown as [string, 'r' | 't', 'ask' | 'go', string];
+    const edit = (text: string, keyboard?: ReturnType<typeof Markup.inlineKeyboard>) =>
+      ctx.editMessageText(text, { parse_mode: 'HTML', ...(keyboard ? { reply_markup: keyboard.reply_markup } : {}) }).catch(() => ctx.reply(text, { parse_mode: 'HTML' }));
+    if (step === 'ask') {
+      const plan = kind === 'r' ? await planRestaurantRemoval(adminId, id) : await planTaxiRemoval(adminId, id);
+      const q = removalQuestion(kind, plan);
+      if (!q) { await edit('Topilmadi (allaqachon o‘chirilgan bo‘lishi mumkin).'); return; }
+      await edit(q, plan.result === 'DELETE' || plan.result === 'ARCHIVE'
+        ? Markup.inlineKeyboard([[Markup.button.callback(plan.result === 'DELETE' ? '🗑 Ha, o‘chiraman' : '🗄 Ha, arxivlayman', `rm:${kind}:go:${id}`)], [Markup.button.callback('⬅️ Yo‘q', 'rm:cancel:x:0')]])
+        : undefined);
+      return;
+    }
+    const outcome = kind === 'r' ? await removeRestaurant({ adminId, restaurantId: id }) : await removeTaxiCompany({ adminId, companyId: id });
+    await edit(removalDone(outcome));
+    if (outcome.result === 'DELETED' || outcome.result === 'ARCHIVED') {
+      let others: string[] = [];
+      try { others = supportAdminIds().filter(x => x !== adminId); } catch { /* none configured */ }
+      for (const other of others) await bot.telegram.sendMessage(other, `ℹ️ Administrator: ${removalDone(outcome).replace(/<[^>]+>/g, '')}`).catch(() => undefined);
+    }
+  });
+  bot.action('rm:cancel:x:0', async ctx => { await ctx.answerCbQuery().catch(() => undefined); await ctx.editMessageText('Bekor qilindi. Hech narsa o‘zgarmadi.').catch(() => undefined); });
 
   bot.command('linkstaff', async ctx => {
     const adminId = admin(ctx);

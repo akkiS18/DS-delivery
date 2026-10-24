@@ -31,7 +31,7 @@ export async function deliverPaidOrderAlerts(bot: Sender, now = new Date()): Pro
       restaurant: { staffTelegramUserId: { not: null } },
     },
     orderBy: { updatedAt: 'asc' }, take: 100,
-    select: { id: true, number: true, totalSom: true, status: true, paymentIsTest: true, restaurant: { select: { staffTelegramUserId: true } }, payment: { select: { matchedAt: true } } },
+    select: { id: true, code: true, totalSom: true, status: true, paymentIsTest: true, restaurant: { select: { staffTelegramUserId: true } }, payment: { select: { matchedAt: true } } },
   });
   const auto = gmailAutoConfirmEnabled();
   for (const o of orders) {
@@ -41,12 +41,12 @@ export async function deliverPaidOrderAlerts(bot: Sender, now = new Date()): Pro
     // confirm within the grace period, the restaurant is told to check the bank and confirm by hand.
     if (unconfirmed && auto && (o.payment?.matchedAt?.getTime() ?? 0) > now.getTime() - AUTO_GRACE_MS) continue;
     const text = o.paymentIsTest
-      ? `🧪 SINOV: #${o.number} buyurtma to‘landi (MOCK, ${formatSom(BigInt(o.totalSom) * 100n)}). Ilovani oching.`
+      ? `🧪 SINOV: #${o.code} buyurtma to‘landi (MOCK, ${formatSom(BigInt(o.totalSom) * 100n)}). Ilovani oching.`
       : unconfirmed
         ? auto
-          ? `🔔 #${o.number}: to‘lov keldi (${formatSom(BigInt(o.totalSom) * 100n)}), lekin avtomatik tasdiqlanmadi. Bankni tekshiring va ilovada „To‘lovni tasdiqlash“ni bosing.`
-          : `🔔 #${o.number}: to‘lov keldi (${formatSom(BigInt(o.totalSom) * 100n)}). Bankni tekshiring va ilovada „To‘lovni tasdiqlash“ni bosing.`
-        : `🔔 #${o.number}: yangi to‘langan buyurtma (${formatSom(BigInt(o.totalSom) * 100n)}). Ilovani oching va tayyorlang.`;
+          ? `🔔 #${o.code}: to‘lov keldi (${formatSom(BigInt(o.totalSom) * 100n)}), lekin avtomatik tasdiqlanmadi. Bankni tekshiring va ilovada „To‘lovni tasdiqlash“ni bosing.`
+          : `🔔 #${o.code}: to‘lov keldi (${formatSom(BigInt(o.totalSom) * 100n)}). Bankni tekshiring va ilovada „To‘lovni tasdiqlash“ni bosing.`
+        : `🔔 #${o.code}: yangi to‘langan buyurtma (${formatSom(BigInt(o.totalSom) * 100n)}). Ilovani oching va tayyorlang.`;
     const outcome = await sendOnce(bot, { key: notificationKey('order-alert', o.id, chatId), kind: 'order-alert', chatId, orderId: o.id, text });
     if (outcome === 'SENT') sent++;
   }
@@ -56,14 +56,14 @@ export async function deliverPaidOrderAlerts(bot: Sender, now = new Date()): Pro
       status: 'MATCHED_UNVERIFIED', isTest: false, matchedAt: { lte: new Date(now.getTime() - REMINDER_AFTER_MS), gte: new Date(now.getTime() - WINDOW_MS) },
       order: { is: { createdViaBot: true, status: 'PAYMENT_MATCHED_UNVERIFIED', restaurant: { staffTelegramUserId: { not: null } } } },
     },
-    select: { order: { select: { id: true, number: true, restaurant: { select: { staffTelegramUserId: true } } } } }, take: 50,
+    select: { order: { select: { id: true, code: true, restaurant: { select: { staffTelegramUserId: true } } } } }, take: 50,
   });
   for (const p of waiting) {
     const o = p.order!;
     const chatId = o.restaurant.staffTelegramUserId!;
     const outcome = await sendOnce(bot, {
       key: notificationKey('order-alert-reminder', o.id, chatId), kind: 'order-alert-reminder', chatId, orderId: o.id,
-      text: `⏰ #${o.number}: mijoz to‘lagan, lekin to‘lov hali tasdiqlanmadi. Bankni tekshirib, ilovada tasdiqlang.`,
+      text: `⏰ #${o.code}: mijoz to‘lagan, lekin to‘lov hali tasdiqlanmadi. Bankni tekshirib, ilovada tasdiqlang.`,
     });
     if (outcome === 'SENT') sent++;
   }
@@ -83,7 +83,7 @@ export async function deliverAutoConfirmRefusals(bot: Sender, refused: AutoConfi
     for (const chatId of admins) {
       const outcome = await sendOnce(bot, {
         key: notificationKey('auto-confirm-refused', r.orderId, chatId), kind: 'auto-confirm-refused', chatId, orderId: r.orderId,
-        text: `⚠️ #${r.number}: pul keldi, lekin to‘lov avtomatik tasdiqlanmadi (${r.reason}). Restoran bankni tekshirib qo‘lda tasdiqlaydi; muammo davom etsa /money ni oching.`,
+        text: `⚠️ #${r.code}: pul keldi, lekin to‘lov avtomatik tasdiqlanmadi (${r.reason}). Restoran bankni tekshirib qo‘lda tasdiqlaydi; muammo davom etsa /money ni oching.`,
       });
       if (outcome === 'SENT') sent++;
     }

@@ -50,6 +50,7 @@
     "test:operations": "node --import tsx --test src/modules/restaurant-operations/operations.test.ts",
     "test:operations:db": "node --env-file=.env --import tsx --test src/tests/restaurant-operations.db.test.ts",
     "taxi:invite": "node --env-file=.env --import tsx src/tools/taxi-invite.ts",
+    "test:removal:db": "node --env-file=.env --import tsx --test src/tests/removal.db.test.ts",
     "test:taxi:app:db": "node --env-file=.env --import tsx --test src/tests/taxi-app.db.test.ts",
     "test:taxi:db": "node --env-file=.env --import tsx --test src/tests/taxi.stage6d.db.test.ts",
     "test:setup": "node --env-file=.env --import tsx src/tools/setup-local-test.ts",

@@ -117,7 +117,7 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   }
   return {
     serverNow: now.toISOString(),
-    id: o.id, number: o.number, status: o.status, stage,
+    id: o.id, code: o.code, status: o.status, stage,
     createdAt: o.createdAt.toISOString(),
     restaurantName: o.restaurant.name,
     items: o.items,
@@ -136,7 +136,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     deliveredAt: taxi?.deliveredAt?.toISOString() ?? null, // the operator-confirmed time; nothing earlier counts as delivered
     // "Did you receive it?": asked once the taxi is on its way (or the operator says delivered). A signal only: it never changes the order status.
     receivedAt: o.customerReceivedAt?.toISOString() ?? null,
-    canConfirmReceived: o.customerReceivedAt === null && (stage === 'TAXI_SENT' || stage === 'DELIVERED'),
+    canConfirmReceived: o.customerReceivedAt === null && stage === 'DELIVERED',
+    // When the payment was confirmed: the app uses it to announce "to‘lov qabul qilindi" once, right after it happens.
+    paidAt: o.paymentVerifiedAt?.toISOString() ?? null,
     cancel: { allowed: cancel !== null, kind: cancel },
     refund: refund ? { status: refund.status, hasReceipt: refund.receiptKey !== null } : null,
   };
@@ -149,6 +151,6 @@ export async function listCustomerOrders(owner: CustomerOwner, limit = 20) {
   });
   return rows.map(r => {
     const v = customerOrderView(r);
-    return { id: v.id, number: v.number, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi };
+    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi };
   });
 }

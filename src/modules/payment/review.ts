@@ -58,14 +58,14 @@ export async function handleReview(input: { incomingId: string; adminId: string;
   });
 }
 
-export interface StaleVerification { orderNumber: number | null; restaurantName: string; amountTiyin: bigint; matchedAt: Date }
+export interface StaleVerification { orderCode: string | null; restaurantName: string; amountTiyin: bigint; matchedAt: Date }
 
 /** Payments the bank e-mail matched but the restaurant has not confirmed yet for a while: the customer paid and nobody is cooking. */
 export async function listStaleUnverified(minutes = 10, now = new Date()): Promise<StaleVerification[]> {
   const rows = await db.payment.findMany({
     where: { status: 'MATCHED_UNVERIFIED', isTest: false, matchedAt: { lte: new Date(now.getTime() - minutes * 60_000) } },
     orderBy: { matchedAt: 'asc' }, take: 20,
-    select: { amountTiyin: true, matchedAt: true, order: { select: { number: true } }, restaurant: { select: { name: true } } },
+    select: { amountTiyin: true, matchedAt: true, order: { select: { code: true } }, restaurant: { select: { name: true } } },
   });
-  return rows.map(r => ({ orderNumber: r.order?.number ?? null, restaurantName: r.restaurant?.name ?? '—', amountTiyin: r.amountTiyin, matchedAt: r.matchedAt! }));
+  return rows.map(r => ({ orderCode: r.order?.code ?? null, restaurantName: r.restaurant?.name ?? '—', amountTiyin: r.amountTiyin, matchedAt: r.matchedAt! }));
 }

@@ -42,7 +42,7 @@ export function registerMoneyAdminHandlers<C extends Context>(bot: Telegraf<C>):
     const [items, stale] = await Promise.all([listUnhandledReviews(10), listStaleUnverified(10)]);
     if (stale.length) {
       await ctx.reply(['⏳ <b>10+ daqiqa tasdiqlanmagan to‘lovlar</b> (avtomatik tasdiq ishlamadi; mijoz to‘lagan, hech kim pishirmayapti):',
-        ...stale.map(s => `#${s.orderNumber ?? '?'} ${escapeHtml(s.restaurantName)} • ${formatSom(s.amountTiyin)} • ${fmt(s.matchedAt)}`)].join('\n'), { parse_mode: 'HTML' });
+        ...stale.map(s => `#${s.orderCode ?? '?'} ${escapeHtml(s.restaurantName)} • ${formatSom(s.amountTiyin)} • ${fmt(s.matchedAt)}`)].join('\n'), { parse_mode: 'HTML' });
     }
     if (!items.length && !stale.length) { await ctx.reply('✅ Mos kelmagan yoki kutayotgan pul yo‘q.'); return; }
     for (const r of items) {

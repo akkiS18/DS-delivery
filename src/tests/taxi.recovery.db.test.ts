@@ -165,7 +165,7 @@ test('explicit rejection with several companies falls back automatically, once, 
   assert.equal(await active(order.id), 1);
   const m0 = calls.length;
   await runCycle(customerBot, order.id, taxiBot);
-  assert.equal(taxiTexts(opB, m0).filter(t => t.includes(`#${order.number}`)).length, 1, 'the second company is asked once');
+  assert.equal(taxiTexts(opB, m0).filter(t => t.includes(`#${order.code}`)).length, 1, 'the second company is asked once');
   assert.equal(taxiTexts(opA, m0).filter(t => t.includes('Olib ketish')).length, 0, 'the company that declined is not asked again');
 });
 
@@ -179,9 +179,9 @@ test('one company only: a rejection ends in the administrator queue, and the adm
     assert.equal((await attempts(order.id))[0]!.status, 'DECLINED');
     const m0 = calls.length;
     await runCycle(customerBot, order.id, taxiBot);
-    assert.ok(taxiTexts(adminTg, m0).some(t => t.includes(`#${order.number}`) && t.includes('/taxiadmin')), 'administrator is alerted through the taxi bot');
+    assert.ok(taxiTexts(adminTg, m0).some(t => t.includes(`#${order.code}`) && t.includes('/taxiadmin')), 'administrator is alerted through the taxi bot');
     await runCycle(customerBot, order.id, taxiBot);
-    assert.equal(taxiTexts(adminTg, m0).filter(t => t.includes(`#${order.number}`)).length, 1, 'alerted once');
+    assert.equal(taxiTexts(adminTg, m0).filter(t => t.includes(`#${order.code}`)).length, 1, 'alerted once');
     assert.ok((await recoverableDispatches()).some(r => r.id === dispatch.id));
 
     // authorization, note and attestation
@@ -203,7 +203,7 @@ test('one company only: a rejection ends in the administrator queue, and the adm
     const m1 = calls.length;
     await runCycle(customerBot, order.id, taxiBot);
     await runCycle(customerBot, order.id, taxiBot);
-    assert.equal(taxiTexts(opA, m1).filter(t => t.includes(`#${order.number}`) && t.includes('Olib ketish')).length, 1, 'the operator gets one new request');
+    assert.equal(taxiTexts(opA, m1).filter(t => t.includes(`#${order.code}`) && t.includes('Olib ketish')).length, 1, 'the operator gets one new request');
   } finally { await db.taxiCompany.update({ where: { id: companyB }, data: { isActive: true } }); }
 });
 
@@ -255,7 +255,7 @@ test('prolonged operator silence escalates to the administrators; the opt-in aut
   const m0 = calls.length;
   await runCycle(customerBot, order.id, taxiBot);
   assert.equal((await attempts(order.id))[0]!.status, 'NEEDS_HELP');
-  assert.ok(taxiTexts(adminTg, m0).some(t => t.includes(`#${order.number}`)), 'administrators are told');
+  assert.ok(taxiTexts(adminTg, m0).some(t => t.includes(`#${order.code}`)), 'administrators are told');
   assert.equal((await attempts(order.id)).length, 1);
 
   // the explicit opt-in: reassign automatically after silence (two companies available)

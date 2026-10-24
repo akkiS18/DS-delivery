@@ -33,7 +33,7 @@ export function registerTaxiAdminHandlers<C extends Context>(bot: Telegraf<C>): 
     const rows = await recoverableDispatches();
     if (!rows.length) { await ctx.reply('✅ Hal qilinishi kerak bo‘lgan taksi buyurtmasi yo‘q.'); return; }
     await ctx.reply('🛠 Taksi muammolari:', Markup.inlineKeyboard(rows.map(r => [
-      Markup.button.callback(`#${r.order.number} • ${r.taxiCompany.name} • ${LABEL[r.status] ?? r.status}`, `tadm:view:${r.id}`),
+      Markup.button.callback(`#${r.order.code} • ${r.taxiCompany.name} • ${LABEL[r.status] ?? r.status}`, `tadm:view:${r.id}`),
     ])));
   });
 
@@ -42,7 +42,7 @@ export function registerTaxiAdminHandlers<C extends Context>(bot: Telegraf<C>): 
     if (!admin(ctx)) return;
     const id = ctx.match[2]!;
     const d = await db.taxiDispatch.findUnique({
-      where: { id }, include: { taxiCompany: { select: { name: true } }, order: { select: { number: true, status: true, addressText: true, restaurant: { select: { name: true } } } } },
+      where: { id }, include: { taxiCompany: { select: { name: true } }, order: { select: { code: true, status: true, addressText: true, restaurant: { select: { name: true } } } } },
     });
     if (!d) { await ctx.reply('Topilmadi.'); return; }
     if (ctx.match[1] === 'pick') {
@@ -56,7 +56,7 @@ export function registerTaxiAdminHandlers<C extends Context>(bot: Telegraf<C>): 
     const history = await dispatchHistory(d.orderId);
     const open = (RECOVERABLE as readonly string[]).includes(d.status) && !history.some(h => h.attemptNo > d.attemptNo);
     await ctx.reply([
-      `🚕 #${d.order.number} • ${d.order.restaurant.name}`, `Manzil: ${d.order.addressText}`, `Buyurtma: ${d.order.status}`,
+      `🚕 #${d.order.code} • ${d.order.restaurant.name}`, `Manzil: ${d.order.addressText}`, `Buyurtma: ${d.order.status}`,
       `Joriy urinish #${d.attemptNo}: ${d.taxiCompany.name} — ${LABEL[d.status] ?? d.status}`, '', 'Tarix:',
       ...history.map(h => `  ${h.attemptNo}. ${h.taxiCompany.name} — ${LABEL[h.status] ?? h.status}`),
       '', open ? '⚠️ Qayta yuborishdan oldin haydovchi YUBORILMAGANINI operator bilan aniqlang. Yuborilgan bo‘lsa, „Haydovchi yuborilgan“ni bosing.' : 'Holat o‘zgargan — qo‘lda amal kerak emas.',

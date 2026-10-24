@@ -1,5 +1,6 @@
 import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
+import { beforeCursor, encodeCursor } from '../../lib/cursor.js';
 import {
   COMMISSION_RULE_CODE, DELIVERY_CONFIRMATION_IMPLEMENTED, REPORT_TZ_OFFSET, commissionFlatSom, isRefundUnresolved,
   parseReportRange, refundAmountTiyin, refundStage, summarizeRefunds, tiyinToSom, type RefundTotals,
@@ -28,7 +29,7 @@ const iso = (d: Date) => d.toISOString();
 const refundMoney = (t: RefundTotals) => ({ count: t.count, amountTiyin: t.amountTiyin.toString(), amountSom: tiyinToSom(t.amountTiyin) });
 const safeFlat = (): number | null => { try { return commissionFlatSom(); } catch { return null; } };
 
-export interface PageQuery { limit: number; cursor?: number }
+export interface PageQuery { limit: number; cursor?: string }
 
 export async function financeSummary(restaurantId: string, q: { from?: string; to?: string }) {
   const { from, to } = range(q);
@@ -117,14 +118,14 @@ export async function financeOrders(restaurantId: string, q: { from?: string; to
   const rows = await db.order.findMany({
     where: {
       restaurantId, paymentIsTest: false, createdAt: { gte: from, lt: to }, ...(q.bucket ? STATUS_FILTER[q.bucket] : {}),
-      ...(q.cursor ? { number: { lt: q.cursor } } : {}),
+      ...(q.cursor ? beforeCursor('createdAt', q.cursor) : {}),
     },
-    orderBy: { number: 'desc' }, take: q.limit + 1,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: q.limit + 1,
     select: {
-      number: true, status: true, totalSom: true, createdAt: true,
+      id: true, code: true, status: true, totalSom: true, createdAt: true,
       payment: { select: { status: true, isTest: true, amountTiyin: true } },
-      commission: { select: { number: true, amountSom: true, accruedAt: true } },
-      refundRequests: { orderBy: { requestedAt: 'desc' }, take: 1, select: { number: true, status: true, confirmedByType: true } },
+      commission: { select: { amountSom: true, accruedAt: true } },
+      refundRequests: { orderBy: { requestedAt: 'desc' }, take: 1, select: { status: true, confirmedByType: true } },
     },
   });
   const page = rows.slice(0, q.limit);
@@ -135,15 +136,15 @@ export async function financeOrders(restaurantId: string, q: { from?: string; to
       const bucket = bucketOf(o.status);
       const refund = o.refundRequests[0];
       return {
-        number: o.number, status: o.status, bucket, totalSom: o.totalSom, createdAt: iso(o.createdAt),
+        code: o.code, status: o.status, bucket, totalSom: o.totalSom, createdAt: iso(o.createdAt),
         payment: { state: paymentState(o.payment), receivedSom: received ? tiyinToSom(o.payment!.amountTiyin) : 0 },
         commission: o.commission
-          ? { state: 'ACCRUED', number: o.commission.number, amountSom: o.commission.amountSom, accruedAt: iso(o.commission.accruedAt) }
+          ? { state: 'ACCRUED', amountSom: o.commission.amountSom, accruedAt: iso(o.commission.accruedAt) }
           : { state: bucket === 'cancelled' ? 'NOT_APPLICABLE' : bucket === 'completed' ? 'NEEDS_REVIEW' : 'PENDING_DELIVERY_CONFIRMATION', amountSom: 0 },
-        refund: refund ? { number: refund.number, status: refund.status, stage: refundStage(refund.status, refund.confirmedByType), unresolved: isRefundUnresolved(refund.status) } : null,
+        refund: refund ? { status: refund.status, stage: refundStage(refund.status, refund.confirmedByType), unresolved: isRefundUnresolved(refund.status) } : null,
       };
     }),
-    nextCursor: rows.length > q.limit ? page[page.length - 1]!.number : null,
+    nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null,
   };
 }
 
@@ -152,11 +153,11 @@ export async function financeCommissions(restaurantId: string, q: { from?: strin
   const where: Prisma.CommissionEntryWhereInput = { restaurantId, accruedAt: { gte: from, lt: to } };
   const [rows, periodTotal, outstanding] = await Promise.all([
     db.commissionEntry.findMany({
-      where: { ...where, ...(q.cursor ? { number: { lt: q.cursor } } : {}) },
-      orderBy: { number: 'desc' }, take: q.limit + 1,
+      where: { ...where, ...(q.cursor ? beforeCursor('accruedAt', q.cursor) : {}) },
+      orderBy: [{ accruedAt: 'desc' }, { id: 'desc' }], take: q.limit + 1,
       select: {
-        number: true, amountSom: true, orderTotalSom: true, ruleCode: true, accruedAt: true, order: {
-          select: { number: true, refundRequests: { orderBy: { requestedAt: 'desc' }, take: 1, select: { number: true, status: true, confirmedByType: true } } },
+        id: true, amountSom: true, orderTotalSom: true, ruleCode: true, accruedAt: true, order: {
+          select: { code: true, refundRequests: { orderBy: { requestedAt: 'desc' }, take: 1, select: { status: true, confirmedByType: true } } },
         },
       },
     }),
@@ -169,14 +170,14 @@ export async function financeCommissions(restaurantId: string, q: { from?: strin
     items: page.map(e => {
       const refund = e.order.refundRequests[0];
       return {
-        number: e.number, orderNumber: e.order.number, orderTotalSom: e.orderTotalSom, amountSom: e.amountSom, ruleCode: e.ruleCode,
+        orderCode: e.order.code, orderTotalSom: e.orderTotalSom, amountSom: e.amountSom, ruleCode: e.ruleCode,
         accruedAt: iso(e.accruedAt),
         // No automatic reversal: an order with a refund after accrual is only flagged for a human/policy decision.
-        refund: refund ? { number: refund.number, stage: refundStage(refund.status, refund.confirmedByType) } : null,
+        refund: refund ? { stage: refundStage(refund.status, refund.confirmedByType) } : null,
         needsPolicyReview: !!refund && refund.status !== 'REJECTED',
       };
     }),
-    nextCursor: rows.length > q.limit ? page[page.length - 1]!.number : null,
+    nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.accruedAt, page[page.length - 1]!.id) : null,
     totalInPeriod: { count: periodTotal._count._all, som: periodTotal._sum.amountSom ?? 0 },
     outstandingLiability: { count: outstanding._count._all, som: outstanding._sum.amountSom ?? 0 },
     settlementTracking: 'NOT_IMPLEMENTED',
@@ -192,13 +193,13 @@ export async function financeRefunds(restaurantId: string, q: { from?: string; t
   };
   const [rows, all] = await Promise.all([
     db.refundRequest.findMany({
-      where: { ...where, ...(q.cursor ? { number: { lt: q.cursor } } : {}) },
-      orderBy: { number: 'desc' }, take: q.limit + 1,
+      where: { ...where, ...(q.cursor ? beforeCursor('requestedAt', q.cursor) : {}) },
+      orderBy: [{ requestedAt: 'desc' }, { id: 'desc' }], take: q.limit + 1,
       select: {
-        number: true, kind: true, status: true, reasonCode: true, requestedByType: true, requestedAt: true, decidedAt: true, rejectReason: true,
+        id: true, kind: true, status: true, reasonCode: true, requestedByType: true, requestedAt: true, decidedAt: true, rejectReason: true,
         paidAmountTiyin: true, approvedAmountTiyin: true, sentAt: true, bankReference: true, confirmedByType: true, confirmedAt: true,
         disputedAt: true, taxiActiveAtDecision: true,
-        order: { select: { number: true, status: true, commission: { select: { amountSom: true } } } },
+        order: { select: { code: true, status: true, commission: { select: { amountSom: true } } } },
       },
     }),
     db.refundRequest.findMany({ where, select: { status: true, confirmedByType: true, paidAmountTiyin: true, approvedAmountTiyin: true } }),
@@ -209,7 +210,7 @@ export async function financeRefunds(restaurantId: string, q: { from?: string; t
   return {
     currency: 'UZS',
     items: page.map(r => ({
-      number: r.number, orderNumber: r.order.number, orderStatus: r.order.status, kind: r.kind, status: r.status,
+      orderCode: r.order.code, orderStatus: r.order.status, kind: r.kind, status: r.status,
       stage: refundStage(r.status, r.confirmedByType), unresolved: isRefundUnresolved(r.status),
       bankVerified: false, // CONFIRMED_* means customer/admin attestation, never a bank-verified settlement
       reasonCode: r.reasonCode, requestedByType: r.requestedByType, requestedAt: iso(r.requestedAt), decidedAt: d(r.decidedAt),
@@ -220,7 +221,7 @@ export async function financeRefunds(restaurantId: string, q: { from?: string; t
       disputedAt: d(r.disputedAt), taxiActiveAtDecision: r.taxiActiveAtDecision,
       commissionAccruedSom: r.order.commission?.amountSom ?? null,
     })),
-    nextCursor: rows.length > q.limit ? page[page.length - 1]!.number : null,
+    nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.requestedAt, page[page.length - 1]!.id) : null,
     totals: {
       requested: refundMoney(totals.REQUESTED), approvedAwaitingSend: refundMoney(totals.APPROVED_AWAITING_SEND),
       sentUnconfirmed: refundMoney(totals.SENT_UNCONFIRMED), confirmedByCustomer: refundMoney(totals.CONFIRMED_BY_CUSTOMER),

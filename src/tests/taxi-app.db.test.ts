@@ -203,7 +203,7 @@ test('app-only company: the request reaches the app without any Telegram message
   assert.equal(first.dispatch.status, 'REQUESTED', 'a company reachable only through the app is not stuck in NEEDS_HELP');
   assert.equal(first.dispatch.telegramMessageId, null);
   assert.equal(calls.slice(m0).filter(x => x.token === TAXI_TOKEN && x.method === 'sendMessage' && String(x.body.chat_id) !== ADMIN).length, 0, 'nothing was sent to any operator');
-  const alerts = sentTo(ADMIN, m0).filter(t => t.includes(`#${first.order.number}`));
+  const alerts = sentTo(ADMIN, m0).filter(t => t.includes(`#${first.order.code}`));
   assert.equal(alerts.length, 1, 'nobody was looking at the app: the administrator is told at once');
   assert.ok(alerts[0]!.includes('ilovasi'));
 
@@ -223,7 +223,7 @@ test('app-only company: the request reaches the app without any Telegram message
   // the app is online now: the next request does not raise the offline alert
   const m1 = calls.length;
   const second = await requestedFor(c.id);
-  assert.equal(sentTo(ADMIN, m1).filter(t => t.includes(`#${second.order.number}`)).length, 0);
+  assert.equal(sentTo(ADMIN, m1).filter(t => t.includes(`#${second.order.code}`)).length, 0);
   assert.equal(((await get(token, '/requests')).json() as { active: unknown[] }).active.length, 2);
 });
 
@@ -295,7 +295,7 @@ test('silence: an unanswered request still escalates to the administrators when 
   assert.equal(d.cancelNoticeTries, 1, 'the clarification reminders are still counted (they drive the escalation)');
   const view = ((await get(token, '/requests')).json() as { active: Array<{ status: string; attention: boolean; actions: string[] }> }).active[0]!;
   assert.deepEqual([view.status, view.attention, view.actions], ['CANCELLATION_PENDING', true, ['SENT', 'NO_TAXI']], 'the app keeps asking until the operator clarifies');
-  assert.ok(sentTo(ADMIN, m0).some(t => t.includes(`#${order.number}`) && t.includes('/taxiadmin')), 'the administrators are alerted');
+  assert.ok(sentTo(ADMIN, m0).some(t => t.includes(`#${order.code}`) && t.includes('/taxiadmin')), 'the administrators are alerted');
 });
 
 test('Telegram switch: with the taxi Telegram panel off only app companies are eligible; with it on, a company with both gets the message too', async () => {
@@ -313,5 +313,5 @@ test('Telegram switch: with the taxi Telegram panel off only app companies are e
   const { order, dispatch } = await requestedFor(telegramOnly.id);
   assert.equal(dispatch.status, 'REQUESTED');
   assert.ok(dispatch.telegramMessageId !== null);
-  assert.ok(sentTo(opTg, m0).some(t => t.includes(`#${order.number}`)));
+  assert.ok(sentTo(opTg, m0).some(t => t.includes(`#${order.code}`)));
 });

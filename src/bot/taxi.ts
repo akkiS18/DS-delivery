@@ -48,14 +48,14 @@ export function registerTaxiHandlers<C extends Context>(bot: Telegraf<C>): void 
     const rows = await db.taxiDispatch.findMany({
       where: { taxiCompanyId: company.id, status: { in: [...ACTIVE] } },
       orderBy: [{ createdAt: 'desc' }], take: 12,
-      include: { order: { select: { number: true } } },
+      include: { order: { select: { code: true } } },
     });
     if (!rows.length) {
       await ctx.reply(`🚕 ${company.name}: hozir faol taksi so‘rovlari yo‘q.`);
       return;
     }
     await ctx.reply(`🚕 ${company.name} — so‘rovlar:`, Markup.inlineKeyboard(rows.map(d => [
-      Markup.button.callback(`#${d.order.number} • ${STATUS_LABEL[d.status] ?? d.status}`, `taxi:view:${d.id}`),
+      Markup.button.callback(`#${d.order.code} • ${STATUS_LABEL[d.status] ?? d.status}`, `taxi:view:${d.id}`),
     ])));
   });
 
@@ -67,7 +67,7 @@ export function registerTaxiHandlers<C extends Context>(bot: Telegraf<C>): void 
     const dispatchId = ctx.match[2]!;
     const row = await taxiDispatchDetails(actor, dispatchId);
     if (!row) { await ctx.reply('⛔ Ruxsat yo‘q yoki so‘rov topilmadi.'); return; }
-    const n = row.order.number;
+    const n = row.order.code;
     if (verb === 'view') {
       await ctx.reply(`🚕 #${n}\nKompaniya: ${row.taxiCompany.name}\nHolat: ${STATUS_LABEL[row.status] ?? row.status}\n` +
         `Restoran: ${row.order.restaurant.name}\nOlib ketish: ${row.order.restaurant.pickupAddress ?? 'TEST: manzil hali sozlanmagan'}\n` +

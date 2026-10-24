@@ -63,7 +63,7 @@ export async function staffOrderPresentation(telegramUserId: string, orderId: st
   if (!order) return null;
   const waiting = order.status === 'WAITING_RESTAURANT';
   const text = [
-    `🍽 Restoran buyurtmasi #${order.number}`,
+    `🍽 Restoran buyurtmasi #${order.code}`,
     `Holat: ${labels[order.status] ?? order.status}`,
     ...(waiting ? [
       'Mahsulotlar mavjudligini va narxni tekshirib qabul qiling. Qabuldan keyin mijozga to‘lov rekvizitlari yuboriladi.',
@@ -109,14 +109,14 @@ export function registerRestaurantHandlers<C extends Context>(bot: Telegraf<C>, 
       },
       orderBy: { updatedAt: 'desc' },
       take: 12,
-      select: { id: true, number: true, totalSom: true, status: true },
+      select: { id: true, code: true, totalSom: true, status: true },
     });
     if (!orders.length) {
       await ctx.reply(`🏪 ${restaurant.name}\nHozircha qayta ishlanadigan buyurtmalar yo‘q.`);
       return;
     }
     await ctx.reply(`🏪 ${restaurant.name}\nBuyurtmalar:`, Markup.inlineKeyboard(orders.map(x => [
-      Markup.button.callback(`#${x.number} • ${som(x.totalSom)} • ${x.status}`, `staff:view:${x.id}`),
+      Markup.button.callback(`#${x.code} • ${som(x.totalSom)} • ${x.status}`, `staff:view:${x.id}`),
     ])));
   });
 
@@ -138,8 +138,8 @@ export function registerRestaurantHandlers<C extends Context>(bot: Telegraf<C>, 
       }
       const mock = Boolean(order.payment?.isTest);
       await ctx.reply(mock
-        ? `🧪 SINOV #${order.number}: MOCK kirimni tasdiqlaysizmi? Haqiqiy pul emas.`
-        : `⚠️ #${order.number}: e-maildagi moslik YETARLI EMAS. Restoranning haqiqiy bank hisobiga ${som(order.totalSom)} kelganini alohida tekshirgan bo‘lsangizgina tasdiqlang.`,
+        ? `🧪 SINOV #${order.code}: MOCK kirimni tasdiqlaysizmi? Haqiqiy pul emas.`
+        : `⚠️ #${order.code}: e-maildagi moslik YETARLI EMAS. Restoranning haqiqiy bank hisobiga ${som(order.totalSom)} kelganini alohida tekshirgan bo‘lsangizgina tasdiqlang.`,
         Markup.inlineKeyboard([
           [Markup.button.callback(mock ? '✅ MOCK tasdiqlash' : '✅ Bank kirimi tekshirildi', `staff:verify:${order.id}`)],
           [Markup.button.callback('↩️ Ortga', `staff:view:${order.id}`)],

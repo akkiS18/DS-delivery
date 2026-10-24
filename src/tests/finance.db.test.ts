@@ -254,7 +254,7 @@ test('every finance query is scoped to the authenticated restaurant; client rest
     commissions: (await get('/commissions?limit=100', ta)).json(),
     refunds: (await get('/refunds?limit=100', ta)).json(),
   };
-  assert.ok(resA.orders.items.some((i: { number: number }) => i.number === mine.number));
+  assert.ok(resA.orders.items.some((i: { code: string }) => i.code === mine.code));
   assert.ok(resA.commissions.items.length > 0);
   assert.ok(resA.refunds.items.length > 0);
   // restaurant B sees nothing of A's
@@ -271,8 +271,8 @@ test('every finance query is scoped to the authenticated restaurant; client rest
   // B owns data too: A still does not see it
   const bOrder = await mkOrder({ restaurant: ids.b });
   await deliver(bOrder.id);
-  const seenByA = (await get('/orders?limit=100', ta)).json().items.map((i: { number: number }) => i.number);
-  assert.ok(!seenByA.includes(bOrder.number));
+  const seenByA = (await get('/orders?limit=100', ta)).json().items.map((i: { code: string }) => i.code);
+  assert.ok(!seenByA.includes(bOrder.code));
 });
 
 test('summary: only restaurant-verified payments count as received; pending, awaiting, cancelled and test are separate or excluded', async () => {
@@ -307,7 +307,7 @@ test('summary: only restaurant-verified payments count as received; pending, awa
   assert.equal((await get('/summary?from=banana', tc)).statusCode, 400);
   assert.equal((await get('/summary?from=2020-01-01&to=2026-01-01', tc)).statusCode, 400);
   const filtered = (await get('/orders?status=completed&limit=100', tc)).json();
-  assert.deepEqual(filtered.items.map((i: { number: number }) => i.number), [done.number]);
+  assert.deepEqual(filtered.items.map((i: { code: string }) => i.code), [done.code]);
   assert.equal(filtered.items[0].commission.state, 'ACCRUED');
   assert.equal(filtered.items[0].payment.receivedSom, 30_000);
   const all = (await get('/orders?limit=100', tc)).json().items as Array<{ status: string; payment: { state: string; receivedSom: number }; commission: { state: string } }>;
@@ -318,7 +318,9 @@ test('summary: only restaurant-verified payments count as received; pending, awa
   const p1 = (await get('/orders?limit=2', tc)).json();
   assert.equal(p1.items.length, 2);
   const p2 = (await get(`/orders?limit=2&cursor=${p1.nextCursor}`, tc)).json();
-  assert.ok(p2.items.every((i: { number: number }) => i.number < p1.nextCursor));
+  assert.ok(p2.items.every((i: { code: string }) => !p1.items.some((j: { code: string }) => j.code === i.code)));
+  assert.ok(Number.isNaN(Number(p1.nextCursor)), 'the cursor is opaque');
+  assert.ok(p1.items.every((i: Record<string, unknown>) => !('number' in i)), 'no sequence number is exposed');
 });
 
 test('refunds are shown by stage; a pending/confirmed refund never reduces received money or reverses a commission', async () => {
@@ -362,7 +364,7 @@ test('an accrued commission is never reversed by a later refund; it is flagged f
   await mkRefund(o.id, 'CONFIRMED', { confirmedBy: 'c', confirmedByType: 'CUSTOMER', confirmedAt: new Date() });
   const after = await db.commissionEntry.findUniqueOrThrow({ where: { orderId: o.id } });
   assert.equal(after.amountSom, before.amountSom);
-  const c = (await get('/commissions?limit=100', ta)).json().items.find((i: { orderNumber: number }) => i.orderNumber === o.number);
+  const c = (await get('/commissions?limit=100', ta)).json().items.find((i: { orderCode: string }) => i.orderCode === o.code);
   assert.equal(c.needsPolicyReview, true);
   assert.equal(c.refund.stage, 'CONFIRMED_BY_CUSTOMER');
   const s = (await get('/summary', ta)).json();

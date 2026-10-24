@@ -63,7 +63,7 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     const orders = await listCustomerOrders(String(ctx.from.id));
     if (!orders.length) { await ctx.reply('Murojaat uchun avval buyurtma berishingiz kerak.'); return; }
     await ctx.reply('🎫 Qaysi buyurtma bo‘yicha murojaat qilmoqchisiz?', Markup.inlineKeyboard([
-      ...orders.map(o => [Markup.button.callback(`#${o.number} • ${o.status}`, `sup:order:${o.id}`)]),
+      ...orders.map(o => [Markup.button.callback(`#${o.code} • ${o.status}`, `sup:order:${o.id}`)]),
     ]));
   });
 
@@ -72,7 +72,7 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     const rows = await listCustomerTickets(String(ctx.from.id));
     const active = await listCustomerActiveTickets(String(ctx.from.id));
     await ctx.reply(rows.length
-      ? '🎫 Murojaatlaringiz:\n' + rows.map(t => `#${t.number} (buyurtma #${t.order.number}) — ${statusLabel(t.status)}`).join('\n')
+      ? '🎫 Murojaatlaringiz:\n' + rows.map(t => `#${t.number} (buyurtma #${t.order.code}) — ${statusLabel(t.status)}`).join('\n')
       : 'Murojaatlaringiz yo‘q.', active.length ? Markup.inlineKeyboard(active.map(t => [
       Markup.button.callback(`✍️ #${t.number} ga yozish`, `sup:cw:${t.id}`)])) : undefined);
   });
@@ -95,7 +95,7 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     const own = (await listCustomerOrders(userId)).find(o => o.id === ctx.match[1]);
     if (!own) { await ctx.reply('Buyurtma topilmadi.'); return; }
     pending.set(userId, { kind: 'new', orderId: own.id, expires: Date.now() + PENDING_MS });
-    await ctx.reply(`✍️ #${own.number} buyurtma bo‘yicha muammoni yozing (${MIN_MESSAGE}–${MAX_MESSAGE} belgi). Bekor qilish: /cancel`);
+    await ctx.reply(`✍️ #${own.code} buyurtma bo‘yicha muammoni yozing (${MIN_MESSAGE}–${MAX_MESSAGE} belgi). Bekor qilish: /cancel`);
   });
 
   bot.command('cancel', async (ctx, next) => {
@@ -163,7 +163,7 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     const rows = await listActiveTickets(String(ctx.from.id));
     if (!rows.length) { await ctx.reply('Ochiq murojaatlar yo‘q.'); return; }
     await ctx.reply('🎫 Faol murojaatlar:', Markup.inlineKeyboard(rows.map(t => [Markup.button.callback(
-      `#${t.number} • buyurtma #${t.order.number} • ${t.status === 'OPEN' ? 'ochiq' : t.assignedAdminName ?? ''}`.slice(0, 60),
+      `#${t.number} • buyurtma #${t.order.code} • ${t.status === 'OPEN' ? 'ochiq' : t.assignedAdminName ?? ''}`.slice(0, 60),
       `sup:view:${t.id}`)])));
   });
 

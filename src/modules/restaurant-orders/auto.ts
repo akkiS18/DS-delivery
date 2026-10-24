@@ -62,7 +62,7 @@ export async function advanceGmailMatchedOrder(orderId: string): Promise<boolean
   return (await autoStartPreparing(GMAIL_AUTO, row.id)).started;
 }
 
-export interface AutoConfirmRefusal { orderId: string; number: number; reason: string }
+export interface AutoConfirmRefusal { orderId: string; code: string; reason: string }
 const refusedAt = new Map<string, number>();
 const RETRY_AFTER_REFUSAL_MS = 5 * 60_000;
 
@@ -75,7 +75,7 @@ export async function autoConfirmRealOrders(limit = 25, now = Date.now()): Promi
       createdViaBot: true, paymentIsTest: false, payment: { is: { isTest: false, status: { in: ['MATCHED_UNVERIFIED', 'CONFIRMED_MANUAL'] } } },
       OR: [{ status: 'PAYMENT_MATCHED_UNVERIFIED' }, { status: 'PAYMENT_CONFIRMED', paymentVerifiedBy: `system:${GMAIL_AUTO_ACTOR}` }],
     },
-    orderBy: { updatedAt: 'asc' }, take: limit, select: { id: true, number: true },
+    orderBy: { updatedAt: 'asc' }, take: limit, select: { id: true, code: true },
   });
   for (const row of rows) {
     if ((refusedAt.get(row.id) ?? 0) > now) continue;
@@ -84,8 +84,8 @@ export async function autoConfirmRealOrders(limit = 25, now = Date.now()): Promi
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'UNKNOWN';
       refusedAt.set(row.id, now + RETRY_AFTER_REFUSAL_MS);
-      out.refused.push({ orderId: row.id, number: row.number, reason });
-      console.error(`[GMAIL AUTO-CONFIRM] #${row.number} refused: ${reason}`);
+      out.refused.push({ orderId: row.id, code: row.code, reason });
+      console.error(`[GMAIL AUTO-CONFIRM] #${row.code} refused: ${reason}`);
     }
   }
   if (refusedAt.size > 500) for (const [id, t] of refusedAt) if (t <= now) refusedAt.delete(id);

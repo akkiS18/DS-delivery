@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { cursorParam } from '../../lib/cursor.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
 import { financeCommissions, financeOrders, financeRefunds, financeSummary } from './service.js';
 
@@ -7,7 +8,7 @@ const dateParam = z.string().trim().min(10).max(40);
 const range = { from: dateParam.optional(), to: dateParam.optional() };
 const page = {
   limit: z.coerce.number().int().min(1).max(100).default(50),
-  cursor: z.coerce.number().int().min(1).max(2_147_483_647).optional(),
+  cursor: cursorParam.optional(),
 };
 // Strict: an unknown parameter (including a client-sent restaurantId) is a 400. Identity comes only from the Bearer session.
 const summaryQuery = z.object(range).strict();

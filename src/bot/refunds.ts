@@ -38,13 +38,13 @@ export function registerRefundHandlers<C extends Context>(bot: Telegraf<C>, engi
 
   // ---------------- customer: cancellation of an accepted order ----------------
   bot.action(/^order:cx:([a-zA-Z0-9_-]+)$/, ctx => guard(ctx, async id => {
-    const order = await db.order.findFirst({ where: { id: ctx.match[1]!, customer: { telegramUserId: id } }, select: { id: true, number: true, status: true } });
+    const order = await db.order.findFirst({ where: { id: ctx.match[1]!, customer: { telegramUserId: id } }, select: { id: true, code: true, status: true } });
     if (!order) { await ctx.reply('Buyurtma topilmadi.'); return; }
     if (order.status === 'PAYMENT_PENDING') {
-      await ctx.reply(`#${order.number}: to‘lov hali kelmagan. Bekor qilasizmi? Agar pul yuborgan bo‘lsangiz, bekor qilmang va administratorga murojaat qiling.`,
+      await ctx.reply(`#${order.code}: to‘lov hali kelmagan. Bekor qilasizmi? Agar pul yuborgan bo‘lsangiz, bekor qilmang va administratorga murojaat qiling.`,
         Markup.inlineKeyboard([[Markup.button.callback('❌ Ha, bekor qilish', `order:cxu:${order.id}`)]]));
     } else if (['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(order.status)) {
-      await ctx.reply(`#${order.number}: to‘lov qabul qilingan bo‘lishi mumkin. Bekor qilish so‘rovi restoranga yuboriladi; pulni restoran o‘z hisobidan qaytaradi va qaytarishni sizdan tasdiqlashni so‘raydi. Restoran so‘rovni rad etishi mumkin. Sababni tanlang:`,
+      await ctx.reply(`#${order.code}: to‘lov qabul qilingan bo‘lishi mumkin. Bekor qilish so‘rovi restoranga yuboriladi; pulni restoran o‘z hisobidan qaytaradi va qaytarishni sizdan tasdiqlashni so‘raydi. Restoran so‘rovni rad etishi mumkin. Sababni tanlang:`,
         Markup.inlineKeyboard(CUSTOMER_REASONS.map(c => [Markup.button.callback(REASON_LABEL[c]!, `order:cxr:${c}:${order.id}`)])));
     } else await ctx.reply('Bu holatda buyurtmani bot orqali bekor qilib bo‘lmaydi. /support orqali murojaat qiling.');
   }));
@@ -147,14 +147,14 @@ export function registerRefundHandlers<C extends Context>(bot: Telegraf<C>, engi
     if (!id) return;
     const rows = await db.refundRequest.findMany({
       where: { status: { in: ['REQUESTED', 'APPROVED', 'DISPUTED'] }, order: { restaurant: { staffTelegramUserId: id } } },
-      orderBy: { requestedAt: 'asc' }, take: 10, include: { order: { select: { number: true } } },
+      orderBy: { requestedAt: 'asc' }, take: 10, include: { order: { select: { code: true } } },
     });
     if (!rows.length) { await ctx.reply('Ochiq qaytarish so‘rovlari yo‘q.'); return; }
     for (const r of rows) {
       const keys = r.status === 'REQUESTED'
         ? [[Markup.button.callback('✅ Qabul qilish', `refund:ok:${r.id}`), Markup.button.callback('🚫 Rad etish', `refund:no:${r.id}`)]]
         : [[Markup.button.callback('💸 Qaytarildi — chek rasmi', `refund:sent:${r.id}`)]];
-      await ctx.reply(`#${r.number} • buyurtma #${r.order.number} • ${som(r.paidAmountTiyin)} • ${r.status}`, Markup.inlineKeyboard(keys));
+      await ctx.reply(`#${r.number} • buyurtma #${r.order.code} • ${som(r.paidAmountTiyin)} • ${r.status}`, Markup.inlineKeyboard(keys));
     }
   });
 }
@@ -181,10 +181,10 @@ export async function deliverRefundNotices<C extends Context>(bot: Telegraf<C>):
       { status: 'SENT', customerSentNotifiedAt: null }, { status: 'DISPUTED', disputeNotifiedAt: null },
     ] },
     orderBy: { requestedAt: 'asc' }, take: 30,
-    include: { order: { select: { number: true, customer: { select: { telegramUserId: true } }, restaurant: { select: { name: true, staffTelegramUserId: true } } } } },
+    include: { order: { select: { code: true, customer: { select: { telegramUserId: true } }, restaurant: { select: { name: true, staffTelegramUserId: true } } } } },
   });
   for (const r of rows) {
-    const head = `#${r.number} • buyurtma #${r.order.number}`;
+    const head = `#${r.number} • buyurtma #${r.order.code}`;
     const amount = som(r.approvedAmountTiyin ?? r.paidAmountTiyin);
     if (restaurantTelegramEnabled() && r.status === 'REQUESTED' && !r.staffNotifiedAt) {
       await send(`staff:${r.id}`, r.order.restaurant.staffTelegramUserId,

@@ -58,7 +58,7 @@ export async function internalRoutes(app: FastifyInstance, engine: PaymentEngine
     const input = orderSchema.parse(request.body);
     const order = await placeOrder(engine, input);
     return reply.code(201).send({
-      orderId: order?.id, orderNumber: order?.number, status: order?.status,
+      orderId: order?.id, orderNumber: order?.number, orderCode: order?.code, status: order?.status,
       totalSom: order?.totalSom, payment: order?.payment,
     });
   });

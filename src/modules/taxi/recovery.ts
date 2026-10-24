@@ -89,7 +89,7 @@ export async function recoverableDispatches(limit = 12) {
   const rows = await db.taxiDispatch.findMany({
     where: { status: { in: [...RECOVERABLE] }, order: { status: { in: ['PREPARING', 'READY'] } } },
     orderBy: { updatedAt: 'desc' }, take: limit * 3,
-    include: { taxiCompany: { select: { name: true } }, order: { select: { number: true, status: true, taxiDispatches: { select: { attemptNo: true } } } } },
+    include: { taxiCompany: { select: { name: true } }, order: { select: { code: true, status: true, taxiDispatches: { select: { attemptNo: true } } } } },
   });
   return rows.filter(r => !r.order.taxiDispatches.some(x => x.attemptNo > r.attemptNo)).slice(0, limit);
 }

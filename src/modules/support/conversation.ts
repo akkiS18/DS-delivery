@@ -194,7 +194,7 @@ export async function listCustomerActiveTickets(telegramUserId: string) {
   return db.supportTicket.findMany({
     where: { customer: { telegramUserId }, status: { in: ['OPEN', 'IN_PROGRESS'] } },
     orderBy: { createdAt: 'desc' }, take: 5,
-    select: { id: true, number: true, order: { select: { number: true } } },
+    select: { id: true, number: true, order: { select: { code: true } } },
   });
 }
 export async function customerActiveTicket(telegramUserId: string, ticketId: string) {

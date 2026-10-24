@@ -48,7 +48,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
               if (isDelivered(outcome)) await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { staffLastNotifiedStatus: order.status } });
             }
           } catch (err) {
-            console.error(`[STAFF NOTICE] #${order.number}:`, err instanceof Error ? err.message : err);
+            console.error(`[STAFF NOTICE] #${order.code}:`, err instanceof Error ? err.message : err);
           }
         }
         const customerChat = order.customer.telegramUserId;
@@ -59,11 +59,11 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
         }
         if (customerChat && ['CUSTOMER_CANCELLED', 'RESTAURANT_REJECTED', 'RESTAURANT_EXPIRED', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY'].includes(order.status) && order.customerLastNotifiedStatus !== order.status) {
           const messages: Record<string, string> = {
-            CUSTOMER_CANCELLED: `❌ #${order.number}: buyurtma bekor qilindi. Pul yubormang.`,
-            RESTAURANT_REJECTED: `🚫 #${order.number}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
-            RESTAURANT_EXPIRED: `⌛ #${order.number}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
-            PAYMENT_CONFIRMED: `✅ #${order.number}: to‘lov qabul qilindi.`,
-            PREPARING: `👨‍🍳 #${order.number}: buyurtmangiz tayyorlanmoqda.`,
+            CUSTOMER_CANCELLED: `❌ #${order.code}: buyurtma bekor qilindi. Pul yubormang.`,
+            RESTAURANT_REJECTED: `🚫 #${order.code}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
+            RESTAURANT_EXPIRED: `⌛ #${order.code}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
+            PAYMENT_CONFIRMED: `✅ #${order.code}: to‘lov qabul qilindi.`,
+            PREPARING: `👨‍🍳 #${order.code}: buyurtmangiz tayyorlanmoqda.`,
           };
           if (!messages[order.status]) { // READY has no message of its own: the next news is "on the way"
             await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
@@ -74,7 +74,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
               chatId: customerChat, orderId: order.id, text: messages[order.status]! });
             if (isDelivered(outcome)) await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
           } catch (err) {
-            console.error(`[CUSTOMER ORDER NOTICE] #${order.number}:`, err instanceof Error ? err.message : err);
+            console.error(`[CUSTOMER ORDER NOTICE] #${order.code}:`, err instanceof Error ? err.message : err);
           }
         }
       }

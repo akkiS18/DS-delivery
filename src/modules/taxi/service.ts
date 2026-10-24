@@ -158,8 +158,8 @@ export async function respondToTaxi(input: {
 }
 
 export type DeliveryResult =
-  | { changed: true; orderNumber: number; commission: AccrueResult }
-  | { changed: false; orderNumber: number; reason: 'ALREADY_DELIVERED' };
+  | { changed: true; orderNumber: number; orderCode: string; commission: AccrueResult }
+  | { changed: false; orderNumber: number; orderCode: string; reason: 'ALREADY_DELIVERED' };
 
 /**
  * The ONLY place that turns a dispatched taxi into a delivered order (Stage 7A contract): the assigned company's linked
@@ -183,7 +183,7 @@ export async function completeDelivery(input: { actorTelegramId: string; actorCo
     });
     if (!dispatch || !isCompanyActor(dispatch, input)) throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
     const order = dispatch.order;
-    if (dispatch.status === 'DELIVERED') return { changed: false, orderNumber: order.number, reason: 'ALREADY_DELIVERED' };
+    if (dispatch.status === 'DELIVERED') return { changed: false, orderNumber: order.number, orderCode: order.code, reason: 'ALREADY_DELIVERED' };
     if (dispatch.status !== 'ASSIGNED') throw new Error('TAKSI_HALI_YUBORILMAGAN');
     if (['CANCELLATION_REQUESTED', 'CANCELLED', 'CUSTOMER_CANCELLED'].includes(order.status)) throw new Error('BUYURTMA_BEKOR_QILINGAN');
     if (order.refundRequests.some(r => r.status !== 'REJECTED')) throw new Error('QAYTARISH_JARAYONIDA');
@@ -203,6 +203,6 @@ export async function completeDelivery(input: { actorTelegramId: string; actorCo
         confirmedAt: now.toISOString(), mock: order.paymentIsTest },
     } });
     const commission = await accrueCommissionTx(tx, order.id, { id: 'delivery-confirmation', type: 'SYSTEM' });
-    return { changed: true, orderNumber: order.number, commission };
+    return { changed: true, orderNumber: order.number, orderCode: order.code, commission };
   });
 }

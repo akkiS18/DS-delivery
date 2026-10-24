@@ -209,10 +209,10 @@ test('staff notice: a new order is delivered once, a failed delivery is retried,
   assert.equal((await row(o.id)).staffLastNotifiedStatus, null, 'failed delivery leaves the notice pending');
   failChats.clear();
   await notifyOnce();
-  const delivered = texts(staffA, mark).filter(t => t.includes(`#${o.number}`));
+  const delivered = texts(staffA, mark).filter(t => t.includes(`#${o.code}`));
   assert.equal(delivered.length, 1);
   await notifyOnce();
-  assert.equal(texts(staffA, mark).filter(t => t.includes(`#${o.number}`)).length, 1, 'no duplicate on later runs');
+  assert.equal(texts(staffA, mark).filter(t => t.includes(`#${o.code}`)).length, 1, 'no duplicate on later runs');
   assert.equal((await row(o.id)).staffLastNotifiedStatus, 'WAITING_RESTAURANT');
 });
 
@@ -279,7 +279,7 @@ test('Android and Telegram show the same state; payment verification cannot be b
   const mark3 = calls.length;
   await notifyOnce();
   await notifyOnce();
-  assert.equal(texts(customerTg, mark3).filter(t => t.includes(`#${o.number}`)).length, 0, 'no message for READY');
+  assert.equal(texts(customerTg, mark3).filter(t => t.includes(`#${o.code}`)).length, 0, 'no message for READY');
   assert.equal((await row(o.id)).customerLastNotifiedStatus, 'READY');
 });
 
@@ -289,8 +289,8 @@ test('Android rejection reaches the customer exactly once and Telegram sees the 
   const mark = calls.length;
   await notifyOnce();
   await notifyOnce();
-  assert.equal(texts(customerTg, mark).filter(t => t.includes(`#${o.number}`) && t.includes('qabul qila olmadi')).length, 1);
-  assert.equal(texts(staffA, mark).filter(t => t.includes(`#${o.number}`)).length, 0, 'no staff action buttons for a rejected order');
+  assert.equal(texts(customerTg, mark).filter(t => t.includes(`#${o.code}`) && t.includes('qabul qila olmadi')).length, 1);
+  assert.equal(texts(staffA, mark).filter(t => t.includes(`#${o.code}`)).length, 0, 'no staff action buttons for a rejected order');
   const mark2 = calls.length;
   await press(staffA, `staff:acc20:${o.id}`);
   assert.equal((await row(o.id)).status, 'RESTAURANT_REJECTED');
@@ -332,7 +332,7 @@ test('RESTAURANT_TELEGRAM_ENABLED=false: no staff notices, no staff panel, old b
     assert.equal((await call('POST', `/orders/${o2.id}/reject`, tokenA, { reason: 'UNAVAILABLE' })).statusCode, 200);
     const m3 = calls.length;
     await notifyOnce(off);
-    assert.equal(texts(customerTg, m3).filter(t => t.includes(`#${o2.number}`) && t.includes('qabul qila olmadi')).length, 1);
+    assert.equal(texts(customerTg, m3).filter(t => t.includes(`#${o2.code}`) && t.includes('qabul qila olmadi')).length, 1);
     assert.equal(texts(staffA, m3).length, 0);
     // the staff account and link are untouched (only the panel is off)
     assert.equal((await db.restaurant.findUniqueOrThrow({ where: { id: ids.a! } })).staffTelegramUserId, staffA);
