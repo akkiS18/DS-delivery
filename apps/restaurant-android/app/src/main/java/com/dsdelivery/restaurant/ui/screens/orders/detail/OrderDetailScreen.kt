@@ -94,6 +94,9 @@ import com.dsdelivery.restaurant.data.model.PaymentStatus
 import com.dsdelivery.restaurant.data.model.ageText
 import com.dsdelivery.restaurant.data.model.display
 import com.dsdelivery.restaurant.data.model.formatClock
+import com.dsdelivery.restaurant.ui.components.DEFAULT_PREP_CHOICE
+import com.dsdelivery.restaurant.ui.components.PrepTimePicker
+import com.dsdelivery.restaurant.ui.components.prepChoiceSentence
 import com.dsdelivery.restaurant.ui.components.ErrorView
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.components.OrderStatusBadge
@@ -221,6 +224,10 @@ fun OrderDetailContent(
                     // Operational actions: only what the server lists in allowedActions.
                     val busy = state.isSubmitting
                     val allowed = order.allowedActions
+                    // After the payment: "ready in N minutes". Asked until chosen, changeable while the food is being cooked.
+                    if (OrderAction.SET_PREP_TIME in allowed) {
+                        PrepTimeCard(order = order, busy = busy, onConfirm = callbacks::setPrepTime)
+                    }
                     if (OrderAction.ACCEPT in allowed || OrderAction.REJECT in allowed) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (OrderAction.REJECT in allowed) {
@@ -577,6 +584,42 @@ fun OrderDetailContent(
 }
 
 private val ATTENTION_FULL = ATTENTION_TEXT
+
+/**
+ * "Ready in N minutes", chosen after the payment. Until it is chosen the picker is open (15 pre-selected); afterwards the chosen time is
+ * shown with a way to change it, because not every dish takes the time first guessed.
+ */
+@Composable
+private fun PrepTimeCard(order: Order, busy: Boolean, onConfirm: (Int) -> Unit) {
+    val chosen = order.prep?.chosenMinutes
+    var editing by remember(chosen) { mutableStateOf(chosen == null) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = if (chosen == null) WarningOrange.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            if (editing) {
+                PrepTimePicker(
+                    initial = chosen ?: DEFAULT_PREP_CHOICE,
+                    busy = busy,
+                    onConfirm = onConfirm,
+                    title = if (chosen == null) "To‘lov qabul qilindi. Necha daqiqada tayyor bo‘ladi?" else "Tayyor bo‘lish vaqtini o‘zgartirish"
+                )
+            } else {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Tayyor bo‘lish vaqti: ${prepChoiceSentence(chosen ?: DEFAULT_PREP_CHOICE)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { editing = true }, enabled = !busy) { Text("O‘zgartirish") }
+                }
+            }
+        }
+    }
+}
 
 /** Everything the kitchen needs first: number, age, status, payment, total and the preparation clock. */
 @Composable

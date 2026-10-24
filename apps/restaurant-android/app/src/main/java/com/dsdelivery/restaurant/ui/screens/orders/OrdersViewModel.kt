@@ -167,6 +167,24 @@ class OrdersViewModel(
         }
     }
 
+    /** "Ready in [minutes] minutes" straight from the list. The server answers with the updated order, which replaces the row. */
+    fun setPrepTime(orderId: String, minutes: Int) {
+        if (_uiState.value.prepBusyId != null) return
+        _uiState.update { it.copy(prepBusyId = orderId) }
+        viewModelScope.launch {
+            when (val result = repository.setPrepTime(orderId, minutes, "PREPARING")) {
+                is Resource.Success -> _uiState.update { s ->
+                    s.copy(prepBusyId = null, orders = s.orders.map { o -> if (o.id == orderId) result.data else o }, errorMessage = null)
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(prepBusyId = null, errorMessage = result.message) }
+                    loadOrders(isRefresh = true, silent = true) // the order may have moved on (e.g. already marked ready)
+                }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
     fun onSearchQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
     }

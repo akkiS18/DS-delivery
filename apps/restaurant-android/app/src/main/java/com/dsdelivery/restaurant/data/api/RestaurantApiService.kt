@@ -10,6 +10,7 @@ import com.dsdelivery.restaurant.data.api.dto.RefundDecisionRequestDto
 import com.dsdelivery.restaurant.data.api.dto.VerifyPaymentRequestDto
 import com.dsdelivery.restaurant.data.api.dto.AuthMeResponseDto
 import com.dsdelivery.restaurant.data.api.dto.OrdersResponseDto
+import com.dsdelivery.restaurant.data.api.dto.PrepTimeRequestDto
 import com.dsdelivery.restaurant.data.api.dto.PreparingOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.ReadyOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.RejectOrderRequestDto
@@ -146,6 +147,12 @@ interface RestaurantApiService {
     suspend fun startPreparingOrder(
         @Path("id") id: String,
         @Body body: PreparingOrderRequestDto
+    ): OrderDto
+
+    @POST("api/v1/restaurant/orders/{id}/prep-time")
+    suspend fun setPrepTime(
+        @Path("id") id: String,
+        @Body body: PrepTimeRequestDto
     ): OrderDto
 
     @POST("api/v1/restaurant/orders/{id}/ready")

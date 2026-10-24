@@ -55,7 +55,8 @@ data class PaymentEvidenceDto(
 data class PrepDto(
     @SerializedName("minutes") val minutes: Int? = null,
     @SerializedName("startedAt") val startedAt: String? = null,
-    @SerializedName("estimatedReadyAt") val estimatedReadyAt: String? = null
+    @SerializedName("estimatedReadyAt") val estimatedReadyAt: String? = null,
+    @SerializedName("chosenMinutes") val chosenMinutes: Int? = null
 )
 
 data class MenuProblemDto(
@@ -161,6 +162,12 @@ data class RefundDecisionRequestDto(
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
 
+/** "Ready in N minutes" (5..60) chosen after the payment, while the food is already cooking. */
+data class PrepTimeRequestDto(
+    @SerializedName("minutes") val minutes: Int,
+    @SerializedName("expectedStatus") val expectedStatus: String? = null
+)
+
 data class ReadyOrderRequestDto(
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
@@ -217,7 +224,8 @@ fun OrderDto.toDomain(): Order {
                 startedAtMillis = p.startedAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
                 estimatedReadyAtMillis = p.estimatedReadyAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
                 serverNowMillis = serverNow,
-                receivedAtElapsed = SystemClock.elapsedRealtime()
+                receivedAtElapsed = SystemClock.elapsedRealtime(),
+                chosenMinutes = p.chosenMinutes
             )
         }
     )

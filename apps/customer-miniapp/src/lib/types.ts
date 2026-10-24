@@ -73,7 +73,12 @@ export interface PaymentInstructions {
   /** The name on the card (null for older cards: the screen then shows the restaurant name). */
   cardHolder?: string | null;
   expiresAt: string | null;
+  /** Length of the payment window in seconds (the screen says "within N minutes" and counts down to expiresAt). */
+  windowSeconds?: number | null;
 }
+
+/** A taxi service the customer can pick at checkout. */
+export interface TaxiOption { id: string; name: string }
 
 export interface PrepClock {
   minutes: number;
@@ -104,6 +109,8 @@ export interface OrderView {
   prep: PrepClock;
   readyAt: string | null;
   taxi: { stage: string | null; companyName: string } | null;
+  /** The taxi service chosen at checkout; known before any dispatch exists. */
+  taxiCompanyName?: string | null;
   deliveredAt: string | null;
   /** "Did you receive it?" is asked once the taxi is on its way; a signal only. */
   receivedAt?: string | null;

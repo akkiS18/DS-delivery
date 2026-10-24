@@ -27,6 +27,7 @@ interface OrderDetailCallbacks {
     fun onVerifyChecked(checked: Boolean) {}
     fun confirmVerify() {}
     fun startPreparing() {}
+    fun setPrepTime(minutes: Int) {}
     fun showReadyConfirm(show: Boolean) {}
     fun confirmReady() {}
     fun showCancelDialog(show: Boolean) {}
@@ -147,6 +148,13 @@ class OrderDetailViewModel(
     override fun startPreparing() {
         runAction("Tayyorlash boshlandi.") { expected ->
             repository.setOrderPreparing(orderId, null, expected)
+        }
+    }
+
+    /** "Ready in [minutes] minutes" from now (5..60). Allowed while cooking; the customer's countdown and the taxi time follow it. */
+    override fun setPrepTime(minutes: Int) {
+        runAction("Tayyor bo‘lish vaqti: $minutes daqiqa.") { expected ->
+            repository.setPrepTime(orderId, minutes, expected)
         }
     }
 

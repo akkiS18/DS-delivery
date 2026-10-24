@@ -62,6 +62,8 @@ interface RestaurantRepository {
     suspend fun acceptOrder(id: String, prepMinutes: Int?, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun rejectOrder(id: String, reasonCode: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun setOrderPreparing(id: String, prepMinutes: Int?, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
+    /** "Ready in [minutes] minutes" (5..60), counted from now; allowed while the order is being cooked. */
+    suspend fun setPrepTime(id: String, minutes: Int, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun setOrderReady(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
 
     /** The restaurant explicitly confirms the real bank credit. Cooking then starts by itself. */

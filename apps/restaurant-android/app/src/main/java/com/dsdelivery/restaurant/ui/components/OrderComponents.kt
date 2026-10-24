@@ -219,7 +219,10 @@ fun OrderCard(
     order: Order,
     nowElapsed: State<Long>,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Quick "ready in N minutes" from the list; null hides the picker (previews). */
+    onPrepTime: ((Int) -> Unit)? = null,
+    prepBusy: Boolean = false
 ) {
     val cooking = order.status == OrderStatus.PREPARING
     // Computed once per tick only for cooking orders; the stripe is the fastest "which one needs me" cue in a long list.
@@ -278,6 +281,17 @@ fun OrderCard(
                         Icon(imageVector = Icons.Default.AccessTime, contentDescription = null, tint = if (prepNow?.overdue == true) ErrorRed else BrandPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         LivePrepText(order.prep, nowElapsed)
+                    }
+                    // Paid and cooking, but nobody said yet when it will be ready: ask right here, in the list.
+                    if (order.needsPrepChoice && onPrepTime != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(shape = RoundedCornerShape(10.dp), color = WarningOrange.copy(alpha = 0.10f)) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text("To‘lov qabul qilindi. Tayyor bo‘lish vaqtini belgilang.", style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                PrepTimePicker(initial = DEFAULT_PREP_CHOICE, busy = prepBusy, onConfirm = onPrepTime)
+                            }
+                        }
                     }
                 } else if (order.status == OrderStatus.READY) {
                     Spacer(modifier = Modifier.height(8.dp))

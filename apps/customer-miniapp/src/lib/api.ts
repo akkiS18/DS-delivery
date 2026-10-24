@@ -2,7 +2,7 @@ import { ApiError } from './apiError';
 import { apiOrigin, isAndroidApp } from './platform';
 import { dropGuestToken, getGuestToken } from './session';
 import { getInitData } from './telegram';
-import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, Restaurant } from './types';
+import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, Restaurant, TaxiOption } from './types';
 
 export { ApiError };
 
@@ -70,6 +70,8 @@ export interface CheckoutBody {
   addressId?: string;
   address?: { label?: string; addressText: string; lat?: number; lng?: number; save?: boolean };
   phone?: string;
+  /** The taxi service the customer picked; omitted = the server assigns one. */
+  taxiCompanyId?: string;
 }
 
 export const api = {
@@ -84,6 +86,7 @@ export const api = {
   menu: (id: string, signal?: AbortSignal) => request<MenuResponse>(`/restaurants/${encodeURIComponent(id)}/menu`, { signal }),
   quote: (restaurantId: string, items: Array<{ productId: string; quantity: number }>, signal?: AbortSignal) =>
     request<QuoteResponse>('/quote', { method: 'POST', body: { restaurantId, items }, signal }),
+  taxiCompanies: (signal?: AbortSignal) => request<{ companies: TaxiOption[] }>('/taxi-companies', { signal }),
   createOrder: (body: CheckoutBody) => request<{ order: OrderView; replayed: boolean }>('/orders', { method: 'POST', body }),
   orders: (signal?: AbortSignal) => request<{ orders: OrderSummary[] }>('/orders', { signal }),
   order: (id: string, signal?: AbortSignal) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}`, { signal }),

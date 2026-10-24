@@ -3,6 +3,7 @@ import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
 import { payeeNumber } from '../payment/requisites.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { prepClock } from '../restaurant-orders/service.js';
+import { eligibleCompanyWhere } from '../taxi/assignment.js';
 import { taxiStage, type TaxiStage } from '../taxi/workflow.js';
 
 /** What the Mini App is allowed to see. Built from real backend rows only; nothing here is demo data. */
@@ -47,6 +48,11 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   };
 }
 
+/** Taxi services the customer may pick at checkout: the ones that can be booked right now (active and reachable). Names only. */
+export async function listTaxiOptions() {
+  return db.taxiCompany.findMany({ where: eligibleCompanyWhere(), orderBy: [{ name: 'asc' }, { id: 'asc' }], select: { id: true, name: true } });
+}
+
 // ------------------------------------------------------------------------------------------------ the customer's own orders
 export type CustomerStage =
   | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
@@ -77,6 +83,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 
 const orderInclude = {
   restaurant: { select: { name: true, defaultPrepMinutes: true } },
+  taxiCompany: { select: { name: true } },
   items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
   payment: { include: { card: { select: { last4: true, isTest: true, number: true, holderName: true } } } },
@@ -113,6 +120,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
       // The name on the card, so the customer can check they are paying the right person (legacy cards have none: the app shows the restaurant name).
       cardHolder: pay.card.holderName ?? null,
       expiresAt: pay.expiresAt?.toISOString() ?? null,
+      // The length of the payment window, so the screen can say "within N minutes" (it counts down to expiresAt on the server's clock).
+      windowSeconds: pay.expiresAt && pay.assignedAt ? Math.max(1, Math.round((pay.expiresAt.getTime() - pay.assignedAt.getTime()) / 1000)) : null,
     };
   }
   return {
@@ -133,6 +142,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     prep: prepClock({ status: o.status, preparingStartedAt: o.preparingStartedAt, prepMinutes: o.prepMinutes, estimatedPrepMinutes: o.estimatedPrepMinutes, readyAt: o.readyAt, restaurant: o.restaurant }, now),
     readyAt: o.readyAt?.toISOString() ?? null,
     taxi: taxi ? { stage: taxiSt, companyName: taxi.taxiCompany.name } : null,
+    // The taxi service the customer picked (or the one assigned automatically); shown on the order before any dispatch exists.
+    taxiCompanyName: o.taxiCompany?.name ?? null,
     deliveredAt: taxi?.deliveredAt?.toISOString() ?? null, // the operator-confirmed time; nothing earlier counts as delivered
     // "Did you receive it?": asked once the taxi is on its way (or the operator says delivered). A signal only: it never changes the order status.
     receivedAt: o.customerReceivedAt?.toISOString() ?? null,

@@ -30,7 +30,9 @@ data class OrdersUiState(
     /** Orders needing a human decision (unverified payment, cancellation request, taxi trouble, refund to send). */
     val attentionOrdersCount: Int = 0,
     /** The last background check failed (offline / server down); shown as a small hint, never as fake data. */
-    val pollFailed: Boolean = false
+    val pollFailed: Boolean = false,
+    /** The order whose "ready in N minutes" is being saved (one at a time). */
+    val prepBusyId: String? = null
 ) {
     /** `orders` is already filtered by the server; this only applies the local search box. */
     val filteredOrders: List<Order>

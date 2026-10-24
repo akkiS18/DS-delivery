@@ -63,7 +63,7 @@ enum class TaxiStage {
 
 /** Restaurant-side order actions exposed by the backend. The server decides which are currently allowed. */
 enum class OrderAction {
-    ACCEPT, REJECT, PROPOSE_PRICE, VERIFY_PAYMENT, START_PREPARING, MARK_READY, CANCEL_ORDER, REFUND_APPROVE, REFUND_REJECT, REFUND_SENT;
+    ACCEPT, REJECT, PROPOSE_PRICE, VERIFY_PAYMENT, START_PREPARING, SET_PREP_TIME, MARK_READY, CANCEL_ORDER, REFUND_APPROVE, REFUND_REJECT, REFUND_SENT;
 
     companion object {
         fun fromRaw(raw: String?): OrderAction? = entries.firstOrNull { it.name == raw }
@@ -123,7 +123,9 @@ data class PrepInfo(
     val startedAtMillis: Long?,
     val estimatedReadyAtMillis: Long?,
     val serverNowMillis: Long,
-    val receivedAtElapsed: Long
+    val receivedAtElapsed: Long,
+    /** What the restaurant chose after the payment ("ready in N minutes"); null = not chosen yet, so the app asks. */
+    val chosenMinutes: Int? = null
 ) {
     /** Seconds left (positive) or overdue (negative) at [nowElapsed]; null when no ready time is known. */
     fun remainingSeconds(nowElapsed: Long): Long? {
@@ -226,6 +228,10 @@ data class Order(
 
     val orderNumberDisplay: String
         get() = "#$code"
+
+    /** The order is being cooked and the restaurant has not yet said in how many minutes it will be ready: the app asks. */
+    val needsPrepChoice: Boolean
+        get() = status == OrderStatus.PREPARING && OrderAction.SET_PREP_TIME in allowedActions && prep?.chosenMinutes == null
 
     val itemsCount: Int
         get() = items.sumOf { it.quantity }

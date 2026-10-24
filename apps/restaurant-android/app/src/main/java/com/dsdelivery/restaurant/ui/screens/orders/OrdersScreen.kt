@@ -89,6 +89,7 @@ fun OrdersScreen(
         onDismissNotice = viewModel::dismissNotice,
         onDismissError = viewModel::dismissError,
         onOrderClick = onNavigateToOrderDetail,
+        onPrepTime = viewModel::setPrepTime,
         modifier = modifier
     )
 }
@@ -106,7 +107,8 @@ fun OrdersContent(
     onDismissNotice: () -> Unit,
     onDismissError: () -> Unit,
     onOrderClick: (orderId: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onPrepTime: ((orderId: String, minutes: Int) -> Unit)? = null
 ) {
     // One ticker for the whole list: every second while something is being cooked (live countdowns), otherwise every 30 s (order ages).
     val cooking = state.orders.any { it.status == OrderStatus.PREPARING }
@@ -283,7 +285,9 @@ fun OrdersContent(
                             OrderCard(
                                 order = order,
                                 nowElapsed = nowElapsed,
-                                onClick = { onOrderClick(order.id) }
+                                onClick = { onOrderClick(order.id) },
+                                onPrepTime = onPrepTime?.let { f -> { minutes: Int -> f(order.id, minutes) } },
+                                prepBusy = state.prepBusyId == order.id
                             )
                         }
                         if (state.hasMore && state.searchQuery.isBlank()) {

@@ -351,7 +351,7 @@ test('checkout: price change, unavailable product, closed restaurant, missing ph
   const np = await checkout(noPhoneUser, { phone: undefined }, p);
   assert.equal(np.res.statusCode, 400);
   assert.equal(np.res.json().error, 'PHONE_REQUIRED');
-  for (const extra of [{ telegramUserId: userA }, { customerId: 'x' }, { paymentMode: 'MOCK' }, { taxiCompanyId: taxiId }, { totalSom: 1 }, { cardNumber: '8600123412341234' }]) {
+  for (const extra of [{ telegramUserId: userA }, { customerId: 'x' }, { paymentMode: 'MOCK' }, { totalSom: 1 }, { cardNumber: '8600123412341234' }]) {
     assert.equal((await checkout(userB, extra, p)).res.statusCode, 400, JSON.stringify(extra));
   }
   assert.equal((await checkout(userB, { address: undefined, addressId: undefined }, p)).res.statusCode, 400, 'an address is required');
@@ -368,6 +368,46 @@ test('checkout: price change, unavailable product, closed restaurant, missing ph
   assert.deepEqual(await counts(), before);
   assert.equal((await db.customer.findUnique({ where: { telegramUserId: noPhoneUser } }))?.phone ?? null, null);
   await db.customer.deleteMany({ where: { telegramUserId: noPhoneUser } });
+});
+
+test('taxi choice: the customer picks one of the bookable services; unknown or unreachable ones are refused; the order keeps the choice and no silent fallback', async () => {
+  const listed = (await call('GET', '/taxi-companies', userA)).json().companies as Array<{ id: string; name: string }>;
+  assert.ok(listed.some(c => c.id === taxiId), 'a bookable service is offered');
+  assert.deepEqual(Object.keys(listed[0]!).sort(), ['id', 'name'], 'names only: no operator ids or logins');
+
+  const chosen = await checkout(userA, { taxiCompanyId: taxiId });
+  assert.equal(chosen.res.statusCode, 201);
+  const row = await db.order.findUniqueOrThrow({ where: { id: chosen.res.json().order.id } });
+  assert.equal(row.taxiCompanyId, taxiId);
+  assert.equal(row.allowTaxiFallback, false, 'a chosen service is the customer’s decision: no silent switch to another company');
+  assert.equal(chosen.res.json().order.taxiCompanyName.startsWith('MP Taxi'), true, 'the order shows the chosen service before any dispatch exists');
+
+  // no choice (older app): the server still assigns one and may fall back
+  const auto = await checkout(userA);
+  const autoRow = await db.order.findUniqueOrThrow({ where: { id: auto.res.json().order.id } });
+  assert.equal(autoRow.allowTaxiFallback, true);
+
+  // unknown id, and an inactive service, look the same: not bookable
+  assert.equal((await checkout(userA, { taxiCompanyId: 'no-such-company' })).res.json().error, 'TAKSI_XIZMATI_MAVJUD_EMAS');
+  const idle = await db.taxiCompany.create({ data: { name: `MP Idle ${randomUUID()}`, isActive: false, operatorTelegramUserId: String(randomInt(800000000001, 899999999999)) } });
+  try {
+    assert.equal((await checkout(userA, { taxiCompanyId: idle.id })).res.json().error, 'TAKSI_XIZMATI_MAVJUD_EMAS');
+    assert.ok(!((await call('GET', '/taxi-companies', userA)).json().companies as Array<{ id: string }>).some(c => c.id === idle.id), 'not offered either');
+  } finally { await db.taxiCompany.deleteMany({ where: { id: idle.id } }); }
+  // a company with neither a linked operator nor an app login cannot receive a booking
+  const unreachable = await db.taxiCompany.create({ data: { name: `MP Dead ${randomUUID()}`, isActive: true } });
+  try { assert.equal((await checkout(userA, { taxiCompanyId: unreachable.id })).res.json().error, 'TAKSI_XIZMATI_MAVJUD_EMAS'); }
+  finally { await db.taxiCompany.deleteMany({ where: { id: unreachable.id } }); }
+});
+
+test('payment instructions carry the window length (the screen says "within N minutes" and counts down to expiresAt)', async () => {
+  const { res } = await checkout(userA);
+  const view = res.json().order;
+  const ins = view.payment?.instructions;
+  if (ins) {
+    assert.ok(Number.isInteger(ins.windowSeconds) && ins.windowSeconds > 0);
+    assert.equal(ins.windowSeconds, Math.round((Date.parse(ins.expiresAt) - Date.parse((await db.payment.findFirstOrThrow({ where: { orderId: view.id } })).assignedAt!.toISOString())) / 1000));
+  }
 });
 
 // ------------------------------------------------------------------------------------------------ tracking, payment boundaries, cancellation

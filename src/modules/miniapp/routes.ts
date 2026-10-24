@@ -17,7 +17,8 @@ import {
   addressInputSchema, addressUpdateSchema, createAddress, deleteAddress, ensureCustomer, getProfile, ownedAddress, phoneBodySchema,
   ProfileError, setDefaultAddress, setPhone, touchAddress, updateAddress,
 } from './profile.js';
-import { customerOrderView, listCustomerOrders, listRestaurants, loadCustomerOrder, restaurantMenu } from './views.js';
+import { eligibleCompanyWhere } from '../taxi/assignment.js';
+import { customerOrderView, listCustomerOrders, listRestaurants, listTaxiOptions, loadCustomerOrder, restaurantMenu } from './views.js';
 
 /** Who is calling. Exactly one credential type per request: `tma <initData>` (Telegram) or `Bearer dsg_...` (Android guest session). No fallback between them. */
 export type Principal = { kind: 'telegram'; user: InitDataUser } | { kind: 'guest'; customerId: string; sessionId: string };
@@ -213,6 +214,8 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     if (!menu) throw httpError(404, 'NOT_FOUND');
     return menu;
   });
+  // The taxi services the customer can choose between at checkout (names only).
+  app.get('/taxi-companies', async () => ({ companies: await listTaxiOptions() }));
   app.post('/quote', async request => {
     strict(request, 'quote', 60);
     return quoteCheckout(quoteRequestSchema.parse(request.body));
@@ -230,6 +233,11 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
       if (existing.customerId !== customer.id) throw httpError(409, 'CHECKOUT_KEY_BEGONA');
       const view = await ownedView(request, existing.id);
       return reply.code(200).send({ order: view, replayed: true });
+    }
+
+    // A chosen taxi service must be one that can be booked now; an unknown, inactive or unreachable id looks the same.
+    if (body.taxiCompanyId && !(await db.taxiCompany.findFirst({ where: { id: body.taxiCompanyId, ...eligibleCompanyWhere() }, select: { id: true } }))) {
+      throw httpError(409, 'TAKSI_XIZMATI_MAVJUD_EMAS');
     }
 
     const phone = body.phone ?? customer.phone;

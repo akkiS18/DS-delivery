@@ -10,6 +10,7 @@ import type { StoredReceipt } from '../refunds/receipts.js';
 import { REJECT_REASONS as REFUND_REJECT_REASONS, RESTAURANT_REASONS } from '../refunds/workflow.js';
 import { taxiStage } from '../taxi/workflow.js';
 import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
+import { rescheduleTaxiForPrep } from '../taxi/service.js';
 import { autoStartPreparing } from './auto.js';
 
 /** Same buckets the Android tabs use. */
@@ -41,6 +42,10 @@ export const acceptBodySchema = z.object({ prepMinutes: prepSchema, expectedStat
 export const rejectBodySchema = z.object({ reason: z.enum(REJECT_REASONS), expectedStatus: expected }).strict();
 export const preparingBodySchema = z.object({ prepMinutes: prepSchema, expectedStatus: expected }).strict();
 export const readyBodySchema = z.object({ expectedStatus: expected }).strict();
+/** "Ready in N minutes" after the payment: 5 minutes up to 1 hour. */
+export const PREP_CHOICE_MIN = 5;
+export const PREP_CHOICE_MAX = 60;
+export const prepTimeBodySchema = z.object({ minutes: z.number().int().min(PREP_CHOICE_MIN).max(PREP_CHOICE_MAX), expectedStatus: expected }).strict();
 /** The explicit staff statement that the money is really on the restaurant's bank account. */
 export const verifyBodySchema = z.object({ confirmReceived: z.literal(true), expectedStatus: expected }).strict();
 export const cancelBodySchema = z.object({ reason: z.enum(RESTAURANT_REASONS), note: z.string().trim().max(300).optional(), expectedStatus: expected }).strict();
@@ -51,13 +56,13 @@ export const refundDecisionBodySchema = z.object({
 export const refundReceiptQuerySchema = z.object({ expectedStatus: expected }).strict();
 export const orderIdSchema = idSchema;
 
-export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPARING' | 'MARK_READY'
+export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPARING' | 'MARK_READY' | 'SET_PREP_TIME'
   | 'CANCEL_ORDER' | 'REFUND_APPROVE' | 'REFUND_REJECT' | 'REFUND_SENT';
 
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 const detailSelect = {
-  id: true, code: true, status: true, totalSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true,
+  id: true, code: true, status: true, totalSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true, prepChosenMinutes: true,
   addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, rejectReason: true,
   restaurantDeadlineAt: true, acceptedAt: true, paymentVerifiedAt: true, preparingStartedAt: true, readyAt: true,
   restaurantId: true,
@@ -107,7 +112,7 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblem
   } else if (o.status === 'PAYMENT_CONFIRMED' && o.paymentStatus === 'CONFIRMED_MANUAL' && !openRefund) {
     actions.push('START_PREPARING', 'CANCEL_ORDER');
   } else if (o.status === 'PREPARING' && o.paymentStatus === 'CONFIRMED_MANUAL' && !openRefund) {
-    actions.push('MARK_READY', 'CANCEL_ORDER');
+    actions.push('SET_PREP_TIME', 'MARK_READY', 'CANCEL_ORDER');
   }
   if (openRefund === 'REQUESTED') actions.push('REFUND_APPROVE', 'REFUND_REJECT');
   if (openRefund === 'APPROVED' || openRefund === 'DISPUTED') actions.push('REFUND_SENT');
@@ -130,7 +135,7 @@ export function attentionCodes(o: Row, extras: Extras): string[] {
 
 /** Server-time based preparation clock. The client must compute remaining time as `estimatedReadyAt - serverNow`, adding its own
  *  elapsed time since the response, so a wrong phone clock cannot produce a wrong countdown or a wrong "overdue" figure. */
-export function prepClock(o: Pick<Row, 'status' | 'preparingStartedAt' | 'prepMinutes' | 'estimatedPrepMinutes' | 'readyAt'> & { restaurant: { defaultPrepMinutes: number } }, now: Date) {
+export function prepClock(o: Pick<Row, 'status' | 'preparingStartedAt' | 'prepMinutes' | 'estimatedPrepMinutes' | 'readyAt'> & { prepChosenMinutes?: number | null; restaurant: { defaultPrepMinutes: number } }, now: Date) {
   const minutes = o.prepMinutes ?? o.estimatedPrepMinutes ?? o.restaurant.defaultPrepMinutes;
   const startedAt = o.preparingStartedAt;
   const estimatedReadyAt = startedAt ? new Date(startedAt.getTime() + minutes * 60_000) : null;
@@ -138,6 +143,8 @@ export function prepClock(o: Pick<Row, 'status' | 'preparingStartedAt' | 'prepMi
   const remainingSeconds = cooking ? Math.ceil((estimatedReadyAt.getTime() - now.getTime()) / 1000) : null;
   return {
     minutes, startedAt: iso(startedAt), estimatedReadyAt: iso(estimatedReadyAt), readyAt: iso(o.readyAt),
+    /** What the restaurant chose after the payment ("ready in N minutes"); null = not chosen yet, the app asks while the order is cooking. */
+    chosenMinutes: o.prepChosenMinutes ?? null,
     /** Positive while time is left, negative once overdue; null when the order is not being cooked. */
     remainingSeconds,
     overdueMinutes: remainingSeconds !== null && remainingSeconds < 0 ? Math.floor(-remainingSeconds / 60) : 0,
@@ -258,8 +265,39 @@ const WRONG_STATE = new Set(['TOLOV_MOS_EMAS_YOKI_AVVAL_TASDIQLANGAN', 'TAYYORLA
 /** The stored bank signal does not match the payment (amount, sender, link): the restaurant must not confirm. */
 const EVIDENCE_INVALID = new Set(['TOLOV_SUMMASI_MOS_EMAS', 'TOLOV_MOS_EMAS']);
 
+/**
+ * After the payment the restaurant says "ready in N minutes" (counted from this moment). Cooking has already started by itself with the
+ * default time, so this only corrects the promise: Order.prepMinutes (the clock the customer and the taxi scheduler read) becomes
+ * N + the minutes already cooked, and the clean choice is kept in prepChosenMinutes/prepChosenAt and in the audit event for later analysis.
+ * Compare-and-swap on the cooking start; a taxi dispatch that was not sent yet is moved, a sent one is never touched.
+ */
+export async function setPrepTime(restaurantId: string, orderId: string, minutes: number, now = new Date()): Promise<'OK' | 'STALE'> {
+  if (!Number.isInteger(minutes) || minutes < PREP_CHOICE_MIN || minutes > PREP_CHOICE_MAX) throw new Error('TAYYORLASH_VAQTI_NOTOGRI');
+  return db.$transaction(async tx => {
+    const o = await tx.order.findFirst({
+      where: { id: orderId, restaurantId, createdViaBot: true, status: 'PREPARING', payment: { is: { status: 'CONFIRMED_MANUAL' } } },
+      select: { id: true, preparingStartedAt: true, prepMinutes: true },
+    });
+    if (!o?.preparingStartedAt) return 'STALE';
+    const elapsed = Math.max(0, Math.round((now.getTime() - o.preparingStartedAt.getTime()) / 60_000));
+    const total = Math.min(240, minutes + elapsed);
+    const updated = await tx.order.updateMany({
+      where: { id: o.id, status: 'PREPARING', restaurantId, preparingStartedAt: o.preparingStartedAt },
+      data: { prepMinutes: total, prepChosenMinutes: minutes, prepChosenAt: now },
+    });
+    if (updated.count !== 1) return 'STALE';
+    await rescheduleTaxiForPrep(tx, o.id, o.preparingStartedAt, total);
+    await tx.orderEvent.create({ data: {
+      orderId: o.id, actorTelegramId: `restaurant-api:${restaurantId}`, actorType: 'RESTAURANT_STAFF', action: 'PREP_TIME_SET',
+      fromStatus: 'PREPARING', toStatus: 'PREPARING',
+      details: { minutes, elapsedMinutes: elapsed, totalMinutes: total, previousTotalMinutes: o.prepMinutes },
+    } });
+    return 'OK';
+  });
+}
+
 export type ActionArgs = {
-  prepMinutes?: number | undefined; reason?: (typeof REJECT_REASONS)[number] | (typeof RESTAURANT_REASONS)[number] | undefined;
+  prepMinutes?: number | undefined; chosenMinutes?: number | undefined; reason?: (typeof REJECT_REASONS)[number] | (typeof RESTAURANT_REASONS)[number] | undefined;
   note?: string | undefined; decision?: 'APPROVE' | 'REJECT' | undefined; rejectReason?: (typeof REFUND_REJECT_REASONS)[number] | undefined;
   receipt?: StoredReceipt | undefined; expectedStatus?: string | undefined;
 };
@@ -321,6 +359,8 @@ export async function performOrderAction(
         // Concurrent taps: the loser's transition is refused because the winner already made the order READY - that is success.
         if (!(await alreadyReady(action))) throw err;
       }
+    } else if (action === 'SET_PREP_TIME') {
+      if (await setPrepTime(restaurantId, orderId, args.chosenMinutes!) === 'STALE') return stale('INVALID_STATE');
     } else if (action === 'CANCEL_ORDER') {
       const r = await requestCancellation({ actorType: 'RESTAURANT_STAFF', actorTelegramId: label, restaurantId, orderId,
         reasonCode: args.reason as string, ...(args.note ? { note: args.note } : {}) });

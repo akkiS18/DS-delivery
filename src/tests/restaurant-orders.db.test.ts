@@ -281,6 +281,60 @@ test('after the Telegram staff verification: preparing then ready, once each, st
   assert.deepEqual(await events(o.id), ['PLACED', 'ACCEPT', 'VERIFY_PAYMENT', 'START_PREPARING', 'MARK_READY']);
 });
 
+test('prep time after the payment: "ready in N minutes" (5..60) counted from now, audited, moves an unsent taxi dispatch, only while cooking', async () => {
+  const o = await place();
+  assert.equal((await acceptApi(o.id)).statusCode, 200);
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, { minutes: 30 })).statusCode, 409, 'not cooking yet');
+  await matchPayment(o.id, last4[0]!);
+  assert.equal((await call('POST', `/orders/${o.id}/verify-payment`, ta, { confirmReceived: true })).statusCode, 200);
+  const cooking = await row(o.id);
+  assert.equal(cooking.status, 'PREPARING');
+  assert.equal(cooking.prepChosenMinutes, null, 'nothing chosen yet: the app asks');
+  assert.equal((await call('GET', `/orders/${o.id}`, ta)).json().prep.chosenMinutes, null);
+  assert.ok((await call('GET', `/orders/${o.id}`, ta)).json().allowedActions.includes('SET_PREP_TIME'));
+
+  // cooking started 3 minutes ago: "ready in 30" means 30 minutes from now = 33 on the cooking clock
+  const startedAt = new Date(Date.now() - 3 * 60_000);
+  await db.order.update({ where: { id: o.id }, data: { preparingStartedAt: startedAt } });
+
+  for (const bad of [{}, { minutes: 4 }, { minutes: 61 }, { minutes: 12.5 }, { minutes: '30' }, { minutes: 30, restaurantId: ids.b }]) {
+    assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, bad)).statusCode, 400, JSON.stringify(bad));
+  }
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, tb, { minutes: 30 })).statusCode, 404, 'another restaurant sees nothing');
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, undefined, { minutes: 30 })).statusCode, 401);
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, { minutes: 30, expectedStatus: 'READY' })).statusCode, 409, 'stale view');
+
+  const ok = await call('POST', `/orders/${o.id}/prep-time`, ta, { minutes: 30 });
+  assert.equal(ok.statusCode, 200);
+  assert.equal(ok.json().prep.chosenMinutes, 30);
+  assert.equal(ok.json().prep.minutes, 33);
+  const r = await row(o.id);
+  assert.equal(r.prepMinutes, 33);
+  assert.equal(r.prepChosenMinutes, 30);
+  assert.ok(r.prepChosenAt);
+  assert.equal(r.status, 'PREPARING');
+  assert.equal(r.preparingStartedAt?.getTime(), startedAt.getTime(), 'the cooking start is history and is never rewritten');
+  const ev = await db.orderEvent.findFirstOrThrow({ where: { orderId: o.id, action: 'PREP_TIME_SET' } });
+  assert.deepEqual(ev.details, { minutes: 30, elapsedMinutes: 3, totalMinutes: 33, previousTotalMinutes: 20 });
+  assert.equal(ev.actorTelegramId, `restaurant-api:${ids.a}`);
+  // the unsent taxi dispatch follows the new time (prep 33 minus the 7 minute lead)
+  const dispatch = await db.taxiDispatch.findFirstOrThrow({ where: { orderId: o.id } });
+  assert.equal(dispatch.status, 'SCHEDULED');
+  assert.equal(dispatch.dueAt.getTime(), startedAt.getTime() + (33 - 7) * 60_000);
+
+  // changing it again is allowed and audited each time; a dispatch that was already claimed is left alone
+  await db.taxiDispatch.update({ where: { id: dispatch.id }, data: { status: 'SENDING' } });
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, { minutes: 10 })).statusCode, 200);
+  assert.equal((await row(o.id)).prepChosenMinutes, 10);
+  assert.equal((await db.taxiDispatch.findUniqueOrThrow({ where: { id: dispatch.id } })).dueAt.getTime(), dispatch.dueAt.getTime());
+  assert.equal(await db.orderEvent.count({ where: { orderId: o.id, action: 'PREP_TIME_SET' } }), 2);
+
+  // once ready there is nothing left to promise
+  assert.equal((await call('POST', `/orders/${o.id}/ready`, ta, {})).statusCode, 200);
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, { minutes: 15 })).statusCode, 409);
+  assert.equal((await row(o.id)).prepChosenMinutes, 10);
+});
+
 test('a paused restaurant cannot accept new orders from the app either', async () => {
   const o = await place();
   await db.restaurant.update({ where: { id: ids.a! }, data: { isPaused: true } });

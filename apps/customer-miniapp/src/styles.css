@@ -198,3 +198,17 @@ h1, h2, h3, p { margin: 0; }
 .paid-text { font-size: 17px; color: var(--ink-soft); margin-bottom: 8px; }
 .paid-card .btn { width: 100%; }
 @keyframes paid-run { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 276.5; } }
+
+/* Payment notice: clearly yellow (not the orange of .banner.warn), with a backwards counting timer. Fixed colors: readable in any theme. */
+.pay-warn { background: #fff3b0; border: 2px solid #f0c000; color: #4d3b00; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pay-warn-head { display: flex; gap: 10px; align-items: flex-start; font-size: 16px; line-height: 1.35; }
+.pay-warn .nowrap { white-space: nowrap; }
+.pay-warn-time { font-size: 38px; font-weight: 800; line-height: 1; letter-spacing: 1px; }
+.pay-warn-left { font-size: 15px; font-weight: 600; letter-spacing: 0; }
+.pay-warn-bar { height: 8px; border-radius: 999px; background: rgba(77, 59, 0, 0.18); overflow: hidden; }
+.pay-warn-bar > span { display: block; height: 100%; background: #b88a00; border-radius: 999px; transition: width 1s linear; }
+.pay-warn-note { font-size: 13px; opacity: 0.85; }
+.pay-warn.urgent { background: #ffe38a; border-color: #d98900; }
+.pay-warn.urgent .pay-warn-time { color: #a63a00; }
+.pay-warn.urgent .pay-warn-bar > span { background: #d9480f; }
+.pay-warn.over { background: #ffe0e0; border-color: #d33; color: #7a1010; }

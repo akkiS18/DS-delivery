@@ -266,6 +266,10 @@ model Order {
   prepMinutes                Int?
   preparingStartedAt         DateTime?            @db.Timestamptz(3)
   readyAt                    DateTime?            @db.Timestamptz(3)
+  // The restaurant states, after the payment, in how many minutes the food will be ready (5..60, from the moment of choosing).
+  // prepMinutes stays the clock the customer and the taxi scheduler use (chosen minutes + minutes already elapsed); these two are the clean record.
+  prepChosenMinutes          Int?
+  prepChosenAt               DateTime?            @db.Timestamptz(3)
   // Stage 9: the customer said "I received it" (a signal next to the taxi operator's confirmation, never a replacement for it).
   customerReceivedAt         DateTime?            @db.Timestamptz(3)
   staffLastNotifiedStatus    String?

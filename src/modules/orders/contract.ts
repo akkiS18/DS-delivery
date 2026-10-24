@@ -41,8 +41,10 @@ export const checkoutRequestSchema = z.object({
   address: inlineAddress.optional(),
   /** Optional: the saved profile phone is used when omitted. A phone sent here is remembered for next time. */
   phone: z.string().trim().regex(/^\+998\d{9}$/).optional(),
+  /** The taxi service the customer picked on the checkout screen. Omitted (older app versions): the server assigns one at dispatch and may fall back. */
+  taxiCompanyId: id.optional(),
 }).strict().refine(x => (x.addressId === undefined) !== (x.address === undefined), { message: 'addressId yoki address' });
-// No taxi company here: the customer never chooses one. The server assigns it at dispatch and may fall back to another company.
+// A chosen company is the customer's decision (the delivery price is the taxi service's own): no silent fallback to another one.
 
 export const customerCancelRequestSchema = z.object({ reasonCode: z.enum(CUSTOMER_REASONS).optional() }).strict();
 
@@ -62,13 +64,14 @@ export async function quoteCheckout(input: z.infer<typeof quoteRequestSchema>): 
 export function toPlaceOrderInput(
   owner: string | { customerId: string }, customerName: string | undefined,
   resolved: { phone: string; addressText: string; lat?: number | null; lng?: number | null },
-  req: Pick<z.infer<typeof checkoutRequestSchema>, 'checkoutKey' | 'restaurantId' | 'items' | 'expectedTotalSom' | 'expectedUnitPrices'>,
+  req: Pick<z.infer<typeof checkoutRequestSchema>, 'checkoutKey' | 'restaurantId' | 'items' | 'expectedTotalSom' | 'expectedUnitPrices'> & { taxiCompanyId?: string | undefined },
   paymentMode: 'MOCK' | 'REAL',
 ): PlaceOrderInput {
   return {
     restaurantId: req.restaurantId, ...(typeof owner === 'string' ? { telegramUserId: owner } : { customerId: owner.customerId }), ...(customerName ? { customerName } : {}), phone: resolved.phone, addressText: resolved.addressText,
     ...(resolved.lat != null && resolved.lng != null ? { deliveryLat: resolved.lat, deliveryLng: resolved.lng } : {}),
-    checkoutKey: req.checkoutKey, createdViaBot: true, autoTaxi: true, paymentMode, items: req.items, expectedTotalSom: req.expectedTotalSom,
+    checkoutKey: req.checkoutKey, createdViaBot: true, paymentMode, items: req.items, expectedTotalSom: req.expectedTotalSom,
+    ...(req.taxiCompanyId ? { taxiCompanyId: req.taxiCompanyId } : { autoTaxi: true }),
     ...(req.expectedUnitPrices ? { expectedUnitPrices: req.expectedUnitPrices } : {}),
   };
 }

@@ -11,6 +11,7 @@ import com.dsdelivery.restaurant.data.api.dto.CreateCategoryRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CreateProductRequestDto
 import com.dsdelivery.restaurant.data.api.dto.LoginRequestDto
 import com.dsdelivery.restaurant.data.api.dto.OrderDto
+import com.dsdelivery.restaurant.data.api.dto.PrepTimeRequestDto
 import com.dsdelivery.restaurant.data.api.dto.PreparingOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.ReadyOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.RejectOrderRequestDto
@@ -491,6 +492,9 @@ class RestaurantRepositoryImpl(
 
     override suspend fun setOrderPreparing(id: String, prepMinutes: Int?, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.startPreparingOrder(id, PreparingOrderRequestDto(prepMinutes, expectedStatus)) }
+
+    override suspend fun setPrepTime(id: String, minutes: Int, expectedStatus: String?): Resource<Order> =
+        orderAction { apiClient.service.setPrepTime(id, PrepTimeRequestDto(minutes, expectedStatus)) }
 
     override suspend fun setOrderReady(id: String, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.markOrderReady(id, ReadyOrderRequestDto(expectedStatus)) }

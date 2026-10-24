@@ -3,10 +3,11 @@ import { MapPin } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
 import { PaidDialog } from '../components/PaidDialog';
+import { PayWarning } from '../components/PayWarning';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { clock, mmss, som } from '../lib/format';
-import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, shouldAnnouncePaid, type Anchor } from '../lib/order';
+import { anchorOf, isTerminal, overdueMinutes, paymentRemainingSeconds, pollIntervalMs, remainingSeconds, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
 import { confirmDialog, haptic } from '../lib/telegram';
 import type { CustomerStage, OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
@@ -64,7 +65,8 @@ export function OrderScreen({ id }: { id: string }) {
   }, [order]);
 
   const counting = order?.stage === 'PREPARING' && Boolean(order.prep.estimatedReadyAt);
-  const perfNow = useNow(1000, counting);
+  const payCounting = order?.stage === 'PAYMENT_PENDING' && Boolean(order.payment?.instructions?.expiresAt);
+  const perfNow = useNow(1000, counting || payCounting);
 
   if (!order && !error) return <div className="page"><Skeletons n={3} /></div>;
   if (!order) return <div className="page"><ErrorBox error={error} onRetry={() => void refresh()} /></div>;
@@ -74,6 +76,7 @@ export function OrderScreen({ id }: { id: string }) {
   const pay = o.payment;
   const ins = pay?.instructions ?? null;
   const awaiting = o.stage === 'PAYMENT_PENDING';
+  const payLeft = awaiting && anchor ? paymentRemainingSeconds(ins?.expiresAt, anchor, perfNow) : null;
 
   const mockPay = async () => {
     if (busy) return;
@@ -159,12 +162,12 @@ export function OrderScreen({ id }: { id: string }) {
               ? <div className="banner bad" role="alert"><strong>To‘lov qabul qiluvchi hozircha sozlanmagan.</strong><br />Hozir pul o‘tkazmang. Restoran bilan bog‘laning yoki keyinroq qaytib keling.</div>
               : (
                 <div className="stack">
-                  <div className="sub small">Quyidagi kartaga aynan shu summani o‘tkazing:</div>
+                  <PayWarning amountSom={pay.amountSom} windowMinutes={windowMinutes(ins.windowSeconds)} remaining={payLeft} total={ins.windowSeconds ?? null} />
                   <PayCard number={ins.cardNumber} holder={ins.cardHolder ?? o.restaurantName} onCopy={d => void copy(d)} />
                 </div>
               )
           )}
-          {ins && ins.expiresAt && <p className="sub small">To‘lov muddati: {clock(ins.expiresAt)} gacha.</p>}
+          {ins && ins.expiresAt && payLeft === null && <p className="sub small">To‘lov muddati: {clock(ins.expiresAt)} gacha.</p>}
           {pay.mode === 'MOCK' && config?.mockPaymentAvailable && (
             <>
               <div className="banner">Sinov rejimi: haqiqiy pul olinmaydi.</div>
@@ -180,7 +183,7 @@ export function OrderScreen({ id }: { id: string }) {
         {o.items.map((it, i) => <div key={i} className="row between small"><span className="grow">{it.quantity} × {it.name}</span><span className="mono">{som(it.subtotalSom)}</span></div>)}
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
-        <div className="row between sub small"><span>Yetkazish</span><span>taksi tarifi bo‘yicha, alohida</span></div>
+        <div className="row between sub small"><span>Yetkazish{o.taxiCompanyName ? ` (${o.taxiCompanyName})` : ''}</span><span>taksi tarifi bo‘yicha, alohida</span></div>
         <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={MapPin} size={16} className="shrink" /><span className="grow">{o.address}</span></div>
       </div>
 

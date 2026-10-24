@@ -43,6 +43,14 @@ export async function scheduleTaxiWhenPreparing(
   });
 }
 
+/** The restaurant changed the preparation time while cooking: move a dispatch that has NOT been sent yet. A sent/claimed one is never touched. */
+export async function rescheduleTaxiForPrep(tx: Transaction, orderId: string, preparingStartedAt: Date, prepMinutes: number): Promise<void> {
+  await tx.taxiDispatch.updateMany({
+    where: { orderId, status: 'SCHEDULED' },
+    data: { dueAt: calculateTaxiDueAt(preparingStartedAt, prepMinutes, leadMinutes) },
+  });
+}
+
 /** If cooking finishes early, ask the scheduler to dispatch now. No double-send. */
 export async function advanceTaxiWhenReady(tx: Transaction, orderId: string, now: Date): Promise<void> {
   await tx.taxiDispatch.updateMany({

@@ -228,7 +228,7 @@ test('MOCK: a safe test payment moves on to cooking by itself with the default p
   assert.equal(d[0]!.status, 'SCHEDULED');
   assert.equal(d[0]!.taxiCompanyId, taxiId);
   const view = (await call('GET', `/orders/${o.id}`, ta)).json();
-  assert.deepEqual(view.allowedActions.filter((a: string) => a !== 'CANCEL_ORDER'), ['MARK_READY']);
+  assert.deepEqual(view.allowedActions.filter((a: string) => a !== 'CANCEL_ORDER'), ['SET_PREP_TIME', 'MARK_READY']);
   const toCook = (await call('GET', '/orders?filter=toCook&limit=50', ta)).json();
   assert.ok(toCook.orders.some((x: { id: string }) => x.id === o.id), 'it is announced to the kitchen');
 });
@@ -354,7 +354,7 @@ test('Mini App contract: strict schemas, identity only from the caller, quote = 
   const good = { checkoutKey: randomUUID(), restaurantId: ids.a!, items: [{ productId: p.id, quantity: 2 }], expectedTotalSom: 24_000, address: { addressText: 'Manzil 1' }, phone: '+998901234567' };
   assert.equal(checkoutRequestSchema.safeParse(good).success, true);
   assert.equal(checkoutRequestSchema.safeParse({ ...good, address: undefined, addressId: 'saved1' }).success, true);
-  for (const bad of [{ telegramUserId: '1' }, { customerId: 'x' }, { paymentMode: 'MOCK' }, { totalSom: 1 }, { cardNumber: '8600' }, { taxiCompanyId: 'x' }, { checkoutKey: 'not-a-uuid' }, { expectedTotalSom: undefined }, { phone: '901234567' },
+  for (const bad of [{ telegramUserId: '1' }, { customerId: 'x' }, { paymentMode: 'MOCK' }, { totalSom: 1 }, { cardNumber: '8600' }, { checkoutKey: 'not-a-uuid' }, { expectedTotalSom: undefined }, { phone: '901234567' },
     { addressId: 'both' }, { address: undefined }]) {
     assert.equal(checkoutRequestSchema.safeParse({ ...good, ...bad }).success, false, JSON.stringify(bad));
   }
