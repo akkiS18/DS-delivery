@@ -46,7 +46,7 @@ data class FoodInfo(
 /** One taxi request. [actions] is decided by the server (what this company may press now). */
 data class RequestDto(
     @SerializedName("id") val id: String,
-    @SerializedName("orderNumber") val orderNumber: Int,
+    @SerializedName("orderCode") val orderCode: String,
     @SerializedName("status") val status: String,
     @SerializedName("attention") val attention: Boolean,
     @SerializedName("createdAt") val createdAt: String,

@@ -54,7 +54,7 @@ interface RestaurantRepository {
 
     // --- Stage 4: Orders & Order Details ---
     /** [filter] is one of all|incoming|inProgress|ready|history; [cursor] is the previous page's nextCursor. */
-    suspend fun getOrders(filter: String = "all", cursor: Int? = null): Resource<com.dsdelivery.restaurant.data.model.OrdersPage>
+    suspend fun getOrders(filter: String = "all", cursor: String? = null): Resource<com.dsdelivery.restaurant.data.model.OrdersPage>
     suspend fun getOrder(id: String): Resource<com.dsdelivery.restaurant.data.model.Order>
 
     /** Actions return the server's updated order. [expectedStatus] is the status the user was looking at. */

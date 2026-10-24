@@ -41,7 +41,6 @@ data class PaymentSignalDto(
 )
 
 data class PaymentEvidenceDto(
-    @SerializedName("reference") val reference: Int = 0,
     @SerializedName("expectedAmountSom") val expectedAmountSom: Int = 0,
     @SerializedName("status") val status: String = "",
     @SerializedName("isTest") val isTest: Boolean = false,
@@ -66,7 +65,6 @@ data class MenuProblemDto(
 
 data class RefundDto(
     @SerializedName("id") val id: String = "",
-    @SerializedName("number") val number: Int = 0,
     @SerializedName("kind") val kind: String = "",
     @SerializedName("status") val status: String = "",
     @SerializedName("reasonCode") val reasonCode: String = "",
@@ -90,7 +88,7 @@ data class OrderTaxiDto(
 
 data class OrderDto(
     @SerializedName("id") val id: String,
-    @SerializedName("number") val number: Int,
+    @SerializedName("code") val code: String = "",
     @SerializedName("status") val status: String,
     @SerializedName("totalSom") val totalSom: Int,
     @SerializedName("createdAt") val createdAt: String,
@@ -127,7 +125,7 @@ data class OrderCountsDto(
 
 data class OrdersResponseDto(
     @SerializedName("orders") val orders: List<OrderDto> = emptyList(),
-    @SerializedName("nextCursor") val nextCursor: Int? = null,
+    @SerializedName("nextCursor") val nextCursor: String? = null,
     @SerializedName("counts") val counts: OrderCountsDto? = null
 )
 
@@ -170,7 +168,7 @@ data class ReadyOrderRequestDto(
 fun OrderDto.toDomain(): Order {
     return Order(
         id = id,
-        number = number,
+        code = code,
         status = OrderStatus.fromRaw(status),
         totalSom = totalSom,
         createdAt = createdAt,
@@ -196,7 +194,7 @@ fun OrderDto.toDomain(): Order {
         defaultPrepMinutes = defaultPrepMinutes,
         paymentEvidence = paymentEvidence?.let {
             PaymentEvidence(
-                reference = it.reference, expectedAmountSom = it.expectedAmountSom, status = it.status, isTest = it.isTest,
+                expectedAmountSom = it.expectedAmountSom, status = it.status, isTest = it.isTest,
                 cardLast4 = it.cardLast4, assignedAt = it.assignedAt, matchedAt = it.matchedAt, verifiedAt = it.verifiedAt,
                 signalSource = it.signal?.source, signalAmountSom = it.signal?.amountSom, signalAmountMatches = it.signal?.amountMatches,
                 signalOccurredAt = it.signal?.occurredAt, signalTrusted = it.signal?.trustedSender, notBankProof = it.notBankProof
@@ -204,7 +202,7 @@ fun OrderDto.toDomain(): Order {
         },
         menuProblems = menuProblems.orEmpty().map { it.name },
         refund = refund?.let {
-            RefundInfo(it.id, it.number, it.kind, it.status, it.reasonCode, it.requestedBy, it.paidAmountSom, it.approvedAmountSom, it.bankReference, it.hasReceipt, it.rejectReason)
+            RefundInfo(it.id, it.kind, it.status, it.reasonCode, it.requestedBy, it.paidAmountSom, it.approvedAmountSom, it.bankReference, it.hasReceipt, it.rejectReason)
         },
         attention = attention.orEmpty(),
         clock = serverNow?.let { parseIsoMillis(it) }?.let { ServerClock(it, SystemClock.elapsedRealtime()) },

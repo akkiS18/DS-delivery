@@ -35,6 +35,24 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
 };
 
 export const isTerminal = (s: CustomerStage): boolean => s === 'DELIVERED' || s === 'CANCELLED' || s === 'EXPIRED';
+const PAID_STAGES: CustomerStage[] = ['PREPARING', 'READY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
+const WAITING_FOR_PAYMENT: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING'];
+/** A payment that was accepted this recently still counts as "just now" when the screen is opened for the first time. */
+const JUST_NOW_MS = 2 * 60_000;
+
+/**
+ * Should the "to'lovingiz qabul qilindi" notice be shown now? Once per order: when the screen sees the order move from waiting-for-payment to
+ * paid, or when it is opened within two minutes of the acceptance (the customer was in another app while the money arrived).
+ * `prev` is the stage this screen saw before (null = first load); `serverNowIso`/`paidAtIso` come from the server, so a wrong phone clock does not matter.
+ */
+export function shouldAnnouncePaid(prev: CustomerStage | null, next: CustomerStage, alreadySeen: boolean, paidAtIso?: string | null, serverNowIso?: string): boolean {
+  if (alreadySeen || !PAID_STAGES.includes(next)) return false;
+  if (prev !== null) return WAITING_FOR_PAYMENT.includes(prev);
+  if (!paidAtIso || !serverNowIso) return false;
+  const age = Date.parse(serverNowIso) - Date.parse(paidAtIso);
+  return Number.isFinite(age) && age >= 0 && age <= JUST_NOW_MS;
+}
+
 /** Polling cadence: quicker while the payment is awaited, slower while cooking, none when finished. (Polling, not push.) */
 export const pollIntervalMs = (s: CustomerStage): number | null => (isTerminal(s) ? null : s === 'PAYMENT_PENDING' ? 4000 : 8000);
 

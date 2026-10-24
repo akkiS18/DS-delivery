@@ -122,7 +122,7 @@ interface RestaurantApiService {
     suspend fun getOrders(
         @Query("filter") filter: String = "all",
         @Query("limit") limit: Int = 20,
-        @Query("cursor") cursor: Int? = null
+        @Query("cursor") cursor: String? = null
     ): OrdersResponseDto
 
     @GET("api/v1/restaurant/orders/{id}")

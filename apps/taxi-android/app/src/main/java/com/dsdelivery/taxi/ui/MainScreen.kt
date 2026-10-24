@@ -226,7 +226,7 @@ private fun HistoryTab(history: List<com.dsdelivery.taxi.data.RequestDto>, offse
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Row {
-                        Text("#${r.orderNumber}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        Text("#${r.orderCode}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                         Text(look.label, color = toneColor(look.tone), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                     }
                     Text("${r.restaurant.name} → ${r.delivery.address}", style = MaterialTheme.typography.bodyMedium)

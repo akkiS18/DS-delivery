@@ -451,7 +451,7 @@ class RestaurantRepositoryImpl(
 
     // --- Stage 4: Orders & Order Details ---
 
-    override suspend fun getOrders(filter: String, cursor: Int?): Resource<OrdersPage> {
+    override suspend fun getOrders(filter: String, cursor: String?): Resource<OrdersPage> {
         return try {
             Resource.Success(apiClient.service.getOrders(filter = filter, cursor = cursor).toDomain())
         } catch (e: HttpException) {

@@ -71,7 +71,7 @@ fun RequestCard(
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("#${r.orderNumber}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Text("#${r.orderCode}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 if (r.isTest) Chip("SINOV", NeutralColor)
                 Spacer(Modifier.size(8.dp))
                 Chip(look.label, tone)

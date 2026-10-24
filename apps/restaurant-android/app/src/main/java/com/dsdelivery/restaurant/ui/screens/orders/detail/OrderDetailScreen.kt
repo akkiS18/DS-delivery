@@ -867,7 +867,7 @@ private fun RefundCard(order: Order) {
     val r = order.refund ?: return
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Bekor qilish #${r.number}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Bekor qilish so‘rovi", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(6.dp))
             val statusText = when (r.status) {
                 "REQUESTED" -> "Mijoz bekor qilmoqchi. Qaror kerak."

@@ -61,8 +61,8 @@ class Notifier(private val context: Context) {
         if (waiting.isEmpty()) { manager.cancel(ID_ALERT); return }
         if (!canPost()) return
         val first = waiting.first()
-        val title = if (waiting.size == 1) "Yangi so‘rov #${first.orderNumber}" else "${waiting.size} ta so‘rov javob kutmoqda"
-        val body = if (waiting.size == 1) "${first.restaurant.name} → ${first.delivery.address}" else waiting.joinToString { "#${it.orderNumber}" }
+        val title = if (waiting.size == 1) "Yangi so‘rov #${first.orderCode}" else "${waiting.size} ta so‘rov javob kutmoqda"
+        val body = if (waiting.size == 1) "${first.restaurant.name} → ${first.delivery.address}" else waiting.joinToString { "#${it.orderCode}" }
         val silence = PendingIntent.getBroadcast(
             context, 1, Intent(context, SilenceReceiver::class.java).setAction(SilenceReceiver.ACTION),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

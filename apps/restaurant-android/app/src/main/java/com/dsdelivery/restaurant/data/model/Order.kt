@@ -73,7 +73,7 @@ enum class OrderAction {
 /** One page of GET /orders plus the tab badge counters. */
 data class OrdersPage(
     val orders: List<Order>,
-    val nextCursor: Int?,
+    val nextCursor: String?,
     val incomingCount: Int,
     val inProgressCount: Int,
     val readyCount: Int,
@@ -99,7 +99,6 @@ enum class RefundRejectReason(val code: String, val title: String) {
 
 /** What the restaurant checks before confirming real money. A mail signal is NOT proof of a bank credit. */
 data class PaymentEvidence(
-    val reference: Int,
     val expectedAmountSom: Int,
     val status: String,
     val isTest: Boolean,
@@ -138,7 +137,6 @@ data class PrepInfo(
 
 data class RefundInfo(
     val id: String,
-    val number: Int,
     val kind: String,
     val status: String,
     val reasonCode: String,
@@ -180,7 +178,8 @@ data class OrderItem(
 
 data class Order(
     val id: String,
-    val number: Int,
+    /** The public order reference (short code). The platform's sequence number is never sent to a restaurant. */
+    val code: String,
     val status: OrderStatus,
     val totalSom: Int,
     val createdAt: String,
@@ -226,7 +225,7 @@ data class Order(
         }
 
     val orderNumberDisplay: String
-        get() = "#$number"
+        get() = "#$code"
 
     val itemsCount: Int
         get() = items.sumOf { it.quantity }

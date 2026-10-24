@@ -185,3 +185,16 @@ h1, h2, h3, p { margin: 0; }
 .phase.current .phase-dot { border-color: var(--primary); color: var(--primary); box-shadow: 0 0 0 5px var(--mint); }
 .phase-label { font-size: 12px; font-weight: 700; line-height: 1.15; }
 .phase.current .phase-label, .phase.done .phase-label { color: var(--ink); }
+
+/* "To'lov qabul qilindi" notice: centered card, a ring that runs for 5 seconds around the check mark */
+.paid-back { align-items: center; padding: 24px; }
+.paid-card { background: var(--card); border-radius: 24px; padding: 28px 24px 24px; width: min(340px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25); }
+.paid-ring { position: relative; width: 112px; height: 112px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+.paid-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.paid-ring-bg { fill: none; stroke: var(--mint-soft); stroke-width: 7; }
+.paid-ring-run { fill: none; stroke: var(--primary); stroke-width: 7; stroke-linecap: round; stroke-dasharray: 276.5; stroke-dashoffset: 0; animation-name: paid-run; animation-timing-function: linear; animation-fill-mode: forwards; }
+.paid-check { width: 72px; height: 72px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; }
+.paid-title { font-size: 21px; font-weight: 800; color: var(--ink); }
+.paid-text { font-size: 17px; color: var(--ink-soft); margin-bottom: 8px; }
+.paid-card .btn { width: 100%; }
+@keyframes paid-run { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 276.5; } }

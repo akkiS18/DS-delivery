@@ -88,7 +88,8 @@ export interface PrepClock {
 export interface OrderView {
   serverNow: string;
   id: string;
-  number: number;
+  /** The public order reference (short code like K7M2Q). The platform's internal sequence number is never sent. */
+  code: string;
   status: string;
   stage: CustomerStage;
   createdAt: string;
@@ -107,13 +108,15 @@ export interface OrderView {
   /** "Did you receive it?" is asked once the taxi is on its way; a signal only. */
   receivedAt?: string | null;
   canConfirmReceived?: boolean;
+  /** When the payment was accepted (null until then): used to announce the acceptance once. */
+  paidAt?: string | null;
   cancel: { allowed: boolean; kind: 'UNPAID' | 'REFUND_REQUEST' | null };
   refund: { status: string; hasReceipt: boolean } | null;
 }
 
 export interface OrderSummary {
   id: string;
-  number: number;
+  code: string;
   status: string;
   stage: CustomerStage;
   createdAt: string;

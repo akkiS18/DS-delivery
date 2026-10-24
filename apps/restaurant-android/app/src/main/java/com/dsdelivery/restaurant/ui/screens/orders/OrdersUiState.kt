@@ -17,7 +17,7 @@ data class OrdersUiState(
     val isLoadingMore: Boolean = false,
     val orders: List<Order> = emptyList(),
     /** Present while more pages exist for the selected filter. */
-    val nextCursor: Int? = null,
+    val nextCursor: String? = null,
     val selectedFilter: OrderFilter = OrderFilter.ALL,
     val searchQuery: String = "",
     val manualOrderIdInput: String = "",
@@ -38,7 +38,7 @@ data class OrdersUiState(
             if (searchQuery.isBlank()) return orders
             val q = searchQuery.trim().lowercase()
             return orders.filter { order ->
-                order.number.toString().contains(q) ||
+                order.code.lowercase().contains(q) ||
                     (order.customerPhone?.lowercase()?.contains(q) == true) ||
                     (order.customerName?.lowercase()?.contains(q) == true) ||
                     order.items.any { it.name.lowercase().contains(q) }

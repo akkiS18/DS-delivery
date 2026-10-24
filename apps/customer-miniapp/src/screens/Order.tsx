@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
+import { PaidDialog } from '../components/PaidDialog';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { clock, mmss, som } from '../lib/format';
-import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, type Anchor } from '../lib/order';
+import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, shouldAnnouncePaid, type Anchor } from '../lib/order';
 import { confirmDialog, haptic } from '../lib/telegram';
-import type { OrderView } from '../lib/types';
+import type { CustomerStage, OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
 
 export function OrderScreen({ id }: { id: string }) {
@@ -20,6 +21,8 @@ export function OrderScreen({ id }: { id: string }) {
   const [receipt, setReceipt] = useState<{ mime: string; dataBase64: string } | null>(null);
   const [receiptBusy, setReceiptBusy] = useState(false);
   const alive = useRef(true);
+  const prevStage = useRef<CustomerStage | null>(null);
+  const [paidNotice, setPaidNotice] = useState(false);
 
   const adopt = useCallback((o: OrderView) => { setOrder(o); setAnchor(anchorOf(o.serverNow, performance.now())); setError(null); }, []);
 
@@ -45,6 +48,20 @@ export function OrderScreen({ id }: { id: string }) {
     if (!document.hidden) start();
     return () => { document.removeEventListener('visibilitychange', vis); stop(); };
   }, [stage, refresh]);
+
+  // The moment payment turns into cooking, tell the customer in plain sight (once per order; remembered so a reload does not repeat it).
+  useEffect(() => {
+    if (!order) return;
+    const key = `ds.paidSeen.${order.id}`;
+    let seen = false;
+    try { seen = localStorage.getItem(key) === '1'; } catch { /* storage may be unavailable */ }
+    if (shouldAnnouncePaid(prevStage.current, order.stage, seen, order.paidAt, order.serverNow)) {
+      try { localStorage.setItem(key, '1'); } catch { /* ignore */ }
+      setPaidNotice(true);
+      haptic.success();
+    }
+    prevStage.current = order.stage;
+  }, [order]);
 
   const counting = order?.stage === 'PREPARING' && Boolean(order.prep.estimatedReadyAt);
   const perfNow = useNow(1000, counting);
@@ -86,9 +103,10 @@ export function OrderScreen({ id }: { id: string }) {
 
   return (
     <div className="page">
+      {paidNotice && <PaidDialog onClose={() => setPaidNotice(false)} />}
       <div className="row between">
         <div>
-          <h1 className="page-title">Buyurtma #{o.number}</h1>
+          <h1 className="page-title">Buyurtma #{o.code}</h1>
           <p className="sub">{o.restaurantName} • {clock(o.createdAt)}</p>
         </div>
         {o.isTest && <span className="badge test">TEST</span>}

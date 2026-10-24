@@ -78,7 +78,7 @@ object SampleData {
     val sampleOrders = listOf(
         com.dsdelivery.restaurant.data.model.Order(
             id = "order_1042",
-            number = 1042,
+            code = "K7M2Q",
             status = com.dsdelivery.restaurant.data.model.OrderStatus.WAITING_RESTAURANT,
             totalSom = 75000,
             createdAt = "2026-10-17T15:20:00.000Z",
@@ -94,7 +94,7 @@ object SampleData {
         ),
         com.dsdelivery.restaurant.data.model.Order(
             id = "order_1041",
-            number = 1041,
+            code = "T4WZ9",
             status = com.dsdelivery.restaurant.data.model.OrderStatus.PREPARING,
             totalSom = 93000,
             createdAt = "2026-10-17T15:05:00.000Z",
@@ -109,7 +109,7 @@ object SampleData {
         ),
         com.dsdelivery.restaurant.data.model.Order(
             id = "order_1040",
-            number = 1040,
+            code = "B8NR3",
             status = com.dsdelivery.restaurant.data.model.OrderStatus.READY,
             totalSom = 32000,
             createdAt = "2026-10-17T14:45:00.000Z",
@@ -123,7 +123,7 @@ object SampleData {
         ),
         com.dsdelivery.restaurant.data.model.Order(
             id = "order_1039",
-            number = 1039,
+            code = "H6CX5",
             status = com.dsdelivery.restaurant.data.model.OrderStatus.PAYMENT_PENDING,
             totalSom = 58000,
             createdAt = "2026-10-17T14:30:00.000Z",
@@ -138,7 +138,7 @@ object SampleData {
         ),
         com.dsdelivery.restaurant.data.model.Order(
             id = "order_1038",
-            number = 1038,
+            code = "D2PV7",
             status = com.dsdelivery.restaurant.data.model.OrderStatus.COMPLETED,
             totalSom = 110000,
             createdAt = "2026-10-17T13:10:00.000Z",
@@ -154,7 +154,7 @@ object SampleData {
         ),
         com.dsdelivery.restaurant.data.model.Order(
             id = "order_1037",
-            number = 1037,
+            code = "S9GJ4",
             status = com.dsdelivery.restaurant.data.model.OrderStatus.RESTAURANT_REJECTED,
             totalSom = 29000,
             createdAt = "2026-10-17T12:00:00.000Z",

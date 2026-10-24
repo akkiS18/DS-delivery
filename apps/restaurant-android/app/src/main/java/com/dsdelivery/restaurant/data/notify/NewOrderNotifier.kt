@@ -52,7 +52,7 @@ class NewOrderNotifier(private val context: Context) {
                 .setContentIntent(open)
                 .build()
             // Same id per order number: a repeat would replace, never stack.
-            NotificationManagerCompat.from(context).notify(order.number, n)
+            NotificationManagerCompat.from(context).notify(order.code.hashCode(), n)
         }
     }
 

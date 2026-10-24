@@ -11,7 +11,7 @@ import org.junit.Test
 class AttentionTrackerTest {
 
     private fun req(id: String, status: String, attention: Boolean) = RequestDto(
-        id = id, orderNumber = 1, status = status, attention = attention, createdAt = "2026-01-01T10:00:00Z", sentAt = null, answerBy = null,
+        id = id, orderCode = "K7M2Q", status = status, attention = attention, createdAt = "2026-01-01T10:00:00Z", sentAt = null, answerBy = null,
         updatedAt = "2026-01-01T10:00:00Z", deliveredAt = null, isTest = false,
         restaurant = RestaurantInfo("R", null, null), delivery = DeliveryInfo("A", null, null, null),
         food = FoodInfo(false, "PREPARING", null, null, null, 1000), actions = emptyList(), deliverBlockedReason = null,
