@@ -4,7 +4,7 @@ prompt and lives only in this process's environment while Gradle runs.
 
   powershell -ExecutionPolicy Bypass -File scripts\build-release-apks.ps1 -ApiUrl https://api.example.uz -VersionCode 1 -VersionName 1.0.0
 
-Output: <OutDir>\ds-customer-release-<versionName>.apk and ds-restaurant-release-<versionName>.apk with SHA-256 files.
+Output: <OutDir>\ds-customer-release-<versionName>.apk, ds-restaurant-release-<versionName>.apk and ds-taxi-release-<versionName>.apk with SHA-256 files.
 Needs Node (customer web build), the Android SDK and a JDK (Android Studio's is found automatically). The keystore comes from
 scripts\create-release-keystore.ps1. It does not install anything on a phone and never uses the debug key.
 #>
@@ -49,9 +49,14 @@ try {
   & $gradle -p (Join-Path $root 'apps\restaurant-android') :app:assembleRelease "-PdsApiBaseUrl=$ApiUrl/" "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
   if ($LASTEXITCODE -ne 0) { throw 'restaurant APK build failed' }
 
+  Write-Host '== taxi operator: signed release APK'
+  & $gradle -p (Join-Path $root 'apps\taxi-android') :app:assembleRelease "-PdsApiBaseUrl=$ApiUrl/" "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
+  if ($LASTEXITCODE -ne 0) { throw 'taxi APK build failed' }
+
   $pairs = @(
     @{ From = Join-Path $root 'apps\customer-miniapp\android\app\build\outputs\apk\release\app-release.apk'; To = "ds-customer-release-$VersionName.apk" },
-    @{ From = Join-Path $root 'apps\restaurant-android\app\build\outputs\apk\release\app-release.apk'; To = "ds-restaurant-release-$VersionName.apk" }
+    @{ From = Join-Path $root 'apps\restaurant-android\app\build\outputs\apk\release\app-release.apk'; To = "ds-restaurant-release-$VersionName.apk" },
+    @{ From = Join-Path $root 'apps\taxi-android\app\build\outputs\apk\release\app-release.apk'; To = "ds-taxi-release-$VersionName.apk" }
   )
   foreach ($p in $pairs) {
     if (-not (Test-Path $p.From)) { throw "Expected output missing (unsigned build?): $($p.From)" }

@@ -36,3 +36,9 @@ apps/customer-miniapp-backup-*/
 *.jks
 *.keystore
 keystore.properties
+
+# Taxi Android (Kotlin) build output and machine-local files
+apps/taxi-android/.gradle/
+apps/taxi-android/.idea/
+apps/taxi-android/**/build/
+apps/taxi-android/local.properties

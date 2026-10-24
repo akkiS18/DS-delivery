@@ -81,6 +81,12 @@ $C dist/src/tools/add-taxi.js / link-taxi.js ...                # see docs for t
 
 The restaurant installs the release APK, signs in, adds its card under **Operatsiyalar → To‘lov kartalari** (number + account password). You get a Telegram message with the full number: call the owner of the restaurant, then confirm with the two-step button. Until then customers cannot order from that restaurant.
 
+## 4a. Taxi operators work in the DS Taxi app (replaces the Telegram taxi bot)
+- Backend: `TAXI_TELEGRAM_ENABLED=false` (`set-secret.sh TAXI_TELEGRAM_ENABLED --value false`, restart). Then the taxi bot is not started, `/taxi` answers "Taksi operatorlari endi DS Taxi ilovasida", and the dispatcher sends nothing to operators over Telegram. The customer bot keeps `/taxiadmin` (stuck-dispatch recovery) and the admins' Telegram alerts. Unset/`true` = the old Telegram panel keeps working next to the app (rollback).
+- New company + login: administrator, customer bot: `/newtaxi Kompaniya nomi` -> login + one-time password (hand it to the operator). Existing company (e.g. the rehearsal one): `/taxiapp <login yoki kompaniya nomi>` creates the login the first time and sets a NEW password after that (signs every phone out). Both are audited (`AdminAuditEvent`), never with the password. A company is bookable when it has an app login (or, while the Telegram panel is on, a linked operator).
+- Phone: install `ds-taxi-release-<version>.apk`, sign in, then Sozlamalar -> Tayyorlik: notifications, alarm volume, battery "cheklovsiz" (Doze/OEM killers are the #1 reason a background app misses a request). The app polls every ~3 s while a foreground service keeps it alive; that poll is also its heartbeat — if no phone polled for 90 s when a request is sent, the administrators are alerted at once ("ilovasi ulanmagan"); unanswered requests still escalate through CANCELLATION_PENDING -> `/taxiadmin` exactly as before.
+- Not push (FCM) yet: a phone that is off, offline, or force-stopped by the user/OEM hears nothing; keep the operator phone charging on Wi-Fi/data and tell the operator never to "force stop" the app.
+
 ## 5. Real-money rehearsal (owner's own cards, small amounts, restaurant account the owner controls)
 Use 1–3 of the owner's real cards as the restaurant's cards and pay from a different card or bank app. Record order #, time, result; never write card numbers in the report.
 

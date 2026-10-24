@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A simple car silhouette on the yellow taxi background, inside the 66dp safe zone. -->
+    <path
+        android:fillColor="#1B1B1F"
+        android:pathData="M30,60 L35,46 Q36,43 40,43 L68,43 Q72,43 73,46 L78,60 L78,70 L73,70 L73,66 L35,66 L35,70 L30,70 Z" />
+    <path
+        android:fillColor="#FFC400"
+        android:pathData="M39,48 L69,48 L73,58 L35,58 Z" />
+    <path
+        android:fillColor="#FFC400"
+        android:pathData="M37,62 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path
+        android:fillColor="#FFC400"
+        android:pathData="M71,62 m-2.5,0 a2.5,2.5 0 1,0 5,0 a2.5,2.5 0 1,0 -5,0" />
+    <path
+        android:fillColor="#1B1B1F"
+        android:pathData="M49,38 L59,38 L59,43 L49,43 Z" />
+</vector>
