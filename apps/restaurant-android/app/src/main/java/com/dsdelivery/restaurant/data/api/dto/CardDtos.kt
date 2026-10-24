@@ -17,11 +17,10 @@ data class CardsResponseDto(@SerializedName("cards") val cards: List<CardDto>? =
 
 data class CardResponseDto(@SerializedName("card") val card: CardDto? = null)
 
-/** The number and the account password are sent once and never stored by the app. */
+/** The number is sent once and never stored by the app. The card still needs an administrator's approval before it is used. */
 data class AddCardRequestDto(
     @SerializedName("number") val number: String,
-    @SerializedName("holderName") val holderName: String,
-    @SerializedName("password") val password: String
+    @SerializedName("holderName") val holderName: String
 )
 
 /** Explicit JSON body for the enable/disable actions (a bodiless POST is not sent as JSON). */

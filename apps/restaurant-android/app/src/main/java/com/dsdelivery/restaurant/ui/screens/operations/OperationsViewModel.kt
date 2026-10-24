@@ -45,8 +45,8 @@ class OperationsViewModel(
         _uiState.update { it.copy(showAddCardDialog = show, addCardError = null, addCardBusy = false) }
     }
 
-    /** The number and password go to the server once; nothing about them is kept in the UI state. */
-    fun submitCard(digits: String, holderName: String, password: String) {
+    /** The number goes to the server once; nothing about them is kept in the UI state. */
+    fun submitCard(digits: String, holderName: String) {
         val number = CardNumber.digits(digits)
         if (!CardNumber.isValid(number)) {
             _uiState.update { it.copy(addCardError = "Karta raqami noto‘g‘ri.") }
@@ -55,7 +55,7 @@ class OperationsViewModel(
         if (_uiState.value.addCardBusy) return
         _uiState.update { it.copy(addCardBusy = true, addCardError = null) }
         viewModelScope.launch {
-            when (val result = repository.addCard(number, holderName.trim(), password)) {
+            when (val result = repository.addCard(number, holderName.trim())) {
                 is Resource.Success -> {
                     _uiState.update {
                         it.copy(

@@ -7,7 +7,7 @@ import { PayWarning } from '../components/PayWarning';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { clock, mmss, som } from '../lib/format';
-import { anchorOf, isTerminal, overdueMinutes, paymentRemainingSeconds, pollIntervalMs, remainingSeconds, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
+import { anchorOf, isTerminal, overdueMinutes, paymentRemainingSeconds, pollIntervalMs, prepPending, remainingSeconds, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
 import { confirmDialog, haptic } from '../lib/telegram';
 import type { CustomerStage, OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
@@ -64,7 +64,7 @@ export function OrderScreen({ id }: { id: string }) {
     prevStage.current = order.stage;
   }, [order]);
 
-  const counting = order?.stage === 'PREPARING' && Boolean(order.prep.estimatedReadyAt);
+  const counting = order?.stage === 'PREPARING' && Boolean(order.prep.estimatedReadyAt) && !prepPending(order.stage, order.prep);
   const payCounting = order?.stage === 'PAYMENT_PENDING' && Boolean(order.payment?.instructions?.expiresAt);
   const perfNow = useNow(1000, counting || payCounting);
 
@@ -122,6 +122,7 @@ export function OrderScreen({ id }: { id: string }) {
             ? <div><span className="mono bold" style={{ fontSize: 34 }}>{mmss(rem)}</span><span className="sub"> • tayyor bo‘lish taxminan {clock(o.prep.estimatedReadyAt)}</span></div>
             : <div className="banner warn" role="status"><strong>Kechikish: {overdueMinutes(rem)} daqiqa</strong><br />Restoran buyurtmani hali tayyorlayapti. Kechikkanimiz uchun uzr.</div>
         )}
+        {prepPending(o.stage, o.prep) && <div className="banner" role="status"><strong>Tayyor bo‘lish vaqti aniqlanmoqda…</strong><br />Restoran vaqtni belgilashi bilan bu yerda hisoblagich paydo bo‘ladi.</div>}
         {o.stage === 'DELIVERED' && <p className="sub center">{o.deliveredAt ? `${clock(o.deliveredAt)} • ` : ''}Yoqimli ishtaha!</p>}
         {o.canConfirmReceived && !o.receivedAt && (
           <div className="stack">

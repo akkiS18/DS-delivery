@@ -423,9 +423,19 @@ test('tracking: owner only; real stages from the backend; MOCK payment starts co
   const paid = (await call('POST', `/orders/${id}/mock-payment`, userA)).json().order;
   assert.equal(paid.status, 'PREPARING', 'MOCK payment is verified safely and cooking starts by itself');
   assert.equal(paid.stage, 'PREPARING');
-  assert.ok(paid.prep.estimatedReadyAt && paid.prep.remainingSeconds > 0);
+  // until the restaurant says in how many minutes the food will be ready, the customer is told nothing about time
+  assert.equal(paid.prep.chosenMinutes, null);
+  assert.equal(paid.prep.estimatedReadyAt, null);
+  assert.equal(paid.prep.remainingSeconds, null);
+  assert.equal(paid.prep.minutes, 0);
   assert.equal((await call('POST', `/orders/${id}/mock-payment`, userA)).statusCode, 409, 'no second payment');
   assert.equal(paid.payment.instructions, null, 'instructions disappear once paid');
+  assert.equal((await call('GET', '/orders', userA)).json().orders.find((o: { id: string }) => o.id === id).prep.estimatedReadyAt, null, 'the list hides it too');
+  // the restaurant's choice (what the app's "ready in N minutes" button stores) starts the countdown
+  await db.order.update({ where: { id }, data: { prepMinutes: 25, prepChosenMinutes: 25, prepChosenAt: new Date() } });
+  const timed = (await call('GET', `/orders/${id}`, userA)).json().order;
+  assert.equal(timed.prep.chosenMinutes, 25);
+  assert.ok(timed.prep.estimatedReadyAt && timed.prep.remainingSeconds > 0);
 
   // overdue is reported from the server clock and never changes the order
   await db.order.update({ where: { id }, data: { preparingStartedAt: new Date(Date.now() - 50 * 60_000) } });

@@ -35,7 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -140,13 +139,12 @@ fun AddCardDialog(
     busy: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onSubmit: (digits: String, holderName: String, password: String) -> Unit
+    onSubmit: (digits: String, holderName: String) -> Unit
 ) {
     var digits by remember { mutableStateOf("") }
     var holder by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
     val typo = digits.length == 16 && !CardNumber.isValid(digits)
-    val canSend = !busy && CardNumber.isValid(digits) && holder.trim().length >= 3 && password.isNotBlank()
+    val canSend = !busy && CardNumber.isValid(digits) && holder.trim().length >= 3
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -174,22 +172,12 @@ fun AddCardDialog(
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Parolingiz") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    enabled = !busy,
-                    modifier = Modifier.fillMaxWidth()
-                )
                 if (error != null) Text(error, style = MaterialTheme.typography.bodyMedium, color = ErrorRed)
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSubmit(digits, holder, password) },
+                onClick = { onSubmit(digits, holder) },
                 enabled = canSend,
                 colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
             ) { Text(if (busy) "Yuborilmoqda..." else "Yuborish") }

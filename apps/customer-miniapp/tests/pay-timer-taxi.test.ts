@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { anchorOf, paymentRemainingSeconds, windowMinutes } from '../src/lib/order';
+import { anchorOf, paymentRemainingSeconds, prepPending, windowMinutes } from '../src/lib/order';
+import { prepHint } from '../src/lib/orderList';
 import { pickTaxi } from '../src/lib/taxi';
 
 const A = { id: 'a', name: 'Alfa Taksi' };
@@ -51,5 +52,18 @@ describe('pickTaxi', () => {
   it('a pick that disappeared from the list is dropped', () => {
     expect(pickTaxi([A, B], 'gone', null)).toBeNull();
     expect(pickTaxi([], null, 'a')).toBeNull();
+  });
+});
+
+describe('prepPending / prepHint', () => {
+  const base = { minutes: 15, startedAt: null, estimatedReadyAt: null, readyAt: null, remainingSeconds: null, overdueMinutes: 0, isOverdue: false };
+  it('is pending only while cooking and the restaurant has not chosen (strictly null)', () => {
+    expect(prepPending('PREPARING', { ...base, chosenMinutes: null })).toBe(true);
+    expect(prepPending('PREPARING', { ...base, chosenMinutes: 20 })).toBe(false);
+    expect(prepPending('PREPARING', base)).toBe(false); // an older server sends nothing: show what it sent
+    expect(prepPending('READY', { ...base, chosenMinutes: null })).toBe(false);
+  });
+  it('the list card says the time is being determined instead of a number', () => {
+    expect(prepHint({ stage: 'PREPARING', prep: { ...base, minutes: 0, chosenMinutes: null } }, 0, 0)).toBe('Tayyor bo‘lish vaqti aniqlanmoqda');
   });
 });

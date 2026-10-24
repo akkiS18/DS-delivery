@@ -1,18 +1,17 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { db } from '../../lib/db.js';
 import { RateLimiter } from '../../lib/rate-limit.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
-import { verifyPassword } from '../restaurant-auth/password.js';
 import { addCard, cardNumberSchema, holderNameSchema, listCards, setCardActive } from './service.js';
 
 const httpError = (statusCode: number, message: string): Error => Object.assign(new Error(message), { statusCode });
-const addSchema = z.object({ number: cardNumberSchema, password: z.string().min(1).max(200), holderName: holderNameSchema.optional() }).strict();
+const addSchema = z.object({ number: cardNumberSchema, password: z.string().max(200).optional(), holderName: holderNameSchema.optional() }).strict();
 const idSchema = z.object({ id: z.string().min(1).max(40) });
 
 /**
- * Restaurant payee cards. The restaurant id comes from the Bearer session only. Adding a card re-asks for the password (a stolen
- * session alone cannot redirect customers' money) and still needs an administrator's approval before the card can be used.
+ * Restaurant payee cards. The restaurant id comes from the Bearer session only. Adding a card does not ask for the password again (the owner's
+ * decision); a stolen session still cannot redirect customers' money, because a new card needs an administrator's approval before it is used.
+ * `password` is accepted and ignored so that apps released before this change keep working.
  */
 export async function restaurantCardsRoutes(app: FastifyInstance, options: { limiter?: RateLimiter } = {}): Promise<void> {
   const limiter = options.limiter ?? new RateLimiter();
@@ -25,13 +24,10 @@ export async function restaurantCardsRoutes(app: FastifyInstance, options: { lim
 
   app.post('/cards', async (request, reply) => {
     const s = await requireRestaurantSession(request);
-    // Few attempts: this is a rare action, and it re-checks the password.
+    // Few attempts: this is a rare action.
     if (!limiter.allow(`cardadd:${s.restaurant.id}`, Number(process.env.CARD_ADD_PER_15MIN ?? 5), 15 * 60_000).allowed) throw httpError(429, 'TOO_MANY_REQUESTS');
     const parsed = addSchema.safeParse(request.body);
     if (!parsed.success) throw httpError(400, 'CARD_NUMBER_INVALID');
-    const credential = await db.restaurantCredential.findUnique({ where: { restaurantId: s.restaurant.id } });
-    // 403 (not 401): a wrong confirmation password must not make the app drop the session.
-    if (!credential || !(await verifyPassword(parsed.data.password, credential.passwordHash))) throw httpError(403, 'PASSWORD_INVALID');
     const r = await addCard(s.restaurant.id, parsed.data.number, `restaurant:${s.restaurant.slug}`, process.env, parsed.data.holderName ?? null);
     if (!r.ok) throw httpError(409, r.code);
     return reply.code(201).send({ card: r.card });

@@ -16,6 +16,9 @@ export function remainingSeconds(prep: PrepClock, a: Anchor, perfNow: number): n
   const diff = ready - serverTime(a, perfNow);
   return diff >= 0 ? Math.ceil(diff / 1000) : -Math.floor(-diff / 1000);
 }
+/** The food is being cooked but the restaurant has not said yet when it will be ready (strictly null: older servers send nothing). */
+export const prepPending = (stage: CustomerStage, prep: PrepClock | undefined): boolean => stage === 'PREPARING' && prep?.chosenMinutes === null;
+
 /** Seconds left to pay (>0), or <= 0 once the window is over; null when there is no deadline. Same server-clock rule as the cooking countdown. */
 export function paymentRemainingSeconds(expiresAtIso: string | null | undefined, a: Anchor, perfNow: number): number | null {
   if (!expiresAtIso) return null;

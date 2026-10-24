@@ -105,16 +105,18 @@ test('number validation: Luhn typo guard, 16 digits, spaces and dashes accepted,
   assert.equal(groupCard('8600123456781234'), '8600 1234 5678 1234');
 });
 
-test('adding a card needs a session AND the password; a wrong password or a typo creates nothing', async () => {
+test('adding a card needs a session but no password; a typo or a foreign field creates nothing; an old app that still sends a password keeps working', async () => {
   const n = await freshNumber();
-  assert.equal((await call('POST', '/cards', null, { number: n, password: PW_A })).statusCode, 401);
-  const wrong = await addCard(tokenA, n, 'not-the-password');
-  assert.equal(wrong.statusCode, 403, 'a wrong confirmation password is 403, so the app does not drop the session');
-  assert.equal(wrong.json().error, 'PASSWORD_INVALID');
-  assert.equal((await addCard(tokenA, n.slice(0, 15) + String((Number(n[15]) + 1) % 10))).statusCode, 400);
-  assert.equal((await call('POST', '/cards', tokenA, { number: n, password: PW_A, restaurantId: ids.b })).statusCode, 400, 'strict body: a client-sent restaurantId is refused');
+  assert.equal((await call('POST', '/cards', null, { number: n })).statusCode, 401);
+  assert.equal((await call('POST', '/cards', tokenA, { number: n.slice(0, 15) + String((Number(n[15]) + 1) % 10) })).statusCode, 400);
+  assert.equal((await call('POST', '/cards', tokenA, { number: n, restaurantId: ids.b })).statusCode, 400, 'strict body: a client-sent restaurantId is refused');
   assert.equal(await db.card.count({ where: { last4: n.slice(-4) } }), 0);
   assert.equal((await call('GET', '/cards', null)).statusCode, 401);
+  const noPassword = await call('POST', '/cards', tokenA, { number: n });
+  assert.equal(noPassword.statusCode, 201);
+  assert.equal(noPassword.json().card.status, 'PENDING', 'no password, but still needs the administrator before it is used');
+  const m = await freshNumber();
+  assert.equal((await addCard(tokenB, m, 'whatever-an-old-app-sends')).statusCode, 201, 'the old field is accepted and ignored');
 });
 
 test('a new card is PENDING and inactive: masked in the response, never assignable, enabling is refused', async () => {

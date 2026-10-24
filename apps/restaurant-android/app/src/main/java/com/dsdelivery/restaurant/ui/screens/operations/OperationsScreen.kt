@@ -163,7 +163,7 @@ fun OperationsContent(
     onDismissNotice: () -> Unit,
     onAddCard: () -> Unit,
     onDismissAddCard: () -> Unit,
-    onSubmitCard: (String, String, String) -> Unit,
+    onSubmitCard: (String, String) -> Unit,
     onToggleCard: (PayeeCard) -> Unit,
     onReloadCards: () -> Unit,
     modifier: Modifier = Modifier
@@ -494,7 +494,7 @@ private fun OperationsScreenPreview() {
             onDismissNotice = {},
             onAddCard = {},
             onDismissAddCard = {},
-            onSubmitCard = { _, _, _ -> },
+            onSubmitCard = { _, _ -> },
             onToggleCard = {},
             onReloadCards = {}
         )

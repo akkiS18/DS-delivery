@@ -99,6 +99,21 @@ export async function loadCustomerOrder(owner: CustomerOwner, orderId: string) {
 }
 export type CustomerOrderRow = NonNullable<Awaited<ReturnType<typeof loadCustomerOrder>>>;
 
+/**
+ * While the food is being cooked and the restaurant has not yet said in how many minutes it will be ready, the customer is told nothing
+ * about time (chosenMinutes is null: the screen says "aniqlanmoqda"). Once the restaurant has chosen, the countdown starts.
+ */
+export function customerPrep(o: CustomerOrderRow, now: Date) {
+  const clock = prepClock({
+    status: o.status, preparingStartedAt: o.preparingStartedAt, prepMinutes: o.prepMinutes, estimatedPrepMinutes: o.estimatedPrepMinutes,
+    readyAt: o.readyAt, prepChosenMinutes: o.prepChosenMinutes, restaurant: o.restaurant,
+  }, now);
+  if (o.status === 'PREPARING' && o.prepChosenMinutes === null) {
+    return { ...clock, minutes: 0, estimatedReadyAt: null, remainingSeconds: null, overdueMinutes: 0, isOverdue: false };
+  }
+  return clock;
+}
+
 export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const pay = o.payment;
   const taxi = o.taxiDispatches[0];
@@ -139,7 +154,7 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
       status: pay.status, amountSom: Number(pay.amountTiyin / 100n), mode: pay.isTest ? 'MOCK' as const : 'REAL' as const,
       queued: pay.status === 'QUEUED', instructions,
     },
-    prep: prepClock({ status: o.status, preparingStartedAt: o.preparingStartedAt, prepMinutes: o.prepMinutes, estimatedPrepMinutes: o.estimatedPrepMinutes, readyAt: o.readyAt, restaurant: o.restaurant }, now),
+    prep: customerPrep(o, now),
     readyAt: o.readyAt?.toISOString() ?? null,
     taxi: taxi ? { stage: taxiSt, companyName: taxi.taxiCompany.name } : null,
     // The taxi service the customer picked (or the one assigned automatically); shown on the order before any dispatch exists.

@@ -88,6 +88,8 @@ export interface PrepClock {
   remainingSeconds: number | null;
   overdueMinutes: number;
   isOverdue: boolean;
+  /** What the restaurant chose ("ready in N minutes"); null while it has not chosen yet: no time is shown, only "aniqlanmoqda". */
+  chosenMinutes?: number | null;
 }
 
 export interface OrderView {

@@ -571,9 +571,9 @@ class RestaurantRepositoryImpl(
         }
     }
 
-    override suspend fun addCard(number: String, holderName: String, password: String): Resource<PayeeCard> {
+    override suspend fun addCard(number: String, holderName: String): Resource<PayeeCard> {
         return try {
-            val card = apiClient.service.addCard(AddCardRequestDto(number, holderName, password)).card
+            val card = apiClient.service.addCard(AddCardRequestDto(number, holderName)).card
                 ?: return Resource.Error("Server javobi noto‘g‘ri.", null)
             Resource.Success(card.cardToDomain())
         } catch (e: HttpException) {
