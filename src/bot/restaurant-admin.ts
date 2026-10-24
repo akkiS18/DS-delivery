@@ -42,8 +42,10 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/resetpassword — restoran parolini yangilash',
       '/linkstaff — restoran xodimining Telegramini ulash',
       '/payments — real to‘lovni yoqish / yopish',
+      '/newtaxi — yangi taksi kompaniyasi va uning ilova logini',
+      '/taxiapp — taksi ilovasi uchun yangi parol',
       '/tickets — mijoz murojaatlari',
-      'Taksi muammolari: taksi botida /taxiadmin',
+      'Taksi muammolari: /taxiadmin (taksi botida; taksi boti o‘chirilgan bo‘lsa shu botda)',
     ].join('\n'), { parse_mode: 'HTML' });
   });
 
