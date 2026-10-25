@@ -49,15 +49,15 @@ export const checkoutRequestSchema = z.object({
 export const customerCancelRequestSchema = z.object({ reasonCode: z.enum(CUSTOMER_REASONS).optional() }).strict();
 
 export type QuoteResponse =
-  | { ok: true; lines: CheckoutLine[]; totalSom: number; estimatedPrepMinutes: number }
-  | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number };
+  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; estimatedPrepMinutes: number }
+  | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number };
 
 /** Price/availability preview without creating anything. Same validation the order creation runs. */
 export async function quoteCheckout(input: z.infer<typeof quoteRequestSchema>): Promise<QuoteResponse> {
   const r = await validateCheckout(db, input);
   return r.ok
-    ? { ok: true, lines: r.lines, totalSom: r.totalSom, estimatedPrepMinutes: r.restaurant.defaultPrepMinutes }
-    : { ok: false, issues: r.issues, lines: r.lines, totalSom: r.totalSom };
+    ? { ok: true, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, estimatedPrepMinutes: r.restaurant.defaultPrepMinutes }
+    : { ok: false, issues: r.issues, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom };
 }
 
 /** The only place the customer identity enters: the owner must come from verified initData (Telegram id) or a server-side guest session (customer id), never from the request. */

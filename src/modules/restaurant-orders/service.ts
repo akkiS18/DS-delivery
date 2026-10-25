@@ -92,14 +92,14 @@ export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPAR
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 const detailSelect = {
-  id: true, code: true, status: true, totalSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true, prepChosenMinutes: true,
+  id: true, code: true, status: true, totalSom: true, serviceFeeSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true, prepChosenMinutes: true,
   addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, rejectReason: true,
   restaurantDeadlineAt: true, acceptedAt: true, paymentVerifiedAt: true, preparingStartedAt: true, readyAt: true,
   restaurantId: true,
   restaurant: { select: { defaultPrepMinutes: true, isPaused: true } },
   customer: { select: { displayName: true } },
   taxiCompany: { select: { name: true } },
-  items: { where: { supersededAt: null }, select: { productId: true, name: true, unitSom: true, quantity: true, subtotalSom: true } },
+  items: { where: { supersededAt: null }, select: { productId: true, name: true, unitSom: true, baseUnitSom: true, quantity: true, subtotalSom: true } },
   payment: { select: { number: true, status: true, isTest: true, amountTiyin: true, assignedAt: true, matchedAt: true, matchedTransactionId: true, card: { select: { last4: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' }, take: 1, select: {
     status: true, attemptNo: true, acceptedAt: true, dispatchedAt: true, deliveredAt: true, taxiCompany: { select: { name: true } },
@@ -192,7 +192,12 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
     estimatedPrepMinutes: o.estimatedPrepMinutes ?? o.prepMinutes,
     /** Pre-selected preparation time for accept / start: the restaurant default (override is optional). */
     defaultPrepMinutes: o.estimatedPrepMinutes ?? o.restaurant.defaultPrepMinutes,
-    items: o.items.map(({ name, unitSom, quantity, subtotalSom }) => ({ name, unitSom, quantity, subtotalSom })),
+    // The restaurant sees its OWN menu prices; what the customer pays is the sum of these plus the platform's service share (totalSom, which is also
+    // the amount to look for on the card). Legacy/FLAT orders: serviceFeeSom is 0 and the lines are the prices as before.
+    items: o.items.map(({ name, unitSom, baseUnitSom, quantity, subtotalSom }) => (baseUnitSom === null
+      ? { name, unitSom, quantity, subtotalSom }
+      : { name, unitSom: baseUnitSom, quantity, subtotalSom: baseUnitSom * quantity })),
+    serviceFeeSom: o.serviceFeeSom ?? 0,
     payment: o.payment && {
       status: o.payment.status, isTest: o.payment.isTest, amountSom: som(o.payment.amountTiyin),
       cardLast4: o.payment.card?.last4 ?? null,

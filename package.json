@@ -32,6 +32,8 @@
     "test:bot": "node --import tsx --test src/bot/cart.test.ts src/bot/checkout.test.ts",
     "smoke:checkout": "node --env-file=.env --import tsx src/tools/smoke-checkout.ts",
     "staff:link": "node --env-file=.env --import tsx src/tools/link-staff.ts",
+    "test:pricing": "node --import tsx --test src/modules/pricing/fee.test.ts",
+    "test:fee:db": "node --env-file=.env --import tsx --test src/tests/service-fee.db.test.ts",
     "test:restaurant": "node --import tsx --test src/modules/restaurant/workflow.test.ts",
     "smoke:restaurant": "node --env-file=.env --import tsx src/tools/smoke-restaurant.ts",
     "taxi:link": "node --env-file=.env --import tsx src/tools/link-taxi.ts",

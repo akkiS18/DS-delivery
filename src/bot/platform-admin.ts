@@ -1,6 +1,8 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
+import { loadFeeConfig, setFeeMode } from '../modules/pricing/config.js';
+import { type FeeConfig, type FeeMode } from '../modules/pricing/fee.js';
 import { db } from '../lib/db.js';
 import { planRestaurantRemoval, planTaxiRemoval, removeRestaurant, removeTaxiCompany, type RemovalOutcome, type RemovalPlan } from '../modules/platform/removal.js';
 import { createTaxiCompanyByAdmin, resetTaxiAccessByAdmin } from '../modules/taxi-app/provision.js';
@@ -24,6 +26,27 @@ export async function renderPayments(): Promise<{ text: string; keyboard: Return
   const button = p.open ? Markup.button.callback('⛔ Yopish', 'pay:ask:0') : Markup.button.callback('▶️ Real to‘lovni yoqish', 'pay:ask:1');
   if (p.open) lines.push('Yopsangiz ham, allaqachon berilgan buyurtmalar to‘lovi davom etadi.');
   return { text: lines.join('\n'), keyboard: Markup.inlineKeyboard([[button]]) };
+}
+
+const FEE_LABEL: Record<FeeMode, string> = {
+  FLAT: 'Tekis 5 000 (restorandan)', PERCENT: 'Foiz', TIERED: 'Pog‘onali (50 000 gacha 10%, keyin 3%)',
+};
+export async function renderFee(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
+  const c: FeeConfig = await loadFeeConfig();
+  const text = [
+    '🧾 <b>Xizmat haqi</b>',
+    `Hozir: <b>${FEE_LABEL[c.mode]}</b>${c.mode === 'PERCENT' ? ` — ${c.percentBp / 100}%` : ''}`,
+    '',
+    'Tekis: mijoz restoran narxini to‘laydi, platforma 5 000 ni restorandan oladi.',
+    'Foiz / pog‘onali: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi; platforma ulushi buyurtmada qotiriladi va restoran bilan hisob-kitobda yuritiladi.',
+    'Rejim faqat YANGI buyurtmalarga ta’sir qiladi.',
+    '',
+    'Foiz: <code>/fee 8</code> (1–25).',
+  ].join('\n');
+  const mark = (m: FeeMode) => (c.mode === m ? '● ' : '');
+  return { text, keyboard: Markup.inlineKeyboard([[
+    Markup.button.callback(`${mark('FLAT')}Tekis`, 'fee:set:FLAT'), Markup.button.callback(`${mark('PERCENT')}Foiz`, 'fee:set:PERCENT'), Markup.button.callback(`${mark('TIERED')}Pog‘onali`, 'fee:set:TIERED'),
+  ]]) };
 }
 
 const BLOCK_TEXT: Record<string, string> = {
@@ -62,6 +85,29 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     if (!admin(ctx)) return; // silent for everybody else
     const v = await renderPayments();
     await ctx.reply(v.text, { parse_mode: 'HTML', ...(v.keyboard ? { reply_markup: v.keyboard.reply_markup } : {}) });
+  });
+
+  bot.command('fee', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const arg = argsOf(ctx).replace(',', '.');
+    if (arg) {
+      const pct = Number(arg);
+      if (!/^\d{1,2}(\.\d{1,2})?$/.test(arg) || !(pct >= 1 && pct <= 25)) { await ctx.reply('Foizni 1 dan 25 gacha yozing: <code>/fee 8</code>', { parse_mode: 'HTML' }); return; }
+      await setFeeMode({ adminId, mode: 'PERCENT', percentBp: Math.round(pct * 100) });
+    }
+    const v = await renderFee();
+    await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.action(/^fee:set:(FLAT|PERCENT|TIERED)$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const mode = (ctx.match as unknown as [string, FeeMode])[1];
+    await setFeeMode({ adminId, mode });
+    const v = await renderFee();
+    await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });
 
   bot.action(/^pay:(ask|go|back):?([01])?$/, async ctx => {

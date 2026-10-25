@@ -8,6 +8,8 @@ export const DELIVERY_CONFIRMATION_IMPLEMENTED = true;
 
 export const COMMISSION_RULE_CODE = 'FLAT_SOM';
 export const DEFAULT_COMMISSION_SOM = 5000;
+/** Stored on the ledger row of an order whose fee was baked into the customer's prices (the amount is that order's frozen fee). */
+export const SERVICE_FEE_RULE_CODE = 'SERVICE_FEE';
 
 /** Flat commission in som per delivered order. Fails closed on a bad value instead of silently charging something else. */
 export function commissionFlatSom(env: Record<string, string | undefined> = process.env): number {
@@ -20,7 +22,9 @@ export function commissionFlatSom(env: Record<string, string | undefined> = proc
 }
 
 export type NotEligibleReason =
-  | 'NOT_COMPLETED' | 'NO_DELIVERY_PROOF' | 'TEST_ORDER' | 'NO_PAYMENT' | 'PAYMENT_NOT_VERIFIED' | 'REFUND_EXISTS';
+  | 'NOT_COMPLETED' | 'NO_DELIVERY_PROOF' | 'TEST_ORDER' | 'NO_PAYMENT' | 'PAYMENT_NOT_VERIFIED' | 'REFUND_EXISTS'
+  /** A service-fee order whose baked-in fee rounded to nothing: there is nothing to collect from the restaurant. */
+  | 'NO_FEE';
 
 export interface EligibilityInput {
   orderStatus: string;

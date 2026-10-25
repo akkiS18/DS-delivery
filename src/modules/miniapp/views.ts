@@ -1,6 +1,8 @@
 import { db } from '../../lib/db.js';
 import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
 import { payeeNumber } from '../payment/requisites.js';
+import { loadFeeConfig } from '../pricing/config.js';
+import { publicPricing } from '../pricing/fee.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { prepClock } from '../restaurant-orders/service.js';
 import { eligibleCompanyWhere } from '../taxi/assignment.js';
@@ -45,6 +47,9 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   return {
     restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes },
     categories, products,
+    // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
+    // `priceSom` stays the restaurant's own menu price.
+    pricing: publicPricing(await loadFeeConfig()),
   };
 }
 

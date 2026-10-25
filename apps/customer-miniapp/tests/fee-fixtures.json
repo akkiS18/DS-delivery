@@ -1,0 +1,19 @@
+{
+  "tiered": { "mode": "TIERED", "percentBp": 1000, "kneeSom": 50000, "lowBp": 1000, "highBp": 300 },
+  "percent": { "mode": "PERCENT", "percentBp": 800, "kneeSom": 50000, "lowBp": 1000, "highBp": 300 },
+  "cases": [
+    { "cfg": "tiered", "lines": [[20000, 1]], "units": [22000], "totalSom": 22000, "feeSom": 2000 },
+    { "cfg": "tiered", "lines": [[40000, 1]], "units": [44000], "totalSom": 44000, "feeSom": 4000 },
+    { "cfg": "tiered", "lines": [[52000, 1]], "units": [57100], "totalSom": 57100, "feeSom": 5100 },
+    { "cfg": "tiered", "lines": [[60000, 1]], "units": [65300], "totalSom": 65300, "feeSom": 5300 },
+    { "cfg": "tiered", "lines": [[100000, 1]], "units": [106500], "totalSom": 106500, "feeSom": 6500 },
+    { "cfg": "tiered", "lines": [[150000, 1]], "units": [158000], "totalSom": 158000, "feeSom": 8000 },
+    { "cfg": "tiered", "lines": [[200000, 1]], "units": [209500], "totalSom": 209500, "feeSom": 9500 },
+    { "cfg": "tiered", "lines": [[300000, 1]], "units": [312500], "totalSom": 312500, "feeSom": 12500 },
+    { "cfg": "tiered", "lines": [[25000, 1], [15000, 1]], "units": [27500, 16500], "totalSom": 44000, "feeSom": 4000 },
+    { "cfg": "tiered", "lines": [[25000, 2], [15000, 1]], "units": [27100, 16300], "totalSom": 70500, "feeSom": 5500 },
+    { "cfg": "tiered", "lines": [[25000, 4], [15000, 1]], "units": [26500, 15900], "totalSom": 121900, "feeSom": 6900 },
+    { "cfg": "percent", "lines": [[25000, 2]], "units": [27000], "totalSom": 54000, "feeSom": 4000 },
+    { "cfg": "percent", "lines": [[12345, 1]], "units": [13300], "totalSom": 13300, "feeSom": 955 }
+  ]
+}

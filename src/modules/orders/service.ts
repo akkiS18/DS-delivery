@@ -6,6 +6,8 @@ import { eligibleCompanyWhere } from '../taxi/assignment.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.js';
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
+import { loadFeeConfig } from '../pricing/config.js';
+import { feeRuleCode, priceBasket } from '../pricing/fee.js';
 
 export const orderSchema = z.object({
   restaurantId: z.string().min(1),
@@ -53,7 +55,10 @@ export class CheckoutError extends Error {
   constructor(code: string, readonly statusCode: number, readonly details?: unknown) { super(code); }
 }
 
-export type CheckoutLine = { productId: string; name: string; unitSom: number; quantity: number; subtotalSom: number };
+/** unitSom/subtotalSom are what the CUSTOMER pays (service fee included when one applies); baseUnitSom is the restaurant's own menu price. */
+export type CheckoutLine = { productId: string; name: string; unitSom: number; baseUnitSom: number; quantity: number; subtotalSom: number };
+/** The platform's share baked into the prices; ruleCode null = legacy flat commission (nothing was added to the customer's price). */
+export type CheckoutFee = { baseTotalSom: number; feeSom: number; ruleCode: string | null };
 export type CheckoutIssue =
   | { kind: 'RESTAURANT_UNAVAILABLE' }
   | { kind: 'RESTAURANT_CLOSED'; opensNext: { dayOffset: number; dayOfWeek: number; time: string } | null }
@@ -63,6 +68,7 @@ export type CheckoutIssue =
   | { kind: 'TOTAL_TOO_LARGE' };
 
 type Tx = Prisma.TransactionClient | typeof db;
+const NO_FEE: CheckoutFee = { baseTotalSom: 0, feeSom: 0, ruleCode: null };
 
 /** Guest buyer: a shared row lock makes a concurrent guest->Telegram merge finish first; if the guest was merged away the order goes to the surviving profile. */
 async function guestCustomer(tx: Prisma.TransactionClient, customerId: string, data: { customerName?: string | undefined; phone?: string | undefined }) {
@@ -83,24 +89,25 @@ async function guestCustomer(tx: Prisma.TransactionClient, customerId: string, d
 export async function validateCheckout(tx: Tx, input: {
   restaurantId: string; items: Array<{ productId: string; quantity: number }>;
   expectedTotalSom?: number | undefined; expectedUnitPrices?: Record<string, number> | undefined;
-}): Promise<{ ok: true; lines: CheckoutLine[]; totalSom: number; restaurant: { defaultPrepMinutes: number; pickupAddress: string | null } }
-  | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number }> {
+}): Promise<{ ok: true; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee; restaurant: { defaultPrepMinutes: number; pickupAddress: string | null } }
+  | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee }> {
   const amounts = new Map<string, number>();
   for (const i of input.items) amounts.set(i.productId, (amounts.get(i.productId) ?? 0) + i.quantity);
   const restaurant = await tx.restaurant.findUnique({ where: { id: input.restaurantId }, select: { isActive: true, isPaused: true, defaultPrepMinutes: true, pickupAddress: true, workingHours: true, timezone: true } });
-  if (!restaurant?.isActive || restaurant.isPaused) return { ok: false, issues: [{ kind: 'RESTAURANT_UNAVAILABLE' }], lines: [], totalSom: 0 };
+  if (!restaurant?.isActive || restaurant.isPaused) return { ok: false, issues: [{ kind: 'RESTAURANT_UNAVAILABLE' }], lines: [], totalSom: 0, fee: NO_FEE };
   // Stage 7A: new checkouts respect the configured working hours, in the restaurant's own time zone.
   const hours = openState(restaurant);
-  if (!hours.open) return { ok: false, issues: [{ kind: 'RESTAURANT_CLOSED', opensNext: hours.opensNext }], lines: [], totalSom: 0 };
+  if (!hours.open) return { ok: false, issues: [{ kind: 'RESTAURANT_CLOSED', opensNext: hours.opensNext }], lines: [], totalSom: 0, fee: NO_FEE };
   const products = await tx.product.findMany({ where: { id: { in: [...amounts.keys()] }, restaurantId: input.restaurantId, isAvailable: true, archivedAt: null } });
   const found = new Map(products.map(p => [p.id, p]));
   const issues: CheckoutIssue[] = [];
   for (const id of amounts.keys()) if (!found.has(id)) issues.push({ kind: 'PRODUCT_UNAVAILABLE', productId: id });
-  const lines: CheckoutLine[] = products.map(p => {
-    const quantity = amounts.get(p.id)!;
-    return { productId: p.id, name: p.name, unitSom: p.priceSom, quantity, subtotalSom: p.priceSom * quantity };
-  });
-  const totalSom = lines.reduce((sum, item) => sum + item.subtotalSom, 0);
+  // The platform fee is part of the price the customer pays: computed here from the restaurant's own prices and the current fee mode, never from the client.
+  const cfg = await loadFeeConfig(tx);
+  const priced = priceBasket(products.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! })), cfg);
+  const lines: CheckoutLine[] = priced.lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, baseUnitSom: l.baseUnitSom, quantity: l.quantity, subtotalSom: l.subtotalSom }));
+  const totalSom = priced.totalSom;
+  const fee: CheckoutFee = { baseTotalSom: priced.baseTotalSom, feeSom: priced.feeSom, ruleCode: feeRuleCode(cfg) };
   if (!Number.isSafeInteger(totalSom) || totalSom > 100_000_000) issues.push({ kind: 'TOTAL_TOO_LARGE' });
   for (const l of lines) {
     const expected = input.expectedUnitPrices?.[l.productId];
@@ -111,7 +118,7 @@ export async function validateCheckout(tx: Tx, input: {
   if (input.expectedTotalSom !== undefined && input.expectedTotalSom !== totalSom && issues.every(i => i.kind !== 'PRODUCT_UNAVAILABLE')) {
     issues.push({ kind: 'TOTAL_CHANGED', expectedTotalSom: input.expectedTotalSom, currentTotalSom: totalSom });
   }
-  return issues.length ? { ok: false, issues, lines, totalSom } : { ok: true, lines, totalSom, restaurant };
+  return issues.length ? { ok: false, issues, lines, totalSom, fee } : { ok: true, lines, totalSom, fee, restaurant };
 }
 
 /** Maps validation issues onto the error codes the existing callers and the HTTP handler already understand. */
@@ -226,7 +233,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
         if (!taxi?.isActive) throw new Error('TAKSI_XIZMATI_MAVJUD_EMAS');
         if (data.paymentMode === 'REAL' && !taxi.operatorTelegramUserId && !(await tx.taxiCredential.count({ where: { taxiCompanyId: taxi.id } }))) throw new Error('TAKSI_OPERATOR_BIRIKTIRILMAGAN');
       }
-      const { lines, totalSom } = checked; // prices below are the frozen, server-read snapshot
+      const { lines, totalSom, fee } = checked; // prices below are the frozen, server-read snapshot
       const customer = data.customerId
         ? await guestCustomer(tx, data.customerId, data)
         : await tx.customer.upsert({
@@ -254,7 +261,10 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
           phoneSnapshot: data.phone, taxiCompanyId: data.taxiCompanyId,
           checkoutKey: data.checkoutKey, createdViaBot: data.createdViaBot,
           allowTaxiFallback: data.allowTaxiFallback || data.autoTaxi, // automatic assignment implies trying another company when one declines
-          totalSom, status: waiting ? 'WAITING_RESTAURANT' : 'PAYMENT_PENDING', items: { create: lines },
+          totalSom, status: waiting ? 'WAITING_RESTAURANT' : 'PAYMENT_PENDING',
+          // A fee order keeps the restaurant's own prices next to what the customer pays, and the platform's frozen share (the commission later).
+          ...(fee.ruleCode ? { baseTotalSom: fee.baseTotalSom, serviceFeeSom: fee.feeSom, feeRuleCode: fee.ruleCode } : {}),
+          items: { create: lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, quantity: l.quantity, subtotalSom: l.subtotalSom, ...(fee.ruleCode ? { baseUnitSom: l.baseUnitSom } : {}) })) },
           paymentIsTest: data.paymentMode === 'MOCK', restaurantDeadlineAt: deadline,
           // The preparation time the customer is told at checkout; cooking later reuses exactly this value.
           ...(waiting ? {} : { estimatedPrepMinutes: checked.restaurant.defaultPrepMinutes }),

@@ -283,6 +283,11 @@ model Order {
   deliveryLat                Float?
   deliveryLng                Float?
   totalSom                   Int
+  // Service fee (platform fee baked into the dish prices). null on legacy/FLAT orders: the customer paid the menu prices and the flat commission applies.
+  // When set: totalSom = baseTotalSom + serviceFeeSom; baseTotalSom is what the restaurant's own menu prices add up to. serviceFeeSom is the platform's frozen share.
+  baseTotalSom               Int?
+  serviceFeeSom              Int?
+  feeRuleCode                String?
   createdAt                  DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt                  DateTime             @updatedAt @db.Timestamptz(3)
   items                      OrderItem[]
@@ -304,6 +309,8 @@ model OrderItem {
   unitSom      Int
   quantity     Int
   subtotalSom  Int
+  /// The restaurant's own menu price when unitSom includes the service fee; null = unitSom is the menu price.
+  baseUnitSom  Int?
   // Stage 4B-2: a consented price revision replaces the lines; old lines are kept, only marked superseded.
   supersededAt DateTime? @db.Timestamptz(3)
 

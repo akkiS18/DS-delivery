@@ -95,7 +95,8 @@ export async function acceptOrder(engine: PaymentEngineV3, input: StaffActor & {
       if (!order.restaurant.isActive || order.restaurant.isPaused) throw new Outcome({ result: 'RESTAURANT_CLOSED' });
       const ids = order.items.map(i => i.productId).filter((id): id is string => id !== null);
       const products = new Map((await tx.product.findMany({ where: { id: { in: ids } } })).map(p => [p.id, p]));
-      const problems = validateSnapshot(order.items, products, order.restaurantId);
+      // A service-fee line is compared at the restaurant's own menu price, not at the fee-inclusive price the customer pays.
+      const problems = validateSnapshot(order.items.map(i => ({ ...i, unitSom: i.baseUnitSom ?? i.unitSom })), products, order.restaurantId);
       if (problems.length) throw new Outcome({ result: 'PROBLEMS', problems });
       const claimed = await tx.order.updateMany({
         where: { id: order.id, status: 'WAITING_RESTAURANT', restaurantDeadlineAt: { gt: now } },
