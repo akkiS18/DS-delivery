@@ -131,23 +131,23 @@ class AlarmPlayer(private val context: Context) {
         private const val BELL_MS = 1_800
 
         /**
-         * A soft descending chime (B5 then G5, a gentle "ding-dong"): pure sine tones with only a whisper of the 2nd harmonic, a 25 ms fade-in
-         * (no click) and a long exponential fade-out, at about 45% of full scale. The ALARM volume of the phone decides how loud it really is.
+         * A soft descending chime (D6 then B5, a gentle "ding-dong"; phone speakers carry ~1 kHz far better than 700 Hz): sine tones with a little
+         * 2nd harmonic, a 25 ms fade-in (no click) and a long fade-out, at about 90% of full scale. The ALARM volume of the phone decides how loud it is.
          */
         internal fun bellPcm(): ShortArray {
             fun note(hz: Double, ms: Int): FloatArray {
                 val n = SAMPLE_RATE * ms / 1000
                 return FloatArray(n) { i ->
                     val t = i.toDouble() / SAMPLE_RATE
-                    val tone = sin(2 * PI * hz * t) + 0.12 * sin(2 * PI * hz * 2 * t)
+                    val tone = sin(2 * PI * hz * t) + 0.22 * sin(2 * PI * hz * 2 * t)
                     val attack = minOf(1.0, i / (SAMPLE_RATE * 0.025))
-                    val fade = exp(-3.2 * i / n)
-                    (tone / 1.12 * attack * fade).toFloat()
+                    val fade = exp(-2.2 * i / n)
+                    (tone / 1.22 * attack * fade).toFloat()
                 }
             }
             val gap = FloatArray(SAMPLE_RATE * 60 / 1000)
-            val all = note(987.77, 700) + gap + note(783.99, 1000)
-            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.45f * Short.MAX_VALUE).toInt().toShort() }
+            val all = note(1174.66, 700) + gap + note(987.77, 1000)
+            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.9f * Short.MAX_VALUE).toInt().toShort() }
         }
     }
 }
