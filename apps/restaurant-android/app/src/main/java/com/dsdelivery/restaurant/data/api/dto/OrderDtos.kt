@@ -29,7 +29,14 @@ data class OrderPaymentDto(
     @SerializedName("status") val status: String,
     @SerializedName("isTest") val isTest: Boolean? = null,
     @SerializedName("amountSom") val amountSom: Int? = null,
-    @SerializedName("cardLast4") val cardLast4: String? = null
+    @SerializedName("cardLast4") val cardLast4: String? = null,
+    @SerializedName("method") val method: String? = null
+)
+
+/** Cash on delivery: the food total the taxi driver pays the restaurant. Absent for card orders and older servers. */
+data class OrderCashDto(
+    @SerializedName("amountSom") val amountSom: Int? = null,
+    @SerializedName("accepted") val accepted: Boolean? = null
 )
 
 data class PaymentSignalDto(
@@ -98,6 +105,7 @@ data class OrderDto(
     @SerializedName("estimatedPrepMinutes") val estimatedPrepMinutes: Int? = null,
     @SerializedName("items") val items: List<OrderItemDto>? = null,
     @SerializedName("payment") val payment: OrderPaymentDto? = null,
+    @SerializedName("cash") val cash: OrderCashDto? = null,
     @SerializedName("taxi") val taxi: OrderTaxiDto? = null,
     @SerializedName("taxiCompanyName") val taxiCompanyName: String? = null,
     @SerializedName("customerName") val customerName: String? = null,
@@ -196,6 +204,8 @@ fun OrderDto.toDomain(): Order {
         isTest = isTest ?: false,
         paymentAmountSom = payment?.amountSom,
         paymentCardLast4 = payment?.cardLast4,
+        paymentMethod = payment?.method,
+        cashDueSom = if (payment?.method == "CASH") (cash?.amountSom ?: totalSom) else null,
         taxiCompanyName = taxiCompanyName,
         taxiStatus = taxi?.status,
         taxiStage = TaxiStage.fromRaw(taxi?.stage),

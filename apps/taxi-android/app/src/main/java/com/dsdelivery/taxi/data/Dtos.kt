@@ -43,6 +43,12 @@ data class FoodInfo(
     @SerializedName("totalSom") val totalSom: Int
 )
 
+/** How the food is paid. CASH: the driver pays the restaurant [payRestaurantSom] at pickup and collects it from the customer. CARD: already paid. */
+data class PaymentInfo(
+    @SerializedName("method") val method: String,
+    @SerializedName("payRestaurantSom") val payRestaurantSom: Int
+)
+
 /** One taxi request. [actions] is decided by the server (what this company may press now). */
 data class RequestDto(
     @SerializedName("id") val id: String,
@@ -58,6 +64,8 @@ data class RequestDto(
     @SerializedName("restaurant") val restaurant: RestaurantInfo,
     @SerializedName("delivery") val delivery: DeliveryInfo,
     @SerializedName("food") val food: FoodInfo,
+    /** Absent from an older server. */
+    @SerializedName("payment") val payment: PaymentInfo? = null,
     @SerializedName("actions") val actions: List<String>,
     @SerializedName("deliverBlockedReason") val deliverBlockedReason: String?
 )

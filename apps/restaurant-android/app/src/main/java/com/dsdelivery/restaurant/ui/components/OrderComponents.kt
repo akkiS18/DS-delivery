@@ -61,6 +61,8 @@ import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
 import com.dsdelivery.restaurant.ui.theme.SuccessGreen
 import com.dsdelivery.restaurant.ui.theme.WarningOrange
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun OrderStatusBadge(
@@ -128,6 +130,8 @@ fun PaymentStatusBadge(
         PaymentStatus.QUEUED,
         PaymentStatus.AWAITING -> Pair(WarningOrange.copy(alpha = 0.12f), WarningOrange)
         PaymentStatus.MATCHED_UNVERIFIED -> Pair(BrandMint.copy(alpha = 0.35f), BrandDark)
+        PaymentStatus.CASH_PENDING -> Pair(WarningOrange.copy(alpha = 0.12f), WarningOrange)
+        PaymentStatus.CASH_ACCEPTED -> Pair(BrandMint.copy(alpha = 0.35f), BrandDark)
         PaymentStatus.CANCELLED,
         PaymentStatus.QUEUE_EXPIRED,
         PaymentStatus.EXPIRED -> Pair(ErrorRed.copy(alpha = 0.12f), ErrorRed)
@@ -168,6 +172,8 @@ fun PaymentPill(order: Order, modifier: Modifier = Modifier) {
         PaymentStatus.CONFIRMED_MANUAL -> SuccessGreen.copy(alpha = 0.14f) to SuccessGreen
         PaymentStatus.QUEUED, PaymentStatus.AWAITING -> WarningOrange.copy(alpha = 0.14f) to WarningOrange
         PaymentStatus.MATCHED_UNVERIFIED -> BrandMint.copy(alpha = 0.45f) to BrandDark
+        PaymentStatus.CASH_PENDING -> WarningOrange.copy(alpha = 0.14f) to WarningOrange
+        PaymentStatus.CASH_ACCEPTED -> BrandMint.copy(alpha = 0.45f) to BrandDark
         PaymentStatus.CANCELLED, PaymentStatus.QUEUE_EXPIRED, PaymentStatus.EXPIRED -> ErrorRed.copy(alpha = 0.12f) to ErrorRed
         PaymentStatus.UNKNOWN -> Color.Gray.copy(alpha = 0.12f) to Color.Gray
     }
@@ -178,6 +184,18 @@ fun PaymentPill(order: Order, modifier: Modifier = Modifier) {
             Text(text = status.title, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
     }
+}
+
+/** Cash orders only: how much the taxi driver pays the restaurant at pickup (the driver collects it from the customer). */
+@Composable
+fun CashDueLine(order: Order, modifier: Modifier = Modifier) {
+    val due = order.cashDueSom ?: return
+    if (order.paymentMethod != "CASH") return
+    Text(
+        text = "Haydovchi restoranga ${NumberFormat.getNumberInstance(Locale("uz", "UZ")).format(due)} so‘m to‘laydi",
+        modifier = modifier.padding(top = 6.dp),
+        style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = BrandDark
+    )
 }
 
 /** The one-line, human reason an order needs attention (most important first). Shared by the list and the detail screen. */
@@ -278,6 +296,7 @@ fun OrderCard(
 
                 // 2. payment, always visible
                 PaymentPill(order)
+                CashDueLine(order)
 
                 // 3. exception, if any
                 if (attention != null) {

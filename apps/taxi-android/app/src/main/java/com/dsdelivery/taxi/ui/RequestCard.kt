@@ -191,6 +191,18 @@ private fun FoodLine(r: RequestDto, offsetMs: Long) {
     }
     Text(text, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (f.ready) OkColor else MaterialTheme.colorScheme.onSurface)
     Text("Taom narxi: ${som(f.totalSom)} (yetkazish haqi emas — uni taksi xizmatingiz belgilaydi)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val pay = r.payment
+    if (pay?.method == "CASH") {
+        // The driver pays the restaurant, so the operator must send a driver who has the money.
+        Box(Modifier.fillMaxWidth().background(UrgentColor.copy(alpha = 0.14f), RoundedCornerShape(10.dp)).padding(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("NAQD: restoranga ${som(pay.payRestaurantSom)} to‘lanadi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = UrgentColor)
+                Text("Puli bor haydovchi yuboring. Shu summani mijozdan olasiz.", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+    } else if (pay?.method == "CARD") {
+        Text("Taom puli kartadan to‘langan — restoranga to‘lash shart emas", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = OkColor)
+    }
 }
 
 private fun dial(context: Context, phone: String) {

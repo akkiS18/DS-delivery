@@ -651,6 +651,13 @@ private fun SummaryCard(order: Order, nowElapsed: State<Long>) {
                 PaymentPill(order)
                 Text(order.formattedTotal, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = BrandPrimary)
             }
+            if (order.paymentMethod == "CASH") {
+                Text(
+                    if (order.paymentStatus == PaymentStatus.CASH_PENDING) "Naqd to‘lov: buyurtmani qabul qilsangiz, taksi haydovchisi restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi va mijozdan oladi."
+                    else "Naqd to‘lov: taksi haydovchisi olib ketayotganda restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi.",
+                    style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = BrandDark, modifier = Modifier.padding(top = 6.dp)
+                )
+            }
             Text("${order.itemsCount} ta mahsulot", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
             if (order.isTest) {
                 Text("Sinov buyurtmasi", style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 4.dp))

@@ -39,6 +39,9 @@ enum class PaymentStatus(val title: String) {
     AWAITING("Kutilmoqda"),
     MATCHED_UNVERIFIED("Pul keldi"),
     CONFIRMED_MANUAL("To‘langan"),
+    // Cash on delivery: the restaurant accepts the order instead of verifying a bank credit; the taxi driver pays it the food total at pickup.
+    CASH_PENDING("Naqd • tasdiq kutilmoqda"),
+    CASH_ACCEPTED("Naqd to‘lov"),
     EXPIRED("Muddati o‘tgan"),
     QUEUE_EXPIRED("Navbat muddati o‘tgan"),
     CANCELLED("Bekor qilingan"),
@@ -200,6 +203,10 @@ data class Order(
     val isTest: Boolean = false,
     val paymentAmountSom: Int? = null,
     val paymentCardLast4: String? = null,
+    /** "CASH" = cash on delivery (null/"CARD" = bank card). */
+    val paymentMethod: String? = null,
+    /** Cash orders: what the driver pays the restaurant at pickup (the food total). */
+    val cashDueSom: Int? = null,
     val taxiCompanyName: String? = null,
     val taxiStatus: String? = null,
     val taxiStage: TaxiStage? = null,
