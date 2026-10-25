@@ -11,7 +11,8 @@ function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min: num
 /** Read per call so tests (and operators after a restart) can change them. */
 export function authConfig(env: NodeJS.ProcessEnv = process.env) {
   return {
-    sessionMs: intEnv(env, 'RESTAURANT_SESSION_HOURS', 12, 1, 720) * 3_600_000,
+    // Sliding: the app stays signed in until the person logs out; a session expires only after this long WITHOUT any use (authenticate() renews it).
+    sessionMs: intEnv(env, 'RESTAURANT_SESSION_HOURS', 4320, 1, 8760) * 3_600_000,
     maxSessions: intEnv(env, 'RESTAURANT_MAX_SESSIONS', 10, 1, 100),
     maxFailures: intEnv(env, 'RESTAURANT_LOGIN_MAX_FAILURES', 5, 1, 100),
     ipMaxFailures: intEnv(env, 'RESTAURANT_LOGIN_IP_MAX_FAILURES', 30, 1, 1000),
@@ -107,7 +108,7 @@ export async function authenticate(token: string | undefined, now = new Date()):
   if (!s.restaurant.credential || s.restaurant.credential.passwordVersion !== s.passwordVersion) return { ok: false, reason: 'UNAUTHENTICATED' };
   if (!s.restaurant.isActive) return { ok: false, reason: 'RESTAURANT_INACTIVE' };
   if (now.getTime() - s.lastSeenAt.getTime() > 60_000) {
-    await db.restaurantSession.updateMany({ where: { id: s.id, revokedAt: null }, data: { lastSeenAt: now } });
+    await db.restaurantSession.updateMany({ where: { id: s.id, revokedAt: null }, data: { lastSeenAt: now, expiresAt: new Date(now.getTime() + authConfig().sessionMs) } });
   }
   const r = s.restaurant;
   return { ok: true, sessionId: s.id, expiresAt: s.expiresAt, restaurant: { id: r.id, slug: r.slug, name: r.name, isPaused: r.isPaused } };

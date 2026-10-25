@@ -18,7 +18,7 @@ function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min: num
 export function taxiAuthConfig(env: NodeJS.ProcessEnv = process.env) {
   return {
     ...authConfig(env),
-    sessionMs: intEnv(env, 'TAXI_SESSION_HOURS', 720, 1, 2160) * 3_600_000,
+    sessionMs: intEnv(env, 'TAXI_SESSION_HOURS', 4320, 1, 8760) * 3_600_000, // sliding, like the restaurant app: renewed on use
     maxSessions: intEnv(env, 'TAXI_MAX_SESSIONS', 5, 1, 50),
   };
 }
@@ -98,7 +98,7 @@ export async function authenticateTaxi(token: string | undefined, now = new Date
   if (!credential || credential.passwordVersion !== s.passwordVersion) return { ok: false, reason: 'UNAUTHENTICATED' };
   if (!s.taxiCompany.isActive) return { ok: false, reason: 'COMPANY_INACTIVE' };
   if (now.getTime() - s.lastSeenAt.getTime() > 15_000) {
-    await db.taxiSession.updateMany({ where: { id: s.id, revokedAt: null }, data: { lastSeenAt: now } });
+    await db.taxiSession.updateMany({ where: { id: s.id, revokedAt: null }, data: { lastSeenAt: now, expiresAt: new Date(now.getTime() + taxiAuthConfig().sessionMs) } });
   }
   return { ok: true, sessionId: s.id, expiresAt: s.expiresAt, company: { id: s.taxiCompany.id, name: s.taxiCompany.name, login: credential.login } };
 }

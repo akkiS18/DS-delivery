@@ -184,6 +184,16 @@ test('sign-in: right password works, wrong/unknown look the same, a reset signs 
   assert.equal((await signIn({ login: c.login, password: reset!.password })).res.statusCode, 403, 'an inactive company cannot sign in');
 });
 
+test('the operator stays signed in: use renews the session (sliding), until logout or a password reset', async () => {
+  const c = await newCompany('sliding');
+  const { token } = await signIn(c);
+  const hash = (await db.taxiSession.findFirstOrThrow({ where: { taxiCompanyId: c.id }, orderBy: { createdAt: 'desc' } })).tokenHash;
+  await db.taxiSession.update({ where: { tokenHash: hash }, data: { expiresAt: new Date(Date.now() + 3_600_000), lastSeenAt: new Date(Date.now() - 120_000) } });
+  assert.equal((await get(token, '/requests')).statusCode, 200);
+  const after = await db.taxiSession.findUniqueOrThrow({ where: { tokenHash: hash } });
+  assert.ok(after.expiresAt.getTime() > Date.now() + 100 * 24 * 3_600_000, 'a used session is pushed far out again');
+});
+
 test('throttle: repeated wrong passwords lock the login (429)', async () => {
   const c = await newCompany('lock');
   process.env.RESTAURANT_LOGIN_MAX_FAILURES = '3';

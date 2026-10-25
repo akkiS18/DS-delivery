@@ -58,8 +58,8 @@ test('throttle decision: the (max+1)-th failure is blocked, per slug and per IP'
 
 test('auth configuration has safe defaults and rejects nonsense', () => {
   const d = authConfig({});
-  assert.deepEqual([d.sessionMs, d.maxSessions, d.maxFailures, d.ipMaxFailures, d.windowMs], [12 * 3_600_000, 10, 5, 30, 15 * 60_000]);
-  for (const [k, v] of [['RESTAURANT_SESSION_HOURS', '0'], ['RESTAURANT_SESSION_HOURS', '721'], ['RESTAURANT_MAX_SESSIONS', 'x'],
+  assert.deepEqual([d.sessionMs, d.maxSessions, d.maxFailures, d.ipMaxFailures, d.windowMs], [4320 * 3_600_000, 10, 5, 30, 15 * 60_000]);
+  for (const [k, v] of [['RESTAURANT_SESSION_HOURS', '0'], ['RESTAURANT_SESSION_HOURS', '8761'], ['RESTAURANT_MAX_SESSIONS', 'x'],
     ['RESTAURANT_LOGIN_MAX_FAILURES', '0'], ['RESTAURANT_LOGIN_WINDOW_MINUTES', '1.5']] as const) {
     assert.throws(() => authConfig({ [k]: v }), new RegExp(k));
   }

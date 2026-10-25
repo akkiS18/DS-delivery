@@ -133,6 +133,17 @@ test('session expiry: an expired session is rejected with 401', async () => {
   assert.equal((await me(t)).statusCode, 401);
 });
 
+test('session is sliding: use renews it (until logout), a session unused past its window is gone', async () => {
+  const t = await token(slugA, PW_A);
+  const near = new Date(Date.now() + 3_600_000);
+  await db.restaurantSession.update({ where: { tokenHash: hashToken(t) }, data: { expiresAt: near, lastSeenAt: new Date(Date.now() - 120_000) } });
+  assert.equal((await me(t)).statusCode, 200);
+  const renewed = await db.restaurantSession.findUniqueOrThrow({ where: { tokenHash: hashToken(t) } });
+  assert.ok(renewed.expiresAt.getTime() > Date.now() + 100 * 24 * 3_600_000, 'a used session is pushed far out again');
+  assert.equal((await app.inject({ method: 'POST', url: '/api/v1/restaurant/auth/logout', headers: { authorization: `Bearer ${t}` } })).statusCode, 204);
+  assert.equal((await me(t)).statusCode, 401, 'logout still ends it at once');
+});
+
 test('logout invalidates the server-side session; repeat logout is 401; other sessions survive', async () => {
   const t1 = await token(slugA, PW_A);
   const t2 = await token(slugA, PW_A);
