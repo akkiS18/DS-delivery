@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../../lib/db.js';
 import { RateLimiter } from '../../lib/rate-limit.js';
 import { checkoutRequestSchema, customerCancelRequestSchema, quoteCheckout, quoteRequestSchema, toPlaceOrderInput } from '../orders/contract.js';
+import { switchOrderToCash } from '../orders/cash.js';
 import { placeOrder } from '../orders/service.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
 import { paymentMode } from '../payment/requisites.js';
@@ -218,7 +219,7 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   app.get('/taxi-companies', async () => ({ companies: await listTaxiOptions() }));
   app.post('/quote', async request => {
     strict(request, 'quote', 60);
-    return quoteCheckout(quoteRequestSchema.parse(request.body));
+    return quoteCheckout(quoteRequestSchema.parse(request.body), { isTest: paymentMode() === 'MOCK' });
   });
 
   // ------------------------------------------------------------------ orders
@@ -308,6 +309,19 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     } else {
       throw httpError(409, 'NOT_CANCELLABLE');
     }
+    return { order: await ownedView(request, id) };
+  });
+
+  // "No free card, pay in cash": converts the customer's still-QUEUED card payment into a cash order for the restaurant to accept. Idempotent.
+  app.post<{ Params: { id: string } }>('/orders/:id/pay-cash', async request => {
+    strict(request, 'paycash', 10);
+    const id = idParam.parse(request.params.id);
+    const r = await switchOrderToCash(engine, { telegramUserId: audit(request), orderId: id, ...(request.principal!.kind === 'guest' ? { customerId: await customerId(request) } : {}) });
+    if (r === 'NOT_FOUND') throw httpError(404, 'NOT_FOUND');
+    if (r === 'CASH_OFF') throw httpError(409, 'NAQD_TOLOV_YOPIQ');
+    if (r === 'TOO_LARGE') throw httpError(409, 'NAQD_SUMMA_JUDA_KATTA');
+    if (r === 'LIMIT') throw httpError(429, 'KOP_NAQD_BUYURTMA');
+    if (r === 'NOT_ALLOWED') throw httpError(409, 'NAQD_MUMKIN_EMAS');
     return { order: await ownedView(request, id) };
   });
 

@@ -1,3 +1,4 @@
+import { isPaymentCleared } from '../payment/status.js';
 import { db } from '../../lib/db.js';
 import { isSupportAdmin } from '../support/service.js';
 import { createNextAttempt, nextEligibleCompany, reassignableCompanies } from './assignment.js';
@@ -40,7 +41,7 @@ export async function adminRecoverDispatch(input: {
     if (!d) return { result: 'NOT_FOUND' };
     const newer = await tx.taxiDispatch.count({ where: { orderId: d.orderId, attemptNo: { gt: d.attemptNo } } });
     if (!(RECOVERABLE as readonly string[]).includes(d.status) || newer > 0) return { result: 'STALE', status: d.status };
-    if (!['PREPARING', 'READY'].includes(d.order.status) || d.order.payment?.status !== 'CONFIRMED_MANUAL') {
+    if (!['PREPARING', 'READY'].includes(d.order.status) || !isPaymentCleared(d.order.payment?.status)) {
       return { result: 'STALE', status: d.order.status };
     }
     const now = new Date();

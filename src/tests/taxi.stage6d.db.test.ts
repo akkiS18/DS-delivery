@@ -277,7 +277,9 @@ test('dispatch is scheduled automatically at "preparing", not sent early, and se
   assert.ok(text.includes('Pickup ko‘chasi 1') && text.includes('Test manzil 5') && text.includes('+998901234567'));
   assert.ok(text.includes('MOCK'), 'test order is labelled');
   assert.ok(!new RegExp(`\\*{0,3}${last4}`).test(text) || !text.includes('karta'), 'no payment credentials');
-  assert.ok(!/karta|card|payment|to‘lov rekviz/i.test(text), 'no payment details in the booking');
+  // Owner decision 2026-10-25: the operator is told whether the food is already paid by card or must be paid in cash - that one line and nothing else about payment.
+  assert.ok(text.includes('✅ Taom puli kartadan to‘langan'), 'a card order says it is already paid');
+  assert.ok(!/karta|card|payment|to‘lov rekviz/i.test(text.replace(/^✅ Taom puli kartadan to‘langan.*$/m, '')), 'no other payment details in the booking');
   const req = calls.slice(m0).find(c => c.token === TAXI_TOKEN && String(c.body.chat_id) === opA && String(c.body.text).includes(`#${order.code}`))!;
   assert.ok(buttons(req).includes('taxi:acc:') && buttons(req).includes('taxi:none:'), 'Qabul qilish / Rad etish');
   assert.ok(!buttons(req).includes('taxi:sent:'), '"Taksi yuborildi" is not offered before acceptance');

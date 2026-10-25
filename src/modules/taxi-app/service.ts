@@ -35,6 +35,7 @@ const include = {
     code: true, status: true, addressText: true, deliveryLat: true, deliveryLng: true, phoneSnapshot: true, totalSom: true,
     prepMinutes: true, preparingStartedAt: true, readyAt: true, paymentIsTest: true,
     restaurant: { select: { name: true, pickupAddress: true, pickupPhone: true } },
+    payment: { select: { method: true } },
   } },
 } satisfies Prisma.TaxiDispatchInclude;
 type Row = Prisma.TaxiDispatchGetPayload<{ include: typeof include }>;
@@ -60,6 +61,10 @@ export function toRequestView(d: Row) {
     restaurant: { name: o.restaurant.name, address: o.restaurant.pickupAddress ?? null, phone: o.restaurant.pickupPhone ?? null },
     delivery: { address: o.addressText, lat: o.deliveryLat, lng: o.deliveryLng, customerPhone: o.phoneSnapshot ?? null },
     food: { ready, status: o.status, prepMinutes: o.prepMinutes, estimatedReadyAt: iso(estimatedReadyAt), readyAt: iso(o.readyAt), totalSom: o.totalSom },
+    // CASH: the driver pays the restaurant `payRestaurantSom` at pickup and collects it from the customer; CARD: already paid, nothing to pay.
+    payment: o.payment?.method === 'CASH'
+      ? { method: 'CASH' as const, payRestaurantSom: o.totalSom }
+      : { method: 'CARD' as const, payRestaurantSom: 0 },
     actions: ACTIONS[d.status] ?? [],
     deliverBlockedReason: d.status === 'ASSIGNED' && !ready ? ERRORS.BUYURTMA_HALI_TAYYOR_EMAS! : null,
   };

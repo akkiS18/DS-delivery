@@ -388,6 +388,8 @@ model Payment {
   restaurant            Restaurant?       @relation(fields: [restaurantId], references: [id])
   amountTiyin           BigInt
   status                String            @default("QUEUED")
+  /// CARD = bank transfer to a restaurant card (matched from the bank e-mail); CASH = the customer pays the courier on delivery (statuses CASH_PENDING -> CASH_ACCEPTED, no card).
+  method                String            @default("CARD")
   isTest                Boolean           @default(false)
   isStress              Boolean           @default(false)
   cardId                String?

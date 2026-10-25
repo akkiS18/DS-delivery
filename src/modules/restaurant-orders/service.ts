@@ -5,13 +5,15 @@ import type { PaymentEngineV3 } from '../payment/engine.js';
 import { acceptOrder, rejectOrder, validateSnapshot, REJECT_REASONS, type SnapshotProblem } from '../restaurant/acceptance.js';
 import { takeStaffAction } from '../restaurant/service.js';
 import { isValidPrepMinutes } from '../restaurant/workflow.js';
-import { decideRefund, markRefundSent, requestCancellation } from '../refunds/service.js';
+import { cancelCashOrder, decideRefund, markRefundSent, requestCancellation } from '../refunds/service.js';
 import type { StoredReceipt } from '../refunds/receipts.js';
 import { REJECT_REASONS as REFUND_REJECT_REASONS, RESTAURANT_REASONS } from '../refunds/workflow.js';
 import { taxiStage } from '../taxi/workflow.js';
 import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
 import { rescheduleTaxiForPrep } from '../taxi/service.js';
 import { autoStartPreparing } from './auto.js';
+import { CASH_PENDING, isPaymentCleared } from '../payment/status.js';
+import { acceptCashOrder, rejectCashOrder } from '../restaurant/cash.js';
 
 /** Same buckets the Android tabs use. */
 export const FILTERS = {
@@ -35,7 +37,9 @@ export const FILTERS = {
  *  - waiting: not for the kitchen yet or any more (unpaid, taxi on its way, cancellation asked) - kept visible, never announced.
  * `ready` and `history` are the buckets above.
  */
-const NEW_WHERE: Prisma.OrderWhereInput = { OR: [{ status: { in: [...FILTERS.incoming] } }, { status: 'PREPARING', prepChosenMinutes: null }] };
+// A cash order nobody has accepted yet is the kitchen's job too (the bell rings for it); it is PAYMENT_PENDING, which the other tabs would call unpaid.
+const CASH_PENDING_WHERE: Prisma.OrderWhereInput = { status: 'PAYMENT_PENDING', payment: { is: { method: 'CASH', status: CASH_PENDING } } };
+const NEW_WHERE: Prisma.OrderWhereInput = { OR: [{ status: { in: [...FILTERS.incoming] } }, { status: 'PREPARING', prepChosenMinutes: null }, CASH_PENDING_WHERE] };
 const COOKING_WHERE: Prisma.OrderWhereInput = { status: 'PREPARING', prepChosenMinutes: { not: null } };
 export const WAITING_STATUSES = ['WAITING_CUSTOMER_CONSENT', 'PAYMENT_PENDING', 'ACCEPTED', 'TAXI_REQUESTED', 'DRIVER_ASSIGNED', 'DELIVERY_ASSUMED', 'CANCELLATION_REQUESTED'] as const satisfies readonly OrderStatus[];
 
@@ -51,7 +55,7 @@ function filterWhere(filter: z.output<typeof listQuerySchema>['filter']): Prisma
     case 'all': return {};
     case 'new': return NEW_WHERE;
     case 'cooking': return COOKING_WHERE;
-    case 'waiting': return { status: { in: [...WAITING_STATUSES] } };
+    case 'waiting': return { AND: [{ status: { in: [...WAITING_STATUSES] } }, { NOT: CASH_PENDING_WHERE }] };
     case 'attention': return ATTENTION_WHERE;
     default: return { status: { in: [...FILTERS[filter]] } };
   }
@@ -100,7 +104,7 @@ const detailSelect = {
   customer: { select: { displayName: true } },
   taxiCompany: { select: { name: true } },
   items: { where: { supersededAt: null }, select: { productId: true, name: true, unitSom: true, baseUnitSom: true, quantity: true, subtotalSom: true } },
-  payment: { select: { number: true, status: true, isTest: true, amountTiyin: true, assignedAt: true, matchedAt: true, matchedTransactionId: true, card: { select: { last4: true } } } },
+  payment: { select: { number: true, status: true, method: true, expiresAt: true, isTest: true, amountTiyin: true, assignedAt: true, matchedAt: true, matchedTransactionId: true, card: { select: { last4: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' }, take: 1, select: {
     status: true, attemptNo: true, acceptedAt: true, dispatchedAt: true, deliveredAt: true, taxiCompany: { select: { name: true } },
   } },
@@ -122,7 +126,7 @@ export interface Extras {
 const NO_EXTRAS: Extras = { incoming: null, menuProblems: [] };
 
 type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'> & {
-  paymentStatus: string | null; refund: { status: string } | null; paymentIsTest: boolean;
+  paymentStatus: string | null; paymentMethod?: string | null; refund: { status: string } | null; paymentIsTest: boolean;
 };
 
 /** What the app may offer. The server re-checks every transition; this only drives which buttons are shown.
@@ -137,11 +141,14 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblem
     const open = Boolean(o.restaurantDeadlineAt && o.restaurantDeadlineAt > now);
     if (open && extras.menuProblems.length === 0) actions.push('ACCEPT');
     actions.push('REJECT');
+  } else if (o.status === 'PAYMENT_PENDING' && o.paymentMethod === 'CASH' && o.paymentStatus === CASH_PENDING) {
+    // Cash on delivery: the restaurant decides (the same two buttons as the legacy accept-first flow).
+    actions.push('ACCEPT', 'REJECT');
   } else if (o.status === 'PAYMENT_MATCHED_UNVERIFIED' && o.paymentStatus === 'MATCHED_UNVERIFIED') {
     actions.push('VERIFY_PAYMENT');
-  } else if (o.status === 'PAYMENT_CONFIRMED' && o.paymentStatus === 'CONFIRMED_MANUAL' && !openRefund) {
+  } else if (o.status === 'PAYMENT_CONFIRMED' && isPaymentCleared(o.paymentStatus) && !openRefund) {
     actions.push('START_PREPARING', 'CANCEL_ORDER');
-  } else if (o.status === 'PREPARING' && o.paymentStatus === 'CONFIRMED_MANUAL' && !openRefund) {
+  } else if (o.status === 'PREPARING' && isPaymentCleared(o.paymentStatus) && !openRefund) {
     actions.push('SET_PREP_TIME', 'MARK_READY', 'CANCEL_ORDER');
   }
   if (openRefund === 'REQUESTED') actions.push('REFUND_APPROVE', 'REFUND_REJECT');
@@ -199,11 +206,13 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
       : { name, unitSom: baseUnitSom, quantity, subtotalSom: baseUnitSom * quantity })),
     serviceFeeSom: o.serviceFeeSom ?? 0,
     payment: o.payment && {
-      status: o.payment.status, isTest: o.payment.isTest, amountSom: som(o.payment.amountTiyin),
+      status: o.payment.status, method: o.payment.method, isTest: o.payment.isTest, amountSom: som(o.payment.amountTiyin),
       cardLast4: o.payment.card?.last4 ?? null,
     },
+    /** Cash on delivery: the taxi driver pays the restaurant `amountSom` (the food total) at pickup and collects it from the customer. */
+    cash: o.payment?.method === 'CASH' ? { amountSom: o.totalSom, acceptBy: iso(o.payment.expiresAt), accepted: o.payment.status !== CASH_PENDING } : null,
     /** What the restaurant checks before confirming real money. A Gmail signal is NEVER proof of a bank credit. */
-    paymentEvidence: o.payment && {
+    paymentEvidence: o.payment && o.payment.method !== 'CASH' ? {
       expectedAmountSom: som(o.payment.amountTiyin), status: o.payment.status, isTest: o.payment.isTest,
       cardLast4: o.payment.card?.last4 ?? null, assignedAt: iso(o.payment.assignedAt), matchedAt: iso(o.payment.matchedAt),
       verifiedAt: iso(o.paymentVerifiedAt),
@@ -213,7 +222,7 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
         amountMatches: extras.incoming.amountTiyin === o.payment.amountTiyin,
       },
       notBankProof: !o.payment.isTest,
-    },
+    } : null,
     // Progress of the latest dispatch, driven by the taxi operator bot: requested -> accepted -> dispatched -> delivered.
     // Only `stage: DELIVERED` (operator-confirmed, order COMPLETED) means delivery; nothing earlier does.
     taxi: taxi ? {
@@ -237,7 +246,7 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
       bankReference: refund.bankReference, hasReceipt: refund.receiptKey !== null, sentAt: iso(refund.sentAt), rejectReason: refund.rejectReason, requestedAt: refund.requestedAt.toISOString(),
     },
     attention: attentionCodes(o, extras),
-    allowedActions: allowedActions({ ...o, paymentStatus: o.payment?.status ?? null, paymentIsTest: o.paymentIsTest, refund: refund && { status: refund.status } }, extras, now),
+    allowedActions: allowedActions({ ...o, paymentStatus: o.payment?.status ?? null, paymentMethod: o.payment?.method ?? null, paymentIsTest: o.paymentIsTest, refund: refund && { status: refund.status } }, extras, now),
     awaitingPaymentVerification: o.status === 'PAYMENT_MATCHED_UNVERIFIED',
   };
 }
@@ -271,11 +280,12 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
   const where: Prisma.OrderWhereInput = {
     AND: [base, filterWhere(q.filter), ...(q.cursor ? [beforeCursor('createdAt', q.cursor)] : [])],
   };
-  const [rows, grouped, unchosen, attention] = await Promise.all([
+  const [rows, grouped, unchosen, attention, cashPending] = await Promise.all([
     db.order.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: q.limit + 1, select: detailSelect }),
     db.order.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
     db.order.count({ where: { AND: [base, { status: 'PREPARING', prepChosenMinutes: null }] } }),
     db.order.count({ where: { AND: [base, ATTENTION_WHERE] } }),
+    db.order.count({ where: { AND: [base, CASH_PENDING_WHERE] } }),
   ]);
   const page = rows.slice(0, q.limit);
   const count = (s: readonly OrderStatus[]) => grouped.filter(g => s.includes(g.status)).reduce((n, g) => n + g._count._all, 0);
@@ -284,7 +294,7 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
     nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null,
     counts: {
       incoming: count(FILTERS.incoming), inProgress: count(FILTERS.inProgress), toCook: count(FILTERS.toCook), ready: count(FILTERS.ready), attention,
-      new: count(FILTERS.incoming) + unchosen, cooking: count(['PREPARING']) - unchosen, waiting: count(WAITING_STATUSES),
+      new: count(FILTERS.incoming) + unchosen + cashPending, cooking: count(['PREPARING']) - unchosen, waiting: count(WAITING_STATUSES) - cashPending,
     },
   };
 }
@@ -309,7 +319,7 @@ export async function setPrepTime(restaurantId: string, orderId: string, minutes
   if (!Number.isInteger(minutes) || minutes < PREP_CHOICE_MIN || minutes > PREP_CHOICE_MAX) throw new Error('TAYYORLASH_VAQTI_NOTOGRI');
   return db.$transaction(async tx => {
     const o = await tx.order.findFirst({
-      where: { id: orderId, restaurantId, createdViaBot: true, status: 'PREPARING', payment: { is: { status: 'CONFIRMED_MANUAL' } } },
+      where: { id: orderId, restaurantId, createdViaBot: true, status: 'PREPARING', payment: { is: { status: { in: ['CONFIRMED_MANUAL', 'CASH_ACCEPTED'] } } } },
       select: { id: true, preparingStartedAt: true, prepMinutes: true },
     });
     if (!o?.preparingStartedAt) return 'STALE';
@@ -347,9 +357,10 @@ export async function performOrderAction(
 ): Promise<ActionOutcome> {
   const current = await db.order.findFirst({
     where: { id: orderId, restaurantId, createdViaBot: true },
-    select: { status: true, estimatedPrepMinutes: true, restaurant: { select: { defaultPrepMinutes: true } } },
+    select: { status: true, estimatedPrepMinutes: true, restaurant: { select: { defaultPrepMinutes: true } }, payment: { select: { method: true } } },
   });
   if (!current) return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+  const cash = current.payment?.method === 'CASH';
   if (args.expectedStatus && args.expectedStatus !== current.status) {
     return { ok: false, httpStatus: 409, error: 'STALE', status: current.status };
   }
@@ -365,7 +376,19 @@ export async function performOrderAction(
   const prepMinutes = args.prepMinutes ?? current.estimatedPrepMinutes ?? current.restaurant.defaultPrepMinutes;
   let autoStart: { started: boolean; reason?: string } | undefined;
   try {
-    if (action === 'ACCEPT') {
+    if (action === 'ACCEPT' && cash) {
+      // Cash on delivery: this tap is the restaurant's decision; cooking then starts by itself, as after a verified card payment.
+      const r = await acceptCashOrder(actor);
+      if (r.result === 'EXPIRED') return stale('TIMED_OUT');
+      if (r.result === 'STALE') return stale();
+      autoStart = await autoStartPreparing({ actorRestaurantId: restaurantId }, orderId);
+    } else if (action === 'REJECT' && cash) {
+      if ((await rejectCashOrder({ ...actor, reason: args.reason as (typeof REJECT_REASONS)[number] })).result !== 'DONE') return stale();
+    } else if (action === 'CANCEL_ORDER' && cash) {
+      const r = await cancelCashOrder({ restaurantId, actorLabel: label, orderId, reasonCode: args.reason as string, ...(args.note ? { note: args.note } : {}) });
+      if (r.result === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+      if (r.result !== 'CANCELLED') return stale('INVALID_STATE');
+    } else if (action === 'ACCEPT') {
       const r = await acceptOrder(engine, { ...actor, prepMinutes: args.prepMinutes ?? current.restaurant.defaultPrepMinutes });
       if (r.result === 'PROBLEMS') {
         return { ok: false, httpStatus: 409, error: 'ORDER_PROBLEMS', status: 'WAITING_RESTAURANT', problems: r.problems };

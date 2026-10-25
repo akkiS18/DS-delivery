@@ -8,6 +8,7 @@ import {
   resolveRefundAmount, validateAdminNote, type RefundActor, type RefundStatus,
 } from './workflow.js';
 import type { StoredReceipt } from './receipts.js';
+import { CASH_ACCEPTED } from '../payment/method.js';
 
 type Tx = Prisma.TransactionClient;
 
@@ -145,6 +146,43 @@ export async function requestCancellation(input: {
     if (err instanceof Error && err.message === 'HOLAT_ORALIQDA_OZGARDI') return { result: 'NOT_ALLOWED', status: 'CHANGED' };
     throw err;
   }
+}
+
+// ---------------------------------------------------------------- cash order cancelled by the restaurant (no money moved: no refund)
+export type CancelCashResult = { result: 'CANCELLED'; taxiActive: boolean } | { result: 'NOT_FOUND' } | { result: 'NOT_ALLOWED'; status: string };
+
+/** The restaurant cancels an order it accepted as cash. The customer has paid nothing yet, so there is no refund request: the order and its
+ *  cash payment are cancelled together, scheduled taxi requests are cancelled and an already-sent one is only flagged (as for a paid order).
+ *  Not possible once the food is READY (same rule as a paid order). */
+export async function cancelCashOrder(input: { restaurantId: string; actorLabel: string; orderId: string; reasonCode: string; note?: string }): Promise<CancelCashResult> {
+  if (!(RESTAURANT_REASONS as readonly string[]).includes(input.reasonCode)) throw new Error('SABAB_NOTOGRI');
+  const note = input.note?.trim().slice(0, 300) || undefined;
+  return db.$transaction(async (tx): Promise<CancelCashResult> => {
+    const now = new Date();
+    const status = await lockOrder(tx, input.orderId);
+    if (status === null) return { result: 'NOT_FOUND' };
+    const order = await tx.order.findFirst({ where: { id: input.orderId, createdViaBot: true, restaurantId: input.restaurantId }, include: { payment: true } });
+    if (!order) return { result: 'NOT_FOUND' };
+    const pay = order.payment;
+    if (!pay || pay.method !== 'CASH' || pay.status !== CASH_ACCEPTED || !['PAYMENT_CONFIRMED', 'PREPARING'].includes(status)) return { result: 'NOT_ALLOWED', status };
+    const moved = await tx.payment.updateMany({ where: { id: pay.id, status: CASH_ACCEPTED, method: 'CASH' }, data: { status: 'CANCELLED' } });
+    if (moved.count !== 1) return { result: 'NOT_ALLOWED', status };
+    const taxi = await neutralizeTaxi(tx, order.id);
+    const updated = await tx.order.updateMany({
+      where: { id: order.id, status: status as OrderStatus },
+      data: { status: 'CANCELLED', cancelledAt: now, cancelledBy: input.actorLabel, cancelReason: `RESTAURANT_${input.reasonCode}` },
+    });
+    if (updated.count !== 1) throw new Error('HOLAT_ORALIQDA_OZGARDI');
+    await tx.paymentEvent.create({ data: { paymentId: pay.id, action: 'CANCELLED', fromStatus: CASH_ACCEPTED, toStatus: 'CANCELLED', actorType: 'RESTAURANT_STAFF', actorId: input.actorLabel, details: { reasonCode: input.reasonCode } } });
+    await tx.orderEvent.create({ data: {
+      orderId: order.id, actorTelegramId: input.actorLabel, actorType: 'RESTAURANT_STAFF', action: 'CANCEL_CASH', fromStatus: status as OrderStatus, toStatus: 'CANCELLED',
+      details: { reasonCode: input.reasonCode, ...(note ? { note } : {}), taxiActive: taxi.active, cancelledScheduledTaxi: taxi.cancelledScheduled },
+    } });
+    return { result: 'CANCELLED', taxiActive: taxi.active };
+  }).catch(err => {
+    if (err instanceof Error && err.message === 'HOLAT_ORALIQDA_OZGARDI') return { result: 'NOT_ALLOWED' as const, status: 'CHANGED' };
+    throw err;
+  });
 }
 
 // ---------------------------------------------------------------- restaurant decision / sending

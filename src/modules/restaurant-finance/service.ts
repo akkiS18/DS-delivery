@@ -47,7 +47,7 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
     }),
     db.commissionEntry.aggregate({ where: { restaurantId, accruedAt: { gte: from, lt: to } }, _count: { _all: true }, _sum: { amountSom: true } }),
     db.commissionEntry.aggregate({ where: { restaurantId }, _count: { _all: true }, _sum: { amountSom: true } }),
-    db.order.count({ where: { restaurantId, paymentIsTest: false, status: 'COMPLETED', commission: null, payment: { is: { status: 'CONFIRMED_MANUAL', isTest: false } } } }),
+    db.order.count({ where: { restaurantId, paymentIsTest: false, status: 'COMPLETED', commission: null, payment: { is: { status: { in: ['CONFIRMED_MANUAL', 'CASH_ACCEPTED'] }, isTest: false } } } }),
     db.commissionEntry.count({ where: { restaurantId, order: { refundRequests: { some: { status: { not: 'REJECTED' } } } } } }),
   ]);
 
@@ -110,7 +110,7 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
 }
 
 const paymentState = (p: { status: string; isTest: boolean } | null) =>
-  !p ? 'NONE' : p.isTest ? 'TEST' : p.status === 'CONFIRMED_MANUAL' ? 'VERIFIED_BY_RESTAURANT' : p.status === 'MATCHED_UNVERIFIED' ? 'MATCHED_UNVERIFIED'
+  !p ? 'NONE' : p.isTest ? 'TEST' : p.status === 'CASH_PENDING' || p.status === 'CASH_ACCEPTED' ? 'CASH_ON_DELIVERY' : p.status === 'CONFIRMED_MANUAL' ? 'VERIFIED_BY_RESTAURANT' : p.status === 'MATCHED_UNVERIFIED' ? 'MATCHED_UNVERIFIED'
     : ['QUEUED', 'AWAITING'].includes(p.status) ? 'AWAITING_PAYMENT' : 'EXPIRED_OR_CANCELLED';
 
 export async function financeOrders(restaurantId: string, q: { from?: string; to?: string; bucket?: OrderBucket } & PageQuery) {

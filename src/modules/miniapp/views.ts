@@ -1,5 +1,6 @@
 import { db } from '../../lib/db.js';
 import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
+import { isPaymentCleared } from '../payment/status.js';
 import { payeeNumber } from '../payment/requisites.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { publicPricing } from '../pricing/fee.js';
@@ -82,7 +83,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
       if (taxi === 'REQUESTED') return 'TAXI_REQUESTED';
       return status === 'READY' ? 'READY' : 'PREPARING';
     }
-    default: return paymentStatus === 'CONFIRMED_MANUAL' ? 'PREPARING' : 'PAYMENT_PENDING';
+    default: return isPaymentCleared(paymentStatus) ? 'PREPARING' : 'PAYMENT_PENDING';
   }
 }
 
@@ -126,8 +127,11 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const stage = customerStage(o.status, pay?.status ?? null, taxiSt, now);
   const refund = o.refundRequests[0] ?? null;
   const openRefund = refund !== null && OPEN_REFUND.includes(refund.status);
+  const cash = pay?.method === 'CASH';
+  // Cash: the customer can withdraw while the restaurant has not accepted; afterwards only the restaurant cancels (nothing was paid, so there is no refund to request).
   const cancel: 'UNPAID' | 'REFUND_REQUEST' | null = openRefund ? null
     : o.status === 'PAYMENT_PENDING' ? 'UNPAID'
+    : cash ? null
     : ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(o.status) ? 'REFUND_REQUEST' : null;
 
   let instructions: unknown = null;
@@ -158,6 +162,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     payment: pay && {
       status: pay.status, amountSom: Number(pay.amountTiyin / 100n), mode: pay.isTest ? 'MOCK' as const : 'REAL' as const,
       queued: pay.status === 'QUEUED', instructions,
+      method: cash ? 'CASH' as const : 'CARD' as const,
+      // Cash on delivery: nothing is paid in the app; the customer hands the food total to the driver. acceptBy = the restaurant's answer deadline.
+      cash: cash ? { dueSom: o.totalSom, accepted: pay.status === 'CASH_ACCEPTED', acceptBy: pay.status === 'CASH_PENDING' ? pay.expiresAt?.toISOString() ?? null : null } : null,
     },
     prep: customerPrep(o, now),
     readyAt: o.readyAt?.toISOString() ?? null,

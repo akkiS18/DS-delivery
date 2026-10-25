@@ -1,4 +1,5 @@
 import { Markup, type Telegraf } from 'telegraf';
+import { isPaymentCleared } from '../payment/status.js';
 import { db } from '../../lib/db.js';
 import { isDelivered, notificationKey, sendOnce } from '../../lib/notify-once.js';
 import { restaurantTelegramEnabled, taxiTelegramEnabled } from '../../lib/features.js';
@@ -78,7 +79,7 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
       taxiCompany: { include: { credential: { select: { id: true } } } },
       order: { include: {
         restaurant: { select: { name: true, pickupAddress: true, pickupPhone: true } },
-        payment: { select: { isTest: true, status: true } },
+        payment: { select: { isTest: true, status: true, method: true } },
       } },
     },
   });
@@ -94,7 +95,7 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     const viaApp = Boolean(item.taxiCompany.credential);
     const viaTelegram = taxiTelegramEnabled() && Boolean(operator) && (!operatorAllowlist.length || operatorAllowlist.includes(operator!));
     const validOrder = item.order.createdViaBot && ['PREPARING', 'READY'].includes(item.order.status)
-      && item.order.payment?.status === 'CONFIRMED_MANUAL';
+      && isPaymentCleared(item.order.payment?.status);
     const pickupSet = Boolean(item.order.restaurant.pickupAddress?.trim());
     if (!viaApp && operator && taxiTelegramEnabled() && !viaTelegram) {
       console.error(`[TAXI] #${item.order.code}: operator is not in TAXI_OPERATOR_ALLOWLIST, nothing was sent`);
@@ -120,6 +121,9 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
       `Ovqat: ${item.order.status === 'READY' ? 'TAYYOR' : 'Tayyorlanmoqda'}`,
       ...(item.order.prepMinutes ? [`Tayyorlash vaqti: ${item.order.prepMinutes} daqiqa`] : []),
       `Ovqat qiymati: ${currency.format(item.order.totalSom)} so‘m (taksi haqi emas)`,
+      ...(item.order.payment?.method === 'CASH'
+        ? [`💵 NAQD: restoranga ${currency.format(item.order.totalSom)} so‘m to‘lanadi — pulli haydovchi yuboring; shu summani mijozdan olasiz`]
+        : ['✅ Taom puli kartadan to‘langan: restoranga to‘lash shart emas']),
       'Yetkazish narxini sizning taksi xizmatingiz belgilaydi.',
       'Avval buyurtmani qabul qiling yoki rad eting; haydovchi yuborilgach „Taksi yuborildi“ni bosing.',
       `Javob muddati: ${responseSeconds} soniya. Javob bo‘lmasa avtomatik boshqa taksi chaqirilmaydi.`,

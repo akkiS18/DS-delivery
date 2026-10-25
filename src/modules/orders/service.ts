@@ -6,6 +6,7 @@ import { eligibleCompanyWhere } from '../taxi/assignment.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.js';
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
+import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, cashMaxOrderSom } from '../payment/method.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
 
@@ -27,6 +28,8 @@ export const orderSchema = z.object({
   allowTaxiFallback: z.boolean().default(false),
   items: z.array(z.object({ productId: z.string().min(1), quantity: z.number().int().min(1).max(30) })).min(1).max(20),
   paymentMode: z.enum(['MOCK', 'REAL']).default('MOCK'),
+  /** CARD: transfer to the restaurant card (matched from the bank e-mail). CASH: the customer pays the taxi driver on delivery; the restaurant must accept the order first. */
+  paymentMethod: z.enum(['CARD', 'CASH']).default('CARD'),
   /** What the customer saw. A mismatch refuses the order (409 NARX_OZGARGAN) instead of charging a different amount. */
   expectedTotalSom: z.number().int().min(0).max(100_000_000).optional(),
   expectedUnitPrices: z.record(z.string(), z.number().int().min(0)).optional(),
@@ -133,11 +136,11 @@ export function checkoutErrorFor(issues: CheckoutIssue[], lines: CheckoutLine[],
 type PlaceOrderData = z.output<typeof orderSchema>;
 
 export function paymentView(p: {
-  id: string; number: number; status: string; amountTiyin: bigint;
+  id: string; number: number; status: string; amountTiyin: bigint; method?: string;
   card: { last4: string; label: string; isTest: boolean } | null; expiresAt: Date | null;
 } | null) {
   return p ? {
-    id: p.id, number: p.number, status: p.status,
+    id: p.id, number: p.number, status: p.status, method: p.method ?? 'CARD',
     amountSom: Number(p.amountTiyin / 100n),
     card: p.card && { last4: p.card.last4, label: p.card.label, isTest: p.card.isTest },
     expiresAt: p.expiresAt,
@@ -206,7 +209,9 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
 
   // Stage 6F: the order is created already validated; unless the legacy manual-acceptance flag is on there is no waiting
   // state. It starts as PAYMENT_PENDING with its single payment attempt, created under the payment lock. NOT paid yet.
+  const isCash = data.paymentMethod === 'CASH';
   const waiting = acceptanceRequired(data.paymentMode);
+  if (isCash && waiting) throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409); // the legacy accept-first flow has no cash step
   const deadline = waiting ? new Date(Date.now() + responseTimeoutMs()) : null;
   try {
     const buildOrder = async (tx: Prisma.TransactionClient) => {
@@ -218,11 +223,15 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       if (data.paymentMode === 'REAL' && realPaymentsGateActive() && !(await realPaymentsOpen(tx))) throw new CheckoutError('TOLOV_YOPIQ', 409);
       const checked = await validateCheckout(tx, data);
       if (!checked.ok) throw checkoutErrorFor(checked.issues, checked.lines, checked.totalSom, checked.fee.pricing);
+      if (isCash) {
+        if (!(await cashEnabled(tx))) throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409);
+        if (checked.totalSom > cashMaxOrderSom()) throw new CheckoutError('NAQD_SUMMA_JUDA_KATTA', 409, { maxSom: cashMaxOrderSom() });
+      }
       // New flow only: the order is payable immediately, so a REAL order must already be dispatchable. (The legacy accept-first flow
       // keeps its old behaviour: the restaurant sets the pickup address before accepting.)
       if (!waiting && data.paymentMode === 'REAL' && !checked.restaurant.pickupAddress?.trim()) throw new CheckoutError('RESTORAN_OLIB_KETISH_MANZILI_YOQ', 409);
       // Stage 8B: a REAL order needs at least one approved, enabled card; otherwise the payment would wait in the queue and expire.
-      if (data.paymentMode === 'REAL' && (await tx.card.count({ where: { restaurantId: data.restaurantId, isTest: false, active: true } })) === 0) {
+      if (!isCash && data.paymentMode === 'REAL' && (await tx.card.count({ where: { restaurantId: data.restaurantId, isTest: false, active: true } })) === 0) {
         throw new CheckoutError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409);
       }
       if (!data.taxiCompanyId && data.autoTaxi) {
@@ -254,6 +263,11 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
         });
         if (open >= openLimit) throw new CheckoutError('KOP_TOLANMAGAN_BUYURTMA', 429);
       }
+      // Cash is a promise to pay a courier: a customer may only hold a couple of unfinished cash orders at once.
+      if (isCash && (await tx.order.count({
+        where: { customerId: customer.id, payment: { is: { method: 'CASH', status: { in: [CASH_PENDING, CASH_ACCEPTED] } } },
+          status: { in: ['PAYMENT_PENDING', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY', 'TAXI_REQUESTED', 'DRIVER_ASSIGNED', 'DELIVERY_ASSUMED'] } },
+      })) >= CASH_ACTIVE_LIMIT) throw new CheckoutError('KOP_NAQD_BUYURTMA', 429);
       return tx.order.create({
         data: {
           restaurantId: data.restaurantId, customerId: customer.id,
@@ -284,7 +298,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       });
       return orderDetails(order.id);
     }
-    const { order } = await engine.createCheckout(buildOrder, data.paymentMode === 'MOCK');
+    const { order } = await (isCash ? engine.createCashCheckout(buildOrder, data.paymentMode === 'MOCK') : engine.createCheckout(buildOrder, data.paymentMode === 'MOCK'));
     return orderDetails(order.id);
   } catch (error) {
     if ((hasUniqueConstraint(error) || (error instanceof Error && error.message === 'CHECKOUT_ALREADY_CREATED')) && data.checkoutKey) {

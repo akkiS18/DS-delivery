@@ -1,3 +1,5 @@
+import { isPaymentCleared } from '../payment/status.js';
+
 /** Stage 6B pure rules: commission eligibility, configuration, refund presentation and report date ranges. No I/O. */
 
 /** Stage 6D: the assigned taxi company's linked operator confirms delivery (taxi/service.ts completeDelivery), which moves
@@ -41,7 +43,8 @@ export function commissionEligibility(i: EligibilityInput): { ok: true } | { ok:
   if (!i.hasCompletedEvent) return { ok: false, reason: 'NO_DELIVERY_PROOF' };
   if (i.orderPaymentIsTest) return { ok: false, reason: 'TEST_ORDER' };
   if (!i.payment) return { ok: false, reason: 'NO_PAYMENT' };
-  if (i.payment.isTest || i.payment.status !== 'CONFIRMED_MANUAL') return { ok: false, reason: 'PAYMENT_NOT_VERIFIED' };
+  // Card: the restaurant verified the bank credit. Cash: the restaurant accepted the order and the taxi operator confirmed the delivery (the driver collects).
+  if (i.payment.isTest || !isPaymentCleared(i.payment.status)) return { ok: false, reason: 'PAYMENT_NOT_VERIFIED' };
   if (i.refundStatuses.some(s => s !== 'REJECTED')) return { ok: false, reason: 'REFUND_EXISTS' };
   return { ok: true };
 }

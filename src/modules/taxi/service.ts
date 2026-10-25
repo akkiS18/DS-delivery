@@ -1,4 +1,5 @@
 import { Prisma, type TaxiDispatchStatus } from '@prisma/client';
+import { isPaymentCleared } from '../payment/status.js';
 import { db } from '../../lib/db.js';
 import { accrueCommissionTx, type AccrueResult } from '../commission/ledger.js';
 import { createNextAttempt, eligibleCompanyWhere, nextEligibleCompany } from './assignment.js';
@@ -196,7 +197,7 @@ export async function completeDelivery(input: { actorTelegramId: string; actorCo
     if (['CANCELLATION_REQUESTED', 'CANCELLED', 'CUSTOMER_CANCELLED'].includes(order.status)) throw new Error('BUYURTMA_BEKOR_QILINGAN');
     if (order.refundRequests.some(r => r.status !== 'REJECTED')) throw new Error('QAYTARISH_JARAYONIDA');
     if (order.status !== 'READY') throw new Error('BUYURTMA_HALI_TAYYOR_EMAS');
-    if (order.payment?.status !== 'CONFIRMED_MANUAL') throw new Error('TOLOV_TASDIQLANMAGAN');
+    if (!isPaymentCleared(order.payment?.status)) throw new Error('TOLOV_TASDIQLANMAGAN');
     const now = new Date();
     const moved = await tx.taxiDispatch.updateMany({
       where: { id: dispatch.id, status: 'ASSIGNED' },

@@ -1,6 +1,7 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
+import { cashEnabled, cashMaxOrderSom, setCashEnabled } from '../modules/payment/method.js';
 import { loadFeeConfig, setFeeMode } from '../modules/pricing/config.js';
 import { type FeeConfig, type FeeMode } from '../modules/pricing/fee.js';
 import { db } from '../lib/db.js';
@@ -47,6 +48,18 @@ export async function renderFee(): Promise<{ text: string; keyboard: ReturnType<
   return { text, keyboard: Markup.inlineKeyboard([[
     Markup.button.callback(`${mark('FLAT')}Tekis`, 'fee:set:FLAT'), Markup.button.callback(`${mark('PERCENT')}Foiz`, 'fee:set:PERCENT'), Markup.button.callback(`${mark('TIERED')}Pog‘onali`, 'fee:set:TIERED'),
   ]]) };
+}
+
+export async function renderCash(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
+  const on = await cashEnabled();
+  const text = [
+    '💵 <b>Naqd to‘lov</b>',
+    on ? '🟢 <b>YOQILGAN</b>: mijoz naqd to‘lashni tanlay oladi.' : '🔴 <b>O‘CHIRILGAN</b>: yangi naqd buyurtma olinmaydi.',
+    '',
+    `Naqd buyurtmani restoran qabul qiladi, taksi operatori summani ko‘radi va pulli haydovchi yuboradi. Eng ko‘p summa: ${cashMaxOrderSom().toLocaleString('en-US').replace(/,/g, ' ')} so‘m.`,
+    'O‘chirsangiz ham, allaqachon berilgan naqd buyurtmalar davom etadi.',
+  ].join('\n');
+  return { text, keyboard: Markup.inlineKeyboard([[on ? Markup.button.callback('⛔ O‘chirish', 'cash:set:0') : Markup.button.callback('▶️ Yoqish', 'cash:set:1')]]) };
 }
 
 const BLOCK_TEXT: Record<string, string> = {
@@ -98,6 +111,21 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     }
     const v = await renderFee();
     await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.command('cash', async ctx => {
+    if (!admin(ctx)) return;
+    const v = await renderCash();
+    await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.action(/^cash:set:([01])$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    await setCashEnabled({ adminId, enabled: (ctx.match as unknown as [string, string])[1] === '1' });
+    const v = await renderCash();
+    await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });
 
   bot.action(/^fee:set:(FLAT|PERCENT|TIERED)$/, async ctx => {

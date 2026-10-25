@@ -3,6 +3,7 @@ import { Prisma, PrismaClient, type Card, type Payment } from '@prisma/client';
 import {
   classifyAmountMismatch, couldBelongToEarlierPayment, incomingFingerprint, isDelayedNotification, overlapsPaymentWindow,
 } from './matching.js';
+import { CASH_ACCEPTED, CASH_PENDING, cashAcceptWindowMs } from './method.js';
 import { formatSom } from './uzcard.js';
 
 export type Incoming = {
@@ -80,7 +81,8 @@ export class PaymentEngineV3 {
   ): Promise<{ cancelled: boolean; status: string | null }> {
     const p = await tx.payment.findUnique({ where: { orderId } });
     if (!p) return { cancelled: false, status: null };
-    if (p.status !== 'QUEUED' && p.status !== 'AWAITING') return { cancelled: false, status: p.status };
+    // A cash order the restaurant has not accepted yet can be cancelled too (it never held a card, so there is no cooldown).
+    if (p.status !== 'QUEUED' && p.status !== 'AWAITING' && p.status !== CASH_PENDING) return { cancelled: false, status: p.status };
     const { count } = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status: 'CANCELLED' } });
     if (count !== 1) return { cancelled: false, status: p.status };
     if (p.status === 'AWAITING' && p.cardId) await this.setCooldown(tx, p.cardId, p.amountTiyin, now, this.options.cancelCooldownMs ?? this.options.cooldownMs);
@@ -146,6 +148,40 @@ export class PaymentEngineV3 {
     this.printAssignments(assigned);
     if (!assigned.some(p => p.id === payment.id)) this.log(`[QUEUE] ${key(payment)} | ${formatSom(payment.amountTiyin)}`);
     return { order, payment: await this.db.payment.findUniqueOrThrow({ where: { id: payment.id } }) };
+  }
+
+  /** Cash on delivery: the order and a CASH_PENDING payment are created together. No card is allocated and nothing is matched against bank mail;
+   *  the restaurant's acceptance (restaurant/cash.ts) is what makes the order cookable. */
+  async createCashCheckout<T extends { id: string; restaurantId: string; totalSom: number }>(
+    createOrder: (tx: Prisma.TransactionClient) => Promise<T>,
+    isTest: boolean,
+  ): Promise<{ order: T; payment: Payment }> {
+    return this.locked(async tx => {
+      const now = new Date();
+      await this.expireWithin(tx, now);
+      const order = await createOrder(tx);
+      const amountTiyin = BigInt(order.totalSom) * 100n;
+      allowedMoney(amountTiyin);
+      const payment = await tx.payment.create({
+        data: { amountTiyin, isTest, status: CASH_PENDING, method: 'CASH', restaurantId: order.restaurantId, orderId: order.id, expiresAt: new Date(now.getTime() + cashAcceptWindowMs()) },
+      });
+      await record(tx, { paymentId: payment.id, action: 'CREATED', toStatus: CASH_PENDING, details: { method: 'CASH' } });
+      return { order, payment };
+    });
+  }
+
+  /** The customer's card payment is still QUEUED (no card was free, nothing to pay yet): turn it into a cash order. A payment that already has a
+   *  card (AWAITING) is never converted: the customer may already have transferred the money. Call inside runLocked. */
+  async switchQueuedToCash(tx: Prisma.TransactionClient, orderId: string, now: Date, actor: { type: string; id: string }): Promise<'SWITCHED' | 'NOT_QUEUED'> {
+    const p = await tx.payment.findUnique({ where: { orderId } });
+    if (!p || p.method !== 'CARD' || p.status !== 'QUEUED') return 'NOT_QUEUED';
+    const { count } = await tx.payment.updateMany({
+      where: { id: p.id, status: 'QUEUED', method: 'CARD', cardId: null },
+      data: { status: CASH_PENDING, method: 'CASH', expiresAt: new Date(now.getTime() + cashAcceptWindowMs()) },
+    });
+    if (count !== 1) return 'NOT_QUEUED';
+    await record(tx, { paymentId: p.id, action: 'SWITCHED_TO_CASH', fromStatus: 'QUEUED', toStatus: CASH_PENDING, actorType: actor.type, actorId: actor.id });
+    return 'SWITCHED';
   }
 
   /** Fair, FIFO within each amount. Tests cards by minimum total active allocations. */
@@ -238,6 +274,16 @@ export class PaymentEngineV3 {
       if (orderIds.length) await tx.order.updateMany({
         where: { id: { in: orderIds }, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_EXPIRED' },
       });
+    }
+    // Cash orders nobody accepted in time. The order is expired exactly like an unpaid card order; nothing was ever charged.
+    const cashOut = await tx.payment.findMany({ where: { method: 'CASH', status: CASH_PENDING, expiresAt: { lte: now } }, select: { id: true, orderId: true } });
+    if (cashOut.length) {
+      await tx.payment.updateMany({ where: { id: { in: cashOut.map(p => p.id) }, status: CASH_PENDING }, data: { status: 'EXPIRED' } });
+      await tx.paymentEvent.createMany({ data: cashOut.map(p => ({
+        paymentId: p.id, action: 'EXPIRED', fromStatus: CASH_PENDING, toStatus: 'EXPIRED', actorType: 'SYSTEM',
+      })) });
+      const orderIds = cashOut.map(p => p.orderId).filter((id): id is string => id !== null);
+      if (orderIds.length) await tx.order.updateMany({ where: { id: { in: orderIds }, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_EXPIRED' } });
     }
     return expiring;
   }
