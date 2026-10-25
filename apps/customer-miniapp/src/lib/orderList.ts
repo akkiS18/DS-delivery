@@ -11,7 +11,7 @@ const RELEVANCE: Record<CustomerStage, number> = {
 };
 
 /** Orders that need the customer's attention: highlighted in the list. */
-export const needsAttention = (s: CustomerStage): boolean => s === 'PAYMENT_PENDING' || s === 'NEEDS_HELP';
+export const needsAttention = (s: CustomerStage, method?: 'CARD' | 'CASH'): boolean => (s === 'PAYMENT_PENDING' && method !== 'CASH') || s === 'NEEDS_HELP';
 
 /** Active orders (most relevant first, then newest) and history (newest first). Duplicate ids are dropped. */
 export function groupOrders<T extends { id: string; stage: CustomerStage; createdAt: string }>(list: readonly T[]): { active: T[]; history: T[] } {
@@ -36,4 +36,4 @@ export function prepHint(o: { stage: CustomerStage; prep?: PrepClock | undefined
 }
 
 /** The one action each active card offers. */
-export const nextAction = (s: CustomerStage): string => (s === 'PAYMENT_PENDING' ? 'To‘lash' : s === 'NEEDS_HELP' ? 'Batafsil' : 'Kuzatish');
+export const nextAction = (s: CustomerStage, method?: 'CARD' | 'CASH'): string => (s === 'PAYMENT_PENDING' ? (method === 'CASH' ? 'Kutilmoqda' : 'To‘lash') : s === 'NEEDS_HELP' ? 'Batafsil' : 'Kuzatish');

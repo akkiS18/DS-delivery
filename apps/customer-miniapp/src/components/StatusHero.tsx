@@ -25,13 +25,13 @@ const BIG_ICON: Record<CustomerStage, LucideIcon> = {
   TAXI_SENT: Car, DELIVERED: PackageCheck, CANCELLATION_REQUESTED: Hourglass, CANCELLED: XCircle, EXPIRED: XCircle, NEEDS_HELP: LifeBuoy,
 };
 
-export function StatusHero({ stage }: { stage: CustomerStage }) {
-  const steps = heroSteps(stage);
+export function StatusHero({ stage, cash = false }: { stage: CustomerStage; cash?: boolean }) {
+  const steps = heroSteps(stage)?.map(p => (cash && p.key === 'PAY' ? { ...p, label: 'Tasdiq' } : p)) ?? null;
   const bad = stage === 'CANCELLED' || stage === 'EXPIRED' || stage === 'NEEDS_HELP';
   return (
     <div className="hero" aria-live="polite">
       <div className={`hero-ico ${bad ? 'bad' : stage === 'DELIVERED' ? 'done' : ''}`} aria-hidden><Icon as={BIG_ICON[stage]} size={56} /></div>
-      <div className="hero-title">{HEADLINE[stage]}</div>
+      <div className="hero-title">{cash && stage === 'PAYMENT_PENDING' ? 'Restoran tasdiqlashini kutmoqda' : HEADLINE[stage]}</div>
       {steps && (
         <ol className="phases" aria-label="Buyurtma bosqichlari">
           {steps.map(p => (

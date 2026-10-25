@@ -6,6 +6,7 @@ import { PaidDialog } from '../components/PaidDialog';
 import { PayWarning } from '../components/PayWarning';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
+import { describeCheckoutError } from '../lib/checkoutErrors';
 import { clock, mmss, som } from '../lib/format';
 import { anchorOf, isTerminal, overdueMinutes, paymentRemainingSeconds, pollIntervalMs, prepPending, remainingSeconds, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
 import { confirmDialog, haptic } from '../lib/telegram';
@@ -75,6 +76,7 @@ export function OrderScreen({ id }: { id: string }) {
   const rem = counting && anchor ? remainingSeconds(o.prep, anchor, perfNow) : null;
   const pay = o.payment;
   const ins = pay?.instructions ?? null;
+  const cash = pay?.method === 'CASH';
   const awaiting = o.stage === 'PAYMENT_PENDING';
   const payLeft = awaiting && anchor ? paymentRemainingSeconds(ins?.expiresAt, anchor, perfNow) : null;
 
@@ -83,6 +85,13 @@ export function OrderScreen({ id }: { id: string }) {
     setBusy('pay');
     try { adopt((await api.mockPay(o.id)).order); haptic.success(); }
     catch (e) { haptic.error(); toast(e instanceof ApiError && e.status === 429 ? 'Biroz kuting va qayta urinib ko‘ring' : 'To‘lovni qayd etib bo‘lmadi'); }
+    finally { setBusy(null); }
+  };
+  const payCash = async () => {
+    if (busy) return;
+    setBusy('pay');
+    try { adopt((await api.payCash(o.id)).order); haptic.success(); toast('Naqd to‘lov: restoran tasdiqlashini kuting'); }
+    catch (e) { haptic.error(); toast(describeCheckoutError(e).message); void refresh(); }
     finally { setBusy(null); }
   };
   const received = async () => {
@@ -116,7 +125,7 @@ export function OrderScreen({ id }: { id: string }) {
       </div>
 
       <div className="card stack">
-        <StatusHero stage={o.stage} />
+        <StatusHero stage={o.stage} cash={cash} />
         {rem !== null && (
           rem > 0
             ? <div><span className="mono bold" style={{ fontSize: 34 }}>{mmss(rem)}</span><span className="sub"> • tayyor bo‘lish taxminan {clock(o.prep.estimatedReadyAt)}</span></div>
@@ -153,11 +162,29 @@ export function OrderScreen({ id }: { id: string }) {
         )}
       </div>
 
-      {awaiting && pay && (
+      {awaiting && pay && cash && (
+        <div className="card stack" aria-label="Naqd to‘lov">
+          <h2 style={{ fontSize: 17 }}>Naqd to‘lov</h2>
+          <div className="row between"><span>Haydovchiga beriladigan summa</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.cash?.dueSom ?? pay.amountSom)}</span></div>
+          <div className="banner" role="status"><strong>Restoran buyurtmani tasdiqlashini kutyapmiz.</strong><br />Tasdiqlangach taom tayyorlanadi{pay.cash?.acceptBy ? `. Javob muddati: ${clock(pay.cash.acceptBy)} gacha` : ''}. Karta yoki o‘tkazma kerak emas.</div>
+        </div>
+      )}
+      {!awaiting && cash && pay?.cash && !isTerminal(o.stage) && (
+        <div className="card stack" aria-label="Naqd to‘lov">
+          <div className="row between"><span className="bold">Naqd to‘lov</span><span className="bold mono">{som(pay.cash.dueSom)}</span></div>
+          <p className="sub small">Taom narxini yetkazib berilganda haydovchiga bering. Yetkazish haqi taksi tarifi bo‘yicha alohida.</p>
+        </div>
+      )}
+
+      {awaiting && pay && !cash && (
         <div className="card stack" aria-label="To‘lov">
           <h2 style={{ fontSize: 17 }}>To‘lov</h2>
           <div className="row between"><span>To‘lov summasi</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.amountSom)}</span></div>
-          {pay.queued && <div className="banner warn">To‘lov rekvizitlari hozir band. Birozdan keyin avtomatik ko‘rinadi.</div>}
+          {pay.queued && (
+            <div className="banner warn">To‘lov rekvizitlari hozir band. Birozdan keyin avtomatik ko‘rinadi.
+              <div style={{ marginTop: 8 }}><Button small variant="secondary" loading={busy === 'pay'} onClick={() => void payCash()}>Naqd to‘lash</Button></div>
+            </div>
+          )}
           {ins && pay.mode === 'REAL' && (
             ins.recipientUnavailable || !ins.cardNumber
               ? <div className="banner bad" role="alert"><strong>To‘lov qabul qiluvchi hozircha sozlanmagan.</strong><br />Hozir pul o‘tkazmang. Restoran bilan bog‘laning yoki keyinroq qaytib keling.</div>

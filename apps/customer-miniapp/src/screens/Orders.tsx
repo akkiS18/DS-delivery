@@ -57,14 +57,14 @@ export function Orders({ go }: { go: (r: Route) => void }) {
     const hint = prepHint(o, perfNow, received);
     const taxi = o.stage.startsWith('TAXI_') && o.taxi?.companyName ? o.taxi.companyName : null;
     return (
-      <div key={o.id} className={`card tap live ${needsAttention(o.stage) ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}
+      <div key={o.id} className={`card tap live ${needsAttention(o.stage, o.method) ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}
         aria-label={`Buyurtma ${o.code}, ${o.restaurantName}, ${STAGE_LABEL[o.stage]}`}>
         <div className="ocard-head"><span className="bold">#{o.code} • {o.restaurantName}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
         <div className="status-line" style={{ marginTop: 8 }}><Icon as={STAGE_ICON[o.stage]} /><span>{STAGE_LABEL[o.stage]}</span></div>
         {(hint || taxi) && <div className="sub small" style={{ marginTop: 4 }}>{[hint, taxi].filter(Boolean).join(' • ')}</div>}
         <div className="row between" style={{ marginTop: 10 }}>
           <span className="sub small">{clock(o.createdAt)} • {o.itemsCount} ta</span>
-          <span className="row bold" style={{ gap: 2, color: 'var(--primary)' }}>{nextAction(o.stage)}<Icon as={ChevronRight} size={18} /></span>
+          <span className="row bold" style={{ gap: 2, color: 'var(--primary)' }}>{nextAction(o.stage, o.method)}<Icon as={ChevronRight} size={18} /></span>
         </div>
       </div>
     );

@@ -2,7 +2,7 @@ import { ApiError } from './api';
 import type { CheckoutIssue, PublicPricing, QuoteLine } from './types';
 import { opensText, som } from './format';
 
-export type ErrorKind = 'PRICE' | 'CLOSED' | 'UNAVAILABLE' | 'PHONE' | 'NETWORK' | 'AUTH' | 'LIMIT' | 'NO_TAXI' | 'VALIDATION' | 'OTHER';
+export type ErrorKind = 'PRICE' | 'CLOSED' | 'UNAVAILABLE' | 'PHONE' | 'NETWORK' | 'AUTH' | 'LIMIT' | 'NO_TAXI' | 'CASH' | 'VALIDATION' | 'OTHER';
 export interface Described {
   kind: ErrorKind;
   message: string;
@@ -48,6 +48,14 @@ export function describeCheckoutError(e: unknown): Described {
       return { kind: 'CLOSED', retryable: false, message: 'Buyurtma qabul qilish hozircha yopiq. Keyinroq urinib ko‘ring; pul olinmadi.' };
     case 'KOP_TOLANMAGAN_BUYURTMA':
       return { kind: 'LIMIT', retryable: false, message: 'To‘lanmagan buyurtmangiz bor. Avval uni to‘lang yoki bekor qiling, keyin yangisini bering.' };
+    case 'NAQD_TOLOV_YOPIQ':
+      return { kind: 'CASH', retryable: false, message: 'Naqd to‘lov hozircha o‘chirilgan. Karta orqali to‘lang.' };
+    case 'NAQD_SUMMA_JUDA_KATTA':
+      return { kind: 'CASH', retryable: false, message: 'Bu summa naqd to‘lov uchun juda katta. Karta orqali to‘lang yoki savatni kamaytiring.' };
+    case 'KOP_NAQD_BUYURTMA':
+      return { kind: 'CASH', retryable: false, message: 'Sizda tugallanmagan naqd buyurtmalar bor. Ular yetkazilgach yangisini bera olasiz.' };
+    case 'NAQD_MUMKIN_EMAS':
+      return { kind: 'CASH', retryable: false, message: 'Bu buyurtmani naqd to‘lovga o‘tkazib bo‘lmaydi.' };
     case 'PHONE_REQUIRED':
       return { kind: 'PHONE', retryable: false, message: 'Telefon raqamini kiriting.' };
     case 'BUYURTMA_SUMMASI_JUDA_KATTA':

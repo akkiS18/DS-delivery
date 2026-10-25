@@ -5,8 +5,9 @@ import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartCount, cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
 import { newKey, som } from '../lib/format';
+import { effectiveMethod, methodChoices } from '../lib/payMethod';
 import { loadTaxiChoice, pickTaxi, saveTaxiChoice } from '../lib/taxi';
-import type { TaxiOption } from '../lib/types';
+import type { PaymentMethod, PaymentOptions, TaxiOption } from '../lib/types';
 import type { Route } from '../lib/router';
 import { haptic } from '../lib/telegram';
 import { checkoutReady, formatPhone, hasErrors, normalizePhone, validateAddress } from '../lib/validation';
@@ -43,6 +44,9 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [taxiOptions, setTaxiOptions] = useState<TaxiOption[] | null>(null);
   const [taxiId, setTaxiId] = useState<string | null>(null);
   const [taxiFailed, setTaxiFailed] = useState(false);
+  // What the server says the customer may choose for the food payment (null = unknown: card only). `chosen` is the customer's own tap, if any.
+  const [payOptions, setPayOptions] = useState<PaymentOptions | null>(null);
+  const [chosen, setChosen] = useState<PaymentMethod | null>(null);
 
   const loadTaxis = useCallback(() => {
     setTaxiFailed(false);
@@ -56,7 +60,18 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     setSelected(profile.defaultAddressId ?? profile.lastUsedAddressId ?? addresses[0]?.id ?? 'new');
   }, [profile, selected, addresses]);
 
-  const signature = useMemo(() => `${cart.restaurantId}|${cart.lines.map(l => `${l.productId}:${l.quantity}`).join(',')}|${taxiId ?? ''}`, [cart, taxiId]);
+  const itemsKey = useMemo(() => cart.lines.map(l => `${l.productId}:${l.quantity}`).join(','), [cart.lines]);
+  useEffect(() => {
+    if (!cart.restaurantId || cart.lines.length === 0) return;
+    const ac = new AbortController();
+    api.quote(cart.restaurantId, cart.lines.map(l => ({ productId: l.productId, quantity: l.quantity })), ac.signal)
+      .then(q => setPayOptions(q.ok ? q.paymentOptions ?? null : null), () => { /* no advice: card only */ });
+    return () => ac.abort();
+  }, [cart.restaurantId, itemsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const method = effectiveMethod(chosen, payOptions);
+  const choices = methodChoices(payOptions);
+
+  const signature = useMemo(() => `${cart.restaurantId}|${itemsKey}|${taxiId ?? ''}|${method}`, [cart.restaurantId, itemsKey, taxiId, method]);
 
   if (cart.lines.length === 0) return <div className="page"><Empty icon={<Icon as={ShoppingBasket} size={44} />} title="Savat bo‘sh" action={<Button onClick={() => go({ name: 'home' })}>Restoranlar</Button>} /></div>;
   if (!profile) return <div className="page"><Spinner /></div>;
@@ -93,6 +108,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         : { addressId: selected! }),
       ...(phone && phone !== profile.phone ? { phone } : {}),
       ...(taxiId ? { taxiCompanyId: taxiId } : {}),
+      ...(method === 'CASH' ? { paymentMethod: 'CASH' as const } : {}),
     };
     try {
       const { order } = await api.createOrder(body);
@@ -176,26 +192,49 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         {touched && taxiMissing && <div className="err">Taksi xizmatini tanlang.</div>}
       </section>
 
+      {choices.cash && (
+        <section className="stack" aria-label="To‘lov usuli">
+          <h2 style={{ fontSize: 17 }}>4. Taom uchun to‘lov</h2>
+          {choices.card && (
+            <label className="card row" style={{ border: method === 'CARD' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
+              <input type="radio" name="paymethod" checked={method === 'CARD'} onChange={() => setChosen('CARD')} style={{ width: 22, height: 22 }} />
+              <div className="grow">
+                <div className="bold">Kartaga o‘tkazma</div>
+                <div className="sub small">{choices.cardBusy ? 'To‘lov rekvizitlari hozir band — navbat kutishingiz mumkin' : 'Rekvizit ko‘rsatiladi; o‘tkazganingizdan so‘ng taom tayyorlanadi'}</div>
+              </div>
+            </label>
+          )}
+          <label className="card row" style={{ border: method === 'CASH' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
+            <input type="radio" name="paymethod" checked={method === 'CASH'} onChange={() => setChosen('CASH')} style={{ width: 22, height: 22 }} />
+            <div className="grow">
+              <div className="bold">Naqd pul</div>
+              <div className="sub small">Taom narxini yetkazib berilganda haydovchiga berasiz (yetkazish haqi alohida). Restoran buyurtmani tasdiqlaydi.</div>
+            </div>
+          </label>
+        </section>
+      )}
+
       <section className="card stack" aria-label="Buyurtma xulosasi">
-        <h2 style={{ fontSize: 17 }}>4. Buyurtma</h2>
+        <h2 style={{ fontSize: 17 }}>{choices.cash ? '5' : '4'}. Buyurtma</h2>
         <div className="sub small">{cart.restaurantName} • {cartCount(cart)} ta</div>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(total)}</span></div>
         <div className="row between sub small"><span>Yetkazish ({taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi'})</span><span>alohida, taksi tarifi bo‘yicha</span></div>
-        <p className="sub small">Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.</p>
+        <p className="sub small">{method === 'CASH' ? 'Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.' : 'Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.'}</p>
       </section>
 
       {problem && (
         <div className={`banner ${problem.kind === 'PRICE' ? 'warn' : 'bad'}`} role="alert">
           {problem.message}
           {problem.kind === 'PRICE' && <div style={{ marginTop: 8 }}><strong>Yangi summani tasdiqlash uchun tugmani qayta bosing.</strong></div>}
+          {problem.kind === 'CASH' && <div style={{ marginTop: 8 }}><Button small variant="secondary" onClick={() => { setChosen('CARD'); setProblem(null); }}>Karta bilan to‘lash</Button></div>}
           {problem.kind === 'UNAVAILABLE' && <div style={{ marginTop: 8 }}><Button small variant="secondary" onClick={() => go({ name: 'cart' })}>Savatga qaytish</Button></div>}
         </div>
       )}
 
       <Button loading={submitting} disabled={!canSubmit && touched ? true : false} onClick={() => void submit()}>
-        {problem?.kind === 'PRICE' ? `Yangi narxda to‘lovga o‘tish • ${som(total)}` : `To‘lovga o‘tish • ${som(total)}`}
+        {method === 'CASH' ? `Buyurtma berish • ${som(total)}` : problem?.kind === 'PRICE' ? `Yangi narxda to‘lovga o‘tish • ${som(total)}` : `To‘lovga o‘tish • ${som(total)}`}
       </Button>
       {touched && ready.ok && taxiMissing && <p className="err center">Taksi xizmatini tanlang.</p>}
       {!ready.ok && touched && <p className="err center">{ready.missing.includes('address') ? 'Manzilni tanlang yoki kiriting. ' : ''}{ready.missing.includes('phone') ? 'Telefon raqamini kiriting.' : ''}</p>}

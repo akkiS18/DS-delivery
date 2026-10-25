@@ -72,6 +72,8 @@ export interface CheckoutBody {
   phone?: string;
   /** The taxi service the customer picked; omitted = the server assigns one. */
   taxiCompanyId?: string;
+  /** CARD (default) or CASH on delivery. */
+  paymentMethod?: 'CARD' | 'CASH';
 }
 
 export const api = {
@@ -91,6 +93,8 @@ export const api = {
   orders: (signal?: AbortSignal) => request<{ orders: OrderSummary[] }>('/orders', { signal }),
   order: (id: string, signal?: AbortSignal) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}`, { signal }),
   cancelOrder: (id: string, reasonCode?: string) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/cancel`, { method: 'POST', body: reasonCode ? { reasonCode } : {} }),
+  /** "Rekvizit band": the queued card order becomes a cash order (the restaurant then accepts it). */
+  payCash: (id: string) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/pay-cash`, { method: 'POST', body: {} }),
   confirmReceived: (id: string) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/received`, { method: 'POST', body: {} }),
   startTelegramLink: () => request<LinkStatus & { deepLink: string }>('/me/telegram-link', { method: 'POST' }),
   telegramLink: (id: string, signal?: AbortSignal) => request<LinkStatus>(`/me/telegram-link/${encodeURIComponent(id)}`, { signal }),

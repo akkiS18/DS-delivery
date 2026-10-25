@@ -60,8 +60,15 @@ export type CheckoutIssue =
   | { kind: 'PRICE_CHANGED'; productId: string; name: string; expectedUnitSom: number; currentUnitSom: number }
   | { kind: 'TOTAL_CHANGED'; expectedTotalSom: number; currentTotalSom: number }
   | { kind: 'TOTAL_TOO_LARGE' };
+/** What the customer may choose for the food payment (server advice; the server decides again). Absent from an older backend: card only. */
+export interface PaymentOptions {
+  card: { state: 'FREE' | 'BUSY' | 'NONE' };
+  cash: { available: boolean; reason?: 'OFF' | 'TOO_LARGE'; maxSom?: number };
+}
+export type PaymentMethod = 'CARD' | 'CASH';
+
 export type QuoteResponse =
-  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; estimatedPrepMinutes: number }
+  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; paymentOptions?: PaymentOptions; estimatedPrepMinutes: number }
   | { ok: false; issues: CheckoutIssue[]; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing };
 
 export type CustomerStage =
@@ -111,7 +118,13 @@ export interface OrderView {
   address: string;
   phone: string | null;
   isTest: boolean;
-  payment: { status: string; amountSom: number; mode: 'MOCK' | 'REAL'; queued: boolean; instructions: PaymentInstructions | null } | null;
+  payment: {
+    status: string; amountSom: number; mode: 'MOCK' | 'REAL'; queued: boolean; instructions: PaymentInstructions | null;
+    /** Absent from an older backend: card. */
+    method?: PaymentMethod;
+    /** Cash on delivery: dueSom is handed to the driver; acceptBy = when the restaurant's answer is due (null once accepted). */
+    cash?: { dueSom: number; accepted: boolean; acceptBy: string | null } | null;
+  } | null;
   prep: PrepClock;
   readyAt: string | null;
   taxi: { stage: string | null; companyName: string } | null;
@@ -136,6 +149,7 @@ export interface OrderSummary {
   restaurantName: string;
   foodTotalSom: number;
   itemsCount: number;
+  method?: PaymentMethod;
   /** Optional so an older backend (without these list fields) still works. */
   serverNow?: string;
   prep?: PrepClock;

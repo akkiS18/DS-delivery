@@ -189,6 +189,6 @@ export async function listCustomerOrders(owner: CustomerOwner, limit = 20) {
   });
   return rows.map(r => {
     const v = customerOrderView(r);
-    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi };
+    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD' };
   });
 }
