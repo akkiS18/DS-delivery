@@ -1,4 +1,4 @@
-# Compiles the pure-Kotlin time code (Order.kt + OrderTime.kt) together with TimeChecks.kt using the Kotlin compiler that Gradle already
+# Compiles the pure-Kotlin time and bell code (Order.kt + OrderTime.kt + NewOrderAttention.kt) together with TimeChecks.kt using the Kotlin compiler that Gradle already
 # cached, and runs it. No JUnit / no downloads. Usage: powershell -File unit-checks\run.ps1
 $ErrorActionPreference = 'Continue'  # compiler warnings go to stderr; failures are detected by exit code
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -12,7 +12,7 @@ $libs = 'kotlin-compiler-embeddable-1.9.23','kotlin-stdlib-1.9.23','kotlin-scrip
 $out = Join-Path $env:TEMP 'ds-time-checks'
 Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
 & $java -cp ($libs -join ';') org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib -no-reflect -cp (Jar 'kotlin-stdlib-1.9.23') -d $out `
-  (Join-Path $app 'data\model\Order.kt') (Join-Path $app 'data\model\OrderTime.kt') (Join-Path $here 'TimeChecks.kt') 2>&1 | Where-Object { $_ -notmatch "warning:" }
+  (Join-Path $app 'data\model\Order.kt') (Join-Path $app 'data\model\OrderTime.kt') (Join-Path $app 'data\alarm\NewOrderAttention.kt') (Join-Path $here 'TimeChecks.kt') 2>&1 | Where-Object { $_ -notmatch "warning:" }
 if ($LASTEXITCODE -ne 0) { throw 'compile failed' }
 & $java -cp "$out;$(Jar 'kotlin-stdlib-1.9.23')" com.dsdelivery.restaurant.unitchecks.TimeChecksKt
 exit $LASTEXITCODE

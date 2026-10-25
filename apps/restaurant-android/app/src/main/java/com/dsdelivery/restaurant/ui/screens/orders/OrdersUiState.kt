@@ -10,7 +10,9 @@ enum class OrderFilter(val title: String, val apiValue: String) {
     READY("Tayyor", "ready"),
     /** Not for the kitchen (yet): unpaid, taxi on its way, cancellation asked. Visible, never announced. */
     WAITING("Kutilmoqda", "waiting"),
-    HISTORY("Tarix", "history")
+    HISTORY("Tarix", "history"),
+    /** Not a tab: opened from the "N ta buyurtmaga e‘tibor kerak" bar (cancellation asked, taxi trouble, refund to send). */
+    ATTENTION("E‘tibor kerak", "attention")
 }
 
 data class OrdersUiState(

@@ -221,6 +221,9 @@ fun OperationsContent(
                 }
             }
 
+            // 1b. The kitchen bell
+            BellSection()
+
             // 2. Where the customers' money goes
             PayeeCardsSection(
                 cards = state.cards,

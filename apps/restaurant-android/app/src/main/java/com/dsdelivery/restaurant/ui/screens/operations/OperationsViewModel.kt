@@ -129,7 +129,13 @@ class OperationsViewModel(
     fun confirmTogglePause() {
         val target = _uiState.value.pendingPauseState
         _uiState.update { it.copy(showPauseConfirmDialog = false) }
+        applyPause(target)
+    }
 
+    /** The pause switch on the Orders screen (it asks for its own confirmation). */
+    fun setPaused(target: Boolean) = applyPause(target)
+
+    private fun applyPause(target: Boolean) {
         viewModelScope.launch {
             when (val result = repository.updateRestaurantStatus(target)) {
                 is Resource.Success -> {

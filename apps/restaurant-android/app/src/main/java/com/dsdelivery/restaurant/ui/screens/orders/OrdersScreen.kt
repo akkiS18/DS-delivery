@@ -42,6 +42,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,7 +80,13 @@ import com.dsdelivery.restaurant.ui.theme.WarningOrange
 fun OrdersScreen(
     viewModel: OrdersViewModel,
     onNavigateToOrderDetail: (orderId: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** The kitchen bell is sounding: a strip with a mute button is shown. */
+    alarmRinging: Boolean = false,
+    onSilence: () -> Unit = {},
+    /** Reception switch in the title bar (Ochiq / Tanaffus); null hides it. */
+    isPaused: Boolean = false,
+    onSetPaused: ((Boolean) -> Unit)? = null
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -96,6 +105,10 @@ fun OrdersScreen(
         onOrderClick = onNavigateToOrderDetail,
         onPrepTime = viewModel::setPrepTime,
         onMarkReady = viewModel::markReady,
+        alarmRinging = alarmRinging,
+        onSilence = onSilence,
+        isPaused = isPaused,
+        onSetPaused = onSetPaused,
         modifier = modifier
     )
 }
@@ -115,8 +128,29 @@ fun OrdersContent(
     onOrderClick: (orderId: String) -> Unit,
     modifier: Modifier = Modifier,
     onPrepTime: ((orderId: String, minutes: Int) -> Unit)? = null,
-    onMarkReady: ((orderId: String) -> Unit)? = null
+    onMarkReady: ((orderId: String) -> Unit)? = null,
+    alarmRinging: Boolean = false,
+    onSilence: () -> Unit = {},
+    isPaused: Boolean = false,
+    onSetPaused: ((Boolean) -> Unit)? = null
 ) {
+    // The kitchen watches this screen: it must not dim or lock while it is open.
+    val view = LocalView.current
+    DisposableEffect(view) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+    var confirmPause by remember { mutableStateOf(false) }
+    if (confirmPause && onSetPaused != null) {
+        ActionConfirmDialog(
+            title = if (!isPaused) "Qabulni to‘xtatasizmi?" else "Qabulni yoqasizmi?",
+            message = if (!isPaused) "Yangi buyurtmalar kelmaydi." else "Mijozlar yana buyurtma bera oladi.",
+            confirmText = if (!isPaused) "To‘xtatish" else "Yoqish",
+            confirmButtonColor = if (!isPaused) WarningOrange else BrandPrimary,
+            onConfirm = { confirmPause = false; onSetPaused(!isPaused) },
+            onDismiss = { confirmPause = false }
+        )
+    }
     // "Tayyor" cannot be taken back (the customer is told, the taxi is called), so the list asks once.
     var confirmReadyFor by remember { mutableStateOf<String?>(null) }
     confirmReadyFor?.let { id ->
@@ -142,6 +176,24 @@ fun OrdersContent(
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
                 },
+                actions = {
+                    if (onSetPaused != null) {
+                        Surface(
+                            onClick = { confirmPause = true },
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isPaused) WarningOrange else SuccessGreen,
+                            modifier = Modifier.padding(end = 12.dp)
+                        ) {
+                            Text(
+                                text = if (isPaused) "Tanaffus" else "Ochiq",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = BrandPrimary,
                     titleContentColor = Color.White,
@@ -166,13 +218,13 @@ fun OrdersContent(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OrderFilter.entries.forEach { filter ->
+                OrderFilter.entries.filter { it != OrderFilter.ATTENTION }.forEach { filter ->
                     val count = when (filter) {
                         OrderFilter.NEW -> state.newOrdersCount
                         OrderFilter.COOKING -> state.cookingOrdersCount
                         OrderFilter.READY -> state.readyOrdersCount
                         OrderFilter.WAITING -> state.waitingOrdersCount
-                        OrderFilter.HISTORY -> 0
+                        OrderFilter.HISTORY, OrderFilter.ATTENTION -> 0
                     }
                     val badgeCount = if (count > 0) " ($count)" else ""
                     FilterChip(
@@ -187,18 +239,48 @@ fun OrdersContent(
                 }
             }
 
-            if (state.attentionOrdersCount > 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            if (alarmRinging) {
+                Surface(
+                    color = ErrorRed,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "${state.attentionOrdersCount} ta buyurtmaga e’tibor kerak",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = WarningOrange
-                    )
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Yangi buyurtma kutmoqda!", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onSilence) { Text("Ovozni o‘chirish", color = Color.White, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+            if (state.selectedFilter == OrderFilter.ATTENTION) {
+                Surface(
+                    color = WarningOrange.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("E‘tibor kerak buyurtmalar", color = WarningOrange, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { onFilterSelected(OrderFilter.NEW) }) { Text("Orqaga") }
+                    }
+                }
+            } else if (state.attentionOrdersCount > 0) {
+                Surface(
+                    onClick = { onFilterSelected(OrderFilter.ATTENTION) },
+                    color = WarningOrange.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${state.attentionOrdersCount} ta buyurtmaga e’tibor kerak",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = WarningOrange,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text("Ko‘rish", color = WarningOrange, style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
             if (state.pollFailed) {

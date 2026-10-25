@@ -1,5 +1,6 @@
 package com.dsdelivery.restaurant.unitchecks
 
+import com.dsdelivery.restaurant.data.alarm.NewOrderAttention
 import com.dsdelivery.restaurant.data.model.PrepInfo
 import com.dsdelivery.restaurant.data.model.ServerClock
 import com.dsdelivery.restaurant.data.model.Urgency
@@ -83,6 +84,20 @@ fun main() {
     check("9 min is orange", urgencyOf(9), Urgency.SOON)
     check("10 min is red", urgencyOf(10), Urgency.LATE)
     check("unknown age stays calm", urgencyOf(null), Urgency.CALM)
+
+    println("kitchen bell (NewOrderAttention)")
+    val bell = NewOrderAttention(silenceMs = 30_000L)
+    check("nothing waiting -> silent", bell.update(emptyList(), 0L), emptySet<String>())
+    check("a new order rings", bell.update(listOf("a"), 1_000L), setOf("a"))
+    bell.silence(2_000L)
+    check("silenced -> quiet", bell.ringing(10_000L), emptySet<String>())
+    check("a second order arrives while silenced -> only it rings", bell.update(listOf("a", "b"), 10_000L), setOf("b"))
+    check("silence is over and 'a' is still waiting -> rings again", bell.ringing(40_000L).contains("a"), true)
+    bell.silence(41_000L)
+    check("the time was chosen for 'a' (it left the bucket): only 'b' remains, silenced", bell.update(listOf("b"), 42_000L), emptySet<String>())
+    check("'a' coming back is new again", bell.update(listOf("a", "b"), 43_000L), setOf("a"))
+    check("all answered -> silent", bell.update(emptyList(), 44_000L), emptySet<String>())
+    check("nothing pending", bell.pending(), emptySet<String>())
 
     if (failures > 0) { println("\n$failures check(s) FAILED"); kotlin.system.exitProcess(1) }
     println("\nAll time checks passed")

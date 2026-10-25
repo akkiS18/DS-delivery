@@ -171,6 +171,10 @@ test('work-queue tabs: a paid order cooking with no chosen time is "new"; once c
     cursor = `&cursor=${page.nextCursor}`;
   }
   assert.deepEqual(seen, isNew);
+  // The attention list is the same rule as the attention count (a cancellation request is in `waiting` AND needs a human).
+  await set(sameWaiting.id, { status: 'CANCELLATION_REQUESTED' });
+  assert.ok((await ids('attention')).includes(sameWaiting.id));
+  assert.equal((await call('GET', '/orders?limit=1', ta)).json().counts.attention, (await ids('attention')).length);
 });
 
 test("detail exposes payment/taxi/actions and never another restaurant's order or internal ids", async () => {

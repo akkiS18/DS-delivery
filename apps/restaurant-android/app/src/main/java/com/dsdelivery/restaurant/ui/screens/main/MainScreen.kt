@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import com.dsdelivery.restaurant.RestaurantApp
 import com.dsdelivery.restaurant.data.notify.NewOrderNotifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -71,6 +72,11 @@ fun MainScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val notifier = remember { NewOrderNotifier(context.applicationContext) }
+    // The kitchen bell (background service) already announces new orders; the one-off system notification is only the fallback when it is off.
+    val alarm = remember { (context.applicationContext as RestaurantApp).alarm }
+    val bellOn by alarm.settings.enabled.collectAsState()
+    val bellRinging by alarm.watcher.ringing.collectAsState()
+    val operationsState by operationsViewModel.uiState.collectAsState()
 
     // Anything that changed while the app was away (a card the administrator approved, a new order, the menu on another phone) shows up
     // as soon as the app is opened again or a tab is selected; no need to close the app.
@@ -98,7 +104,7 @@ fun MainScreen(
     // A genuinely new order: one in-app message and (if allowed) one system notification, never repeated for the same id.
     LaunchedEffect(ordersViewModel) {
         ordersViewModel.newOrders.collect { fresh ->
-            notifier.notifyNewOrders(fresh)
+            if (!bellOn) notifier.notifyNewOrders(fresh)
             val numbers = fresh.joinToString(", ") { it.orderNumberDisplay }
             snackbarHostState.showSnackbar("Yangi buyurtma: $numbers")
         }
@@ -155,7 +161,11 @@ fun MainScreen(
                 MainTab.ORDERS -> {
                     OrdersScreen(
                         viewModel = ordersViewModel,
-                        onNavigateToOrderDetail = onNavigateToOrderDetail
+                        onNavigateToOrderDetail = onNavigateToOrderDetail,
+                        alarmRinging = bellRinging,
+                        onSilence = alarm.watcher::silence,
+                        isPaused = operationsState.isPaused,
+                        onSetPaused = operationsViewModel::setPaused
                     )
                 }
                 MainTab.MENU -> {

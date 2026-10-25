@@ -39,18 +39,26 @@ const NEW_WHERE: Prisma.OrderWhereInput = { OR: [{ status: { in: [...FILTERS.inc
 const COOKING_WHERE: Prisma.OrderWhereInput = { status: 'PREPARING', prepChosenMinutes: { not: null } };
 export const WAITING_STATUSES = ['WAITING_CUSTOMER_CONSENT', 'PAYMENT_PENDING', 'ACCEPTED', 'TAXI_REQUESTED', 'DRIVER_ASSIGNED', 'DELIVERY_ASSUMED', 'CANCELLATION_REQUESTED'] as const satisfies readonly OrderStatus[];
 
+/** Orders that need a human decision outside the kitchen queue (unverified/confirmed ones are already in `new`). Counted and listed with the same rule. */
+const ATTENTION_WHERE: Prisma.OrderWhereInput = { OR: [
+  { status: 'CANCELLATION_REQUESTED' },
+  { status: { in: ['PREPARING', 'READY'] }, taxiDispatches: { some: { status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] } } } },
+  { refundRequests: { some: { status: { in: ['REQUESTED', 'APPROVED', 'DISPUTED'] } } } },
+] };
+
 function filterWhere(filter: z.output<typeof listQuerySchema>['filter']): Prisma.OrderWhereInput {
   switch (filter) {
     case 'all': return {};
     case 'new': return NEW_WHERE;
     case 'cooking': return COOKING_WHERE;
     case 'waiting': return { status: { in: [...WAITING_STATUSES] } };
+    case 'attention': return ATTENTION_WHERE;
     default: return { status: { in: [...FILTERS[filter]] } };
   }
 }
 
 export const listQuerySchema = z.object({
-  filter: z.enum(['all', 'incoming', 'inProgress', 'toCook', 'ready', 'history', 'new', 'cooking', 'waiting']).default('all'),
+  filter: z.enum(['all', 'incoming', 'inProgress', 'toCook', 'ready', 'history', 'new', 'cooking', 'waiting', 'attention']).default('all'),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   /** Opaque keyset cursor (the previous page's nextCursor). */
   cursor: cursorParam.optional(),
@@ -262,11 +270,7 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
     db.order.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: q.limit + 1, select: detailSelect }),
     db.order.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
     db.order.count({ where: { AND: [base, { status: 'PREPARING', prepChosenMinutes: null }] } }),
-    db.order.count({ where: { ...base, OR: [
-      { status: 'CANCELLATION_REQUESTED' }, // unverified/confirmed orders are already counted in `incoming`
-      { status: { in: ['PREPARING', 'READY'] }, taxiDispatches: { some: { status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] } } } },
-      { refundRequests: { some: { status: { in: ['REQUESTED', 'APPROVED', 'DISPUTED'] } } } },
-    ] } }),
+    db.order.count({ where: { AND: [base, ATTENTION_WHERE] } }),
   ]);
   const page = rows.slice(0, q.limit);
   const count = (s: readonly OrderStatus[]) => grouped.filter(g => s.includes(g.status)).reduce((n, g) => n + g._count._all, 0);
