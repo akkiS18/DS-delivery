@@ -2,6 +2,7 @@ import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
 import { cashEnabled, cashMaxOrderSom, setCashEnabled } from '../modules/payment/method.js';
+import { loadTaxiMode, setTaxiMode, type TaxiDispatchMode } from '../modules/taxi/mode.js';
 import { loadFeeConfig, setFeeMode } from '../modules/pricing/config.js';
 import { type FeeConfig, type FeeMode } from '../modules/pricing/fee.js';
 import { db } from '../lib/db.js';
@@ -62,6 +63,22 @@ export async function renderCash(): Promise<{ text: string; keyboard: ReturnType
   return { text, keyboard: Markup.inlineKeyboard([[on ? Markup.button.callback('⛔ O‘chirish', 'cash:set:0') : Markup.button.callback('▶️ Yoqish', 'cash:set:1')]]) };
 }
 
+export async function renderTaxiMode(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
+  const mode = await loadTaxiMode();
+  const mark = (m: TaxiDispatchMode) => (mode === m ? '● ' : '');
+  const text = [
+    '🚕 <b>Taksi qachon chaqiriladi</b>',
+    mode === 'READY'
+      ? 'Hozir: <b>restoran «Tayyor» bosganda</b>. Haydovchi biroz kech qolishi mumkin, lekin erta kelmaydi.'
+      : 'Hozir: <b>taom tayyor bo‘lishidan 4 daqiqa oldin</b> (yoki «Tayyor» bosilsa — o‘sha zahoti).',
+    '',
+    'Rejim faqat YANGI boshlangan buyurtmalarga ta’sir qiladi: allaqachon yuborilgan so‘rovlar o‘zgarmaydi.',
+  ].join('\n');
+  return { text, keyboard: Markup.inlineKeyboard([[
+    Markup.button.callback(`${mark('READY')}«Tayyor» bosilganda`, 'taxi:set:READY'), Markup.button.callback(`${mark('LEAD')}4 daqiqa oldin`, 'taxi:set:LEAD'),
+  ]]) };
+}
+
 const BLOCK_TEXT: Record<string, string> = {
   OPEN_ORDERS: 'tugallanmagan buyurtma bor',
   OPEN_REFUNDS: 'hal qilinmagan pul qaytarish bor',
@@ -111,6 +128,21 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     }
     const v = await renderFee();
     await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.command('taxi', async ctx => {
+    if (!admin(ctx)) return;
+    const v = await renderTaxiMode();
+    await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.action(/^taxi:set:(READY|LEAD)$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    await setTaxiMode({ adminId, mode: (ctx.match as unknown as [string, TaxiDispatchMode])[1] });
+    const v = await renderTaxiMode();
+    await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });
 
   bot.command('cash', async ctx => {

@@ -9,6 +9,7 @@ import { quoteCheckout } from '../modules/orders/contract.js';
 import { switchOrderToCash } from '../modules/orders/cash.js';
 import { accrueCommissionTx } from '../modules/commission/ledger.js';
 import { CASH_ENABLED_KEY, setCashEnabled } from '../modules/payment/method.js';
+import { TAXI_MODE_KEY, loadTaxiMode, setTaxiMode } from '../modules/taxi/mode.js';
 import { customerOrderView, loadCustomerOrder } from '../modules/miniapp/views.js';
 import { cancelUnpaidOrder } from '../modules/refunds/service.js';
 import { getRequest, listRequests } from '../modules/taxi-app/service.js';
@@ -20,6 +21,7 @@ delete process.env.COMMISSION_FLAT_SOM;
 process.env.MAX_OPEN_UNPAID_ORDERS = '0';
 process.env.RESTAURANT_LOGIN_MAX_FAILURES = '50';
 process.env.RESTAURANT_LOGIN_IP_MAX_FAILURES = '1000';
+const LEAD = Number(process.env.TAXI_LEAD_MINUTES ?? 4); // the lead the server was started with
 const ADMIN = String(randomInt(100000000001, 200000000000));
 
 const db = new PrismaClient();
@@ -49,7 +51,7 @@ const row = (id: string) => db.order.findUniqueOrThrow({ where: { id }, include:
 const post = (id: string, action: string, body: object = {}, tk = token) =>
   app.inject({ method: 'POST', url: `/api/v1/restaurant/orders/${id}/${action}`, headers: { authorization: `Bearer ${tk}` }, payload: body });
 /** Frees the per-customer cash cap between tests. */
-const clearActive = () => db.order.updateMany({ where: { restaurantId: ids.r, status: { in: ['PAYMENT_PENDING', 'PAYMENT_CONFIRMED', 'PREPARING'] } }, data: { status: 'CANCELLED' } });
+const clearActive = () => db.order.updateMany({ where: { restaurantId: ids.r, status: { in: ['PAYMENT_PENDING', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY'] } }, data: { status: 'CANCELLED' } });
 
 before(async () => {
   await db.$connect();
@@ -81,7 +83,7 @@ before(async () => {
 
 after(async () => {
   if (savedAdmin === undefined) delete process.env.SUPPORT_ADMIN_1_TELEGRAM_ID; else process.env.SUPPORT_ADMIN_1_TELEGRAM_ID = savedAdmin;
-  await db.platformSetting.deleteMany({ where: { key: CASH_ENABLED_KEY } });
+  await db.platformSetting.deleteMany({ where: { key: { in: [CASH_ENABLED_KEY, TAXI_MODE_KEY] } } });
   if (savedSetting) await db.platformSetting.create({ data: savedSetting });
   await db.$transaction(async tx => { // the audit trail is append-only too
     await tx.$executeRaw`SELECT set_config('ds.ledger_cleanup', 'on', true)`;
@@ -303,5 +305,43 @@ test('commission: a delivered cash order accrues like a card order, once', async
   const first = await db.$transaction(tx => accrueCommissionTx(tx, o!.id, { id: 'system', type: 'SYSTEM' }));
   assert.equal(first.result, 'ACCRUED');
   assert.equal((await db.$transaction(tx => accrueCommissionTx(tx, o!.id, { id: 'system', type: 'SYSTEM' }))).result, 'ALREADY_ACCRUED');
+  await clearActive();
+});
+
+test('taxi timing: default READY mode parks the request until "Tayyor"; the preparation time does not move it', async () => {
+  await clearActive();
+  await db.platformSetting.deleteMany({ where: { key: TAXI_MODE_KEY } });
+  assert.equal(await loadTaxiMode(), 'READY');
+  const o = await place();
+  assert.equal((await post(o!.id, 'accept')).statusCode, 200);
+  const d1 = await db.taxiDispatch.findFirstOrThrow({ where: { orderId: o!.id } });
+  assert.equal(d1.status, 'SCHEDULED');
+  assert.ok(d1.dueAt.getTime() > Date.now() + 5 * 3_600_000, 'parked, not due for hours');
+  const prep = await app.inject({ method: 'POST', url: `/api/v1/restaurant/orders/${o!.id}/prep-time`, headers: { authorization: `Bearer ${token}` }, payload: { minutes: 10 } });
+  assert.equal(prep.statusCode, 200, prep.body);
+  assert.equal((await db.taxiDispatch.findFirstOrThrow({ where: { orderId: o!.id } })).dueAt.getTime(), d1.dueAt.getTime(), 'choosing the time does not call the taxi');
+  const ready = await post(o!.id, 'ready');
+  assert.equal(ready.statusCode, 200, ready.body);
+  const d2 = await db.taxiDispatch.findFirstOrThrow({ where: { orderId: o!.id } });
+  assert.ok(d2.dueAt.getTime() <= Date.now(), '"Tayyor" makes the request due now');
+  await clearActive();
+});
+
+test('taxi timing: LEAD mode asks 4 minutes before the food is expected; only an administrator can switch the mode (audited)', async () => {
+  await clearActive();
+  await assert.rejects(setTaxiMode({ adminId: '1', mode: 'LEAD' }), /ADMIN_RUXSAT_YOQ/);
+  assert.equal(await setTaxiMode({ adminId: ADMIN, mode: 'LEAD' }), 'CHANGED');
+  assert.equal(await setTaxiMode({ adminId: ADMIN, mode: 'LEAD' }), 'UNCHANGED');
+  assert.equal(await db.adminAuditEvent.count({ where: { actorId: ADMIN, action: 'TAXI_DISPATCH_MODE_CHANGED' } }), 1);
+  const o = await place();
+  assert.equal((await post(o!.id, 'accept')).statusCode, 200);
+  const r = await row(o!.id);
+  const d = r.taxiDispatches[0]!;
+  assert.equal(d.dueAt.getTime(), r.preparingStartedAt!.getTime() + (r.prepMinutes! - LEAD) * 60_000);
+  const prep = await app.inject({ method: 'POST', url: `/api/v1/restaurant/orders/${o!.id}/prep-time`, headers: { authorization: `Bearer ${token}` }, payload: { minutes: 10 } });
+  assert.equal(prep.statusCode, 200, prep.body);
+  const r2 = await row(o!.id);
+  assert.equal(r2.taxiDispatches[0]!.dueAt.getTime(), r2.preparingStartedAt!.getTime() + (r2.prepMinutes! - LEAD) * 60_000, 'the new time moves the request');
+  assert.equal(await setTaxiMode({ adminId: ADMIN, mode: 'READY' }), 'CHANGED');
   await clearActive();
 });

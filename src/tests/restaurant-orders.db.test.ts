@@ -71,6 +71,7 @@ async function matchPayment(orderId: string, card: string) {
 
 before(async () => {
   await db.$connect();
+  await db.platformSetting.upsert({ where: { key: 'taxi_dispatch_mode' }, create: { key: 'taxi_dispatch_mode', value: 'LEAD' }, update: { value: 'LEAD' } }); // these tests cover the timed (LEAD) dispatch
   ids.a = (await db.restaurant.create({ data: { slug: slugA, name: 'Ord A', staffTelegramUserId: staffA } })).id;
   ids.b = (await db.restaurant.create({ data: { slug: slugB, name: 'Ord B' } })).id;
   await setRestaurantPassword({ slug: slugA, password: PW_A });
@@ -87,6 +88,7 @@ before(async () => {
   tb = await loginToken(slugB, PW_B);
 });
 after(async () => {
+  await db.platformSetting.deleteMany({ where: { key: 'taxi_dispatch_mode' } });
   const rids = Object.values(ids);
   const payIds = (await db.payment.findMany({ where: { restaurantId: { in: rids } }, select: { id: true } })).map(p => p.id);
   await db.refundRequest.deleteMany({ where: { orderId: { in: (await db.order.findMany({ where: { restaurantId: { in: rids } }, select: { id: true } })).map(o => o.id) } } });
@@ -354,10 +356,10 @@ test('prep time after the payment: "ready in N minutes" (5..60) counted from now
   const ev = await db.orderEvent.findFirstOrThrow({ where: { orderId: o.id, action: 'PREP_TIME_SET' } });
   assert.deepEqual(ev.details, { minutes: 30, elapsedMinutes: 3, totalMinutes: 33, previousTotalMinutes: 20 });
   assert.equal(ev.actorTelegramId, `restaurant-api:${ids.a}`);
-  // the unsent taxi dispatch follows the new time (prep 33 minus the 7 minute lead)
+  // the unsent taxi dispatch follows the new time (LEAD mode: prep 33 minus the lead)
   const dispatch = await db.taxiDispatch.findFirstOrThrow({ where: { orderId: o.id } });
   assert.equal(dispatch.status, 'SCHEDULED');
-  assert.equal(dispatch.dueAt.getTime(), startedAt.getTime() + (33 - 7) * 60_000);
+  assert.equal(dispatch.dueAt.getTime(), startedAt.getTime() + (33 - Number(process.env.TAXI_LEAD_MINUTES ?? 4)) * 60_000);
 
   // changing it again is allowed and audited each time; a dispatch that was already claimed is left alone
   await db.taxiDispatch.update({ where: { id: dispatch.id }, data: { status: 'SENDING' } });

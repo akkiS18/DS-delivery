@@ -3,12 +3,14 @@ import { isPaymentCleared } from '../payment/status.js';
 import { db } from '../../lib/db.js';
 import { accrueCommissionTx, type AccrueResult } from '../commission/ledger.js';
 import { createNextAttempt, eligibleCompanyWhere, nextEligibleCompany } from './assignment.js';
+import { TAXI_HOLD_MS, loadTaxiMode } from './mode.js';
 import { calculateTaxiDueAt, canFallback, operatorTransition, type OperatorAction } from './workflow.js';
 
 export type Transaction = Prisma.TransactionClient;
 /** How long an accepted booking may wait for "Taksi yuborildi" before it is escalated (never auto-redispatched). */
 export const acceptToSentSeconds = Number(process.env.TAXI_ACCEPT_TO_SENT_SECONDS ?? 900);
-const leadMinutes = Number(process.env.TAXI_LEAD_MINUTES ?? 7);
+/** LEAD mode only (/taxi): the driver is asked this many minutes before the food is expected to be ready (about the time the driver needs to arrive). */
+const leadMinutes = Number(process.env.TAXI_LEAD_MINUTES ?? 4);
 if (!Number.isSafeInteger(leadMinutes) || leadMinutes < 0 || leadMinutes > 120) {
   throw new Error('TAXI_LEAD_MINUTES 0–120 oralig‘ida bo‘lsin');
 }
@@ -38,14 +40,17 @@ export async function scheduleTaxiWhenPreparing(
     companyId = eligible.id;
     await tx.order.update({ where: { id: order.id }, data: { taxiCompanyId: companyId } });
   }
+  // READY mode (default): parked until the restaurant presses "Tayyor" (advanceTaxiWhenReady). LEAD mode: a few minutes before the expected readiness.
+  const hold = (await loadTaxiMode(tx)) === 'READY';
   await tx.taxiDispatch.create({
     data: { orderId: order.id, taxiCompanyId: companyId, attemptNo: 1,
-      dueAt: calculateTaxiDueAt(now, prepMinutes, leadMinutes), status: 'SCHEDULED' },
+      dueAt: hold ? new Date(now.getTime() + TAXI_HOLD_MS) : calculateTaxiDueAt(now, prepMinutes, leadMinutes), status: 'SCHEDULED' },
   });
 }
 
 /** The restaurant changed the preparation time while cooking: move a dispatch that has NOT been sent yet. A sent/claimed one is never touched. */
 export async function rescheduleTaxiForPrep(tx: Transaction, orderId: string, preparingStartedAt: Date, prepMinutes: number): Promise<void> {
+  if ((await loadTaxiMode(tx)) === 'READY') return; // the request waits for "Tayyor": the preparation time does not move it
   await tx.taxiDispatch.updateMany({
     where: { orderId, status: 'SCHEDULED' },
     data: { dueAt: calculateTaxiDueAt(preparingStartedAt, prepMinutes, leadMinutes) },

@@ -155,6 +155,7 @@ before(async () => {
   await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
   apiRoot = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
   await db.$connect();
+  await db.platformSetting.upsert({ where: { key: 'taxi_dispatch_mode' }, create: { key: 'taxi_dispatch_mode', value: 'LEAD' }, update: { value: 'LEAD' } }); // these tests cover the timed (LEAD) dispatch
   const [{ name }] = await db.$queryRaw<{ name: string }[]>`select current_database() as name`;
   assert.match(name, /test/i, `refusing to run against database "${name}"`);
   ids.a = (await db.restaurant.create({ data: { slug: slugA, name: `TX Resto ${nonce}`, staffTelegramUserId: staffA, staffLinkedAt: new Date(Date.now() - 60_000), pickupAddress: 'Pickup ko‘chasi 1', pickupPhone: '+998900000001' } })).id;
@@ -176,6 +177,7 @@ before(async () => {
   runCycle = worker.runTaxiDispatchCycle as typeof runCycle;
 });
 after(async () => {
+  await db.platformSetting.deleteMany({ where: { key: 'taxi_dispatch_mode' } });
   const rids = Object.values(ids);
   const orders = (await db.order.findMany({ where: { restaurantId: { in: rids } }, select: { id: true } })).map(o => o.id);
   await db.$transaction(async tx => { // ledger rows are append-only; this switch exists for exactly this cleanup
@@ -262,9 +264,10 @@ test('operator link codes: hashed, one-time, rate limited, one Telegram account 
 test('dispatch is scheduled automatically at "preparing", not sent early, and sent once to the right operator on the taxi bot', async () => {
   const { order, dispatch } = await preparingOrder(companyA);
   assert.equal(dispatch.status, 'SCHEDULED');
-  // prep 10 min, lead 7 min => due about 3 minutes after cooking started, never before
+  // LEAD mode: prep 10 min => due (10 - lead) minutes after cooking started, never before
   const delay = dispatch.dueAt.getTime() - (await row(order.id)).preparingStartedAt!.getTime();
-  assert.ok(delay > 2 * 60_000 && delay < 4 * 60_000, `due after ${delay}ms`);
+  const wantMs = (10 - Number(process.env.TAXI_LEAD_MINUTES ?? 4)) * 60_000;
+  assert.ok(Math.abs(delay - wantMs) < 60_000, `due after ${delay}ms, expected about ${wantMs}ms`);
   const m0 = calls.length;
   await runCycle(customerBot, order.id, taxiBot);
   assert.equal(taxiMsgs(opA, m0).length, 0, 'not due yet: nothing sent');
