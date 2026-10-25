@@ -18,10 +18,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.exp
 import kotlin.math.sin
 
 /**
- * The kitchen bell: a short two-tone "ding-dong" that repeats every few seconds until the order is answered. Generated here (no audio file) and
+ * The kitchen bell: a soft two-note chime that repeats every few seconds until the order is answered. Generated here (no audio file) and
  * played on the ALARM volume, so the ringer/media volume and silent mode do not mute it. Safe to call from any thread.
  */
 class AlarmPlayer(private val context: Context) {
@@ -120,28 +121,33 @@ class AlarmPlayer(private val context: Context) {
     private fun vibrate() {
         val v = vibrator() ?: return
         if (!v.hasVibrator()) return
-        runCatching { v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 200, 120, 200), -1)) }
+        runCatching { v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 120), -1)) }
     }
 
     companion object {
         private const val SAMPLE_RATE = 22_050
-        const val REPEAT_MS = 3_500L
-        private const val BELL_MS = 1_200
+        /** A calm pause between chimes: loud enough to notice, rare enough not to wear the ears out. */
+        const val REPEAT_MS = 9_000L
+        private const val BELL_MS = 1_800
 
-        /** Two bell notes (a high one, then a lower one) with a hard attack and a long fade, so it is clear and unlike a phone call. */
+        /**
+         * A soft descending chime (B5 then G5, a gentle "ding-dong"): pure sine tones with only a whisper of the 2nd harmonic, a 25 ms fade-in
+         * (no click) and a long exponential fade-out, at about 45% of full scale. The ALARM volume of the phone decides how loud it really is.
+         */
         internal fun bellPcm(): ShortArray {
             fun note(hz: Double, ms: Int): FloatArray {
                 val n = SAMPLE_RATE * ms / 1000
                 return FloatArray(n) { i ->
                     val t = i.toDouble() / SAMPLE_RATE
-                    val tone = sin(2 * PI * hz * t) + 0.5 * sin(2 * PI * hz * 2 * t) + 0.25 * sin(2 * PI * hz * 3 * t)
-                    val attack = minOf(1.0, i / (SAMPLE_RATE * 0.004))
-                    val fade = 1.0 - i.toDouble() / n
-                    (tone / 1.75 * attack * fade).toFloat()
+                    val tone = sin(2 * PI * hz * t) + 0.12 * sin(2 * PI * hz * 2 * t)
+                    val attack = minOf(1.0, i / (SAMPLE_RATE * 0.025))
+                    val fade = exp(-3.2 * i / n)
+                    (tone / 1.12 * attack * fade).toFloat()
                 }
             }
-            val all = note(880.0, 450) + note(660.0, 650)
-            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.95f * Short.MAX_VALUE).toInt().toShort() }
+            val gap = FloatArray(SAMPLE_RATE * 60 / 1000)
+            val all = note(987.77, 700) + gap + note(783.99, 1000)
+            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.45f * Short.MAX_VALUE).toInt().toShort() }
         }
     }
 }
