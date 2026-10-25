@@ -8,4 +8,5 @@
     <color name="surface">#FFFFFF</color>
     <color name="dark">#1B3031</color>
     <color name="error">#BA1A1A</color>
+    <color name="launcher_background">#087F5B</color>
 </resources>

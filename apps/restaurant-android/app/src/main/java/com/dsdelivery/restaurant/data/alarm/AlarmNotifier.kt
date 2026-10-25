@@ -12,6 +12,7 @@ import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.dsdelivery.restaurant.MainActivity
+import com.dsdelivery.restaurant.R
 import com.dsdelivery.restaurant.RestaurantApp
 import com.dsdelivery.restaurant.data.model.Order
 import android.os.Build
@@ -41,7 +42,7 @@ class AlarmNotifier(private val context: Context) {
 
     /** The permanent notification of the background service. */
     fun watching(text: String = "Yangi buyurtmalar kuzatilmoqda"): Notification = NotificationCompat.Builder(context, CHANNEL_WATCH)
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setSmallIcon(R.drawable.ic_stat_restaurant)
         .setContentTitle("DS Restoran")
         .setContentText(text)
         .setOngoing(true)
@@ -61,7 +62,7 @@ class AlarmNotifier(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         val b = NotificationCompat.Builder(context, CHANNEL_ALERT)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(R.drawable.ic_stat_restaurant)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

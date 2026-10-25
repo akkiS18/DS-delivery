@@ -171,8 +171,9 @@ private fun Place(title: String, name: String?, address: String?, phone: String?
                     Icon(Icons.Filled.Call, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text(phone, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            if (!address.isNullOrBlank() || (lat != null && lng != null)) {
-                OutlinedButton(onClick = { openMap(context, address, lat, lng) }) {
+            // Only a place the customer/restaurant actually shared (coordinates) gets a map button: a typed address searched on a map is a guess.
+            if (lat != null && lng != null) {
+                OutlinedButton(onClick = { openMap(context, lat, lng) }) {
                     Icon(Icons.Filled.Map, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text("Xarita", style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -196,8 +197,8 @@ private fun dial(context: Context, phone: String) {
     runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + dialable(phone))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-private fun openMap(context: Context, address: String?, lat: Double?, lng: Double?) {
-    val uri = if (lat != null && lng != null) Uri.parse("geo:$lat,$lng?q=$lat,$lng") else Uri.parse("geo:0,0?q=" + Uri.encode(address ?: ""))
+private fun openMap(context: Context, lat: Double, lng: Double) {
+    val uri = Uri.parse("geo:$lat,$lng?q=$lat,$lng")
     try {
         context.startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: ActivityNotFoundException) {

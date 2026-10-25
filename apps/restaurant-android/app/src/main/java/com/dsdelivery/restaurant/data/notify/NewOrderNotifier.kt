@@ -12,6 +12,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.dsdelivery.restaurant.MainActivity
+import com.dsdelivery.restaurant.R
 import com.dsdelivery.restaurant.data.model.Order
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,7 +45,7 @@ class NewOrderNotifier(private val context: Context) {
         )
         fresh.forEach { order ->
             val n = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setSmallIcon(R.drawable.ic_stat_restaurant)
                 .setContentTitle("Yangi buyurtma ${order.orderNumberDisplay}")
                 .setContentText("${order.itemsCount} ta mahsulot • ${order.formattedTotal}")
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
