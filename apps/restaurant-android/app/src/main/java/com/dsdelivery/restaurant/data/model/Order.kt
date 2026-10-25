@@ -78,7 +78,10 @@ data class OrdersPage(
     val inProgressCount: Int,
     val readyCount: Int,
     /** Orders that need a human decision (unverified payment, cancellation request, taxi trouble, refund to send). */
-    val attentionCount: Int = 0
+    val attentionCount: Int = 0,
+    val newCount: Int = 0,
+    val cookingCount: Int = 0,
+    val waitingCount: Int = 0
 )
 
 /** Reasons the restaurant can give when it cancels an already paid order (the money must then be refunded). */

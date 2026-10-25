@@ -112,3 +112,30 @@ export function timeline(o: Pick<OrderView, 'stage'>): Step[] {
   }
   return steps;
 }
+
+/**
+ * The three things a customer follows, in order: payment, cooking, delivery. Each step turns into a check mark when its job is done by a real
+ * person: the payment is accepted, the restaurant presses "ready", the taxi operator presses "delivered". Booking a taxi and the operator
+ * accepting it are not shown; they are part of "Yetkazilmoqda". Failed/cancelled orders have no steps (null).
+ */
+export type HeroKey = 'PAY' | 'COOK' | 'ROAD';
+export interface HeroStep { key: HeroKey; label: string; state: 'done' | 'current' | 'todo' }
+
+/** How many of the three steps are finished at each stage (3 = all done). */
+const HERO_DONE: Partial<Record<CustomerStage, number>> = {
+  PAYMENT_PENDING: 0, PAYMENT_CHECKING: 0,
+  PREPARING: 1,
+  READY: 2, TAXI_REQUESTED: 2, TAXI_ACCEPTED: 2, TAXI_SENT: 2,
+  DELIVERED: 3,
+};
+
+export function heroSteps(stage: CustomerStage): HeroStep[] | null {
+  const done = HERO_DONE[stage];
+  if (done === undefined) return null;
+  const state = (i: number): HeroStep['state'] => (i < done ? 'done' : i === done ? 'current' : 'todo');
+  return [
+    { key: 'PAY', label: 'To‘lov', state: state(0) },
+    { key: 'COOK', label: done > 1 ? 'Tayyor' : 'Tayyorlanmoqda', state: state(1) },
+    { key: 'ROAD', label: done > 2 ? 'Yetkazildi' : 'Yetkazilmoqda', state: state(2) },
+  ];
+}

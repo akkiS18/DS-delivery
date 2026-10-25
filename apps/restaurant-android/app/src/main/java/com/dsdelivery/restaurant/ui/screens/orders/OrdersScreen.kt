@@ -44,6 +44,9 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
 import com.dsdelivery.restaurant.ui.components.EmptyView
 import com.dsdelivery.restaurant.ui.components.ErrorView
 import com.dsdelivery.restaurant.ui.components.LoadingView
@@ -66,6 +70,7 @@ import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.DSRestaurantTheme
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
+import com.dsdelivery.restaurant.ui.theme.SuccessGreen
 import com.dsdelivery.restaurant.ui.theme.WarningOrange
 
 @Composable
@@ -90,6 +95,7 @@ fun OrdersScreen(
         onDismissError = viewModel::dismissError,
         onOrderClick = onNavigateToOrderDetail,
         onPrepTime = viewModel::setPrepTime,
+        onMarkReady = viewModel::markReady,
         modifier = modifier
     )
 }
@@ -108,8 +114,21 @@ fun OrdersContent(
     onDismissError: () -> Unit,
     onOrderClick: (orderId: String) -> Unit,
     modifier: Modifier = Modifier,
-    onPrepTime: ((orderId: String, minutes: Int) -> Unit)? = null
+    onPrepTime: ((orderId: String, minutes: Int) -> Unit)? = null,
+    onMarkReady: ((orderId: String) -> Unit)? = null
 ) {
+    // "Tayyor" cannot be taken back (the customer is told, the taxi is called), so the list asks once.
+    var confirmReadyFor by remember { mutableStateOf<String?>(null) }
+    confirmReadyFor?.let { id ->
+        ActionConfirmDialog(
+            title = "Buyurtma tayyor",
+            message = "Taksi operatoriga xabar yuboriladi.",
+            confirmText = "Tayyor",
+            confirmButtonColor = SuccessGreen,
+            onConfirm = { confirmReadyFor = null; onMarkReady?.invoke(id) },
+            onDismiss = { confirmReadyFor = null }
+        )
+    }
     // One ticker for the whole list: every second while something is being cooked (live countdowns), otherwise every 30 s (order ages).
     val cooking = state.orders.any { it.status == OrderStatus.PREPARING }
     val nowElapsed = rememberNowElapsed(periodMs = if (cooking) 1000L else 30_000L)
@@ -148,12 +167,14 @@ fun OrdersContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OrderFilter.entries.forEach { filter ->
-                    val badgeCount = when (filter) {
-                        OrderFilter.INCOMING -> if (state.incomingOrdersCount > 0) " (${state.incomingOrdersCount})" else ""
-                        OrderFilter.IN_PROGRESS -> if (state.inProgressOrdersCount > 0) " (${state.inProgressOrdersCount})" else ""
-                        OrderFilter.READY -> if (state.readyOrdersCount > 0) " (${state.readyOrdersCount})" else ""
-                        else -> ""
+                    val count = when (filter) {
+                        OrderFilter.NEW -> state.newOrdersCount
+                        OrderFilter.COOKING -> state.cookingOrdersCount
+                        OrderFilter.READY -> state.readyOrdersCount
+                        OrderFilter.WAITING -> state.waitingOrdersCount
+                        OrderFilter.HISTORY -> 0
                     }
+                    val badgeCount = if (count > 0) " ($count)" else ""
                     FilterChip(
                         selected = state.selectedFilter == filter,
                         onClick = { onFilterSelected(filter) },
@@ -265,7 +286,14 @@ fun OrdersContent(
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         item {
                             EmptyView(
-                                title = if (state.searchQuery.isNotEmpty()) "Hech narsa topilmadi" else "Buyurtma yo‘q",
+                                title = when {
+                                    state.searchQuery.isNotEmpty() -> "Hech narsa topilmadi"
+                                    state.selectedFilter == OrderFilter.NEW -> "Yangi buyurtma yo‘q"
+                                    state.selectedFilter == OrderFilter.COOKING -> "Tayyorlanayotgan buyurtma yo‘q"
+                                    state.selectedFilter == OrderFilter.READY -> "Tayyor buyurtma yo‘q"
+                                    state.selectedFilter == OrderFilter.WAITING -> "Kutilayotgan buyurtma yo‘q"
+                                    else -> "Buyurtma yo‘q"
+                                },
                                 subtitle = null,
                                 modifier = Modifier.fillParentMaxSize()
                             )
@@ -287,7 +315,9 @@ fun OrdersContent(
                                 nowElapsed = nowElapsed,
                                 onClick = { onOrderClick(order.id) },
                                 onPrepTime = onPrepTime?.let { f -> { minutes: Int -> f(order.id, minutes) } },
-                                prepBusy = state.prepBusyId == order.id
+                                prepBusy = state.prepBusyId == order.id,
+                                onReady = if (onMarkReady != null) ({ confirmReadyFor = order.id }) else null,
+                                readyBusy = state.readyBusyId == order.id
                             )
                         }
                         if (state.hasMore && state.searchQuery.isBlank()) {
@@ -321,7 +351,7 @@ private fun OrdersScreenPreview() {
         OrdersContent(
             state = OrdersUiState(
                 orders = SampleData.sampleOrders,
-                selectedFilter = OrderFilter.ALL
+                selectedFilter = OrderFilter.NEW
             ),
             onRefresh = {},
             onFilterSelected = {},

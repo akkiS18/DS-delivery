@@ -116,7 +116,7 @@ fun MainScreen(
                         selected = isSelected,
                         onClick = { selectedTab = tab },
                         icon = {
-                            val badge = if (tab == MainTab.ORDERS) ordersState.incomingOrdersCount + ordersState.attentionOrdersCount else 0
+                            val badge = if (tab == MainTab.ORDERS) ordersState.newOrdersCount + ordersState.attentionOrdersCount else 0
                             if (badge > 0) {
                                 BadgedBox(badge = { Badge { Text(badge.toString()) } }) {
                                     Icon(imageVector = tab.icon, contentDescription = tab.title)

@@ -1,22 +1,9 @@
 import { CreditCard, ChefHat, Car, PackageCheck, XCircle, LifeBuoy, Hourglass, Check, type LucideIcon } from 'lucide-react';
 import { Icon } from './ui';
+import { heroSteps, type HeroKey } from '../lib/order';
 import type { CustomerStage } from '../lib/types';
 
-/** The four things a customer cares about, in order. Everything else (taxi booked, operator accepted...) lives inside one of them. */
-type Phase = 'PAY' | 'COOK' | 'ROAD' | 'DONE';
-const PHASES: Array<{ key: Phase; label: string; icon: LucideIcon }> = [
-  { key: 'PAY', label: 'To‘lov', icon: CreditCard },
-  { key: 'COOK', label: 'Tayyorlanmoqda', icon: ChefHat },
-  { key: 'ROAD', label: 'Yo‘lda', icon: Car },
-  { key: 'DONE', label: 'Yetkazildi', icon: PackageCheck },
-];
-
-const PHASE_OF: Partial<Record<CustomerStage, Phase>> = {
-  PAYMENT_PENDING: 'PAY', PAYMENT_CHECKING: 'PAY',
-  PREPARING: 'COOK', READY: 'COOK', TAXI_REQUESTED: 'COOK', TAXI_ACCEPTED: 'COOK',
-  TAXI_SENT: 'ROAD',
-  DELIVERED: 'DONE',
-};
+const STEP_ICON: Record<HeroKey, LucideIcon> = { PAY: CreditCard, COOK: ChefHat, ROAD: Car };
 
 const HEADLINE: Record<CustomerStage, string> = {
   PAYMENT_PENDING: 'To‘lov kutilmoqda',
@@ -39,24 +26,20 @@ const BIG_ICON: Record<CustomerStage, LucideIcon> = {
 };
 
 export function StatusHero({ stage }: { stage: CustomerStage }) {
-  const phase = PHASE_OF[stage] ?? null;
-  const at = phase ? PHASES.findIndex(p => p.key === phase) : -1;
+  const steps = heroSteps(stage);
   const bad = stage === 'CANCELLED' || stage === 'EXPIRED' || stage === 'NEEDS_HELP';
   return (
     <div className="hero" aria-live="polite">
       <div className={`hero-ico ${bad ? 'bad' : stage === 'DELIVERED' ? 'done' : ''}`} aria-hidden><Icon as={BIG_ICON[stage]} size={56} /></div>
       <div className="hero-title">{HEADLINE[stage]}</div>
-      {phase && (
+      {steps && (
         <ol className="phases" aria-label="Buyurtma bosqichlari">
-          {PHASES.map((p, i) => {
-            const state = stage === 'DELIVERED' || i < at ? 'done' : i === at ? 'current' : 'todo';
-            return (
-              <li key={p.key} className={`phase ${state}`} aria-current={state === 'current' ? 'step' : undefined}>
-                <span className="phase-dot" aria-hidden>{state === 'done' ? <Icon as={Check} size={20} /> : <Icon as={p.icon} size={20} />}</span>
-                <span className="phase-label">{p.label}</span>
-              </li>
-            );
-          })}
+          {steps.map(p => (
+            <li key={p.key} className={`phase ${p.state}`} aria-current={p.state === 'current' ? 'step' : undefined}>
+              <span className="phase-dot" aria-hidden><Icon as={p.state === 'done' ? Check : STEP_ICON[p.key]} size={20} /></span>
+              <span className="phase-label">{p.label}</span>
+            </li>
+          ))}
         </ol>
       )}
     </div>

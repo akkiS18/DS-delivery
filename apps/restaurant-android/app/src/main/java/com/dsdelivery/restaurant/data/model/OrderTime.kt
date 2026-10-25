@@ -23,10 +23,23 @@ fun parseIsoMillis(value: String?): Long? =
 /** Wall-clock time in the restaurant's market (Asia/Tashkent), independent of the phone's time zone setting. */
 fun formatClock(millis: Long): String = HH_MM.format(Instant.ofEpochMilli(millis).atZone(TASHKENT))
 
+/** Whole minutes since the order was placed, by the server's clock. Null when it cannot be determined. */
+fun ageMinutes(createdAtMillis: Long?, clock: ServerClock?, nowElapsed: Long): Long? {
+    if (createdAtMillis == null || clock == null) return null
+    return ((clock.now(nowElapsed) - createdAtMillis) / 60_000L).coerceAtLeast(0)
+}
+
+/** Waiting for the kitchen: calm up to 5 minutes, then orange, red from 10 (the colour of the age line on an order that needs action). */
+enum class Urgency { CALM, SOON, LATE }
+fun urgencyOf(ageMinutes: Long?): Urgency = when {
+    ageMinutes == null || ageMinutes < 5 -> Urgency.CALM
+    ageMinutes < 10 -> Urgency.SOON
+    else -> Urgency.LATE
+}
+
 /** "hozirgina", "7 daq oldin", "1 soat 5 daq oldin", "2 kun oldin". Null when the age cannot be determined. */
 fun ageText(createdAtMillis: Long?, clock: ServerClock?, nowElapsed: Long): String? {
-    if (createdAtMillis == null || clock == null) return null
-    val minutes = ((clock.now(nowElapsed) - createdAtMillis) / 60_000L).coerceAtLeast(0)
+    val minutes = ageMinutes(createdAtMillis, clock, nowElapsed) ?: return null
     return when {
         minutes < 1 -> "hozirgina"
         minutes < 60 -> "$minutes daq oldin"

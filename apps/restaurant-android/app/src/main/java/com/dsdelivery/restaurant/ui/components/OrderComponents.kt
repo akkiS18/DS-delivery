@@ -44,13 +44,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dsdelivery.restaurant.data.model.Order
+import com.dsdelivery.restaurant.data.model.OrderAction
 import com.dsdelivery.restaurant.data.model.OrderStatus
 import com.dsdelivery.restaurant.data.model.PaymentStatus
 import com.dsdelivery.restaurant.data.model.PrepInfo
 import com.dsdelivery.restaurant.data.model.TaxiStage
+import com.dsdelivery.restaurant.data.model.Urgency
+import com.dsdelivery.restaurant.data.model.ageMinutes
 import com.dsdelivery.restaurant.data.model.ageText
 import com.dsdelivery.restaurant.data.model.display
 import com.dsdelivery.restaurant.data.model.formatClock
+import com.dsdelivery.restaurant.data.model.urgencyOf
 import com.dsdelivery.restaurant.ui.theme.BrandDark
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
@@ -222,7 +226,10 @@ fun OrderCard(
     modifier: Modifier = Modifier,
     /** Quick "ready in N minutes" from the list; null hides the picker (previews). */
     onPrepTime: ((Int) -> Unit)? = null,
-    prepBusy: Boolean = false
+    prepBusy: Boolean = false,
+    /** "Tayyor" from the list (the caller asks for confirmation); null hides the button. */
+    onReady: (() -> Unit)? = null,
+    readyBusy: Boolean = false
 ) {
     val cooking = order.status == OrderStatus.PREPARING
     // Computed once per tick only for cooking orders; the stripe is the fastest "which one needs me" cue in a long list.
@@ -251,10 +258,18 @@ fun OrderCard(
                         Text(order.orderNumberDisplay, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
                         val age = ageText(order.createdAtMillis, order.clock, nowElapsed.value)
                         val at = order.createdAtMillis?.let { formatClock(it) }
+                        // An order that waits for the kitchen gets a stronger age line the longer it waits.
+                        val waitingForKitchen = order.needsPrepChoice || attention != null
+                        val urgency = if (waitingForKitchen) urgencyOf(ageMinutes(order.createdAtMillis, order.clock, nowElapsed.value)) else Urgency.CALM
                         Text(
                             text = listOfNotNull(at, age).joinToString(" • "),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            fontWeight = if (urgency == Urgency.CALM) null else FontWeight.Bold,
+                            color = when (urgency) {
+                                Urgency.CALM -> MaterialTheme.colorScheme.onSurfaceVariant
+                                Urgency.SOON -> WarningOrange
+                                Urgency.LATE -> ErrorRed
+                            }
                         )
                     }
                     OrderStatusBadge(status = order.status)
@@ -325,6 +340,20 @@ fun OrderCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(order.formattedTotal, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = BrandPrimary)
                     Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                }
+
+                // 7. the one next step, right here: cooked and the time is chosen -> "Tayyor"
+                if (onReady != null && cooking && !order.needsPrepChoice && OrderAction.MARK_READY in order.allowedActions) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onReady,
+                        enabled = !readyBusy,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
+                        Text("Tayyor", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
                 }
             }
         }

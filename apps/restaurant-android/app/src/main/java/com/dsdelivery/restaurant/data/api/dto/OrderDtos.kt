@@ -121,7 +121,11 @@ data class OrderCountsDto(
     @SerializedName("incoming") val incoming: Int = 0,
     @SerializedName("inProgress") val inProgress: Int = 0,
     @SerializedName("ready") val ready: Int = 0,
-    @SerializedName("attention") val attention: Int = 0
+    @SerializedName("attention") val attention: Int = 0,
+    /** Work-queue tabs: new (the kitchen has to act), cooking (time chosen), waiting (unpaid / taxi / cancellation asked). */
+    @SerializedName("new") val new: Int = 0,
+    @SerializedName("cooking") val cooking: Int = 0,
+    @SerializedName("waiting") val waiting: Int = 0
 )
 
 data class OrdersResponseDto(
@@ -237,7 +241,10 @@ fun OrdersResponseDto.toDomain(): OrdersPage = OrdersPage(
     incomingCount = counts?.incoming ?: 0,
     inProgressCount = counts?.inProgress ?: 0,
     readyCount = counts?.ready ?: 0,
-    attentionCount = counts?.attention ?: 0
+    attentionCount = counts?.attention ?: 0,
+    newCount = counts?.new ?: 0,
+    cookingCount = counts?.cooking ?: 0,
+    waitingCount = counts?.waiting ?: 0
 )
 
 fun OrderItemDto.toDomain(): OrderItem {

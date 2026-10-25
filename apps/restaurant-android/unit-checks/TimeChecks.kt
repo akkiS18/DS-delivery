@@ -2,11 +2,14 @@ package com.dsdelivery.restaurant.unitchecks
 
 import com.dsdelivery.restaurant.data.model.PrepInfo
 import com.dsdelivery.restaurant.data.model.ServerClock
+import com.dsdelivery.restaurant.data.model.Urgency
+import com.dsdelivery.restaurant.data.model.ageMinutes
 import com.dsdelivery.restaurant.data.model.ageText
 import com.dsdelivery.restaurant.data.model.display
 import com.dsdelivery.restaurant.data.model.formatClock
 import com.dsdelivery.restaurant.data.model.overdueMinutes
 import com.dsdelivery.restaurant.data.model.parseIsoMillis
+import com.dsdelivery.restaurant.data.model.urgencyOf
 
 /**
  * Standalone checks for the preparation clock (no JUnit needed: run.ps1 compiles this with the Kotlin compiler from the Gradle cache).
@@ -69,6 +72,17 @@ fun main() {
     check("age 3 days", ageText(serverNow - 3 * 24 * 3600_000L, clock, received), "3 kun oldin")
     check("age unknown", ageText(null, clock, received), null)
     check("formatClock Tashkent", formatClock(serverNow), "15:00")
+
+    println("age colour of an order that waits for the kitchen")
+    check("ageMinutes 7", ageMinutes(created, clock, received), 7L)
+    check("ageMinutes unknown", ageMinutes(null, clock, received), null)
+    check("ageMinutes never negative (created 'in the future')", ageMinutes(serverNow + 60_000L, clock, received), 0L)
+    check("0 min is calm", urgencyOf(0), Urgency.CALM)
+    check("4 min is calm", urgencyOf(4), Urgency.CALM)
+    check("5 min is orange", urgencyOf(5), Urgency.SOON)
+    check("9 min is orange", urgencyOf(9), Urgency.SOON)
+    check("10 min is red", urgencyOf(10), Urgency.LATE)
+    check("unknown age stays calm", urgencyOf(null), Urgency.CALM)
 
     if (failures > 0) { println("\n$failures check(s) FAILED"); kotlin.system.exitProcess(1) }
     println("\nAll time checks passed")

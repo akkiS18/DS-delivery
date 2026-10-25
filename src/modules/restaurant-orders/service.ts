@@ -27,8 +27,30 @@ export const FILTERS = {
   history: ['COMPLETED', 'RESTAURANT_REJECTED', 'RESTAURANT_EXPIRED', 'PAYMENT_EXPIRED', 'CUSTOMER_CANCELLED', 'CANCELLED', 'FAILED'],
 } as const satisfies Record<string, readonly OrderStatus[]>;
 
+/**
+ * The restaurant app's work-queue tabs (older apps keep using the buckets above). Every order lands in exactly one of them:
+ *  - new:     the kitchen has to act: a payment to verify, a failed automatic start, or a paid order cooking by itself whose
+ *             "ready in N minutes" nobody has chosen yet (this is what a freshly paid order looks like after the automatic start);
+ *  - cooking: being cooked and the time was chosen;
+ *  - waiting: not for the kitchen yet or any more (unpaid, taxi on its way, cancellation asked) - kept visible, never announced.
+ * `ready` and `history` are the buckets above.
+ */
+const NEW_WHERE: Prisma.OrderWhereInput = { OR: [{ status: { in: [...FILTERS.incoming] } }, { status: 'PREPARING', prepChosenMinutes: null }] };
+const COOKING_WHERE: Prisma.OrderWhereInput = { status: 'PREPARING', prepChosenMinutes: { not: null } };
+export const WAITING_STATUSES = ['WAITING_CUSTOMER_CONSENT', 'PAYMENT_PENDING', 'ACCEPTED', 'TAXI_REQUESTED', 'DRIVER_ASSIGNED', 'DELIVERY_ASSUMED', 'CANCELLATION_REQUESTED'] as const satisfies readonly OrderStatus[];
+
+function filterWhere(filter: z.output<typeof listQuerySchema>['filter']): Prisma.OrderWhereInput {
+  switch (filter) {
+    case 'all': return {};
+    case 'new': return NEW_WHERE;
+    case 'cooking': return COOKING_WHERE;
+    case 'waiting': return { status: { in: [...WAITING_STATUSES] } };
+    default: return { status: { in: [...FILTERS[filter]] } };
+  }
+}
+
 export const listQuerySchema = z.object({
-  filter: z.enum(['all', 'incoming', 'inProgress', 'toCook', 'ready', 'history']).default('all'),
+  filter: z.enum(['all', 'incoming', 'inProgress', 'toCook', 'ready', 'history', 'new', 'cooking', 'waiting']).default('all'),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   /** Opaque keyset cursor (the previous page's nextCursor). */
   cursor: cursorParam.optional(),
@@ -232,14 +254,14 @@ export async function getOrderView(restaurantId: string, orderId: string): Promi
 
 export async function listOrders(restaurantId: string, q: z.output<typeof listQuerySchema>) {
   const base: Prisma.OrderWhereInput = { restaurantId, createdViaBot: true };
-  const statusIn = (s: readonly OrderStatus[]): Prisma.OrderWhereInput => ({ ...base, status: { in: [...s] } });
+  // AND, not a spread: the tab filter and the page cursor both use OR.
   const where: Prisma.OrderWhereInput = {
-    ...(q.filter === 'all' ? base : statusIn(FILTERS[q.filter])),
-    ...(q.cursor ? beforeCursor('createdAt', q.cursor) : {}),
+    AND: [base, filterWhere(q.filter), ...(q.cursor ? [beforeCursor('createdAt', q.cursor)] : [])],
   };
-  const [rows, grouped, attention] = await Promise.all([
+  const [rows, grouped, unchosen, attention] = await Promise.all([
     db.order.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: q.limit + 1, select: detailSelect }),
     db.order.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
+    db.order.count({ where: { AND: [base, { status: 'PREPARING', prepChosenMinutes: null }] } }),
     db.order.count({ where: { ...base, OR: [
       { status: 'CANCELLATION_REQUESTED' }, // unverified/confirmed orders are already counted in `incoming`
       { status: { in: ['PREPARING', 'READY'] }, taxiDispatches: { some: { status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] } } } },
@@ -251,7 +273,10 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
   return {
     orders: page.map(r => orderView(r)),
     nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null,
-    counts: { incoming: count(FILTERS.incoming), inProgress: count(FILTERS.inProgress), toCook: count(FILTERS.toCook), ready: count(FILTERS.ready), attention },
+    counts: {
+      incoming: count(FILTERS.incoming), inProgress: count(FILTERS.inProgress), toCook: count(FILTERS.toCook), ready: count(FILTERS.ready), attention,
+      new: count(FILTERS.incoming) + unchosen, cooking: count(['PREPARING']) - unchosen, waiting: count(WAITING_STATUSES),
+    },
   };
 }
 

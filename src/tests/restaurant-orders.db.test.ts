@@ -140,6 +140,39 @@ test('list: pagination, filters, counts, and strict tenant isolation', async () 
   assert.equal((await call('GET', '/orders?filter=history', ta)).json().orders.some((x: { status: string }) => x.status === 'WAITING_RESTAURANT'), false);
 });
 
+test('work-queue tabs: a paid order cooking with no chosen time is "new"; once chosen it is "cooking"; unpaid ones only wait', async () => {
+  const [fresh, chosen, unpaid, sameWaiting] = [await place(), await place(), await place(), await place()];
+  const set = (id: string, data: object) => db.order.update({ where: { id }, data });
+  await set(fresh.id, { status: 'PREPARING', preparingStartedAt: new Date() });
+  await set(chosen.id, { status: 'PREPARING', preparingStartedAt: new Date(), prepChosenMinutes: 15 });
+  await set(unpaid.id, { status: 'PAYMENT_PENDING' });
+  await set(sameWaiting.id, { status: 'TAXI_REQUESTED' });
+  const ids = async (filter: string) => (await call('GET', `/orders?filter=${filter}&limit=50`, ta)).json().orders.map((x: { id: string }) => x.id) as string[];
+  const [isNew, cooking, waiting] = [await ids('new'), await ids('cooking'), await ids('waiting')];
+  assert.ok(isNew.includes(fresh.id) && !isNew.includes(chosen.id) && !isNew.includes(unpaid.id));
+  assert.ok(cooking.includes(chosen.id) && !cooking.includes(fresh.id));
+  assert.ok(waiting.includes(unpaid.id) && waiting.includes(sameWaiting.id) && !waiting.includes(fresh.id) && !waiting.includes(chosen.id));
+  // Each order is in exactly one tab, so nothing is listed twice and nothing falls between the tabs.
+  const open = [fresh, chosen, unpaid, sameWaiting].map(o => o.id);
+  for (const id of open) {
+    const tabs = [isNew, cooking, waiting, await ids('ready'), await ids('history')].filter(t => t.includes(id)).length;
+    assert.equal(tabs, 1, id);
+  }
+  // Counts match the tabs, and paging inside a tab (both the tab filter and the cursor use OR) neither repeats nor skips rows.
+  const counts = (await call('GET', '/orders?limit=1', ta)).json().counts;
+  assert.equal(counts.new, (await ids('new')).length);
+  assert.equal(counts.cooking, cooking.length);
+  assert.equal(counts.waiting, waiting.length);
+  const seen: string[] = [];
+  for (let cursor = '', i = 0; i < 20; i++) {
+    const page = (await call('GET', `/orders?filter=new&limit=1${cursor}`, ta)).json();
+    seen.push(...page.orders.map((x: { id: string }) => x.id));
+    if (!page.nextCursor) break;
+    cursor = `&cursor=${page.nextCursor}`;
+  }
+  assert.deepEqual(seen, isNew);
+});
+
 test("detail exposes payment/taxi/actions and never another restaurant's order or internal ids", async () => {
   const o = await place();
   const d = (await call('GET', `/orders/${o.id}`, ta)).json();

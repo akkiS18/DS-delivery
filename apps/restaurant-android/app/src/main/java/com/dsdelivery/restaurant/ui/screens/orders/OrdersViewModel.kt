@@ -75,9 +75,10 @@ class OrdersViewModel(
                 baselineDone = true
                 _uiState.update {
                     it.copy(
-                        incomingOrdersCount = page.incomingCount,
-                        inProgressOrdersCount = page.inProgressCount,
+                        newOrdersCount = page.newCount,
+                        cookingOrdersCount = page.cookingCount,
                         readyOrdersCount = page.readyCount,
+                        waitingOrdersCount = page.waitingCount,
                         attentionOrdersCount = page.attentionCount,
                         pollFailed = false
                     )
@@ -116,9 +117,10 @@ class OrdersViewModel(
                             isRefreshing = false,
                             orders = page.orders,
                             nextCursor = page.nextCursor,
-                            incomingOrdersCount = page.incomingCount,
-                            inProgressOrdersCount = page.inProgressCount,
+                            newOrdersCount = page.newCount,
+                            cookingOrdersCount = page.cookingCount,
                             readyOrdersCount = page.readyCount,
+                            waitingOrdersCount = page.waitingCount,
                             attentionOrdersCount = page.attentionCount,
                             errorMessage = null,
                             backendNotice = null
@@ -173,8 +175,11 @@ class OrdersViewModel(
         _uiState.update { it.copy(prepBusyId = orderId) }
         viewModelScope.launch {
             when (val result = repository.setPrepTime(orderId, minutes, "PREPARING")) {
-                is Resource.Success -> _uiState.update { s ->
-                    s.copy(prepBusyId = null, orders = s.orders.map { o -> if (o.id == orderId) result.data else o }, errorMessage = null)
+                is Resource.Success -> {
+                    _uiState.update { s ->
+                        s.copy(prepBusyId = null, orders = s.orders.map { o -> if (o.id == orderId) result.data else o }, errorMessage = null)
+                    }
+                    loadOrders(isRefresh = true, silent = true) // with the time chosen the order leaves "Yangi" for "Tayyorlanmoqda"
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(prepBusyId = null, errorMessage = result.message) }
@@ -182,6 +187,20 @@ class OrdersViewModel(
                 }
                 Resource.Loading -> {}
             }
+        }
+    }
+
+    /** "Tayyor" straight from the list (the card asks for confirmation first; the customer is told and the taxi is called). */
+    fun markReady(orderId: String) {
+        if (_uiState.value.readyBusyId != null) return
+        _uiState.update { it.copy(readyBusyId = orderId) }
+        viewModelScope.launch {
+            when (val result = repository.setOrderReady(orderId, "PREPARING")) {
+                is Resource.Success -> _uiState.update { it.copy(readyBusyId = null, errorMessage = null) }
+                is Resource.Error -> _uiState.update { it.copy(readyBusyId = null, errorMessage = result.message) }
+                Resource.Loading -> {}
+            }
+            loadOrders(isRefresh = true, silent = true) // success: the order moves to "Tayyor"; failure: it may have changed elsewhere
         }
     }
 
