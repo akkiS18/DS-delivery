@@ -1,5 +1,5 @@
 import { ApiError } from './api';
-import type { CheckoutIssue, QuoteLine } from './types';
+import type { CheckoutIssue, PublicPricing, QuoteLine } from './types';
 import { opensText, som } from './format';
 
 export type ErrorKind = 'PRICE' | 'CLOSED' | 'UNAVAILABLE' | 'PHONE' | 'NETWORK' | 'AUTH' | 'LIMIT' | 'NO_TAXI' | 'VALIDATION' | 'OTHER';
@@ -9,13 +9,15 @@ export interface Described {
   retryable: boolean;
   currentLines?: QuoteLine[];
   currentTotalSom?: number;
+  /** The fee model the server uses now: the cart is re-priced with it, so a second tap sends the right total. */
+  pricing?: PublicPricing;
   unavailableIds?: string[];
 }
 
 /** One place that turns every backend refusal into a customer message and the action the screen should take. */
 export function describeCheckoutError(e: unknown): Described {
   if (!(e instanceof ApiError)) return { kind: 'OTHER', message: 'Kutilmagan xatolik. Qayta urinib ko‘ring.', retryable: true };
-  const d = (e.details ?? {}) as { currentLines?: QuoteLine[]; currentTotalSom?: number; issues?: CheckoutIssue[] };
+  const d = (e.details ?? {}) as { currentLines?: QuoteLine[]; currentTotalSom?: number; pricing?: PublicPricing; issues?: CheckoutIssue[] };
   switch (e.code) {
     case 'NARX_OZGARGAN':
       return {
@@ -23,6 +25,7 @@ export function describeCheckoutError(e: unknown): Described {
         message: `Narxlar o‘zgargan. Yangi jami: ${d.currentTotalSom !== undefined ? som(d.currentTotalSom) : 'savatni ko‘ring'}. Buyurtma yaratilmadi va pul olinmadi.`,
         ...(d.currentLines ? { currentLines: d.currentLines } : {}),
         ...(d.currentTotalSom !== undefined ? { currentTotalSom: d.currentTotalSom } : {}),
+        ...(d.pricing ? { pricing: d.pricing } : {}),
       };
     case 'MAHSULOT_MAVJUD_EMAS':
       return {

@@ -7,7 +7,7 @@ import { openState } from '../restaurant-operations/hours.js';
 import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.js';
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
 import { loadFeeConfig } from '../pricing/config.js';
-import { feeRuleCode, priceBasket } from '../pricing/fee.js';
+import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
 
 export const orderSchema = z.object({
   restaurantId: z.string().min(1),
@@ -58,7 +58,7 @@ export class CheckoutError extends Error {
 /** unitSom/subtotalSom are what the CUSTOMER pays (service fee included when one applies); baseUnitSom is the restaurant's own menu price. */
 export type CheckoutLine = { productId: string; name: string; unitSom: number; baseUnitSom: number; quantity: number; subtotalSom: number };
 /** The platform's share baked into the prices; ruleCode null = legacy flat commission (nothing was added to the customer's price). */
-export type CheckoutFee = { baseTotalSom: number; feeSom: number; ruleCode: string | null };
+export type CheckoutFee = { baseTotalSom: number; feeSom: number; ruleCode: string | null; pricing?: PublicPricing };
 export type CheckoutIssue =
   | { kind: 'RESTAURANT_UNAVAILABLE' }
   | { kind: 'RESTAURANT_CLOSED'; opensNext: { dayOffset: number; dayOfWeek: number; time: string } | null }
@@ -107,7 +107,7 @@ export async function validateCheckout(tx: Tx, input: {
   const priced = priceBasket(products.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! })), cfg);
   const lines: CheckoutLine[] = priced.lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, baseUnitSom: l.baseUnitSom, quantity: l.quantity, subtotalSom: l.subtotalSom }));
   const totalSom = priced.totalSom;
-  const fee: CheckoutFee = { baseTotalSom: priced.baseTotalSom, feeSom: priced.feeSom, ruleCode: feeRuleCode(cfg) };
+  const fee: CheckoutFee = { baseTotalSom: priced.baseTotalSom, feeSom: priced.feeSom, ruleCode: feeRuleCode(cfg), pricing: publicPricing(cfg) };
   if (!Number.isSafeInteger(totalSom) || totalSom > 100_000_000) issues.push({ kind: 'TOTAL_TOO_LARGE' });
   for (const l of lines) {
     const expected = input.expectedUnitPrices?.[l.productId];
@@ -122,12 +122,13 @@ export async function validateCheckout(tx: Tx, input: {
 }
 
 /** Maps validation issues onto the error codes the existing callers and the HTTP handler already understand. */
-export function checkoutErrorFor(issues: CheckoutIssue[], lines: CheckoutLine[], totalSom: number): CheckoutError {
+export function checkoutErrorFor(issues: CheckoutIssue[], lines: CheckoutLine[], totalSom: number, pricing?: PublicPricing): CheckoutError {
   if (issues.some(i => i.kind === 'RESTAURANT_UNAVAILABLE')) return new CheckoutError('RESTORAN_BUYURTMA_QABUL_QILMAYDI', 409);
   if (issues.some(i => i.kind === 'RESTAURANT_CLOSED')) return new CheckoutError('RESTORAN_YOPIQ', 409, { issues });
   if (issues.some(i => i.kind === 'PRODUCT_UNAVAILABLE')) return new CheckoutError('MAHSULOT_MAVJUD_EMAS', 409, { issues });
   if (issues.some(i => i.kind === 'TOTAL_TOO_LARGE')) return new CheckoutError('BUYURTMA_SUMMASI_JUDA_KATTA', 400);
-  return new CheckoutError('NARX_OZGARGAN', 409, { issues, currentLines: lines, currentTotalSom: totalSom });
+  // `pricing` lets the app re-price with the model the server uses right now (the platform may have switched it since the cart was built).
+  return new CheckoutError('NARX_OZGARGAN', 409, { issues, currentLines: lines, currentTotalSom: totalSom, ...(pricing ? { pricing } : {}) });
 }
 type PlaceOrderData = z.output<typeof orderSchema>;
 
@@ -216,7 +217,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       // Stage 9: in production a REAL order is taken only while an administrator has the payments door open (/payments).
       if (data.paymentMode === 'REAL' && realPaymentsGateActive() && !(await realPaymentsOpen(tx))) throw new CheckoutError('TOLOV_YOPIQ', 409);
       const checked = await validateCheckout(tx, data);
-      if (!checked.ok) throw checkoutErrorFor(checked.issues, checked.lines, checked.totalSom);
+      if (!checked.ok) throw checkoutErrorFor(checked.issues, checked.lines, checked.totalSom, checked.fee.pricing);
       // New flow only: the order is payable immediately, so a REAL order must already be dispatchable. (The legacy accept-first flow
       // keeps its old behaviour: the restaurant sets the pickup address before accepting.)
       if (!waiting && data.paymentMode === 'REAL' && !checked.restaurant.pickupAddress?.trim()) throw new CheckoutError('RESTORAN_OLIB_KETISH_MANZILI_YOQ', 409);

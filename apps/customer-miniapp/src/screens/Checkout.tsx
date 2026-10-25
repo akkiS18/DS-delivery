@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheck, MapPin, ShoppingBasket } from 'lucide-react';
 import { Button, Empty, Icon, Spinner } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
-import { cartCount, cartTotal } from '../lib/cart';
+import { cartCount, cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
 import { newKey, som } from '../lib/format';
 import { loadTaxiChoice, pickTaxi, saveTaxiChoice } from '../lib/taxi';
@@ -68,7 +68,8 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   // Several services and none picked yet: the customer must choose. No services at all (or the list failed): the server answers with the reason.
   const taxiMissing = taxiOptions !== null && taxiOptions.length > 1 && taxiId === null;
   const canSubmit = ready.ok && !hasErrors(newErrors) && !submitting && taxiOptions !== null && !taxiMissing;
-  const total = cartTotal(cart);
+  const view = cartView(cart);
+  const total = view.totalSom;
 
   const locate = () => {
     if (!navigator.geolocation) { toast('Joylashuvni aniqlab bo‘lmadi'); return; }
@@ -86,7 +87,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       restaurantId: cart.restaurantId!,
       items: cart.lines.map(l => ({ productId: l.productId, quantity: l.quantity })),
       expectedTotalSom: total,
-      expectedUnitPrices: Object.fromEntries(cart.lines.map(l => [l.productId, l.priceSom])),
+      expectedUnitPrices: Object.fromEntries(view.lines.map(l => [l.productId, l.unitSom])),
       ...(selected === 'new'
         ? { address: { label: label.trim(), addressText: text.trim(), ...(coords ?? {}), save } }
         : { addressId: selected! }),
@@ -103,7 +104,8 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     } catch (e) {
       haptic.error();
       const d = describeCheckoutError(e);
-      if (d.kind === 'PRICE' && d.currentLines) dispatch({ type: 'reprice', lines: d.currentLines.map(l => ({ productId: l.productId, unitSom: l.unitSom })) });
+      if (d.kind === 'PRICE' && d.pricing) dispatch({ type: 'pricing', pricing: d.pricing });
+      if (d.kind === 'PRICE' && d.currentLines) dispatch({ type: 'reprice', lines: d.currentLines.map(l => ({ productId: l.productId, unitSom: l.baseUnitSom ?? l.unitSom })) });
       if (d.kind === 'UNAVAILABLE' && d.unavailableIds?.length) dispatch({ type: 'drop', productIds: d.unavailableIds });
       if (d.kind === 'NO_TAXI') { setTaxiId(null); loadTaxis(); } // the chosen service went away: show the current list
       setProblem(d);
@@ -177,7 +179,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       <section className="card stack" aria-label="Buyurtma xulosasi">
         <h2 style={{ fontSize: 17 }}>4. Buyurtma</h2>
         <div className="sub small">{cart.restaurantName} • {cartCount(cart)} ta</div>
-        {cart.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.priceSom * l.quantity)}</span></div>)}
+        {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(total)}</span></div>
         <div className="row between sub small"><span>Yetkazish ({taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi'})</span><span>alohida, taksi tarifi bo‘yicha</span></div>

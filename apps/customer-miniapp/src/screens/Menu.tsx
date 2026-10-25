@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UtensilsCrossed } from 'lucide-react';
+import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
-import { cartCount, cartTotal, qtyOf } from '../lib/cart';
+import { cartBase, cartCount, cartTotal, qtyOf } from '../lib/cart';
+import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
 import { opensText, som } from '../lib/format';
 import type { Route } from '../lib/router';
 import { confirmDialog } from '../lib/telegram';
@@ -13,6 +15,9 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
   const { cart, dispatch, toast } = useApp();
   const { data, error, loading, reload } = useLoad(signal => api.menu(id, signal), [id]);
   const [category, setCategory] = useState<string | 'all'>('all');
+
+  // The fee model is part of the menu: keep the cart pricing in step with what the server uses now.
+  useEffect(() => { if (data?.pricing) dispatch({ type: 'pricing', pricing: data.pricing }); }, [data?.pricing, dispatch]);
 
   const visible = useMemo(() => (data?.products ?? []).filter(p => category === 'all' || p.categoryId === category), [data, category]);
 
@@ -30,6 +35,8 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
   };
   const inThisCart = cart.restaurantId === r.id;
   const count = inThisCart ? cartCount(cart) : 0;
+  const pricing = data.pricing ?? cart.pricing ?? FLAT_PRICING;
+  const base = inThisCart ? cartBase(cart) : 0;
 
   return (
     <div className="page">
@@ -53,6 +60,9 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
       {visible.map(p => {
         const q = inThisCart ? qtyOf(cart, p.id) : 0;
         const orderable = r.isOpen && p.isAvailable;
+        // The price the dish has at the current basket (the first-rate price while the basket is empty); the earlier price is crossed out once it got cheaper.
+        const first = referenceUnitPrice(p.priceSom, pricing);
+        const unit = base > 0 ? unitPrice(p.priceSom, base, pricing) : first;
         return (
           <div key={p.id} className={`card product ${p.isAvailable ? '' : 'muted'}`}>
             {p.imageUrl
@@ -62,7 +72,7 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
               <div className="bold">{p.name}</div>
               {p.description && <div className="desc">{p.description}</div>}
               <div className="row between" style={{ marginTop: 'auto' }}>
-                <span className="price">{som(p.priceSom)}</span>
+                <PriceTag unitSom={unit} referenceSom={Math.max(first, unit)} />
                 {!p.isAvailable ? <span className="badge closed">Mavjud emas</span>
                   : q > 0 ? <Qty value={q} onInc={() => dispatch({ type: 'inc', productId: p.id })} onDec={() => dispatch({ type: 'dec', productId: p.id })} />
                   : <Button small disabled={!orderable} onClick={() => { void add(p); if (!r.isOpen) toast('Restoran hozir yopiq'); }}>Qo‘shish</Button>}
@@ -73,6 +83,7 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
       })}
       {count > 0 && (
         <div className="cartbar">
+          <FeeProgress base={base} pricing={pricing} />
           <Button onClick={() => go({ name: 'cart' })}>Savat • {count} ta • {som(cartTotal(cart))}</Button>
         </div>
       )}

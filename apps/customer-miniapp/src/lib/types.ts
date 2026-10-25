@@ -24,7 +24,10 @@ export interface Product {
   imageUrl: string | null;
 }
 
-export interface MenuResponse { restaurant: Restaurant; categories: Category[]; products: Product[] }
+/** The platform service fee model (src/modules/pricing/fee.ts). Dish prices shown to the customer already contain it; `Product.priceSom` is the restaurant's own price. */
+export interface PublicPricing { mode: 'FLAT' | 'PERCENT' | 'TIERED'; percentBp: number; kneeSom: number; lowBp: number; highBp: number; milestonesSom: number[] }
+
+export interface MenuResponse { restaurant: Restaurant; categories: Category[]; products: Product[]; pricing?: PublicPricing }
 
 export interface Address {
   id: string;
@@ -48,7 +51,8 @@ export interface Profile {
 
 export interface AppConfig { paymentMode: 'MOCK' | 'REAL'; mockPaymentAvailable: boolean; currency: string }
 
-export interface QuoteLine { productId: string; name: string; unitSom: number; quantity: number; subtotalSom: number }
+/** unitSom / subtotalSom are what the customer pays; baseUnitSom is the restaurant's own price (absent from an older backend: then they are the same). */
+export interface QuoteLine { productId: string; name: string; unitSom: number; baseUnitSom?: number; quantity: number; subtotalSom: number }
 export type CheckoutIssue =
   | { kind: 'RESTAURANT_UNAVAILABLE' }
   | { kind: 'RESTAURANT_CLOSED'; opensNext: OpensNext | null }
@@ -57,8 +61,8 @@ export type CheckoutIssue =
   | { kind: 'TOTAL_CHANGED'; expectedTotalSom: number; currentTotalSom: number }
   | { kind: 'TOTAL_TOO_LARGE' };
 export type QuoteResponse =
-  | { ok: true; lines: QuoteLine[]; totalSom: number; estimatedPrepMinutes: number }
-  | { ok: false; issues: CheckoutIssue[]; lines: QuoteLine[]; totalSom: number };
+  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; estimatedPrepMinutes: number }
+  | { ok: false; issues: CheckoutIssue[]; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing };
 
 export type CustomerStage =
   | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
@@ -138,8 +142,9 @@ export interface OrderSummary {
   taxi?: { stage: string | null; companyName: string } | null;
 }
 
+/** `priceSom` is the restaurant's own menu price; the customer-facing price comes from pricing (lib/fee.ts). */
 export interface CartLine { productId: string; name: string; priceSom: number; quantity: number }
-export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[] }
+export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[]; pricing?: PublicPricing }
 
 export type LinkState = 'CREATED' | 'BOT_BOUND' | 'BOT_CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 export interface LinkStatus {

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ShoppingBasket } from 'lucide-react';
+import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { Button, Empty, Icon, Qty, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { cartTotal } from '../lib/cart';
+import { cartBase, cartView } from '../lib/cart';
 import { describeCheckoutError } from '../lib/checkoutErrors';
 import { opensText, som } from '../lib/format';
 import type { Route } from '../lib/router';
@@ -26,10 +27,12 @@ export function Cart({ go }: { go: (r: Route) => void }) {
       api.quote(cart.restaurantId!, cart.lines.map(l => ({ productId: l.productId, quantity: l.quantity })), ac.signal)
         .then(q => {
           setQuote(q); setError(null);
-          // adopt the prices the server will actually charge, and tell the customer what moved
-          const moved = q.lines.filter(sl => { const l = cart.lines.find(x => x.productId === sl.productId); return l && l.priceSom !== sl.unitSom; });
+          if (q.pricing) dispatch({ type: 'pricing', pricing: q.pricing });
+          // adopt the restaurant prices the server has now (the customer-facing price follows from them), and tell the customer what moved
+          const baseOf = (sl: { unitSom: number; baseUnitSom?: number }) => sl.baseUnitSom ?? sl.unitSom;
+          const moved = q.lines.filter(sl => { const l = cart.lines.find(x => x.productId === sl.productId); return l && l.priceSom !== baseOf(sl); });
           if (moved.length) {
-            dispatch({ type: 'reprice', lines: moved.map(m => ({ productId: m.productId, unitSom: m.unitSom })) });
+            dispatch({ type: 'reprice', lines: moved.map(m => ({ productId: m.productId, unitSom: baseOf(m) })) });
             setRepriced(moved.map(m => m.name));
           }
         })
@@ -40,6 +43,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, cart.restaurantId]);
 
+  const view = cartView(cart);
   const issues: CheckoutIssue[] = quote && !quote.ok ? quote.issues : [];
   const unavailable = useMemo(() => new Set(issues.flatMap(i => (i.kind === 'PRODUCT_UNAVAILABLE' ? [i.productId] : []))), [issues]);
   const closed = issues.find(i => i.kind === 'RESTAURANT_CLOSED' || i.kind === 'RESTAURANT_UNAVAILABLE');
@@ -58,14 +62,14 @@ export function Cart({ go }: { go: (r: Route) => void }) {
       {repriced.length > 0 && <div className="banner warn" role="alert">Narx yangilandi: {repriced.join(', ')}. Yangi summani tekshiring.</div>}
       {closed && <div className="banner bad" role="alert">{closed.kind === 'RESTAURANT_CLOSED' ? `Restoran hozir yopiq. ${opensText(closed.opensNext)}.` : 'Restoran hozir buyurtma qabul qilmayapti.'}</div>}
       {error && <div className="banner bad" role="alert">{describeCheckoutError(error).message}</div>}
-      {cart.lines.map(l => (
+      {view.lines.map(l => (
         <div key={l.productId} className={`card ${unavailable.has(l.productId) ? 'muted' : ''}`}>
           <div className="row between">
             <div className="grow">
               <div className="bold">{l.name}</div>
-              <div className="sub small">{som(l.priceSom)}{unavailable.has(l.productId) ? ' • hozir mavjud emas' : ''}</div>
+              <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.referenceSom} />{unavailable.has(l.productId) ? ' • hozir mavjud emas' : ''}</div>
             </div>
-            <div className="bold mono">{som(l.priceSom * l.quantity)}</div>
+            <div className="bold mono">{som(l.subtotalSom)}</div>
           </div>
           <div className="row between" style={{ marginTop: 10 }}>
             <Qty value={l.quantity} onInc={() => dispatch({ type: 'inc', productId: l.productId })} onDec={() => dispatch({ type: 'dec', productId: l.productId })} />
@@ -75,7 +79,10 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         </div>
       ))}
       <div className="card stack">
-        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom : cartTotal(cart))}</span></div>
+        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>
+        {view.savedSom > 0 && <div className="row between saved"><span>Tejadingiz</span><span className="mono">−{som(view.savedSom)}</span></div>}
+        <FeeProgress base={cartBase(cart)} pricing={view.pricing} />
+        {view.pricing.mode !== 'FLAT' && <p className="sub small">Narxlarga xizmat haqi kiritilgan.</p>}
         <div className="row between sub small"><span>Yetkazish</span><span>taksi tarifi bo‘yicha</span></div>
         <p className="sub small">Yetkazish narxini taksi xizmati belgilaydi va alohida to‘lanadi. Platforma uni oldindan hisoblamaydi.</p>
       </div>

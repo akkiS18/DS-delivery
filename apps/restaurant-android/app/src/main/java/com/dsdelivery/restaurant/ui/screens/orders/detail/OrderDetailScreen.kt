@@ -357,6 +357,15 @@ fun OrderDetailContent(
                                 color = MaterialTheme.colorScheme.surfaceVariant
                             )
 
+                            // The platform's service share is inside the customer's payment: the lines above are the restaurant's own prices.
+                            if (order.serviceFeeSom > 0) {
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Platforma xizmat haqi", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(order.formattedServiceFee, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+
                             // Total Sum
                             Row(
                                 modifier = Modifier.fillMaxWidth(),

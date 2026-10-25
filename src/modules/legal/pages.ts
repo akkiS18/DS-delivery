@@ -77,6 +77,7 @@ ${hours}`);
 <li>Taom puli to‘g‘ridan-to‘g‘ri restoranning kartasiga o‘tkaziladi. Platforma pulni o‘zida saqlamaydi.</li>
 <li>Ilova ko‘rsatgan <b>aniq summani</b> ko‘rsatilgan vaqt ichida o‘tkazing. Boshqa summa yoki kech o‘tkazma avtomatik qabul qilinmasligi va qo‘lda tekshirilishi mumkin.</li>
 <li>Restoran pulni bankda tekshirib tasdiqlagandan keyingina taom tayyorlanadi.</li>
+<li>Taom narxlariga platformaning xizmat haqi kiritilgan. Ilovada ko‘rsatilgan narx yakuniy: ustiga hech narsa qo‘shilmaydi. Savat kattalashgan sari taomlar narxi kamayishi mumkin.</li>
 </ul>
 <h2>Bekor qilish va pulni qaytarish</h2>
 <ul>

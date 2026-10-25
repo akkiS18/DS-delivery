@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { db } from '../../lib/db.js';
 import { CUSTOMER_REASONS } from '../refunds/workflow.js';
+import { loadFeeConfig } from '../pricing/config.js';
+import { publicPricing, type PublicPricing } from '../pricing/fee.js';
 import { validateCheckout, type CheckoutIssue, type CheckoutLine, type PlaceOrderInput } from './service.js';
 
 /**
@@ -49,15 +51,16 @@ export const checkoutRequestSchema = z.object({
 export const customerCancelRequestSchema = z.object({ reasonCode: z.enum(CUSTOMER_REASONS).optional() }).strict();
 
 export type QuoteResponse =
-  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; estimatedPrepMinutes: number }
-  | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number };
+  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing; estimatedPrepMinutes: number }
+  | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing };
 
 /** Price/availability preview without creating anything. Same validation the order creation runs. */
 export async function quoteCheckout(input: z.infer<typeof quoteRequestSchema>): Promise<QuoteResponse> {
   const r = await validateCheckout(db, input);
+  const pricing = publicPricing(await loadFeeConfig(db)); // lets the app show the same prices locally while the customer edits the cart
   return r.ok
-    ? { ok: true, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, estimatedPrepMinutes: r.restaurant.defaultPrepMinutes }
-    : { ok: false, issues: r.issues, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom };
+    ? { ok: true, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, pricing, estimatedPrepMinutes: r.restaurant.defaultPrepMinutes }
+    : { ok: false, issues: r.issues, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, pricing };
 }
 
 /** The only place the customer identity enters: the owner must come from verified initData (Telegram id) or a server-side guest session (customer id), never from the request. */

@@ -92,6 +92,8 @@ data class OrderDto(
     @SerializedName("code") val code: String = "",
     @SerializedName("status") val status: String,
     @SerializedName("totalSom") val totalSom: Int,
+    /** The platform's share baked into the customer's dish prices; the item lines are the restaurant's own prices. 0 on older orders and older servers. */
+    @SerializedName("serviceFeeSom") val serviceFeeSom: Int? = null,
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("estimatedPrepMinutes") val estimatedPrepMinutes: Int? = null,
     @SerializedName("items") val items: List<OrderItemDto>? = null,
@@ -182,6 +184,7 @@ fun OrderDto.toDomain(): Order {
         code = code,
         status = OrderStatus.fromRaw(status),
         totalSom = totalSom,
+        serviceFeeSom = serviceFeeSom ?: 0,
         createdAt = createdAt,
         estimatedPrepMinutes = estimatedPrepMinutes,
         items = items?.map { it.toDomain() } ?: emptyList(),

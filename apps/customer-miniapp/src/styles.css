@@ -207,3 +207,14 @@ h1, h2, h3, p { margin: 0; }
 .pay-warn.urgent .pay-warn-time { color: #a63a00; }
 .pay-warn.urgent .pay-warn-bar > span { background: #d9480f; }
 .pay-warn.over { background: #ffe0e0; border-color: #d33; color: #7a1010; }
+
+/* Service fee: the progress bar above the cart button and the price tag with the earlier price crossed out. */
+.feebar { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px 10px; margin-bottom: 8px; font-size: 13px; color: var(--ink-soft); box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06); }
+.feebar b { color: var(--primary-dark); }
+.feebar .track { height: 6px; border-radius: 999px; background: var(--mint-soft); margin-top: 6px; overflow: hidden; }
+.feebar .track i { display: block; height: 100%; border-radius: 999px; background: var(--primary); transition: width 0.25s ease; }
+.feebar.done { color: var(--primary-dark); font-weight: 700; }
+.pricetag { display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; }
+.pricetag .was { font-size: 13px; color: var(--ink-soft); font-weight: 500; }
+.pricetag .off { font-size: 12px; font-weight: 700; color: var(--primary); }
+.saved { color: var(--primary-dark); font-weight: 700; }

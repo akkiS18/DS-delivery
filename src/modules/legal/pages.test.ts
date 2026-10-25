@@ -37,6 +37,7 @@ describe('legal pages', () => {
     assert.match(privacy, /Test MChJ/);
     const terms = renderLegalPage('terms', cfg);
     assert.match(terms, /Platforma pulni o‘zida saqlamaydi/);
+    assert.match(terms, /xizmat haqi kiritilgan/, 'the service fee inside the dish prices is disclosed');
     assert.match(terms, /yetkazilganini bildirmaydi/, 'taxi acceptance is never claimed as delivery');
   });
   it('are served publicly with their own CSP, 503 until configured', async () => {

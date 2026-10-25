@@ -187,6 +187,8 @@ data class Order(
     val code: String,
     val status: OrderStatus,
     val totalSom: Int,
+    /** Platform service share inside totalSom (items are the restaurant's own prices; items + this = totalSom). */
+    val serviceFeeSom: Int = 0,
     val createdAt: String,
     val estimatedPrepMinutes: Int? = null,
     val items: List<OrderItem> = emptyList(),
@@ -227,6 +229,12 @@ data class Order(
         get() {
             val fmt = NumberFormat.getNumberInstance(Locale("uz", "UZ"))
             return "${fmt.format(totalSom)} so‘m"
+        }
+
+    val formattedServiceFee: String
+        get() {
+            val fmt = NumberFormat.getNumberInstance(Locale("uz", "UZ"))
+            return "${fmt.format(serviceFeeSom)} so‘m"
         }
 
     val orderNumberDisplay: String
