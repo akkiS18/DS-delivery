@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search, Star } from 'lucide-react';
+import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
 import { opensText } from '../lib/format';
+import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
 import { useLoad } from '../state';
 
@@ -24,15 +26,19 @@ export function Home({ go }: { go: (r: Route) => void }) {
         <Empty icon={<Icon as={Search} size={44} />} title={q ? 'Hech narsa topilmadi' : 'Hozircha restoranlar yo‘q'} hint={q ? 'Boshqa nom bilan qidirib ko‘ring.' : 'Keyinroq qaytib keling.'} />
       )}
       {data?.restaurants.map(r => (
-        <div key={r.id} className={`card tap ${r.isOpen ? '' : 'muted'}`} role="button" tabIndex={0}
+        <div key={r.id} className={`card tap rcard ${r.isOpen ? '' : 'closed'}`} role="button" tabIndex={0} aria-label={`${r.name}, ${r.isOpen ? 'ochiq' : 'yopiq'}`}
           onClick={() => go({ name: 'menu', id: r.id })} onKeyDown={e => { if (e.key === 'Enter') go({ name: 'menu', id: r.id }); }}>
-          <div className="row between">
-            <h3 className="grow ellipsis">{r.name}</h3>
-            <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? 'Ochiq' : r.closedReason === 'PAUSED' ? 'Vaqtincha yopiq' : 'Yopiq'}</span>
+          <div className="rphoto">
+            <RestaurantPhoto name={r.name} url={r.imageUrl} />
+            <span className={`badge rstate ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? 'Ochiq' : r.closedReason === 'PAUSED' ? 'Vaqtincha yopiq' : 'Yopiq'}</span>
           </div>
-          <p className="sub small" style={{ marginTop: 4 }}>
-            {r.isOpen ? `Tayyorlash ~${r.prepMinutes} daqiqa` : r.closedReason === 'HOURS' ? opensText(r.opensNext) : 'Hozircha buyurtma qabul qilmaydi'}
-          </p>
+          <div className="rbody">
+            <h3 className="rname">{r.name}</h3>
+            <div className="rmeta">
+              {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
+              <span className="sub">{r.isOpen ? `Tayyorlash ~${r.prepMinutes} daqiqa` : r.closedReason === 'HOURS' ? opensText(r.opensNext) : 'Hozircha buyurtma qabul qilmaydi'}</span>
+            </div>
+          </div>
         </div>
       ))}
     </div>

@@ -10,6 +10,10 @@ export interface Restaurant {
   closedReason: 'PAUSED' | 'HOURS' | null;
   opensNext: OpensNext | null;
   prepMinutes: number;
+  /** Relative URL of the restaurant's photo (null = none); an older backend omits it. */
+  imageUrl?: string | null;
+  /** The plain average and the number of ratings; null until enough people rated (and from an older backend). */
+  rating?: { avg: number; count: number } | null;
 }
 
 export interface Category { id: string; name: string }
@@ -138,6 +142,10 @@ export interface OrderView {
   paidAt?: string | null;
   cancel: { allowed: boolean; kind: 'UNPAID' | 'REFUND_REQUEST' | null };
   refund: { status: string; hasReceipt: boolean } | null;
+  /** The customer's own rating of the food, and whether it can still be given or changed (24 h after delivery). */
+  rating?: { stars: number; reasons: string[]; note: string | null } | null;
+  canRate?: boolean;
+  rateUntil?: string | null;
 }
 
 export interface OrderSummary {
@@ -150,6 +158,10 @@ export interface OrderSummary {
   foodTotalSom: number;
   itemsCount: number;
   method?: PaymentMethod;
+  /** Stars given to the food (null = not rated) and whether the 24 h window is still open. */
+  rating?: number | null;
+  canRate?: boolean;
+  rateUntil?: string | null;
   /** Optional so an older backend (without these list fields) still works. */
   serverNow?: string;
   prep?: PrepClock;

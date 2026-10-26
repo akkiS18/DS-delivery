@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, LifeBuoy, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
+import { RateRow } from '../components/RateRow';
 import { Button, Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, som } from '../lib/format';
@@ -73,6 +74,7 @@ export function Orders({ go }: { go: (r: Route) => void }) {
     <div key={o.id} className="card tap" role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}>
       <div className="row between"><span className="bold">#{o.code} • {o.restaurantName}</span><span className={`badge ${o.stage === 'DELIVERED' ? 'open' : 'closed'}`}>{STAGE_LABEL[o.stage]}</span></div>
       <div className="row between sub small" style={{ marginTop: 4 }}><span>{clock(o.createdAt)} • {o.itemsCount} ta</span><span className="mono">{som(o.foodTotalSom)}</span></div>
+      {o.stage === 'DELIVERED' && <RateRow orderId={o.id} rating={o.rating ?? null} canRate={o.canRate ?? false} onSaved={() => void refresh()} />}
     </div>
   );
 

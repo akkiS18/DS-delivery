@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { UtensilsCrossed } from 'lucide-react';
+import { Star, UtensilsCrossed } from 'lucide-react';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
+import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
 import { cartBase, cartCount, cartTotal, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
 import { opensText, som } from '../lib/format';
+import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
 import { confirmDialog } from '../lib/telegram';
 import type { Product } from '../lib/types';
@@ -41,9 +43,11 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
   return (
     <div className="page">
       <div>
+        <div className={`rphoto banner-photo ${r.isOpen ? '' : 'closed'}`}><RestaurantPhoto name={r.name} url={r.imageUrl} /></div>
         <h1 className="page-title">{r.name}</h1>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? 'Ochiq' : r.closedReason === 'PAUSED' ? 'Vaqtincha yopiq' : 'Yopiq'}</span>
+          {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
           {r.isOpen && <span className="sub small">Tayyorlash ~{r.prepMinutes} daqiqa</span>}
         </div>
       </div>

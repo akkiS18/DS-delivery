@@ -211,7 +211,7 @@ for (const width of [320, 375, 390, 430]) {
         assert.ok(await page.eval(`document.body.innerText.includes('Lavash Markazi ${nonce}') && !document.body.innerText.includes('Shashlik Uyi ${nonce}')`));
         const bar = await page.eval<{ shown: boolean; bottomOk: boolean; buttons: number }>(`(() => { const b = document.querySelector('.tabbar'); const r = b.getBoundingClientRect();
           return { shown: getComputedStyle(b).display !== 'none' && r.height > 30, bottomOk: r.bottom <= window.innerHeight + 1 && r.top >= 0, buttons: b.querySelectorAll('button').length }; })()`);
-        assert.deepEqual(bar, { shown: true, bottomOk: true, buttons: 3 }, 'tab bar remains while the search field is focused');
+        assert.deepEqual(bar, { shown: true, bottomOk: true, buttons: 4 }, 'tab bar remains while the search field is focused');
         await page.send('Input.insertText', { text: ' zzzz-no-match' });
         await page.waitFor(`document.querySelectorAll('.card.tap').length === 0`, 'empty result');
         await assertNoOverflow(page, 'search');
@@ -248,6 +248,9 @@ for (const width of [320, 375, 390, 430]) {
       await t.test('checkout: every field is reachable above the tab bar; no overflow', async () => {
         await go(page, '#/checkout');
         await page.waitFor(`document.querySelector('textarea#adr') || document.querySelector('input[name=addr]')`, 'checkout form');
+        // The price quote (payment choices, taxi services) arrives asynchronously and changes the page height: measure only after it is in.
+        await page.waitFor(`[...document.querySelectorAll('.app-main button')].some(b => /(To‘lovga o‘tish|Buyurtma berish) • /.test(b.textContent))`, 'checkout total');
+        await new Promise(r => setTimeout(r, 500));
         await page.eval(`(document.querySelector('input[value=""][name=addr], input[name=addr]:last-of-type') || {}).click?.()`);
         // inputs: centred in the viewport must be fully visible and clear of the tab bar; the submit button: after scrolling to the very bottom
         const hidden = await page.eval<string[]>(`(async () => { const bad = []; const top = () => ${tabbarTop};
@@ -258,7 +261,7 @@ for (const width of [320, 375, 390, 430]) {
             if (r.right > window.innerWidth + 1 || r.left < -1) bad.push('wide:' + el.tagName);
           }
           window.scrollTo(0, document.documentElement.scrollHeight); await new Promise(r => setTimeout(r, 200));
-          const submit = [...document.querySelectorAll('.app-main button')].find(b => b.textContent.includes('To‘lovga o‘tish'));
+          const submit = [...document.querySelectorAll('.app-main button')].find(b => b.textContent.includes('To‘lovga o‘tish') || b.textContent.includes('Buyurtma berish'));
           if (!submit) bad.push('no submit button'); else if (submit.getBoundingClientRect().bottom > top() + 1) bad.push('submit covered by tab bar');
           return bad; })()`);
         assert.deepEqual(hidden, [], 'fields stay clear of the tab bar when scrolled into view');
