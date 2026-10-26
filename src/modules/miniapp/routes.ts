@@ -14,6 +14,8 @@ import { actorLabel, type CustomerOwner } from '../../lib/customer-owner.js';
 import { appTicketThread, countUnreadAppTickets, listAppTickets } from '../support/app.js';
 import { addAppCustomerMessage } from '../support/conversation.js';
 import { createAppTicket } from '../support/service.js';
+import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
+import { readRestaurantImage } from '../restaurant/image.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
 import { createGuest, guestAuthEnabled, guestTokenFromHeader, installationIdSchemaRe, resolveGuestSession, revokeSession } from './guest.js';
 import { cancelLink, completeLink, createLinkAttempt, LinkError, linkStatus } from './telegram-link.js';
@@ -213,6 +215,15 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
 
   // ------------------------------------------------------------------ catalog & quote
   app.get('/restaurants', async request => ({ restaurants: await listRestaurants(z.object({ q: z.string().trim().max(60).optional() }).parse(request.query).q) }));
+  // The restaurant's photo. Public on purpose (an <img> cannot send the auth header; it is a marketing picture): the id is not secret and the
+  // URL carries ?v=<version>, so the answer is cached hard and a replaced photo shows up at once.
+  app.get<{ Params: { id: string } }>('/restaurants/:id/image', { config: { public: true } }, async (request, reply) => {
+    const img = await readRestaurantImage(idParam.parse(request.params.id));
+    if (!img) throw httpError(404, 'NOT_FOUND');
+    if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
+    return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)
+      .header('Cache-Control', 'public, max-age=2592000, immutable').send(img.data);
+  });
   app.get<{ Params: { id: string } }>('/restaurants/:id/menu', async request => {
     const menu = await restaurantMenu(idParam.parse(request.params.id));
     if (!menu) throw httpError(404, 'NOT_FOUND');
@@ -367,6 +378,26 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     if (r.result === 'ALREADY_RESOLVED') throw httpError(409, 'MUROJAAT_YOPILGAN');
     if (r.result === 'TOO_MANY') throw httpError(429, 'KOP_XABAR');
     return reply.code(r.result === 'SENT' ? 201 : 200).send({ sent: r.result === 'SENT' });
+  });
+
+  // Rate the food of a delivered order (24 h after delivery; changing it is allowed in that time). Nothing about the taxi is rated here.
+  const ratingBody = z.object({
+    stars: z.number().int().min(1).max(5),
+    reasons: z.array(z.enum(RATING_REASONS)).max(RATING_REASONS.length).optional(),
+    note: z.string().trim().max(NOTE_MAX).optional(),
+  }).strict();
+  app.put<{ Params: { id: string } }>('/orders/:id/rating', async request => {
+    strict(request, 'rate', 20);
+    const id = idParam.parse(request.params.id);
+    const body = ratingBody.parse(request.body);
+    const order = await loadCustomerOrder(owner(request), id);
+    if (!order) throw httpError(404, 'NOT_FOUND');
+    const view = customerOrderView(order);
+    const r = await rateOrder({ customerId: order.customerId, orderId: id, stars: body.stars, reasons: body.reasons ?? [], note: body.note }, { canRate: view.canRate });
+    if (r.result === 'NOT_FOUND') throw httpError(404, 'NOT_FOUND');
+    if (r.result === 'NOT_ALLOWED') throw httpError(409, 'BAHOLASH_MUMKIN_EMAS');
+    if (r.result === 'CLOSED') throw httpError(409, 'BAHOLASH_MUDDATI_TUGADI');
+    return { order: await ownedView(request, id) };
   });
 
   // "I received my order": once, only for the order's own customer, only while the taxi is on its way or delivered. Idempotent.

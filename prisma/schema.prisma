@@ -33,6 +33,8 @@ model Restaurant {
   sessions            RestaurantSession[]
   commissionEntries   CommissionEntry[]
   commissionSettlements CommissionSettlement[]
+  ratings             OrderRating[]
+  image               RestaurantImage?
   // Company dispatch pickup site
 }
 
@@ -138,6 +140,7 @@ model Customer {
   mergedFrom     Customer[]      @relation("CustomerMerge")
   orders         Order[]
   supportTickets SupportTicket[]
+  ratings        OrderRating[]
   addresses      CustomerAddress[]
   guestSessions  GuestSession[]
   linkAttempts   TelegramLinkAttempt[]
@@ -277,6 +280,7 @@ model Order {
   events                     OrderEvent[]
   taxiDispatches             TaxiDispatch[]
   supportTickets             SupportTicket[]
+  rating                     OrderRating?
   refundRequests             RefundRequest[]
   commission                 CommissionEntry?
   addressText                String
@@ -865,4 +869,34 @@ model PlatformSetting {
   value     String
   updatedBy String?
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// A customer's rating of the food/restaurant for one delivered order (24 h to give or change it after delivery). reasons: tags for 1-3 stars;
+// note: optional, visible to the restaurant and the platform admins only.
+model OrderRating {
+  id           String     @id @default(cuid())
+  orderId      String     @unique
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  stars        Int
+  reasons      String[]   @default([])
+  note         String?
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+
+  @@index([restaurantId, createdAt])
+}
+
+// The restaurant's photo shown on its card (set by a platform admin in Telegram). Bytes live in the database; version busts the browser cache.
+model RestaurantImage {
+  restaurantId String     @id
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  mime         String
+  data         Bytes
+  sha256       String
+  version      Int        @default(1)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
 }

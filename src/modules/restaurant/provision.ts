@@ -3,6 +3,7 @@ import { db } from '../../lib/db.js';
 import { isSupportAdmin } from '../support/service.js';
 import { setRestaurantPassword } from '../restaurant-auth/service.js';
 import { assertPasswordPolicy } from '../restaurant-auth/password.js';
+import { setRestaurantImage, validateRestaurantImage } from './image.js';
 
 /**
  * Stage 9: platform administrators add restaurants and hand out logins from Telegram (the same steps the operator CLI tools do on the server).
@@ -37,9 +38,9 @@ export function generatePassword(slug: string): string {
 
 const requireAdmin = (adminId: string): void => { if (!isSupportAdmin(adminId)) throw new Error('ADMIN_RUXSAT_YOQ'); };
 
-export interface ProvisionInput { adminId: string; name: string; pickupAddress: string; pickupPhone?: string | undefined }
+export interface ProvisionInput { adminId: string; name: string; pickupAddress: string; pickupPhone?: string | undefined; /** The photo for the customer card (optional; checked before anything is created). */ image?: Buffer | undefined }
 
-export async function createRestaurantByAdmin(input: ProvisionInput): Promise<{ slug: string; name: string; password: string }> {
+export async function createRestaurantByAdmin(input: ProvisionInput): Promise<{ slug: string; name: string; password: string; hasImage: boolean }> {
   requireAdmin(input.adminId);
   const name = input.name.trim().slice(0, 80);
   const pickupAddress = input.pickupAddress.trim().slice(0, 200);
@@ -47,6 +48,7 @@ export async function createRestaurantByAdmin(input: ProvisionInput): Promise<{ 
   if (name.length < 2) throw new Error('NOM_QISQA');
   if (pickupAddress.length < 3) throw new Error('MANZIL_QISQA');
   if (phone && !/^\+?\d{9,15}$/.test(phone)) throw new Error('TELEFON_NOTOGRI');
+  if (input.image) validateRestaurantImage(input.image);
 
   const base = slugFromName(name);
   let restaurant: { id: string; slug: string } | null = null;
@@ -66,7 +68,8 @@ export async function createRestaurantByAdmin(input: ProvisionInput): Promise<{ 
   const password = generatePassword(restaurant.slug);
   await setRestaurantPassword({ slug: restaurant.slug, password });
   await db.adminAuditEvent.create({ data: { actorId: input.adminId, action: 'RESTAURANT_CREATED', targetType: 'Restaurant', targetId: restaurant.id, details: { slug: restaurant.slug } } });
-  return { slug: restaurant.slug, name, password };
+  if (input.image) await setRestaurantImage({ adminId: input.adminId, slug: restaurant.slug, bytes: input.image });
+  return { slug: restaurant.slug, name, password, hasImage: Boolean(input.image) };
 }
 
 /** A new password for an existing restaurant. All of its signed-in devices are signed out (setRestaurantPassword with replace). */

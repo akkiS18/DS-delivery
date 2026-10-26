@@ -8,6 +8,7 @@ import { openState } from '../restaurant-operations/hours.js';
 import { prepClock } from '../restaurant-orders/service.js';
 import { eligibleCompanyWhere } from '../taxi/assignment.js';
 import { taxiStage, type TaxiStage } from '../taxi/workflow.js';
+import { publicRatings, ratingWindow, rankingEnabled, rankingScores } from '../ratings/service.js';
 
 /** What the Mini App is allowed to see. Built from real backend rows only; nothing here is demo data. */
 
@@ -16,9 +17,11 @@ export async function listRestaurants(search: string | undefined, now = new Date
   const rows = await db.restaurant.findMany({
     where: { isActive: true, ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}) },
     orderBy: { name: 'asc' }, take: 100,
-    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true },
+    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } } },
   });
-  return rows.map(r => {
+  const ids = rows.map(r => r.id);
+  const [ratings, ranked] = await Promise.all([publicRatings(ids), rankingEnabled().then(on => (on ? rankingScores(ids, now) : null))]);
+  const list = rows.map(r => {
     const hours = openState(r, now);
     const isOpen = !r.isPaused && hours.open;
     return {
@@ -26,14 +29,21 @@ export async function listRestaurants(search: string | undefined, now = new Date
       closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS',
       opensNext: !hours.open ? hours.opensNext : null,
       prepMinutes: r.defaultPrepMinutes,
+      imageUrl: restaurantImageUrl(r.id, r.image?.version),
+      rating: ratings.get(r.id) ?? null,
     };
   });
+  // Ranking is off until an admin switches it on (/ratings): then better-rated restaurants come first (ties keep the alphabetical order).
+  return ranked ? list.sort((a, b) => (ranked.get(b.id) ?? 0) - (ranked.get(a.id) ?? 0)) : list;
 }
+
+/** Relative URL of the restaurant's photo (public, cache-busted by version), or null when it has none. */
+export const restaurantImageUrl = (id: string, version: number | undefined): string | null => (version === undefined ? null : `/api/v1/miniapp/restaurants/${id}/image?v=${version}`);
 
 export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const r = await db.restaurant.findFirst({
     where: { isActive: true, OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true },
+    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } } },
   });
   if (!r) return null;
   const [categories, products] = await Promise.all([
@@ -46,7 +56,7 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const hours = openState(r, now);
   const isOpen = !r.isPaused && hours.open;
   return {
-    restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes },
+    restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null },
     categories, products,
     // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
     // `priceSom` stays the restaurant's own menu price.
@@ -95,6 +105,7 @@ const orderInclude = {
   payment: { include: { card: { select: { last4: true, isTest: true, number: true, holderName: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' as const }, take: 1, select: { status: true, deliveredAt: true, taxiCompany: { select: { name: true } } } },
   refundRequests: { orderBy: { number: 'desc' as const }, take: 1, select: { status: true, receiptKey: true } },
+  rating: { select: { stars: true, reasons: true, note: true } },
 } as const;
 
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
@@ -133,6 +144,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     : o.status === 'PAYMENT_PENDING' ? 'UNPAID'
     : cash ? null
     : ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(o.status) ? 'REFUND_REQUEST' : null;
+
+  // Rating the food: offered on the delivered order's card for 24 h after the delivery (nothing is asked at "Ha, oldim").
+  const rate = ratingWindow({ stage, deliveredAt: taxi?.deliveredAt ?? null, receivedAt: o.customerReceivedAt, completedAt: o.updatedAt }, now);
 
   let instructions: unknown = null;
   if (pay?.status === 'AWAITING' && pay.card) {
@@ -179,6 +193,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     paidAt: o.paymentVerifiedAt?.toISOString() ?? null,
     cancel: { allowed: cancel !== null, kind: cancel },
     refund: refund ? { status: refund.status, hasReceipt: refund.receiptKey !== null } : null,
+    rating: o.rating ? { stars: o.rating.stars, reasons: o.rating.reasons, note: o.rating.note } : null,
+    canRate: rate.canRate,
+    rateUntil: rate.canRate ? rate.until?.toISOString() ?? null : null,
   };
 }
 export type CustomerOrderView = ReturnType<typeof customerOrderView>;
@@ -189,6 +206,6 @@ export async function listCustomerOrders(owner: CustomerOwner, limit = 20) {
   });
   return rows.map(r => {
     const v = customerOrderView(r);
-    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD' };
+    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
   });
 }

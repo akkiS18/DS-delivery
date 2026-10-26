@@ -9,6 +9,8 @@ import { db } from '../lib/db.js';
 import { planRestaurantRemoval, planTaxiRemoval, removeRestaurant, removeTaxiCompany, type RemovalOutcome, type RemovalPlan } from '../modules/platform/removal.js';
 import { createTaxiCompanyByAdmin, resetTaxiAccessByAdmin } from '../modules/taxi-app/provision.js';
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin } from '../modules/restaurant/provision.js';
+import { IMAGE_MAX_BYTES, setRestaurantImage } from '../modules/restaurant/image.js';
+import { platformRatingsOverview, REASON_LABEL, setRankingEnabled, type RatingReason } from '../modules/ratings/service.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -79,6 +81,25 @@ export async function renderTaxiMode(): Promise<{ text: string; keyboard: Return
   ]]) };
 }
 
+export async function renderRatings(adminId: string): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
+  const o = await platformRatingsOverview({ adminId });
+  const lines = ['⭐ <b>Restoran baholari</b>'];
+  if (!o.restaurants.length) lines.push('Hali baho yo‘q.');
+  for (const r of o.restaurants) {
+    lines.push(`• <b>${escapeHtml(r.name)}</b>: ${r.avg ?? '—'} (${r.count} ta) • 30 kun: ${r.last30.avg ?? '—'} (${r.last30.count} ta) • reyting balli ${r.score}`);
+  }
+  if (o.lowRecent.length) {
+    lines.push('', '⚠️ <b>So‘nggi past baholar</b>');
+    for (const l of o.lowRecent) {
+      const why = l.reasons.map(t => REASON_LABEL[t as RatingReason] ?? t).join(', ');
+      lines.push(`• ${escapeHtml(l.restaurant)} — ${'⭐'.repeat(l.stars)}${why ? ` — ${escapeHtml(why)}` : ''}${l.note ? `\n  «${escapeHtml(l.note)}»` : ''}`);
+    }
+  }
+  lines.push('', o.rankingOn ? '📈 Ro‘yxat tartibi: <b>reyting bo‘yicha</b> (yaxshi baholilar tepada).' : '🔤 Ro‘yxat tartibi: <b>alifbo bo‘yicha</b> (baho tartibga ta’sir qilmaydi).');
+  lines.push('Mijozga baho 5 ta bahodan keyin ko‘rinadi.');
+  return { text: lines.join('\n'), keyboard: Markup.inlineKeyboard([[Markup.button.callback(o.rankingOn ? '🔤 Alifbo tartibiga qaytish' : '📈 Reyting bo‘yicha tartiblash', `rate:rank:${o.rankingOn ? 0 : 1}`)]]) };
+}
+
 const BLOCK_TEXT: Record<string, string> = {
   OPEN_ORDERS: 'tugallanmagan buyurtma bor',
   OPEN_REFUNDS: 'hal qilinmagan pul qaytarish bor',
@@ -145,6 +166,22 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });
 
+  bot.command('ratings', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const v = await renderRatings(adminId);
+    await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.action(/^rate:rank:([01])$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    await setRankingEnabled({ adminId, enabled: (ctx.match as unknown as [string, string])[1] === '1' });
+    const v = await renderRatings(adminId);
+    await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
+  });
+
   bot.command('cash', async ctx => {
     if (!admin(ctx)) return;
     const v = await renderCash();
@@ -198,18 +235,29 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     }
   });
 
-  bot.command('newrestaurant', async ctx => {
-    const adminId = admin(ctx);
-    if (!adminId) return;
-    const [name, address, phone] = argsOf(ctx).split('|').map(s => s.trim());
+  /** Downloads a Telegram file the administrator sent (never more than `max` bytes). Null when it is missing, too big or cannot be fetched. */
+  const downloadFile = async (ctx: Context, fileId: string, declaredSize: number | undefined, max: number): Promise<Buffer | null> => {
+    if (declaredSize !== undefined && declaredSize > max) return null;
+    try {
+      const url = await ctx.telegram.getFileLink(fileId);
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const bytes = Buffer.from(await res.arrayBuffer());
+      return bytes.length <= max ? bytes : null;
+    } catch { return null; }
+  };
+
+  const newRestaurant = async (ctx: Context, adminId: string, args: string, image?: Buffer) => {
+    const [name, address, phone] = args.split('|').map(s => s.trim());
     if (!name || !address) {
-      await ctx.reply('Yozing:\n<code>/newrestaurant Nomi | Manzil | +998901234567</code>\n(telefon ixtiyoriy)', { parse_mode: 'HTML' });
+      await ctx.reply('Yozing:\n<code>/newrestaurant Nomi | Manzil | +998901234567</code>\n(telefon ixtiyoriy)\nRasm bilan: rasmni yuboring va izohiga shu matnni yozing.', { parse_mode: 'HTML' });
       return;
     }
     try {
-      const r = await createRestaurantByAdmin({ adminId, name, pickupAddress: address, pickupPhone: phone || undefined });
+      const r = await createRestaurantByAdmin({ adminId, name, pickupAddress: address, pickupPhone: phone || undefined, image });
       await ctx.reply([
-        `✅ <b>${escapeHtml(r.name)}</b> qo‘shildi.`,
+        `✅ <b>${escapeHtml(r.name)}</b> qo‘shildi.${r.hasImage ? ' 🖼 Rasm qo‘yildi.' : ''}`,
+        ...(r.hasImage ? [] : ['Rasm yo‘q: qo‘shish uchun rasmni yuboring va izohiga <code>/restaurantphoto ' + escapeHtml(r.slug) + '</code> deb yozing.']),
         `Restoran kodi: <code>${escapeHtml(r.slug)}</code>`,
         `Parol: <code>${escapeHtml(r.password)}</code>`,
         '',
@@ -219,8 +267,57 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
       ].join('\n'), { parse_mode: 'HTML' });
     } catch (err) {
       const m = err instanceof Error ? err.message : '';
-      await ctx.reply(m === 'TELEFON_NOTOGRI' ? 'Telefon raqami noto‘g‘ri.' : m === 'NOM_QISQA' || m === 'MANZIL_QISQA' ? 'Nom yoki manzil juda qisqa.' : 'Qo‘shib bo‘lmadi.');
+      await ctx.reply(m === 'TELEFON_NOTOGRI' ? 'Telefon raqami noto‘g‘ri.' : m === 'RASM_NOTOGRI' ? 'Rasm yaroqsiz (JPG, PNG yoki WebP, 3 MB gacha).' : m === 'NOM_QISQA' || m === 'MANZIL_QISQA' ? 'Nom yoki manzil juda qisqa.' : 'Qo‘shib bo‘lmadi.');
     }
+  };
+
+  bot.command('newrestaurant', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    await newRestaurant(ctx, adminId, argsOf(ctx));
+  });
+
+  const restaurantPhoto = async (ctx: Context, adminId: string, slug: string, fileId: string, size: number | undefined) => {
+    const bytes = await downloadFile(ctx, fileId, size, IMAGE_MAX_BYTES);
+    if (!bytes) { await ctx.reply('Rasmni olib bo‘lmadi (3 MB dan katta yoki yuklanmadi). Qayta yuboring.'); return; }
+    try {
+      const r = await setRestaurantImage({ adminId, slug, bytes });
+      await ctx.reply(r ? `🖼 <b>${escapeHtml(r.name)}</b> rasmi yangilandi.` : 'Bunday restoran yo‘q. Kodni /restaurants dan ko‘ring.', { parse_mode: 'HTML' });
+    } catch (err) {
+      await ctx.reply(err instanceof Error && err.message === 'RASM_NOTOGRI' ? 'Rasm yaroqsiz (JPG, PNG yoki WebP, 3 MB gacha).' : 'Saqlab bo‘lmadi.');
+    }
+  };
+  const photoHelp = 'Restoran rasmi: rasmni yuboring va izohiga <code>/restaurantphoto restoran-kodi</code> deb yozing (yoki rasmga javob sifatida shu buyruqni yuboring). Kodni /restaurants dan ko‘ring.';
+
+  bot.command('restaurantphoto', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const slug = argsOf(ctx).split(/\s+/)[0] ?? '';
+    const replied = ctx.message.reply_to_message as { photo?: Array<{ file_id: string; file_size?: number }> } | undefined;
+    const largest = replied?.photo?.at(-1);
+    if (!slug || !largest) { await ctx.reply(photoHelp, { parse_mode: 'HTML' }); return; }
+    await restaurantPhoto(ctx, adminId, slug, largest.file_id, largest.file_size);
+  });
+
+  // A photo whose caption is /newrestaurant ... or /restaurantphoto <code> (a caption is not a text message, so bot.command does not see it).
+  bot.on(['photo', 'document'], async (ctx, next) => {
+    const adminId = admin(ctx);
+    const msg = ctx.message as { caption?: string; photo?: Array<{ file_id: string; file_size?: number }>; document?: { file_id: string; file_size?: number; mime_type?: string } };
+    const caption = msg.caption?.trim() ?? '';
+    const command = /^\/(newrestaurant|restaurantphoto)(?:@\w+)?(?:\s+([\s\S]*))?$/i.exec(caption);
+    if (!adminId || !command) return next();
+    const file = msg.photo?.at(-1) ?? (msg.document?.mime_type?.startsWith('image/') ? msg.document : undefined);
+    if (!file) { await ctx.reply('Rasm yuboring (oddiy rasm yoki JPG/PNG/WebP fayl).'); return; }
+    const args = (command[2] ?? '').trim();
+    if (command[1]!.toLowerCase() === 'restaurantphoto') {
+      const slug = args.split(/\s+/)[0] ?? '';
+      if (!slug) { await ctx.reply(photoHelp, { parse_mode: 'HTML' }); return; }
+      await restaurantPhoto(ctx, adminId, slug, file.file_id, file.file_size);
+      return;
+    }
+    const bytes = await downloadFile(ctx, file.file_id, file.file_size, IMAGE_MAX_BYTES);
+    if (!bytes) { await ctx.reply('Rasmni olib bo‘lmadi (3 MB dan katta yoki yuklanmadi). Qayta yuboring.'); return; }
+    await newRestaurant(ctx, adminId, args, bytes);
   });
 
   bot.command('resetpassword', async ctx => {
