@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -40,6 +41,8 @@ import androidx.compose.ui.unit.sp
 import com.dsdelivery.restaurant.ui.screens.finance.FinanceScreen
 import com.dsdelivery.restaurant.ui.screens.finance.FinanceViewModel
 import com.dsdelivery.restaurant.ui.screens.operations.OperationsScreen
+import com.dsdelivery.restaurant.ui.screens.ratings.RatingsScreen
+import com.dsdelivery.restaurant.ui.screens.ratings.RatingsViewModel
 import com.dsdelivery.restaurant.ui.screens.operations.OperationsViewModel
 import com.dsdelivery.restaurant.ui.screens.orders.OrdersScreen
 import com.dsdelivery.restaurant.ui.screens.orders.OrdersViewModel
@@ -52,6 +55,7 @@ enum class MainTab(val title: String, val icon: ImageVector) {
     ORDERS("Buyurtmalar", Icons.Default.Receipt),
     MENU("Menyu", Icons.Default.RestaurantMenu),
     FINANCE("Moliya", Icons.Default.AccountBalance),
+    RATINGS("Baholar", Icons.Default.Star),
     OPERATIONS("Sozlamalar", Icons.Default.Storefront)
 }
 
@@ -60,6 +64,7 @@ fun MainScreen(
     ordersViewModel: OrdersViewModel,
     productManagementViewModel: ProductManagementViewModel,
     financeViewModel: FinanceViewModel,
+    ratingsViewModel: RatingsViewModel,
     operationsViewModel: OperationsViewModel,
     onNavigateToOrderDetail: (orderId: String) -> Unit,
     onNavigateToCreateProduct: () -> Unit,
@@ -86,6 +91,7 @@ fun MainScreen(
         ordersViewModel.loadOrders(silent = true)
         productManagementViewModel.loadData(silent = true)
         financeViewModel.refresh()
+        ratingsViewModel.refresh()
         operationsViewModel.loadOperations()
         operationsViewModel.loadCards()
     }
@@ -97,6 +103,7 @@ fun MainScreen(
             MainTab.ORDERS -> ordersViewModel.loadOrders(silent = true)
             MainTab.MENU -> productManagementViewModel.loadData(silent = true)
             MainTab.FINANCE -> financeViewModel.refresh()
+            MainTab.RATINGS -> ratingsViewModel.refresh()
             MainTab.OPERATIONS -> { operationsViewModel.loadOperations(); operationsViewModel.loadCards() }
         }
     }
@@ -181,6 +188,9 @@ fun MainScreen(
                     FinanceScreen(
                         viewModel = financeViewModel
                     )
+                }
+                MainTab.RATINGS -> {
+                    RatingsScreen(viewModel = ratingsViewModel)
                 }
                 MainTab.OPERATIONS -> {
                     OperationsScreen(

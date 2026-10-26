@@ -18,6 +18,7 @@ import { restaurantOperationsRoutes } from './modules/restaurant-operations/rout
 import { restaurantCardsRoutes } from './modules/restaurant-cards/routes.js';
 import { legalRoutes } from './modules/legal/routes.js';
 import { restaurantFinanceRoutes } from './modules/restaurant-finance/routes.js';
+import { restaurantRatingsRoutes } from './modules/ratings/routes.js';
 
 /** Fastify's typings take a hop-count only as a function: trust the first N proxies in front of us. */
 function trustProxySetting(): boolean | ((address: string, hop: number) => boolean) {
@@ -59,6 +60,7 @@ export function buildApp(engine: PaymentEngineV3, deps: { pingDatabase?: () => P
   app.register(taxiAppRoutes, { prefix: '/api/v1/taxi' }); // DS Taxi app: operators sign in per company
   app.register(restaurantCatalogRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantFinanceRoutes, { prefix: '/api/v1/restaurant' });
+  app.register(restaurantRatingsRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantOperationsRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantCardsRoutes, { prefix: '/api/v1/restaurant' });
   app.register(legalRoutes);

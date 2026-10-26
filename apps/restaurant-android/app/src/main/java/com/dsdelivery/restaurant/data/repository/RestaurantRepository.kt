@@ -86,4 +86,7 @@ interface RestaurantRepository {
 
     // --- Stage 4: Finance ---
     suspend fun getFinanceSummary(filter: com.dsdelivery.restaurant.data.model.FinanceDateFilter): Resource<com.dsdelivery.restaurant.data.model.FinanceSummary>
+
+    // --- Ratings (read-only) ---
+    suspend fun getRatings(): Resource<com.dsdelivery.restaurant.data.model.RatingsReport>
 }

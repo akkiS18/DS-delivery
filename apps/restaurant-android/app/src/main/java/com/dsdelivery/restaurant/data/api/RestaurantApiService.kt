@@ -19,6 +19,7 @@ import com.dsdelivery.restaurant.data.api.dto.CategoryDto
 import com.dsdelivery.restaurant.data.api.dto.CreateCategoryRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CreateProductRequestDto
 import com.dsdelivery.restaurant.data.api.dto.FinanceSummaryDto
+import com.dsdelivery.restaurant.data.api.dto.RatingsReportDto
 import com.dsdelivery.restaurant.data.api.dto.LoginRequestDto
 import com.dsdelivery.restaurant.data.api.dto.LoginResponseDto
 import com.dsdelivery.restaurant.data.api.dto.MenuResponseDto
@@ -184,6 +185,10 @@ interface RestaurantApiService {
         @Query("from") from: String,
         @Query("to") to: String
     ): FinanceSummaryDto
+
+    /** The restaurant's own food ratings and reasons (read-only; never who rated). */
+    @GET("api/v1/restaurant/ratings")
+    suspend fun getRatings(): RatingsReportDto
 
     // --- Stage 6C: Restaurant Operations ---
     @GET("api/v1/restaurant/operations")

@@ -609,6 +609,18 @@ class RestaurantRepositoryImpl(
         }
     }
 
+    // --- Ratings (read-only) ---
+
+    override suspend fun getRatings(): Resource<com.dsdelivery.restaurant.data.model.RatingsReport> {
+        return try {
+            Resource.Success(apiClient.service.getRatings().toDomain())
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
     // --- Error Parser Helper ---
 
     private fun parseErrorMessage(e: HttpException): String {
