@@ -559,6 +559,8 @@ model SupportTicket {
   claimedAt               DateTime?                   @db.Timestamptz(3)
   resolvedAt              DateTime?                   @db.Timestamptz(3)
   customerNotifiedAt      DateTime?                   @db.Timestamptz(3)
+  // When the customer last opened the ticket in an app (unread = a newer admin message or resolution).
+  customerSeenAt          DateTime?                   @db.Timestamptz(3)
   createdAt               DateTime                    @default(now()) @db.Timestamptz(3)
   updatedAt               DateTime                    @updatedAt @db.Timestamptz(3)
   notifications           SupportTicketNotification[]
@@ -618,7 +620,9 @@ model SupportTicketMessage {
   senderType        String
   senderTelegramId  String
   senderName        String?
-  telegramMessageId Int
+  // Null for a message written in an app (the sender id is then 'app:<customerId>' and clientKey is the dedupe key).
+  telegramMessageId Int?
+  clientKey         String?
   text              String
   createdAt         DateTime      @default(now()) @db.Timestamptz(3)
   deliveredAt       DateTime?     @db.Timestamptz(3)
@@ -628,6 +632,7 @@ model SupportTicketMessage {
   lastError         String?
 
   @@unique([senderTelegramId, telegramMessageId])
+  @@unique([senderTelegramId, clientKey])
   @@index([ticketId, createdAt])
   @@index([deliveredAt, failedAt, nextAttemptAt])
 }

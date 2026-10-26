@@ -64,6 +64,43 @@ export async function addCustomerMessage(input: {
   });
 }
 
+/** A customer who keeps writing without any answer can send this many messages in a row (a flood guard; the next admin reply resets it). */
+export const MAX_UNANSWERED_APP_MESSAGES = 10;
+
+export type AppMessageResult = MessageResult | { result: 'TOO_MANY' };
+
+/** Customer message written in an app. The customer comes from the authenticated session (never from the request), a foreign and an unknown
+ *  ticket look the same, and a retry with the same clientKey returns DUPLICATE without a second row. */
+export async function addAppCustomerMessage(input: {
+  customerId: string; ticketId: string; text: string; clientKey: string;
+}): Promise<AppMessageResult> {
+  const text = validateText(input.text);
+  const sender = `app:${input.customerId}`;
+  return db.$transaction(async tx => {
+    const t = await lockTicket(tx, input.ticketId);
+    if (!t || t.customerId !== input.customerId) return { result: 'NOT_FOUND' };
+    if (t.status === 'RESOLVED') return { result: 'ALREADY_RESOLVED' };
+    const lastAdmin = await tx.supportTicketMessage.findFirst({
+      where: { ticketId: t.id, senderType: 'ADMIN' }, orderBy: { createdAt: 'desc' }, select: { createdAt: true },
+    });
+    const unanswered = await tx.supportTicketMessage.count({
+      where: { ticketId: t.id, senderType: 'CUSTOMER', ...(lastAdmin ? { createdAt: { gt: lastAdmin.createdAt } } : {}) },
+    });
+    if (unanswered >= MAX_UNANSWERED_APP_MESSAGES) return { result: 'TOO_MANY' };
+    const id = randomUUID();
+    const { count } = await tx.supportTicketMessage.createMany({
+      data: [{ id, ticketId: t.id, senderType: 'CUSTOMER', senderTelegramId: sender, clientKey: input.clientKey, text }],
+      skipDuplicates: true, // the app retried a message whose answer it did not see
+    });
+    if (count !== 1) return { result: 'DUPLICATE' };
+    await tx.supportTicketEvent.create({
+      data: { ticketId: t.id, actorTelegramId: sender, actorType: 'CUSTOMER',
+        action: 'CUSTOMER_MESSAGE', fromStatus: t.status, toStatus: t.status, details: { messageId: id, via: 'app' } },
+    });
+    return { result: 'SENT', messageId: id, number: t.number };
+  });
+}
+
 /** Admin reply: only the admin who currently owns an IN_PROGRESS ticket. */
 export async function addAdminReply(input: {
   actorTelegramId: string; actorName: string; ticketId: string; text: string; telegramMessageId: number;

@@ -1,7 +1,7 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import {
   claimTicket, createTicket, isSupportAdmin, listActiveTickets, listCustomerOrders, listCustomerTickets,
-  resolveTicket, statusLabel, ticketForAdmin, MIN_MESSAGE, MAX_MESSAGE, type ActionResult,
+  resolveTicket, statusLabel, ticketByNumber, ticketForAdmin, MIN_MESSAGE, MAX_MESSAGE, type ActionResult,
 } from '../modules/support/service.js';
 import {
   addAdminReply, addCustomerMessage, customerActiveTicket, listCustomerActiveTickets, reassignTicket, reopenTicket,
@@ -124,10 +124,42 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     }
   }
 
+  /** An admin used Telegram's own "Reply" on one of the bot's ticket messages ("🎫 Murojaat #12 ..." / "💬 Murojaat #12 — mijoz yozdi"):
+   *  the text goes to that ticket's customer (their app chat or their Telegram). An unclaimed ticket is claimed by the replying admin first.
+   *  Returns false when the replied-to message is not a ticket message, so the normal text handling continues. */
+  async function replyByQuote(ctx: Context, actor: string, replied: unknown, text: string): Promise<boolean> {
+    const msg = replied as { text?: string; from?: { id: number; is_bot: boolean } };
+    if (!msg.from?.is_bot || (ctx.botInfo && msg.from.id !== ctx.botInfo.id) || !msg.text) return false;
+    const ref = /Murojaat #(\d{1,9})/.exec(msg.text);
+    if (!ref) return false;
+    if (text.length > MAX_FOLLOWUP) { await ctx.reply(`Xabar ${MAX_FOLLOWUP} belgidan oshmasin.`); return true; }
+    const ticket = await ticketByNumber(Number(ref[1]));
+    if (!ticket) { await ctx.reply('⛔ Murojaat topilmadi.'); return true; }
+    const messageId = ctx.message && 'message_id' in ctx.message ? ctx.message.message_id : 0;
+    try {
+      if (ticket.status === 'OPEN') {
+        const c = await claimTicket({ actorTelegramId: actor, actorName: displayName(ctx), ticketId: ticket.id, callbackQueryId: `reply:${ctx.chat?.id}:${messageId}` });
+        if (c.result !== 'DONE' && c.result !== 'DUPLICATE') { const note = adminReply(c); if (note) await ctx.reply(note); return true; }
+        await refreshAdminMessages(bot, ticket.id);
+      }
+      const r = await addAdminReply({ actorTelegramId: actor, actorName: displayName(ctx), ticketId: ticket.id, text, telegramMessageId: messageId });
+      const note = messageReply(r);
+      if (note) await ctx.reply(note);
+      if (r.result === 'SENT') await deliverSupportNotifications(bot).catch(() => undefined);
+    } catch (err) {
+      console.error('[SUPPORT QUOTE REPLY]', err instanceof Error ? err.message : 'Unknown error');
+      await ctx.reply('Xabarni yuborib bo‘lmadi. Keyinroq qayta urinib ko‘ring.');
+    }
+    return true;
+  }
+
   // Must be registered before the generic checkout text handler; passes through when not pending.
   bot.on('text', async (ctx, next) => {
     if (!ctx.from || ctx.chat?.type !== 'private') return next();
     const userId = String(ctx.from.id);
+    if (ctx.message.reply_to_message && isSupportAdmin(userId) && !ctx.message.text.startsWith('/')) {
+      if (await replyByQuote(ctx, userId, ctx.message.reply_to_message, ctx.message.text.trim())) return;
+    }
     const wait = pending.get(userId);
     if (!wait) return next();
     const text = ctx.message.text.trim();
@@ -147,6 +179,8 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
         await ctx.reply(`ℹ️ Bu buyurtma bo‘yicha #${r.number} murojaat hali hal qilinmagan.`);
       } else if (r.result === 'UNAVAILABLE') {
         await ctx.reply('Qo‘llab-quvvatlash hozir mavjud emas. Keyinroq urinib ko‘ring.');
+      } else if (r.result === 'LIMIT') {
+        await ctx.reply('Sizda juda ko‘p ochiq murojaat bor. Avval ularning javobini kuting.');
       } else {
         await ctx.reply('Buyurtma topilmadi.');
       }

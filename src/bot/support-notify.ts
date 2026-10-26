@@ -146,6 +146,11 @@ export async function deliverSupportMessages<C extends Context>(bot: Telegraf<C>
     if (lease.count !== 1) continue;
     const t = m.ticket;
     const toCustomer = m.senderType === 'ADMIN';
+    if (toCustomer && !t.customer.telegramUserId) {
+      // An app-only customer (no linked Telegram): the reply is read in the app's chat, there is nobody to message.
+      await db.supportTicketMessage.update({ where: { id: m.id }, data: { deliveredAt: new Date(), deliveryAttempts: m.deliveryAttempts + 1, lastError: null } });
+      continue;
+    }
     // Customer follow-ups go to the owner; an unclaimed ticket's follow-ups go to every admin.
     const targets = toCustomer ? (t.customer.telegramUserId ? [t.customer.telegramUserId] : [])
       : t.status === 'IN_PROGRESS' && t.assignedAdminTelegramId ? [t.assignedAdminTelegramId] : supportAdminIds();

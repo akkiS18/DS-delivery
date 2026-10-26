@@ -11,6 +11,9 @@ import { cancelUnpaidOrder, requestCancellation } from '../refunds/service.js';
 import { readReceipt } from '../refunds/receipts.js';
 import { advanceMockOrder } from '../restaurant-orders/auto.js';
 import { actorLabel, type CustomerOwner } from '../../lib/customer-owner.js';
+import { appTicketThread, countUnreadAppTickets, listAppTickets } from '../support/app.js';
+import { addAppCustomerMessage } from '../support/conversation.js';
+import { createAppTicket } from '../support/service.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
 import { createGuest, guestAuthEnabled, guestTokenFromHeader, installationIdSchemaRe, resolveGuestSession, revokeSession } from './guest.js';
 import { cancelLink, completeLink, createLinkAttempt, LinkError, linkStatus } from './telegram-link.js';
@@ -323,6 +326,47 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     if (r === 'LIMIT') throw httpError(429, 'KOP_NAQD_BUYURTMA');
     if (r === 'NOT_ALLOWED') throw httpError(409, 'NAQD_MUMKIN_EMAS');
     return { order: await ownedView(request, id) };
+  });
+
+  // ------------------------------------------------------------------ support chat (customer side; admins answer in Telegram)
+  const ticketBody = z.object({ message: z.string().trim().min(5).max(1000) }).strict();
+  const messageBody = z.object({ text: z.string().trim().min(1).max(1000), clientKey: z.string().regex(/^[A-Za-z0-9_-]{8,64}$/) }).strict();
+
+  app.get('/support', async request => {
+    strict(request, 'support', 60);
+    return { tickets: await listAppTickets(await customerId(request)) };
+  });
+  // Cheap count for the tab badge.
+  app.get('/support/unread', async request => {
+    strict(request, 'supportunread', 60);
+    const p = request.principal!;
+    if (p.kind === 'telegram' && !(await db.customer.findUnique({ where: { telegramUserId: p.user.id }, select: { id: true } }))) return { unread: 0 };
+    return { unread: await countUnreadAppTickets(await customerId(request)) };
+  });
+  app.get<{ Params: { id: string } }>('/support/:id', async request => {
+    strict(request, 'support', 60);
+    const thread = await appTicketThread(await customerId(request), idParam.parse(request.params.id));
+    if (!thread) throw httpError(404, 'NOT_FOUND');
+    return thread;
+  });
+  // Opens a ticket for one of the caller's own orders (e.g. a payment that was not confirmed in time). An order that already has an open ticket returns it.
+  app.post<{ Params: { id: string } }>('/orders/:id/support', async (request, reply) => {
+    strict(request, 'supportnew', 10, 3_600_000);
+    const body = ticketBody.parse(request.body);
+    const r = await createAppTicket({ customerId: (await customerRow(request)).id, orderId: idParam.parse(request.params.id), message: body.message });
+    if (r.result === 'NOT_FOUND') throw httpError(404, 'NOT_FOUND');
+    if (r.result === 'UNAVAILABLE') throw httpError(503, 'SUPPORT_UNAVAILABLE');
+    if (r.result === 'LIMIT') throw httpError(429, 'KOP_OCHIQ_MUROJAAT');
+    return reply.code(r.result === 'CREATED' ? 201 : 200).send({ ticketId: r.ticketId, number: r.number, created: r.result === 'CREATED' });
+  });
+  app.post<{ Params: { id: string } }>('/support/:id/messages', async (request, reply) => {
+    strict(request, 'supportmsg', 20);
+    const body = messageBody.parse(request.body);
+    const r = await addAppCustomerMessage({ customerId: await customerId(request), ticketId: idParam.parse(request.params.id), text: body.text, clientKey: body.clientKey });
+    if (r.result === 'NOT_FOUND') throw httpError(404, 'NOT_FOUND');
+    if (r.result === 'ALREADY_RESOLVED') throw httpError(409, 'MUROJAAT_YOPILGAN');
+    if (r.result === 'TOO_MANY') throw httpError(429, 'KOP_XABAR');
+    return reply.code(r.result === 'SENT' ? 201 : 200).send({ sent: r.result === 'SENT' });
   });
 
   // "I received my order": once, only for the order's own customer, only while the taxi is on its way or delivered. Idempotent.

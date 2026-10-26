@@ -32,30 +32,47 @@ export async function listCustomerOrders(telegramUserId: string) {
 
 export type CreateTicketResult =
   | { result: 'CREATED'; ticketId: string; number: number }
-  | { result: 'ALREADY_OPEN'; number: number }
+  | { result: 'ALREADY_OPEN'; number: number; ticketId: string }
   | { result: 'NOT_FOUND' }
-  | { result: 'UNAVAILABLE' };
+  | { result: 'UNAVAILABLE' }
+  | { result: 'LIMIT' };
+
+/** A customer writing from an app can have this many unresolved tickets at a time (a flood guard; each order still allows only one). */
+export const MAX_OPEN_TICKETS_PER_CUSTOMER = 5;
 
 /** Ownership is verified in the same query: an order id alone is never trusted.
  *  A foreign and a non-existent order are indistinguishable to the caller. */
 export async function createTicket(input: {
   telegramUserId: string; orderId: string; message: string;
 }): Promise<CreateTicketResult> {
-  const message = input.message.trim();
+  return createTicketFor({ customer: { telegramUserId: input.telegramUserId } }, input.telegramUserId, input.orderId, input.message, Infinity);
+}
+
+/** Same as createTicket for a customer written in an app (Mini App or Android guest): the customer row id comes from the authenticated session. */
+export async function createAppTicket(input: {
+  customerId: string; orderId: string; message: string;
+}): Promise<CreateTicketResult> {
+  return createTicketFor({ customerId: input.customerId }, `app:${input.customerId}`, input.orderId, input.message, MAX_OPEN_TICKETS_PER_CUSTOMER);
+}
+
+async function createTicketFor(
+  owner: { customer: { telegramUserId: string } } | { customerId: string }, actor: string, orderId: string, rawMessage: string, maxOpen: number,
+): Promise<CreateTicketResult> {
+  const message = rawMessage.trim();
   if (message.length < MIN_MESSAGE || message.length > MAX_MESSAGE) throw new Error('SUPPORT_XABAR_UZUNLIGI');
   if (!supportAdminIds().length) return { result: 'UNAVAILABLE' };
-  const order = await db.order.findFirst({
-    where: { id: input.orderId, customer: { telegramUserId: input.telegramUserId } },
-    select: { id: true, customerId: true },
-  });
+  const order = await db.order.findFirst({ where: { id: orderId, ...owner }, select: { id: true, customerId: true } });
   if (!order) return { result: 'NOT_FOUND' };
+  const existing = await db.supportTicket.findFirst({ where: { orderId: order.id, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true, number: true } });
+  if (existing) return { result: 'ALREADY_OPEN', number: existing.number, ticketId: existing.id };
+  if (await db.supportTicket.count({ where: { customerId: order.customerId, status: { in: ['OPEN', 'IN_PROGRESS'] } } }) >= maxOpen) return { result: 'LIMIT' };
   try {
     return await db.$transaction(async tx => {
       const ticket = await tx.supportTicket.create({
         data: { orderId: order.id, customerId: order.customerId, message },
       });
       await tx.supportTicketEvent.create({
-        data: { ticketId: ticket.id, actorTelegramId: input.telegramUserId, actorType: 'CUSTOMER',
+        data: { ticketId: ticket.id, actorTelegramId: actor, actorType: 'CUSTOMER',
           action: 'CREATED', toStatus: 'OPEN' },
       });
       return { result: 'CREATED' as const, ticketId: ticket.id, number: ticket.number };
@@ -64,12 +81,18 @@ export async function createTicket(input: {
     // Partial unique index: one unresolved ticket per order.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existing = await db.supportTicket.findFirst({
-        where: { orderId: order.id, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { number: true },
+        where: { orderId: order.id, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true, number: true },
       });
-      if (existing) return { result: 'ALREADY_OPEN', number: existing.number };
+      if (existing) return { result: 'ALREADY_OPEN', number: existing.number, ticketId: existing.id };
     }
     throw err;
   }
+}
+
+/** The public ticket number (the "#12" in every bot message) -> its id and state. Callers must already have checked that the actor is an admin. */
+export async function ticketByNumber(number: number) {
+  if (!Number.isSafeInteger(number) || number <= 0) return null;
+  return db.supportTicket.findUnique({ where: { number }, select: { id: true, status: true } });
 }
 
 export type ActionResult =
