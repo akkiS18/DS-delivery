@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseRoute, parentOf, routeToHash, isTab } from '../src/lib/router';
-import { STUCK_PAYMENT_MINUTES, troubleHint, validTicketText } from '../src/lib/support';
+import { itemsLine, STUCK_PAYMENT_MINUTES, troubleHint, validTicketText } from '../src/lib/support';
 import type { CustomerStage } from '../src/lib/types';
 
 const order = (stage: CustomerStage, ageMinutes = 1) => ({
@@ -49,5 +49,14 @@ describe('ticket text', () => {
     expect(validTicketText('   abc  ')).toBe(false);
     expect(validTicketText('Muammo')).toBe(true);
     expect(validTicketText('x'.repeat(1001))).toBe(false);
+  });
+});
+
+describe('order picker dish line', () => {
+  it('lists the first dishes and how many more, and is null for an older backend', () => {
+    expect(itemsLine({ itemsPreview: [{ name: 'Lavash', quantity: 2 }, { name: 'Cola', quantity: 1 }], itemsMore: 0 })).toBe('2× Lavash, 1× Cola');
+    expect(itemsLine({ itemsPreview: [{ name: 'Lavash', quantity: 2 }], itemsMore: 3 })).toBe('2× Lavash +3 ta');
+    expect(itemsLine({})).toBeNull();
+    expect(itemsLine({ itemsPreview: [] })).toBeNull();
   });
 });

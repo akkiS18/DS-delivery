@@ -157,6 +157,9 @@ export interface OrderSummary {
   restaurantName: string;
   foodTotalSom: number;
   itemsCount: number;
+  /** The first dishes of the order (name and quantity) and how many more there are; an older backend omits them. */
+  itemsPreview?: Array<{ name: string; quantity: number }>;
+  itemsMore?: number;
   method?: PaymentMethod;
   /** Stars given to the food (null = not rated) and whether the 24 h window is still open. */
   rating?: number | null;

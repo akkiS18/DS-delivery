@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { LifeBuoy, MessageCircle } from 'lucide-react';
 import { Button, Empty, ErrorBox, Icon, Sheet, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { clock } from '../lib/format';
+import { clock, som } from '../lib/format';
 import type { Route } from '../lib/router';
-import { TICKET_LABEL } from '../lib/support';
+import { itemsLine, TICKET_LABEL } from '../lib/support';
+import { STAGE_LABEL } from '../lib/order';
 import type { OrderSummary, TicketSummary } from '../lib/types';
 
 const POLL_MS = 15_000;
@@ -75,7 +76,11 @@ export function Support({ go }: { go: (r: Route) => void }) {
               : (
                 <div className="stack">
                   {orders.map(o => (
-                    <Button key={o.id} variant="secondary" onClick={() => { setPicking(false); go({ name: 'supportNew', orderId: o.id }); }}>#{o.code} • {o.restaurantName} • {clock(o.createdAt)}</Button>
+                    <button key={o.id} type="button" className="opick" onClick={() => { setPicking(false); go({ name: 'supportNew', orderId: o.id }); }}>
+                      <span className="row between"><span className="bold">#{o.code} • {o.restaurantName}</span><span className="mono">{som(o.foodTotalSom)}</span></span>
+                      {itemsLine(o) && <span className="opick-items">{itemsLine(o)}</span>}
+                      <span className="sub small">{clock(o.createdAt)} • {STAGE_LABEL[o.stage]}</span>
+                    </button>
                   ))}
                 </div>
               )}

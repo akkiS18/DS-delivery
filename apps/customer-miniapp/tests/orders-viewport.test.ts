@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { STAGE_LABEL, timeline } from '../src/lib/order';
 import { groupOrders, needsAttention, nextAction, prepHint } from '../src/lib/orderList';
 import type { CustomerStage } from '../src/lib/types';
-import { keyboardOffset, navMode } from '../src/lib/viewport';
+import { keyboardOffset, keyboardOpen, navMode } from '../src/lib/viewport';
 
 const o = (id: string, stage: CustomerStage, createdAt = '2026-10-19T10:00:00Z') => ({ id, stage, createdAt });
 
@@ -64,6 +64,15 @@ describe('keyboard / viewport layout', () => {
     expect(navMode(299)).toBe('inline');
     expect(navMode(0)).toBe('full');
     expect(navMode(NaN)).toBe('full');
+  });
+  it('hides the bar only while a field is focused AND the visible height really shrank', () => {
+    expect(keyboardOpen(800, 480, true)).toBe(true);      // keyboard up
+    expect(keyboardOpen(800, 800, true)).toBe(false);     // focused but no keyboard (hardware keyboard, back key closed it): the bar must return
+    expect(keyboardOpen(800, 480, false)).toBe(false);    // short viewport without a focused field (split screen): never hidden
+    expect(keyboardOpen(800, 720, true)).toBe(false);     // browser toolbar sized change
+    expect(keyboardOpen(0, 480, true)).toBe(false);
+    expect(keyboardOpen(NaN, 480, true)).toBe(false);
+    expect(keyboardOpen(800, 0, true)).toBe(false);
   });
   it('lifts the bar only where the keyboard overlays the page', () => {
     expect(keyboardOffset(800, 800, 0)).toBe(0);         // Telegram resizes the WebView

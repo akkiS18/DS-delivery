@@ -4,6 +4,7 @@ import { api, ApiError } from '../lib/api';
 import { clock } from '../lib/format';
 import type { Route } from '../lib/router';
 import { TICKET_MAX, TICKET_MIN, validTicketText } from '../lib/support';
+import { som } from '../lib/format';
 import type { OrderView } from '../lib/types';
 import { useApp } from '../state';
 
@@ -48,7 +49,11 @@ export function SupportNew({ orderId, go }: { orderId: string; go: (r: Route, o?
   return (
     <div className="page">
       <h1 className="page-title">Muammo haqida yozish</h1>
-      <p className="sub">Buyurtma #{order.code} • {order.restaurantName} • {clock(order.createdAt)}</p>
+      <div className="card">
+        <div className="row between"><span className="bold">#{order.code} • {order.restaurantName}</span><span className="mono">{som(order.foodTotalSom)}</span></div>
+        <div className="opick-items">{order.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
+        <div className="sub small">{clock(order.createdAt)}</div>
+      </div>
       <div className="field">
         <label htmlFor="sup-text">Nima bo‘ldi?</label>
         <textarea id="sup-text" className={`input ${touched && !validTicketText(text) ? 'invalid' : ''}`} rows={6} maxLength={TICKET_MAX} value={text}

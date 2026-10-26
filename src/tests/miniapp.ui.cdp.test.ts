@@ -216,6 +216,25 @@ for (const width of [320, 375, 390, 430]) {
         await page.waitFor(`document.querySelectorAll('.card.tap').length === 0`, 'empty result');
         await assertNoOverflow(page, 'search');
       });
+      await t.test('tab bar hides only while the keyboard really shrinks the screen, and always comes back', async () => {
+        const barShown = () => page.eval<boolean>(`(() => { const b = document.querySelector('.tabbar'); return getComputedStyle(b).display !== 'none' && b.getBoundingClientRect().height > 30; })()`);
+        const setHeight = (height: number) => page.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 2, mobile: true });
+        await go(page, '#/');
+        await page.eval(`document.querySelector('input[type=search]').focus()`);
+        assert.equal(await barShown(), true, 'focused, no keyboard yet: bar stays');
+        await setHeight(380); // the keyboard takes the lower part
+        await page.waitFor(`document.documentElement.dataset.kb === 'open'`, 'keyboard detected');
+        assert.equal(await barShown(), false, 'keyboard open: no bar above the keyboard');
+        await setHeight(700); // the keyboard is closed with the back key; the field keeps focus
+        await page.waitFor(`!document.documentElement.dataset.kb`, 'keyboard closed');
+        assert.equal(await barShown(), true, 'keyboard closed but field still focused: bar is back');
+        await setHeight(380);
+        await page.waitFor(`document.documentElement.dataset.kb === 'open'`, 'keyboard detected again');
+        await page.eval(`document.activeElement.blur()`);
+        await page.waitFor(`!document.documentElement.dataset.kb`, 'field blurred');
+        assert.equal(await barShown(), true, 'field lost focus: bar is back even on a short screen');
+        await setHeight(700);
+      });
       await t.test('menu: the last item is not covered by the tab bar; add to cart', async () => {
         await go(page, `#/menu/${menuRestaurant}`);
         await page.waitFor(`document.querySelectorAll('button').length > 10`, 'menu products');

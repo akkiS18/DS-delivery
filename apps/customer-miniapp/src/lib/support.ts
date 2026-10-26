@@ -18,6 +18,13 @@ export function troubleHint(o: { stage: CustomerStage; createdAt: string; server
   }
 }
 
+/** "2× Lavash, 1× Cola +1 ta"; null for an older backend that sends no dish list. */
+export function itemsLine(o: { itemsPreview?: Array<{ name: string; quantity: number }>; itemsMore?: number }): string | null {
+  if (!o.itemsPreview || o.itemsPreview.length === 0) return null;
+  const text = o.itemsPreview.map(i => `${i.quantity}× ${i.name}`).join(', ');
+  return o.itemsMore && o.itemsMore > 0 ? `${text} +${o.itemsMore} ta` : text;
+}
+
 export const TICKET_LABEL: Record<TicketStatus, string> = { OPEN: 'Yuborildi', IN_PROGRESS: 'Ko‘rilmoqda', RESOLVED: 'Hal qilindi' };
 export const TICKET_MIN = 5;
 export const TICKET_MAX = 1000;
