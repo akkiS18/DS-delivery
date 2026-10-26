@@ -5,7 +5,10 @@ export type Route =
   | { name: 'checkout' }
   | { name: 'order'; id: string }
   | { name: 'orders' }
-  | { name: 'profile' };
+  | { name: 'profile' }
+  | { name: 'support' }
+  | { name: 'ticket'; id: string }
+  | { name: 'supportNew'; orderId: string };
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -16,11 +19,14 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 0) return { name: 'home' };
   if (a === 'menu' && b && ID.test(b) && parts.length === 2) return { name: 'menu', id: b };
   if (a === 'order' && b && ID.test(b) && parts.length === 2) return { name: 'order', id: b };
+  if (a === 'support' && b === 'new' && parts[2] && ID.test(parts[2]) && parts.length === 3) return { name: 'supportNew', orderId: parts[2] };
+  if (a === 'support' && b && b !== 'new' && ID.test(b) && parts.length === 2) return { name: 'ticket', id: b };
   if (parts.length === 1) {
     if (a === 'cart') return { name: 'cart' };
     if (a === 'checkout') return { name: 'checkout' };
     if (a === 'orders') return { name: 'orders' };
     if (a === 'profile') return { name: 'profile' };
+    if (a === 'support') return { name: 'support' };
   }
   return { name: 'home' };
 }
@@ -34,6 +40,9 @@ export function routeToHash(r: Route): string {
     case 'checkout': return '#/checkout';
     case 'orders': return '#/orders';
     case 'profile': return '#/profile';
+    case 'support': return '#/support';
+    case 'ticket': return `#/support/${r.id}`;
+    case 'supportNew': return `#/support/new/${r.orderId}`;
   }
 }
 
@@ -45,9 +54,12 @@ export function parentOf(r: Route): Route | null {
     case 'cart': return { name: 'home' };
     case 'checkout': return { name: 'cart' };
     case 'order': return { name: 'orders' };
+    case 'ticket':
+    case 'supportNew': return { name: 'support' };
     case 'orders':
-    case 'profile': return { name: 'home' };
+    case 'profile':
+    case 'support': return { name: 'home' };
   }
 }
 
-export const isTab = (r: Route): boolean => r.name === 'home' || r.name === 'orders' || r.name === 'profile';
+export const isTab = (r: Route): boolean => r.name === 'home' || r.name === 'orders' || r.name === 'support' || r.name === 'profile';

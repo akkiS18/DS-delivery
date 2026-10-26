@@ -160,6 +160,17 @@ export interface OrderSummary {
 export interface CartLine { productId: string; name: string; priceSom: number; quantity: number }
 export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[]; pricing?: PublicPricing }
 
+/** Support chat (the customer's side; the admins answer in Telegram). `lastFrom` tells whose message is newest. */
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+export interface TicketSummary {
+  id: string; number: number; orderId: string; orderCode: string; restaurantName: string; status: TicketStatus;
+  createdAt: string; lastAt: string; lastFrom: 'CUSTOMER' | 'ADMIN'; lastText: string; unread: boolean;
+}
+export interface TicketThread {
+  ticket: { id: string; number: number; orderId: string; orderCode: string; restaurantName: string; status: TicketStatus; createdAt: string };
+  messages: Array<{ id: string; from: 'CUSTOMER' | 'ADMIN'; text: string; at: string }>;
+}
+
 export type LinkState = 'CREATED' | 'BOT_BOUND' | 'BOT_CONFIRMED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 export interface LinkStatus {
   id: string;

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, LifeBuoy, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
 import { Button, Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, som } from '../lib/format';
@@ -79,6 +79,7 @@ export function Orders({ go }: { go: (r: Route) => void }) {
   return (
     <div className="page">
       <h1 className="page-title">Buyurtmalarim</h1>
+      <button type="button" className="helpbar" onClick={() => go({ name: 'support' })}><Icon as={LifeBuoy} size={18} /><span>Muammo yoki savol bormi? Yordamga yozing</span><Icon as={ChevronRight} size={18} /></button>
       {error && <div className="banner warn" role="status">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
       {data.length === 0 && <Empty icon={<Icon as={ReceiptText} size={44} />} title="Hali buyurtma yo‘q" hint="Birinchi buyurtmangizni bering." action={<Button onClick={() => go({ name: 'home' })}>Restoranlar</Button>} />}
       {data.length > 0 && (

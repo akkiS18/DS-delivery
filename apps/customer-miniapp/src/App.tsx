@@ -12,6 +12,10 @@ import { Menu } from './screens/Menu';
 import { OrderScreen } from './screens/Order';
 import { Orders } from './screens/Orders';
 import { Profile } from './screens/Profile';
+import { Support } from './screens/Support';
+import { SupportNew } from './screens/SupportNew';
+import { Ticket } from './screens/Ticket';
+import { useSupportUnread } from './lib/support';
 import { useRefreshEpoch } from './lib/refresh';
 import { useApp, useRoute } from './state';
 
@@ -19,6 +23,7 @@ export function App() {
   const { status, error, reload } = useApp();
   const [route, go] = useRoute();
   useViewportLayout();
+  const supportUnread = useSupportUnread(route.name === 'ticket' ? 'ticket' : route.name);
   // Pull down / coming back to the app reloads the current screen (not the checkout form: typed input must survive).
   const { epoch, pull, refreshing } = useRefreshEpoch(route.name !== 'checkout');
 
@@ -45,7 +50,7 @@ export function App() {
     <div className="app">
       {(pull > 0 || refreshing) && <div className="ptr" style={{ height: refreshing ? 52 : pull }} aria-hidden><div><span className="spinner" style={{ width: 18, height: 18, margin: 0, borderWidth: 2, animationPlayState: refreshing || pull >= 60 ? 'running' : 'paused' }} /></div></div>}
       <main className="app-main" key={`${route.name}:${'id' in route ? route.id : ''}:${epoch}`}>{screen(route, go)}</main>
-      <TabBar route={route} go={r => go(r)} orders={0} />
+      <TabBar route={route} go={r => go(r)} orders={0} support={supportUnread} />
     </div>
   );
 }
@@ -56,9 +61,12 @@ function screen(route: Route, go: (r: Route, o?: { replace?: boolean }) => void)
     case 'menu': return <Menu id={route.id} go={go} />;
     case 'cart': return <Cart go={go} />;
     case 'checkout': return <Checkout go={go} />;
-    case 'order': return <OrderScreen id={route.id} />;
+    case 'order': return <OrderScreen id={route.id} go={go} />;
     case 'orders': return <Orders go={go} />;
     case 'profile': return <Profile />;
+    case 'support': return <Support go={go} />;
+    case 'ticket': return <Ticket id={route.id} go={go} />;
+    case 'supportNew': return <SupportNew orderId={route.orderId} go={go} />;
   }
 }
 

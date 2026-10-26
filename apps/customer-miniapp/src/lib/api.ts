@@ -2,7 +2,7 @@ import { ApiError } from './apiError';
 import { apiOrigin, isAndroidApp } from './platform';
 import { dropGuestToken, getGuestToken } from './session';
 import { getInitData } from './telegram';
-import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, Restaurant, TaxiOption } from './types';
+import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, Restaurant, TaxiOption, TicketSummary, TicketThread } from './types';
 
 export { ApiError };
 
@@ -102,5 +102,11 @@ export const api = {
   cancelTelegramLink: (id: string) => request<LinkStatus>(`/me/telegram-link/${encodeURIComponent(id)}/cancel`, { method: 'POST' }),
   /** The bank-receipt photo the restaurant attached to a sent refund (base64 JSON; the order's own customer only). */
   refundReceipt: (id: string, signal?: AbortSignal) => request<{ mime: string; dataBase64: string; sentAt: string | null }>(`/orders/${encodeURIComponent(id)}/refund/receipt`, { signal }),
+  /** Support chat: the caller's tickets, one conversation (opening it marks it read), a new ticket for an order, a message, and the unread count. */
+  tickets: (signal?: AbortSignal) => request<{ tickets: TicketSummary[] }>('/support', { signal }),
+  ticketsUnread: (signal?: AbortSignal) => request<{ unread: number }>('/support/unread', { signal }),
+  ticket: (id: string, signal?: AbortSignal) => request<TicketThread>(`/support/${encodeURIComponent(id)}`, { signal }),
+  openTicket: (orderId: string, message: string) => request<{ ticketId: string; number: number; created: boolean }>(`/orders/${encodeURIComponent(orderId)}/support`, { method: 'POST', body: { message } }),
+  sendTicketMessage: (id: string, text: string, clientKey: string) => request<{ sent: boolean }>(`/support/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { text, clientKey } }),
   mockPay: (id: string) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/mock-payment`, { method: 'POST' }),
 };

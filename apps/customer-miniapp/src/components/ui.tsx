@@ -1,4 +1,4 @@
-import { AlertTriangle, ReceiptText, Minus, Plus, UserRound, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, LifeBuoy, ReceiptText, Minus, Plus, UserRound, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
@@ -72,10 +72,11 @@ export function Qty({ value, onInc, onDec, max = 30 }: { value: number; onInc: (
   );
 }
 
-export function TabBar({ route, go, orders }: { route: Route; go: (r: Route) => void; orders: number }) {
+export function TabBar({ route, go, orders, support = 0 }: { route: Route; go: (r: Route) => void; orders: number; support?: number }) {
   const tabs: Array<{ r: Route; icon: LucideIcon; label: string; on: boolean; badge?: number }> = [
     { r: { name: 'home' }, icon: UtensilsCrossed, label: 'Restoranlar', on: route.name === 'home' || route.name === 'menu' || route.name === 'cart' || route.name === 'checkout' },
     { r: { name: 'orders' }, icon: ReceiptText, label: 'Buyurtmalar', on: route.name === 'orders' || route.name === 'order', ...(orders > 0 ? { badge: orders } : {}) },
+    { r: { name: 'support' }, icon: LifeBuoy, label: 'Yordam', on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
     { r: { name: 'profile' }, icon: UserRound, label: 'Profil', on: route.name === 'profile' },
   ];
   return (

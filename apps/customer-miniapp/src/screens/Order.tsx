@@ -9,11 +9,13 @@ import { api, ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
 import { clock, mmss, som } from '../lib/format';
 import { anchorOf, isTerminal, overdueMinutes, paymentRemainingSeconds, pollIntervalMs, prepPending, remainingSeconds, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
+import { troubleHint } from '../lib/support';
 import { confirmDialog, haptic } from '../lib/telegram';
+import type { Route } from '../lib/router';
 import type { CustomerStage, OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
 
-export function OrderScreen({ id }: { id: string }) {
+export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) {
   const { config, toast } = useApp();
   const [order, setOrder] = useState<OrderView | null>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
@@ -79,6 +81,8 @@ export function OrderScreen({ id }: { id: string }) {
   const cash = pay?.method === 'CASH';
   const awaiting = o.stage === 'PAYMENT_PENDING';
   const payLeft = awaiting && anchor ? paymentRemainingSeconds(ins?.expiresAt, anchor, perfNow) : null;
+  const trouble = troubleHint(o, payLeft);
+  const writeAbout = () => go({ name: 'supportNew', orderId: o.id });
 
   const mockPay = async () => {
     if (busy) return;
@@ -142,6 +146,12 @@ export function OrderScreen({ id }: { id: string }) {
         {o.receivedAt && <p className="sub center">Qabul qilganingiz uchun rahmat!</p>}
         {o.stage === 'NEEDS_HELP' && <div className="banner warn">Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.</div>}
         {o.stage === 'EXPIRED' && <div className="banner bad">To‘lov muddati tugadi. Yangi buyurtma bering.</div>}
+        {trouble && (
+          <div className="banner warn stack" role="alert">
+            <div>{trouble}</div>
+            <Button onClick={writeAbout}>Muammo haqida yozish</Button>
+          </div>
+        )}
         {o.refund && <div className="banner">Pulni qaytarish holati: <strong>{o.refund.status}</strong></div>}
         {o.refund?.hasReceipt && (
           <div className="stack">
@@ -220,6 +230,7 @@ export function OrderScreen({ id }: { id: string }) {
           {o.cancel.kind === 'UNPAID' ? 'Buyurtmani bekor qilish' : 'Bekor qilish so‘rovi'}
         </Button>
       )}
+      {!trouble && <Button variant="ghost" onClick={writeAbout}>Muammo bormi? Yozing</Button>}
       {error && <div className="banner warn">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
 
       {confirmCancel && (
