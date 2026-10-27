@@ -38,9 +38,10 @@ export const categoryUpdateSchema = z.object({
 }).strict();
 
 // ---- views (no internal fields) ----
-const productView = (p: Product) => ({
+// imageUrl: the restaurant's own uploaded photo (a relative URL the apps put after the server address) wins over a legacy external link.
+const productView = (p: Product, imageVersion: number | null = null) => ({
   id: p.id, name: p.name, description: p.description, priceSom: p.priceSom, isAvailable: p.isAvailable,
-  categoryId: p.categoryId, imageUrl: p.imageUrl, archivedAt: p.archivedAt?.toISOString() ?? null,
+  categoryId: p.categoryId, imageUrl: imageVersion === null ? p.imageUrl : `/api/v1/miniapp/products/${p.id}/image?v=${imageVersion}`, archivedAt: p.archivedAt?.toISOString() ?? null,
   version: p.version, createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString(),
 });
 const categoryView = (c: Category, productCount?: number) => ({
@@ -70,6 +71,8 @@ async function assertCategory(tx: Tx, restaurantId: string, categoryId: string |
   if (!categoryId) return;
   if (!await tx.category.findFirst({ where: { id: categoryId, restaurantId }, select: { id: true } })) fail(422, 'INVALID_CATEGORY');
 }
+const imageVersionOf = async (tx: Tx, productId: string): Promise<number | null> =>
+  (await tx.productImage.findUnique({ where: { productId }, select: { version: true } }))?.version ?? null;
 /** Row lock; a row of another restaurant is simply "not found". */
 async function lockProduct(tx: Tx, restaurantId: string, productId: string): Promise<Product> {
   const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Product" WHERE "id" = ${productId} AND "restaurantId" = ${restaurantId} FOR UPDATE`;
@@ -88,9 +91,9 @@ const restaurantLock = (tx: Tx, restaurantId: string) =>
 export async function listProducts(restaurantId: string, includeArchived: boolean) {
   const rows = await db.product.findMany({
     where: { restaurantId, ...(includeArchived ? {} : { archivedAt: null }) }, // unavailable products ARE included
-    orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 1000,
+    orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 1000, include: { image: { select: { version: true } } },
   });
-  return rows.map(productView);
+  return rows.map(p => productView(p, p.image?.version ?? null));
 }
 
 export async function createProduct(restaurantId: string, sessionId: string, input: z.infer<typeof productCreateSchema>) {
@@ -124,7 +127,7 @@ export async function updateProduct(restaurantId: string, sessionId: string, pro
       version: { increment: 1 },
     } });
     await event(tx, restaurantId, sessionId, 'PRODUCT', productId, 'PRODUCT_UPDATED', snap(before), snap(after));
-    return productView(after);
+    return productView(after, await imageVersionOf(tx, productId));
   }));
 }
 
@@ -134,10 +137,10 @@ export async function setAvailability(restaurantId: string, sessionId: string, p
     const before = await lockProduct(tx, restaurantId, productId);
     if (before.archivedAt) fail(409, 'ARCHIVED');
     if (expected !== undefined && before.version !== expected) fail(409, 'VERSION_CONFLICT');
-    if (before.isAvailable === isAvailable) return productView(before);
+    if (before.isAvailable === isAvailable) return productView(before, await imageVersionOf(tx, productId));
     const after = await tx.product.update({ where: { id: productId }, data: { isAvailable, version: { increment: 1 } } });
     await event(tx, restaurantId, sessionId, 'PRODUCT', productId, 'PRODUCT_AVAILABILITY', snap(before), snap(after));
-    return productView(after);
+    return productView(after, await imageVersionOf(tx, productId));
   });
 }
 

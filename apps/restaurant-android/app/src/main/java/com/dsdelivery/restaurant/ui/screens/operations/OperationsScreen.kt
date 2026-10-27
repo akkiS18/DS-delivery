@@ -235,30 +235,7 @@ fun OperationsContent(
                 onRetry = onReloadCards
             )
 
-            // 3. Preparation time
-            SettingsSection(title = "Tayyorlash vaqti") {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                        .padding(vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf(15, 20, 25, 30, 40, 50, 60).forEach { min ->
-                        FilterChip(
-                            selected = state.defaultPrepMinutes == min,
-                            onClick = { onPrepMinutesChange(min) },
-                            label = { Text("$min daqiqa") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = BrandPrimary,
-                                selectedLabelColor = Color.White
-                            )
-                        )
-                    }
-                }
-            }
-
-            // 4. Working hours
+            // 3. Working hours
             SettingsSection(title = "Ish vaqti") {
                 state.workingDays.forEachIndexed { index, day ->
                     Row(

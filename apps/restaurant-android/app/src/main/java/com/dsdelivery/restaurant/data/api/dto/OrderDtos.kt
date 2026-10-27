@@ -176,9 +176,9 @@ data class RefundDecisionRequestDto(
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
 
-/** "Ready in N minutes" (5..60) chosen after the payment, while the food is already cooking. */
+/** The kitchen's one-tap acknowledgement of a paid order. No minutes are sent any more (the server records the restaurant default). */
 data class PrepTimeRequestDto(
-    @SerializedName("minutes") val minutes: Int,
+    @SerializedName("minutes") val minutes: Int? = null,
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
 

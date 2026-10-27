@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRoute, parentOf, routeToHash, isTab } from '../src/lib/router';
+import { parseRoute, parentOf, routeToHash, isTab, cartBarVisible } from '../src/lib/router';
 import { itemsLine, STUCK_PAYMENT_MINUTES, troubleHint, validTicketText } from '../src/lib/support';
 import type { CustomerStage } from '../src/lib/types';
 
@@ -58,5 +58,20 @@ describe('order picker dish line', () => {
     expect(itemsLine({ itemsPreview: [{ name: 'Lavash', quantity: 2 }], itemsMore: 3 })).toBe('2× Lavash +3 ta');
     expect(itemsLine({})).toBeNull();
     expect(itemsLine({ itemsPreview: [] })).toBeNull();
+  });
+});
+
+describe('floating basket button', () => {
+  it('shows on any browsing screen once the cart has something, never on an empty cart', () => {
+    for (const r of [{ name: 'home' }, { name: 'menu', id: 'x' }, { name: 'orders' }, { name: 'order', id: 'x' }, { name: 'support' }, { name: 'profile' }] as const) {
+      expect(cartBarVisible(r, 1)).toBe(true);
+      expect(cartBarVisible(r, 0)).toBe(false);
+    }
+  });
+  it('is hidden where the basket itself, the checkout button or a message input already occupy the bottom', () => {
+    for (const r of [{ name: 'cart' }, { name: 'checkout' }, { name: 'ticket', id: 'x' }, { name: 'supportNew', orderId: 'x' }] as const) expect(cartBarVisible(r, 3)).toBe(false);
+  });
+  it('the basket is a tab of its own', () => {
+    expect(isTab({ name: 'cart' })).toBe(true);
   });
 });

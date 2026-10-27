@@ -12,7 +12,12 @@ data class ProductFormUiState(
     val description: String = "",
     val categoryId: String? = null,
     val isAvailable: Boolean = true,
+    /** The photo the server holds, as a full address (null = none). */
     val imageUrl: String? = null,
+    /** A photo picked while creating a dish: uploaded right after the dish is saved. */
+    val pendingImage: ByteArray? = null,
+    val imageBusy: Boolean = false,
+    val imageNotice: String? = null,
     val categories: List<Category> = emptyList(),
     val nameError: String? = null,
     val priceError: String? = null,

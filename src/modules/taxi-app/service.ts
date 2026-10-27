@@ -44,7 +44,7 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 
 export function toRequestView(d: Row) {
   const o = d.order;
-  const estimatedReadyAt = o.preparingStartedAt && o.prepMinutes ? new Date(o.preparingStartedAt.getTime() + o.prepMinutes * 60_000) : null;
+  const estimatedReadyAt: Date | null = null; // no preparation time is promised any more (2026-10-27): the driver goes by the "Tayyor" signal
   const ready = o.status === 'READY';
   return {
     id: d.id,
@@ -60,7 +60,7 @@ export function toRequestView(d: Row) {
     isTest: o.paymentIsTest,
     restaurant: { name: o.restaurant.name, address: o.restaurant.pickupAddress ?? null, phone: o.restaurant.pickupPhone ?? null },
     delivery: { address: o.addressText, lat: o.deliveryLat, lng: o.deliveryLng, customerPhone: o.phoneSnapshot ?? null },
-    food: { ready, status: o.status, prepMinutes: o.prepMinutes, estimatedReadyAt: iso(estimatedReadyAt), readyAt: iso(o.readyAt), totalSom: o.totalSom },
+    food: { ready, status: o.status, prepMinutes: null, estimatedReadyAt: iso(estimatedReadyAt), readyAt: iso(o.readyAt), totalSom: o.totalSom },
     // CASH: the driver pays the restaurant `payRestaurantSom` at pickup and collects it from the customer; CARD: already paid, nothing to pay.
     payment: o.payment?.method === 'CASH'
       ? { method: 'CASH' as const, payRestaurantSom: o.totalSom }

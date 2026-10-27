@@ -5,10 +5,9 @@ import { Button, Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, som } from '../lib/format';
 import { STAGE_LABEL } from '../lib/order';
-import { groupOrders, needsAttention, nextAction, prepHint } from '../lib/orderList';
+import { groupOrders, needsAttention, nextAction } from '../lib/orderList';
 import type { Route } from '../lib/router';
 import type { CustomerStage, OrderSummary } from '../lib/types';
-import { useNow } from '../state';
 
 const STAGE_ICON: Record<CustomerStage, LucideIcon> = {
   PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Clock3, PREPARING: ChefHat, READY: PackageCheck, TAXI_REQUESTED: CarFront,
@@ -21,12 +20,11 @@ const POLL_MS = 8000;
 function useOrders() {
   const [data, setData] = useState<OrderSummary[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
-  const [received, setReceived] = useState(0);
   const inflight = useRef(false);
   const refresh = useCallback(async (signal?: AbortSignal) => {
     if (inflight.current) return;
     inflight.current = true;
-    try { const r = await api.orders(signal); setReceived(performance.now()); setData(r.orders); setError(null); }
+    try { const r = await api.orders(signal); setData(r.orders); setError(null); }
     catch (e) { if ((e as { name?: string }).name !== 'AbortError') setError(e instanceof ApiError ? e : new ApiError(0, 'NETWORK')); }
     finally { inflight.current = false; }
   }, []);
@@ -42,12 +40,11 @@ function useOrders() {
     if (!document.hidden) start();
     return () => { document.removeEventListener('visibilitychange', vis); stop(); };
   }, [anyActive, refresh]);
-  return { data, error, refresh, received };
+  return { data, error, refresh };
 }
 
 export function Orders({ go }: { go: (r: Route) => void }) {
-  const { data, error, refresh, received } = useOrders();
-  const perfNow = useNow(30_000, true);
+  const { data, error, refresh } = useOrders();
   if (!data && !error) return <div className="page"><Skeletons n={4} /></div>;
   if (!data) return <div className="page"><ErrorBox error={error} onRetry={() => void refresh()} /></div>;
   const { active, history } = groupOrders(data);
@@ -55,14 +52,13 @@ export function Orders({ go }: { go: (r: Route) => void }) {
   const key = (o: OrderSummary) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(o); } };
 
   const activeCard = (o: OrderSummary) => {
-    const hint = prepHint(o, perfNow, received);
     const taxi = o.stage.startsWith('TAXI_') && o.taxi?.companyName ? o.taxi.companyName : null;
     return (
       <div key={o.id} className={`card tap live ${needsAttention(o.stage, o.method) ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}
         aria-label={`Buyurtma ${o.code}, ${o.restaurantName}, ${STAGE_LABEL[o.stage]}`}>
         <div className="ocard-head"><span className="bold">#{o.code} • {o.restaurantName}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
         <div className="status-line" style={{ marginTop: 8 }}><Icon as={STAGE_ICON[o.stage]} /><span>{STAGE_LABEL[o.stage]}</span></div>
-        {(hint || taxi) && <div className="sub small" style={{ marginTop: 4 }}>{[hint, taxi].filter(Boolean).join(' • ')}</div>}
+        {taxi && <div className="sub small" style={{ marginTop: 4 }}>{taxi}</div>}
         <div className="row between" style={{ marginTop: 10 }}>
           <span className="sub small">{clock(o.createdAt)} • {o.itemsCount} ta</span>
           <span className="row bold" style={{ gap: 2, color: 'var(--primary)' }}>{nextAction(o.stage, o.method)}<Icon as={ChevronRight} size={18} /></span>

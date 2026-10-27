@@ -169,17 +169,17 @@ class OrdersViewModel(
         }
     }
 
-    /** "Ready in [minutes] minutes" straight from the list. The server answers with the updated order, which replaces the row. */
-    fun setPrepTime(orderId: String, minutes: Int) {
+    /** "Qabul qildim" straight from the list. The server answers with the updated order, which replaces the row. */
+    fun acknowledgeOrder(orderId: String) {
         if (_uiState.value.prepBusyId != null) return
         _uiState.update { it.copy(prepBusyId = orderId) }
         viewModelScope.launch {
-            when (val result = repository.setPrepTime(orderId, minutes, "PREPARING")) {
+            when (val result = repository.setPrepTime(orderId, null, "PREPARING")) {
                 is Resource.Success -> {
                     _uiState.update { s ->
                         s.copy(prepBusyId = null, orders = s.orders.map { o -> if (o.id == orderId) result.data else o }, errorMessage = null)
                     }
-                    loadOrders(isRefresh = true, silent = true) // with the time chosen the order leaves "Yangi" for "Tayyorlanmoqda"
+                    loadOrders(isRefresh = true, silent = true) // acknowledged: the order leaves "Yangi" for "Tayyorlanmoqda"
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(prepBusyId = null, errorMessage = result.message) }

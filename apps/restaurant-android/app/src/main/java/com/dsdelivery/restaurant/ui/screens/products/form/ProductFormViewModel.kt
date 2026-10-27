@@ -58,7 +58,7 @@ class ProductFormViewModel(
                                     description = product.description ?: "",
                                     categoryId = product.categoryId,
                                     isAvailable = product.isAvailable,
-                                    imageUrl = product.imageUrl,
+                                    imageUrl = repository.absoluteUrl(product.imageUrl),
                                     version = product.version
                                 )
                             }
@@ -113,6 +113,46 @@ class ProductFormViewModel(
 
     fun onAvailabilityChange(isAvailable: Boolean) {
         _uiState.update { it.copy(isAvailable = isAvailable) }
+    }
+
+    /** A photo was picked (and already shrunk). Editing a dish: upload now. Creating one: keep it until the dish exists. */
+    fun onImagePicked(jpeg: ByteArray) {
+        val current = _uiState.value
+        if (current.imageBusy) return
+        if (!current.isEditMode || current.productId == null) {
+            _uiState.update { it.copy(pendingImage = jpeg, imageNotice = null) }
+            return
+        }
+        _uiState.update { it.copy(imageBusy = true, imageNotice = null) }
+        viewModelScope.launch {
+            when (val r = repository.uploadProductImage(current.productId, jpeg)) {
+                is Resource.Success -> _uiState.update { it.copy(imageBusy = false, imageUrl = repository.absoluteUrl(r.data), pendingImage = null) }
+                is Resource.Error -> _uiState.update { it.copy(imageBusy = false, imageNotice = r.message) }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun onImageRemoved() {
+        val current = _uiState.value
+        if (current.imageBusy) return
+        if (current.pendingImage != null) {
+            _uiState.update { it.copy(pendingImage = null, imageNotice = null) }
+            return
+        }
+        if (!current.isEditMode || current.productId == null) return
+        _uiState.update { it.copy(imageBusy = true, imageNotice = null) }
+        viewModelScope.launch {
+            when (val r = repository.deleteProductImage(current.productId)) {
+                is Resource.Success -> _uiState.update { it.copy(imageBusy = false, imageUrl = null) }
+                is Resource.Error -> _uiState.update { it.copy(imageBusy = false, imageNotice = r.message) }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun onImageProblem(message: String) {
+        _uiState.update { it.copy(imageNotice = message) }
     }
 
     private fun validate(): Boolean {
@@ -173,8 +213,28 @@ class ProductFormViewModel(
 
             when (result) {
                 is Resource.Success -> {
-                    _uiState.update { it.copy(isSubmitting = false) }
-                    onSuccess()
+                    val pending = current.pendingImage
+                    val created = result.data
+                    if (!current.isEditMode && pending != null) {
+                        // The dish exists now; send the photo. If that fails the dish is kept and the screen turns into its edit form,
+                        // so a retry uploads the photo and can never create a second dish.
+                        when (val up = repository.uploadProductImage(created.id, pending)) {
+                            is Resource.Success -> {
+                                _uiState.update { it.copy(isSubmitting = false) }
+                                onSuccess()
+                            }
+                            is Resource.Error -> _uiState.update {
+                                it.copy(
+                                    isSubmitting = false, isEditMode = true, productId = created.id, version = created.version,
+                                    imageNotice = "Taom saqlandi, lekin rasm yuklanmadi: ${up.message}. Rasmni qayta tanlang."
+                                )
+                            }
+                            Resource.Loading -> {}
+                        }
+                    } else {
+                        _uiState.update { it.copy(isSubmitting = false) }
+                        onSuccess()
+                    }
                 }
                 is Resource.Error -> {
                     val isConflict = result.message.contains("VERSION_CONFLICT")

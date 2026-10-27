@@ -13,8 +13,10 @@ describe('global layout', () => {
     expect(css).toMatch(/env\(safe-area-inset-bottom/);
     expect(css).toMatch(/100dvh/);
   });
-  it('keeps the floating cart bar in flow (sticky), never fixed over content', () => {
-    expect(css).toMatch(/\.cartbar\s*\{[^}]*position:\s*sticky/);
+  it('pins the basket button above the tab bar and gives the page room for it; hides it with the keyboard', () => {
+    expect(css).toMatch(/\.cartfloat\s*\{[^}]*position:\s*fixed[^}]*bottom:\s*calc\(var\(--nav-space\)/);
+    expect(css).toMatch(/\.app-main\s*\{[^}]*padding-bottom:\s*calc\(var\(--nav-space\)[^}]*var\(--cartbar-h/);
+    expect(css).toMatch(/:root\[data-kb='open'\]\s*\.cartfloat\s*\{\s*display:\s*none/);
   });
   it('wraps every screen in the shared shell', () => {
     const app = readFileSync(join(src, 'App.tsx'), 'utf8');

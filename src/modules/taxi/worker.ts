@@ -119,7 +119,6 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
       `Yetkazish manzili: ${item.order.addressText}${loc}`,
       `Mijoz telefoni: ${item.order.phoneSnapshot ?? 'kiritilmagan'}`,
       `Ovqat: ${item.order.status === 'READY' ? 'TAYYOR' : 'Tayyorlanmoqda'}`,
-      ...(item.order.prepMinutes ? [`Tayyorlash vaqti: ${item.order.prepMinutes} daqiqa`] : []),
       `Ovqat qiymati: ${currency.format(item.order.totalSom)} so‘m (taksi haqi emas)`,
       ...(item.order.payment?.method === 'CASH'
         ? [`💵 NAQD: restoranga ${currency.format(item.order.totalSom)} so‘m to‘lanadi — pulli haydovchi yuboring; shu summani mijozdan olasiz`]

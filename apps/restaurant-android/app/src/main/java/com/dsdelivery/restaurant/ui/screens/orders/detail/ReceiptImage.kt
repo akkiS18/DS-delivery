@@ -19,20 +19,21 @@ object ReceiptImage {
     private const val TARGET_BYTES = 3 * 1024 * 1024
     private const val MIN_BYTES = 1024
 
-    fun compressToJpeg(context: Context, uri: Uri): ByteArray? = try {
+    /** [maxSide]/[targetBytes] default to the receipt sizes; a dish photo asks for less (it is shown small in a menu). */
+    fun compressToJpeg(context: Context, uri: Uri, maxSide: Int = MAX_SIDE, targetBytes: Int = TARGET_BYTES): ByteArray? = try {
         val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         val longest = max(bounds.outWidth, bounds.outHeight)
         if (longest <= 0) null else {
             var sample = 1
-            while (longest / (sample * 2) >= MAX_SIDE) sample *= 2
+            while (longest / (sample * 2) >= maxSide) sample *= 2
             val decoded = resolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = sample })
             }
             if (decoded == null) null else {
                 val rotation = resolver.openInputStream(uri)?.use { exifRotation(ExifInterface(it)) } ?: 0
-                val scale = MAX_SIDE.toFloat() / max(decoded.width, decoded.height)
+                val scale = maxSide.toFloat() / max(decoded.width, decoded.height)
                 val matrix = Matrix().apply {
                     if (scale < 1f) postScale(scale, scale)
                     if (rotation != 0) postRotate(rotation.toFloat())
@@ -45,7 +46,7 @@ object ReceiptImage {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
                     bytes = out.toByteArray()
                     quality -= 12
-                } while (bytes.size > TARGET_BYTES && quality > 30)
+                } while (bytes.size > targetBytes && quality > 30)
                 if (bytes.size < MIN_BYTES || bytes.size > 5 * 1024 * 1024) null else bytes
             }
         }

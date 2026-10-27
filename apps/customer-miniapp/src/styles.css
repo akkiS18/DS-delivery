@@ -85,6 +85,8 @@ h1, h2, h3, p { margin: 0; }
 .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; background: var(--mint-soft); color: var(--primary-dark); }
 .banner.warn { background: var(--warn-bg); color: var(--warn); }
 .banner.bad { background: var(--bad-bg); color: var(--bad); }
+.banner.notice { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4; }
+.banner.notice .icon { flex: none; margin-top: 1px; }
 
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
@@ -102,9 +104,13 @@ h1, h2, h3, p { margin: 0; }
 .qty span { min-width: 28px; text-align: center; font-weight: 800; }
 
 /* Sticks just above the tab bar while scrolling, but stays in the flow so it never covers the last product. */
-.cartbar { position: sticky; bottom: calc(var(--nav-space) + 8px); z-index: 20; }
-:root[data-nav='inline'] .cartbar { bottom: 8px; }
-.cartbar > button { box-shadow: 0 6px 18px rgba(8, 127, 91, 0.35); }
+/* The basket button floats above the tab bar on every screen (CartBar). --cartbar-h is published by the component; the page keeps that much extra room at its end. */
+.cartfloat { position: fixed; left: 0; right: 0; bottom: calc(var(--nav-space) + 8px); z-index: 25; max-width: 560px; margin: 0 auto; padding: 0 16px; }
+:root[data-nav='inline'] .cartfloat { bottom: 8px; }
+:root[data-kb='open'] .cartfloat { display: none; }
+.cartfloat > button { box-shadow: 0 6px 18px rgba(8, 127, 91, 0.35); }
+.app-main { padding-bottom: calc(var(--nav-space) + var(--gap-end) + var(--cartbar-h, 0px)); }
+:root[data-nav='inline'] .app-main { padding-bottom: calc(var(--gap-end) + var(--cartbar-h, 0px)); }
 
 .tabbar { position: fixed; left: 0; right: 0; bottom: var(--kb-offset, 0px); z-index: 30; background: #fff; border-top: 1px solid var(--line); padding-bottom: var(--safe-bottom); }
 .tabbar nav { max-width: 560px; margin: 0 auto; height: var(--tabbar); display: flex; }

@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
+import { RECEIPT_TYPES } from '../refunds/receipts.js';
+import { PRODUCT_IMAGE_MAX_BYTES, deleteProductImage, setProductImage } from './images.js';
 import {
   archiveProduct, availabilitySchema, categoryCreateSchema, categoryUpdateSchema, createCategory, createProduct,
   deleteCategory, idSchema, listCategories, listProducts, productCreateSchema, productUpdateSchema, setAvailability,
@@ -36,6 +38,23 @@ export async function restaurantCatalogRoutes(app: FastifyInstance): Promise<voi
     const s = await requireRestaurantSession(request);
     const body = availabilitySchema.parse(request.body);
     return setAvailability(s.restaurant.id, s.sessionId, idSchema.parse(request.params.id), body.isAvailable, body.version);
+  });
+
+  // The dish photo is the raw request body (image/jpeg|png|webp, <= 4 MB; the app shrinks it first). The type is decided from the file's magic bytes.
+  // Authentication runs BEFORE the body is read, so an anonymous caller cannot make the server buffer 4 MB.
+  app.addContentTypeParser([...RECEIPT_TYPES], { parseAs: 'buffer', bodyLimit: PRODUCT_IMAGE_MAX_BYTES }, (_request, body, done) => done(null, body));
+  app.put<IdParams>('/products/:id/image', {
+    bodyLimit: PRODUCT_IMAGE_MAX_BYTES,
+    onRequest: async request => { await requireRestaurantSession(request); },
+  }, async request => {
+    const s = await requireRestaurantSession(request);
+    return setProductImage(s.restaurant.id, s.sessionId, idSchema.parse(request.params.id), request.body as Buffer);
+  });
+
+  app.delete<IdParams>('/products/:id/image', async (request, reply) => {
+    const s = await requireRestaurantSession(request);
+    await deleteProductImage(s.restaurant.id, s.sessionId, idSchema.parse(request.params.id));
+    return reply.code(204).send();
   });
 
   app.delete<IdParams>('/products/:id', async (request, reply) => {

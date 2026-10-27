@@ -16,6 +16,7 @@ import { addAppCustomerMessage } from '../support/conversation.js';
 import { createAppTicket } from '../support/service.js';
 import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
 import { readRestaurantImage } from '../restaurant/image.js';
+import { readProductImage } from '../restaurant-catalog/images.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
 import { createGuest, guestAuthEnabled, guestTokenFromHeader, installationIdSchemaRe, resolveGuestSession, revokeSession } from './guest.js';
 import { cancelLink, completeLink, createLinkAttempt, LinkError, linkStatus } from './telegram-link.js';
@@ -63,7 +64,7 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     reply.header('Cache-Control', 'no-store');
     if (!miniAppEnabled()) throw httpError(404, 'NOT_FOUND');
     // cheap per-IP guard first (covers unauthenticated floods), then the per-user limits below
-    const ip = limiter.allow(`ip:${request.ip}`, 240, 60_000);
+    const ip = limiter.allow(`ip:${request.ip}`, Number(process.env.MINIAPP_IP_RATE_PER_MINUTE ?? 240), 60_000);
     if (!ip.allowed) { reply.header('Retry-After', String(ip.retryAfterSeconds)); throw httpError(429, 'TOO_MANY_REQUESTS'); }
   });
 
@@ -93,7 +94,7 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
       if (!result || !result.ok) return authFailed(request, reply, result ? result.reason : 'MISSING');
       request.principal = { kind: 'telegram', user: result.user };
     }
-    const user = limiter.allow(`user:${rateId(request)}`, 120, 60_000);
+    const user = limiter.allow(`user:${rateId(request)}`, Number(process.env.MINIAPP_USER_RATE_PER_MINUTE ?? 120), 60_000);
     if (!user.allowed) { reply.header('Retry-After', String(user.retryAfterSeconds)); throw httpError(429, 'TOO_MANY_REQUESTS'); }
   });
 
@@ -219,6 +220,14 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   // URL carries ?v=<version>, so the answer is cached hard and a replaced photo shows up at once.
   app.get<{ Params: { id: string } }>('/restaurants/:id/image', { config: { public: true } }, async (request, reply) => {
     const img = await readRestaurantImage(idParam.parse(request.params.id));
+    if (!img) throw httpError(404, 'NOT_FOUND');
+    if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
+    return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)
+      .header('Cache-Control', 'public, max-age=2592000, immutable').send(img.data);
+  });
+  // A dish photo. Public for the same reason as the restaurant's: an <img> cannot send the auth header, and the URL carries ?v=<version>.
+  app.get<{ Params: { id: string } }>('/products/:id/image', { config: { public: true } }, async (request, reply) => {
+    const img = await readProductImage(idParam.parse(request.params.id));
     if (!img) throw httpError(404, 'NOT_FOUND');
     if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
     return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)

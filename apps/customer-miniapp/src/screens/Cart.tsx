@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ShoppingBasket } from 'lucide-react';
+import { DeliveryNotice } from '../components/DeliveryNotice';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { Button, Empty, Icon, Qty, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
@@ -86,6 +87,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         <div className="row between sub small"><span>Yetkazish</span><span>taksi tarifi bo‘yicha</span></div>
         <p className="sub small">Yetkazish narxini taksi xizmati belgilaydi va alohida to‘lanadi. Platforma uni oldindan hisoblamaydi.</p>
       </div>
+      <DeliveryNotice />
       {unavailable.size > 0 && (
         <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>Mavjud bo‘lmaganlarni olib tashlash</Button>
       )}

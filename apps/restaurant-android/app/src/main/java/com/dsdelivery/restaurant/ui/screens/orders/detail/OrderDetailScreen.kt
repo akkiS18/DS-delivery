@@ -85,7 +85,6 @@ import com.dsdelivery.restaurant.data.model.TaxiStage
 import com.dsdelivery.restaurant.data.model.OrderStatus
 import com.dsdelivery.restaurant.ui.components.ATTENTION_TEXT
 import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
-import com.dsdelivery.restaurant.ui.components.LivePrepText
 import com.dsdelivery.restaurant.ui.components.PaymentPill
 import com.dsdelivery.restaurant.ui.components.rememberNowElapsed
 import com.dsdelivery.restaurant.ui.components.taxiStageText
@@ -94,9 +93,6 @@ import com.dsdelivery.restaurant.data.model.PaymentStatus
 import com.dsdelivery.restaurant.data.model.ageText
 import com.dsdelivery.restaurant.data.model.display
 import com.dsdelivery.restaurant.data.model.formatClock
-import com.dsdelivery.restaurant.ui.components.DEFAULT_PREP_CHOICE
-import com.dsdelivery.restaurant.ui.components.PrepTimePicker
-import com.dsdelivery.restaurant.ui.components.prepChoiceSentence
 import com.dsdelivery.restaurant.ui.components.ErrorView
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.components.OrderStatusBadge
@@ -224,9 +220,9 @@ fun OrderDetailContent(
                     // Operational actions: only what the server lists in allowedActions.
                     val busy = state.isSubmitting
                     val allowed = order.allowedActions
-                    // After the payment: "ready in N minutes". Asked until chosen, changeable while the food is being cooked.
-                    if (OrderAction.SET_PREP_TIME in allowed) {
-                        PrepTimeCard(order = order, busy = busy, onConfirm = callbacks::setPrepTime)
+                    // After the payment: one tap that says the kitchen has seen the order (no preparation time is asked).
+                    if (OrderAction.SET_PREP_TIME in allowed && order.needsPrepChoice) {
+                        AcknowledgeCard(busy = busy, onConfirm = callbacks::acknowledgeOrder)
                     }
                     if (OrderAction.ACCEPT in allowed || OrderAction.REJECT in allowed) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -398,29 +394,12 @@ fun OrderDetailContent(
             }
         }
 
-        val defaultPrep = order?.defaultPrepMinutes ?: 25
-
-        // Accept: ONE question. The restaurant default is applied; changing it is optional.
+        // Accept: one yes/no question, no preparation time.
         if (state.showAcceptDialog && order != null) {
-            val minutes = state.prepOverride ?: defaultPrep
             AlertDialog(
                 onDismissRequest = { callbacks.showAcceptDialog(false) },
-                icon = { Icon(imageVector = Icons.Default.AccessTime, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(32.dp)) },
+                icon = { Icon(imageVector = Icons.Default.Check, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(32.dp)) },
                 title = { Text("Qabul qilasizmi?", fontWeight = FontWeight.Bold) },
-                text = {
-                    Column {
-                        Text("Tayyorlash vaqti:", style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                            IconButton(onClick = { callbacks.onPrepOverride(minutes - 5) }) { Icon(Icons.Default.Remove, contentDescription = "Kamaytirish") }
-                            Text("$minutes daqiqa", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = BrandPrimary)
-                            IconButton(onClick = { callbacks.onPrepOverride(minutes + 5) }) { Icon(Icons.Default.Add, contentDescription = "Ko‘paytirish") }
-                        }
-                        if (state.prepOverride != null) {
-                            TextButton(onClick = { callbacks.onPrepOverride(null) }) { Text("Odatiy: $defaultPrep daqiqa") }
-                        }
-                    }
-                },
                 confirmButton = {
                     Button(onClick = callbacks::confirmAccept, enabled = !state.isSubmitting, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) { Text("Qabul qilish") }
                 },
@@ -594,37 +573,25 @@ fun OrderDetailContent(
 
 private val ATTENTION_FULL = ATTENTION_TEXT
 
-/**
- * "Ready in N minutes", chosen after the payment. Until it is chosen the picker is open (15 pre-selected); afterwards the chosen time is
- * shown with a way to change it, because not every dish takes the time first guessed.
- */
+/** A paid order the kitchen has not seen yet: ONE tap, no question. (It used to ask "ready in N minutes"; nobody is told a time any more.) */
 @Composable
-private fun PrepTimeCard(order: Order, busy: Boolean, onConfirm: (Int) -> Unit) {
-    val chosen = order.prep?.chosenMinutes
-    var editing by remember(chosen) { mutableStateOf(chosen == null) }
+private fun AcknowledgeCard(busy: Boolean, onConfirm: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = if (chosen == null) WarningOrange.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = WarningOrange.copy(alpha = 0.10f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            if (editing) {
-                PrepTimePicker(
-                    initial = chosen ?: DEFAULT_PREP_CHOICE,
-                    busy = busy,
-                    onConfirm = onConfirm,
-                    title = if (chosen == null) "To‘lov qabul qilindi. Necha daqiqada tayyor bo‘ladi?" else "Tayyor bo‘lish vaqtini o‘zgartirish"
-                )
-            } else {
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Tayyor bo‘lish vaqti: ${prepChoiceSentence(chosen ?: DEFAULT_PREP_CHOICE)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    TextButton(onClick = { editing = true }, enabled = !busy) { Text("O‘zgartirish") }
-                }
+            Text("To‘lov qabul qilindi. Buyurtmani tayyorlashni boshlang.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(10.dp))
+            Button(
+                onClick = onConfirm,
+                enabled = !busy,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                Text("Qabul qildim", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             }
         }
     }
@@ -665,26 +632,13 @@ private fun SummaryCard(order: Order, nowElapsed: State<Long>) {
             if (!order.rejectReason.isNullOrBlank()) {
                 Text("Rad etish sababi: ${RejectReason.entries.firstOrNull { it.code == order.rejectReason }?.title ?: order.rejectReason}", style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 4.dp))
             }
-            // Preparation: the countdown / overdue time is the second most important thing after the number.
-            val prep = order.prep
-            if (prep != null && (cooking || order.status == OrderStatus.READY || order.status == OrderStatus.COMPLETED)) {
+            // Ready: the time it was marked. (No preparation time or countdown is shown any more.)
+            if (order.status == OrderStatus.READY || order.status == OrderStatus.COMPLETED) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = MaterialTheme.colorScheme.surfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AccessTime, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(26.dp))
-                    Spacer(modifier = Modifier.width(10.dp))
-                    when {
-                        cooking -> LivePrepText(prep, nowElapsed, large = true)
-                        else -> Text(
-                            "Tayyor" + (order.readyAtMillis?.let { " • ${formatClock(it)}" } ?: ""),
-                            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SuccessGreen
-                        )
-                    }
-                }
-                if (cooking) {
-                    Text("${prep.minutes} daqiqa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                }
-            } else if (prep != null && prep.minutes > 0) {
-                Text("Tayyorlash vaqti: ${prep.minutes} daqiqa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                Text(
+                    "Tayyor" + (order.readyAtMillis?.let { " • ${formatClock(it)}" } ?: ""),
+                    style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = SuccessGreen
+                )
             }
         }
     }
@@ -794,14 +748,6 @@ private fun CustomerCard(order: Order) {
 private fun StickyReadyBar(order: Order, nowElapsed: State<Long>, busy: Boolean, onClick: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            order.prep?.let { prep ->
-                // reads the ticker State here, so only this small block recomposes each second
-                val d = prep.display(nowElapsed.value)
-                if (d != null) {
-                    Text(d.text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (d.overdue) ErrorRed else MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(4.dp))
-                }
-            }
             Button(
                 onClick = onClick,
                 enabled = !busy,
@@ -957,7 +903,7 @@ private fun TaxiProgressCard(order: Order) {
     val reachedDispatched = order.taxiDispatchedAt != null || stage == TaxiStage.DISPATCHED || stage == TaxiStage.DELIVERED
     val reachedDelivered = order.taxiDeliveredAt != null || stage == TaxiStage.DELIVERED
     val steps = listOf(
-        Triple("Taksi so‘raldi", reachedRequested, if (stage == TaxiStage.SCHEDULED) "Tayyorlash vaqtiga qarab avtomatik yuboriladi" else null),
+        Triple("Taksi so‘raldi", reachedRequested, if (stage == TaxiStage.SCHEDULED) "“Tayyor” bosilgach avtomatik yuboriladi" else null),
         Triple("Operator qabul qildi", reachedAccepted, null),
         Triple("Taksi yuborildi", reachedDispatched, null),
         Triple("Yetkazish tugallandi", reachedDelivered, if (reachedDelivered) "Taksi operatori tasdiqladi" else null)

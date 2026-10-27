@@ -27,6 +27,12 @@ data class ProductDto(
     val updatedAt: String? = null
 )
 
+/** The answer to a dish-photo upload: the new versioned (relative) URL. */
+data class ProductImageResponseDto(
+    @SerializedName("version") val version: Int,
+    @SerializedName("imageUrl") val imageUrl: String
+)
+
 data class ProductsResponseDto(
     @SerializedName("products")
     val products: List<ProductDto>

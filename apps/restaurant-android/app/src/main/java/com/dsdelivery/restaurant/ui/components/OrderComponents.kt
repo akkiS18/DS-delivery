@@ -220,41 +220,22 @@ fun taxiStageText(stage: TaxiStage): String = when (stage) {
     TaxiStage.CANCELLED -> "bekor qilingan"
 }
 
-/** The live preparation line. Reads the ticker State itself, so only this text recomposes every second. */
-@Composable
-fun LivePrepText(prep: PrepInfo, nowElapsed: State<Long>, modifier: Modifier = Modifier, large: Boolean = false) {
-    val d = prep.display(nowElapsed.value) ?: return
-    val color = if (d.overdue) ErrorRed else BrandPrimary
-    Column(modifier = modifier) {
-        Text(
-            text = d.text,
-            color = color,
-            fontWeight = FontWeight.Bold,
-            style = if (large) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleSmall
-        )
-        d.detail?.let { Text(text = it, color = if (d.overdue) ErrorRed else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall) }
-    }
-}
-
 @Composable
 fun OrderCard(
     order: Order,
     nowElapsed: State<Long>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    /** Quick "ready in N minutes" from the list; null hides the picker (previews). */
-    onPrepTime: ((Int) -> Unit)? = null,
+    /** "Qabul qildim" from the list; null hides the button (previews). */
+    onAcknowledge: (() -> Unit)? = null,
     prepBusy: Boolean = false,
     /** "Tayyor" from the list (the caller asks for confirmation); null hides the button. */
     onReady: (() -> Unit)? = null,
     readyBusy: Boolean = false
 ) {
     val cooking = order.status == OrderStatus.PREPARING
-    // Computed once per tick only for cooking orders; the stripe is the fastest "which one needs me" cue in a long list.
-    val prepNow = if (cooking) order.prep?.display(nowElapsed.value) else null
     val attention = attentionLine(order.attention)
     val stripe = when {
-        prepNow?.overdue == true -> ErrorRed
         attention != null -> WarningOrange
         order.status == OrderStatus.READY -> SuccessGreen
         cooking -> BrandPrimary
@@ -308,31 +289,27 @@ fun OrderCard(
                     }
                 }
 
-                // 4. preparation: live clock while cooking, the promised time otherwise
-                if (cooking && order.prep != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(imageVector = Icons.Default.AccessTime, contentDescription = null, tint = if (prepNow?.overdue == true) ErrorRed else BrandPrimary, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        LivePrepText(order.prep, nowElapsed)
-                    }
-                    // Paid and cooking, but nobody said yet when it will be ready: ask right here, in the list.
-                    if (order.needsPrepChoice && onPrepTime != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Surface(shape = RoundedCornerShape(10.dp), color = WarningOrange.copy(alpha = 0.10f)) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text("To‘lov qabul qilindi. Tayyor bo‘lish vaqtini belgilang.", style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                PrepTimePicker(initial = DEFAULT_PREP_CHOICE, busy = prepBusy, onConfirm = onPrepTime)
+                // 4. paid and not yet seen by the kitchen: one tap, no questions (this also silences the bell); no preparation time is asked or shown
+                if (cooking && order.needsPrepChoice && onAcknowledge != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Surface(shape = RoundedCornerShape(10.dp), color = WarningOrange.copy(alpha = 0.10f)) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text("To‘lov qabul qilindi. Buyurtmani tayyorlashni boshlang.", style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = onAcknowledge,
+                                enabled = !prepBusy,
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                            ) {
+                                Text("Qabul qildim", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                             }
                         }
                     }
                 } else if (order.status == OrderStatus.READY) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Tayyor" + (order.readyAtMillis?.let { " • ${formatClock(it)}" } ?: ""), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = SuccessGreen)
-                } else if (order.prep != null && order.prep.minutes > 0 && order.status in setOf(OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_MATCHED_UNVERIFIED, OrderStatus.PAYMENT_CONFIRMED)) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text("Tayyorlash vaqti: ${order.prep.minutes} daqiqa", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
                 // 5. taxi, visually separate from the food/payment state

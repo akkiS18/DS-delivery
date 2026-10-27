@@ -1,4 +1,4 @@
-import type { CustomerStage, OrderView, PrepClock } from './types';
+import type { CustomerStage, OrderView } from './types';
 
 /**
  * Server-clock countdown. The backend sends `serverNow` and `estimatedReadyAt`; the phone contributes only the elapsed time since the
@@ -7,17 +7,6 @@ import type { CustomerStage, OrderView, PrepClock } from './types';
 export interface Anchor { serverNowMs: number; receivedAtPerf: number }
 export const anchorOf = (serverNowIso: string, perfNow: number): Anchor => ({ serverNowMs: Date.parse(serverNowIso), receivedAtPerf: perfNow });
 export const serverTime = (a: Anchor, perfNow: number): number => a.serverNowMs + (perfNow - a.receivedAtPerf);
-
-/** Seconds left (>0), or <= 0 once the estimate is reached (negative = seconds late); null when there is no estimate. */
-export function remainingSeconds(prep: PrepClock, a: Anchor, perfNow: number): number | null {
-  if (!prep.estimatedReadyAt) return null;
-  const ready = Date.parse(prep.estimatedReadyAt);
-  if (Number.isNaN(ready) || Number.isNaN(a.serverNowMs)) return null;
-  const diff = ready - serverTime(a, perfNow);
-  return diff >= 0 ? Math.ceil(diff / 1000) : -Math.floor(-diff / 1000);
-}
-/** The food is being cooked but the restaurant has not said yet when it will be ready (strictly null: older servers send nothing). */
-export const prepPending = (stage: CustomerStage, prep: PrepClock | undefined): boolean => stage === 'PREPARING' && prep?.chosenMinutes === null;
 
 /** Seconds left to pay (>0), or <= 0 once the window is over; null when there is no deadline. Same server-clock rule as the cooking countdown. */
 export function paymentRemainingSeconds(expiresAtIso: string | null | undefined, a: Anchor, perfNow: number): number | null {
@@ -30,9 +19,6 @@ export function paymentRemainingSeconds(expiresAtIso: string | null | undefined,
 /** "10 daqiqa" for a 600 s window; 90 s reads "2 daqiqa" (rounded up, never promises more time than there is). */
 export const windowMinutes = (windowSeconds: number | null | undefined, fallback = 10): number =>
   windowSeconds && windowSeconds > 0 ? Math.max(1, Math.ceil(windowSeconds / 60)) : fallback;
-
-/** Minutes late, rounded up while any lateness exists (so the first second late already reads 1); 0 while time is left. */
-export const overdueMinutes = (remaining: number): number => (remaining > 0 ? 0 : Math.max(1, Math.ceil(-remaining / 60)));
 
 export const STAGE_LABEL: Record<CustomerStage, string> = {
   PAYMENT_PENDING: 'To‘lov kutilmoqda',

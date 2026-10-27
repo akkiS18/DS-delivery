@@ -336,7 +336,7 @@ test('prep time after the payment: "ready in N minutes" (5..60) counted from now
   const startedAt = new Date(Date.now() - 3 * 60_000);
   await db.order.update({ where: { id: o.id }, data: { preparingStartedAt: startedAt } });
 
-  for (const bad of [{}, { minutes: 4 }, { minutes: 61 }, { minutes: 12.5 }, { minutes: '30' }, { minutes: 30, restaurantId: ids.b }]) {
+  for (const bad of [{ minutes: 4 }, { minutes: 61 }, { minutes: 12.5 }, { minutes: '30' }, { minutes: 30, restaurantId: ids.b }]) {
     assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, bad)).statusCode, 400, JSON.stringify(bad));
   }
   assert.equal((await call('POST', `/orders/${o.id}/prep-time`, tb, { minutes: 30 })).statusCode, 404, 'another restaurant sees nothing');
@@ -372,6 +372,24 @@ test('prep time after the payment: "ready in N minutes" (5..60) counted from now
   assert.equal((await call('POST', `/orders/${o.id}/ready`, ta, {})).statusCode, 200);
   assert.equal((await call('POST', `/orders/${o.id}/prep-time`, ta, { minutes: 15 })).statusCode, 409);
   assert.equal((await row(o.id)).prepChosenMinutes, 10);
+});
+
+test('acknowledging a paid order needs no time (2026-10-27): the same tap silences the bell, moves it to cooking and records the restaurant default', async () => {
+  const o = await place();
+  assert.equal((await acceptApi(o.id)).statusCode, 200);
+  await matchPayment(o.id, last4[0]!);
+  assert.equal((await call('POST', `/orders/${o.id}/verify-payment`, ta, { confirmReceived: true })).statusCode, 200);
+  assert.equal((await row(o.id)).prepChosenMinutes, null);
+  assert.equal((await call('GET', '/orders?filter=new', ta)).json().orders.some((x: { id: string }) => x.id === o.id), true, 'waiting for the kitchen: it rings');
+  const ok = await call('POST', `/orders/${o.id}/prep-time`, ta, {});
+  assert.equal(ok.statusCode, 200, ok.body);
+  const r = await row(o.id);
+  assert.ok(r.prepChosenMinutes && r.prepChosenMinutes >= 5 && r.prepChosenMinutes <= 60, 'the hidden restaurant default, clamped');
+  assert.ok(r.prepChosenAt);
+  assert.equal((await call('GET', '/orders?filter=new', ta)).json().orders.some((x: { id: string }) => x.id === o.id), false, 'acknowledged: no longer new');
+  assert.equal((await call('GET', '/orders?filter=cooking', ta)).json().orders.some((x: { id: string }) => x.id === o.id), true);
+  assert.equal((await call('POST', `/orders/${o.id}/prep-time`, tb, {})).statusCode, 404, 'another restaurant sees nothing');
+  assert.equal((await call('POST', `/orders/${o.id}/ready`, ta, {})).statusCode, 200);
 });
 
 test('a paused restaurant cannot accept new orders from the app either', async () => {

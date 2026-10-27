@@ -1,5 +1,5 @@
-import { anchorOf, isTerminal, prepPending, remainingSeconds } from './order';
-import type { CustomerStage, PrepClock } from './types';
+import { isTerminal } from './order';
+import type { CustomerStage } from './types';
 
 /** Active = anything the backend has not finished (includes NEEDS_HELP and CANCELLATION_REQUESTED). No states are invented here. */
 export const isActive = (s: CustomerStage): boolean => !isTerminal(s);
@@ -22,17 +22,6 @@ export function groupOrders<T extends { id: string; stage: CustomerStage; create
     active: unique.filter(o => isActive(o.stage)).sort((a, b) => RELEVANCE[a.stage] - RELEVANCE[b.stage] || newest(a, b)),
     history: unique.filter(o => isTerminal(o.stage)).sort(newest),
   };
-}
-
-/** Short preparation hint for list cards; only while the restaurant is preparing. Uses the server clock, like the tracking screen. */
-export function prepHint(o: { stage: CustomerStage; prep?: PrepClock | undefined; serverNow?: string | undefined }, perfNow: number, receivedAtPerf: number): string | null {
-  if (o.stage !== 'PREPARING' || !o.prep) return null;
-  if (prepPending(o.stage, o.prep)) return 'Tayyor bo‘lish vaqti aniqlanmoqda';
-  if (o.prep.estimatedReadyAt && o.serverNow) {
-    const left = remainingSeconds(o.prep, anchorOf(o.serverNow, receivedAtPerf), perfNow);
-    if (left !== null) return left > 0 ? `~${Math.max(1, Math.ceil(left / 60))} daqiqa qoldi` : 'Tez orada tayyor bo‘ladi';
-  }
-  return o.prep.minutes > 0 ? `Tayyorlash ~${o.prep.minutes} daqiqa` : null;
 }
 
 /** The one action each active card offers. */

@@ -7,8 +7,8 @@ import { PayWarning } from '../components/PayWarning';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
-import { clock, mmss, som } from '../lib/format';
-import { anchorOf, isTerminal, overdueMinutes, paymentRemainingSeconds, pollIntervalMs, prepPending, remainingSeconds, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
+import { clock, som } from '../lib/format';
+import { anchorOf, isTerminal, paymentRemainingSeconds, pollIntervalMs, shouldAnnouncePaid, windowMinutes, type Anchor } from '../lib/order';
 import { troubleHint } from '../lib/support';
 import { confirmDialog, haptic } from '../lib/telegram';
 import type { Route } from '../lib/router';
@@ -67,15 +67,13 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
     prevStage.current = order.stage;
   }, [order]);
 
-  const counting = order?.stage === 'PREPARING' && Boolean(order.prep.estimatedReadyAt) && !prepPending(order.stage, order.prep);
   const payCounting = order?.stage === 'PAYMENT_PENDING' && Boolean(order.payment?.instructions?.expiresAt);
-  const perfNow = useNow(1000, counting || payCounting);
+  const perfNow = useNow(1000, payCounting);
 
   if (!order && !error) return <div className="page"><Skeletons n={3} /></div>;
   if (!order) return <div className="page"><ErrorBox error={error} onRetry={() => void refresh()} /></div>;
 
   const o = order;
-  const rem = counting && anchor ? remainingSeconds(o.prep, anchor, perfNow) : null;
   const pay = o.payment;
   const ins = pay?.instructions ?? null;
   const cash = pay?.method === 'CASH';
@@ -130,12 +128,6 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
 
       <div className="card stack">
         <StatusHero stage={o.stage} cash={cash} />
-        {rem !== null && (
-          rem > 0
-            ? <div><span className="mono bold" style={{ fontSize: 34 }}>{mmss(rem)}</span><span className="sub"> • tayyor bo‘lish taxminan {clock(o.prep.estimatedReadyAt)}</span></div>
-            : <div className="banner warn" role="status"><strong>Kechikish: {overdueMinutes(rem)} daqiqa</strong><br />Restoran buyurtmani hali tayyorlayapti. Kechikkanimiz uchun uzr.</div>
-        )}
-        {prepPending(o.stage, o.prep) && <div className="banner" role="status"><strong>Tayyor bo‘lish vaqti aniqlanmoqda…</strong><br />Restoran vaqtni belgilashi bilan bu yerda hisoblagich paydo bo‘ladi.</div>}
         {o.stage === 'DELIVERED' && <p className="sub center">{o.deliveredAt ? `${clock(o.deliveredAt)} • ` : ''}Yoqimli ishtaha!</p>}
         {o.canConfirmReceived && !o.receivedAt && (
           <div className="stack">

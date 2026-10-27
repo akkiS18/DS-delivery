@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Image
@@ -61,7 +62,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
 import coil.compose.AsyncImage
+import com.dsdelivery.restaurant.ui.screens.orders.detail.ReceiptImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import coil.request.ImageRequest
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.preview.SampleData
@@ -91,6 +100,9 @@ fun ProductFormScreen(
         onCategoryChange = viewModel::onCategoryChange,
         onAvailabilityChange = viewModel::onAvailabilityChange,
         onSaveProduct = { viewModel.saveProduct(onSuccess = onNavigateBack) },
+        onImagePicked = viewModel::onImagePicked,
+        onImageRemoved = viewModel::onImageRemoved,
+        onImageProblem = viewModel::onImageProblem,
         onReload = viewModel::loadInitialData,
         onDismissError = viewModel::dismissError,
         modifier = modifier
@@ -110,9 +122,23 @@ fun ProductFormContent(
     onSaveProduct: () -> Unit,
     onReload: () -> Unit,
     onDismissError: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onImagePicked: (ByteArray) -> Unit = {},
+    onImageRemoved: () -> Unit = {},
+    onImageProblem: (String) -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // A dish photo is shown small in the customer menu: 1024 px and about 600 KB are plenty (the server accepts up to 4 MB).
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch {
+                val bytes = withContext(Dispatchers.IO) { ReceiptImage.compressToJpeg(context, uri, maxSide = 1024, targetBytes = 600 * 1024) }
+                if (bytes == null) onImageProblem("Bu fayl rasm emas yoki ochilmadi. Boshqa rasm tanlang.") else onImagePicked(bytes)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -331,10 +357,10 @@ fun ProductFormContent(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            // Photo: shown only when the server already has one (uploading is not available yet, so nothing is offered).
-            if (!state.imageUrl.isNullOrBlank()) Column(modifier = Modifier.fillMaxWidth()) {
+            // Photo: pick from the gallery/camera roll; the app shrinks it before sending (an editing dish uploads at once, a new one after saving).
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Surat",
+                    text = "Taom rasmi",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface
@@ -346,32 +372,22 @@ fun ProductFormContent(
                         .fillMaxWidth()
                         .height(180.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (!state.imageUrl.isNullOrBlank()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        val shown: Any? = state.pendingImage ?: state.imageUrl
+                        if (shown != null) {
                             AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(state.imageUrl)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = "Mahsulot fotosi",
+                                model = ImageRequest.Builder(LocalContext.current).data(shown).crossfade(true).build(),
+                                contentDescription = "Taom rasmi",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(12.dp))
                             )
                         } else {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                                 Icon(
                                     imageVector = Icons.Default.Image,
                                     contentDescription = null,
@@ -380,15 +396,45 @@ fun ProductFormContent(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Rasm mavjud emas",
+                                    text = "Rasm yo‘q (ixtiyoriy)",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
+                        if (state.imageBusy) {
+                            CircularProgressIndicator(color = BrandPrimary)
+                        }
                     }
                 }
 
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = { photoPicker.launch("image/*") },
+                        enabled = !state.imageBusy && !state.isSubmitting,
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (state.pendingImage != null || !state.imageUrl.isNullOrBlank()) "Rasmni almashtirish" else "Rasm tanlash", fontSize = 13.sp)
+                    }
+                    if (state.pendingImage != null || !state.imageUrl.isNullOrBlank()) {
+                        OutlinedButton(
+                            onClick = onImageRemoved,
+                            enabled = !state.imageBusy && !state.isSubmitting,
+                            modifier = Modifier.height(44.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("O‘chirish", fontSize = 13.sp)
+                        }
+                    }
+                }
+                state.imageNotice?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))

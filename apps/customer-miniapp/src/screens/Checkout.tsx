@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheck, MapPin, ShoppingBasket } from 'lucide-react';
+import { DeliveryNotice } from '../components/DeliveryNotice';
 import { Button, Empty, Icon, Spinner } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartCount, cartView } from '../lib/cart';
@@ -221,6 +222,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(total)}</span></div>
         <div className="row between sub small"><span>Yetkazish ({taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi'})</span><span>alohida, taksi tarifi bo‘yicha</span></div>
+        <DeliveryNotice />
         <p className="sub small">{method === 'CASH' ? 'Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.' : 'Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.'}</p>
       </section>
 

@@ -18,7 +18,6 @@ import kotlinx.coroutines.launch
 interface OrderDetailCallbacks {
     fun loadOrder() {}
     fun showAcceptDialog(show: Boolean) {}
-    fun onPrepOverride(minutes: Int?) {}
     fun confirmAccept() {}
     fun showRejectDialog(show: Boolean) {}
     fun onRejectReasonSelected(reason: RejectReason) {}
@@ -27,7 +26,7 @@ interface OrderDetailCallbacks {
     fun onVerifyChecked(checked: Boolean) {}
     fun confirmVerify() {}
     fun startPreparing() {}
-    fun setPrepTime(minutes: Int) {}
+    fun acknowledgeOrder() {}
     fun showReadyConfirm(show: Boolean) {}
     fun confirmReady() {}
     fun showCancelDialog(show: Boolean) {}
@@ -74,8 +73,7 @@ class OrderDetailViewModel(
     }
 
     // ---- dialogs ---------------------------------------------------------------------------------------------
-    override fun showAcceptDialog(show: Boolean) = _uiState.update { it.copy(showAcceptDialog = show, prepOverride = null) }.let { }
-    override fun onPrepOverride(minutes: Int?) = _uiState.update { it.copy(prepOverride = minutes?.coerceIn(5, 120)) }.let { }
+    override fun showAcceptDialog(show: Boolean) = _uiState.update { it.copy(showAcceptDialog = show) }.let { }
     override fun showRejectDialog(show: Boolean) = _uiState.update { it.copy(showRejectDialog = show) }.let { }
     override fun onRejectReasonSelected(reason: RejectReason) = _uiState.update { it.copy(selectedRejectReason = reason) }.let { }
     override fun showVerifyDialog(show: Boolean) = _uiState.update { it.copy(showVerifyDialog = show, verifyChecked = false) }.let { }
@@ -124,9 +122,8 @@ class OrderDetailViewModel(
 
     // ---- actions ---------------------------------------------------------------------------------------------
     override fun confirmAccept() {
-        val override = _uiState.value.prepOverride
         runAction("Qabul qilindi.") { expected ->
-            repository.acceptOrder(orderId, override, expected)
+            repository.acceptOrder(orderId, null, expected)
         }
     }
 
@@ -151,10 +148,10 @@ class OrderDetailViewModel(
         }
     }
 
-    /** "Ready in [minutes] minutes" from now (5..60). Allowed while cooking; the customer's countdown and the taxi time follow it. */
-    override fun setPrepTime(minutes: Int) {
-        runAction("Tayyor bo‘lish vaqti: $minutes daqiqa.") { expected ->
-            repository.setPrepTime(orderId, minutes, expected)
+    /** "I have seen this order": silences the bell and moves it to "Tayyorlanmoqda". No time is asked or told to anyone. */
+    override fun acknowledgeOrder() {
+        runAction("Qabul qilindi.") { expected ->
+            repository.setPrepTime(orderId, null, expected)
         }
     }
 

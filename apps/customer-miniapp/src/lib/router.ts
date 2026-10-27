@@ -62,4 +62,8 @@ export function parentOf(r: Route): Route | null {
   }
 }
 
-export const isTab = (r: Route): boolean => r.name === 'home' || r.name === 'orders' || r.name === 'support' || r.name === 'profile';
+export const isTab = (r: Route): boolean => r.name === 'home' || r.name === 'cart' || r.name === 'orders' || r.name === 'support' || r.name === 'profile';
+
+/** The floating basket button: any screen while the cart has something, except the basket itself, the checkout (own button) and the support conversation screens (own input). */
+export const cartBarVisible = (r: Route, count: number): boolean =>
+  count > 0 && r.name !== 'cart' && r.name !== 'checkout' && r.name !== 'ticket' && r.name !== 'supportNew';

@@ -76,10 +76,11 @@ export const acceptBodySchema = z.object({ prepMinutes: prepSchema, expectedStat
 export const rejectBodySchema = z.object({ reason: z.enum(REJECT_REASONS), expectedStatus: expected }).strict();
 export const preparingBodySchema = z.object({ prepMinutes: prepSchema, expectedStatus: expected }).strict();
 export const readyBodySchema = z.object({ expectedStatus: expected }).strict();
-/** "Ready in N minutes" after the payment: 5 minutes up to 1 hour. */
+/** Owner decision 2026-10-27: nobody is asked "ready in N minutes" any more. SET_PREP_TIME stays as the kitchen's one-tap acknowledgement of a paid order
+ *  (it silences the bell and moves the order to "cooking"); `minutes` is optional and older apps may still send it. */
 export const PREP_CHOICE_MIN = 5;
 export const PREP_CHOICE_MAX = 60;
-export const prepTimeBodySchema = z.object({ minutes: z.number().int().min(PREP_CHOICE_MIN).max(PREP_CHOICE_MAX), expectedStatus: expected }).strict();
+export const prepTimeBodySchema = z.object({ minutes: z.number().int().min(PREP_CHOICE_MIN).max(PREP_CHOICE_MAX).optional(), expectedStatus: expected }).strict();
 /** The explicit staff statement that the money is really on the restaurant's bank account. */
 export const verifyBodySchema = z.object({ confirmReceived: z.literal(true), expectedStatus: expected }).strict();
 export const cancelBodySchema = z.object({ reason: z.enum(RESTAURANT_REASONS), note: z.string().trim().max(300).optional(), expectedStatus: expected }).strict();
@@ -315,7 +316,9 @@ const EVIDENCE_INVALID = new Set(['TOLOV_SUMMASI_MOS_EMAS', 'TOLOV_MOS_EMAS']);
  * N + the minutes already cooked, and the clean choice is kept in prepChosenMinutes/prepChosenAt and in the audit event for later analysis.
  * Compare-and-swap on the cooking start; a taxi dispatch that was not sent yet is moved, a sent one is never touched.
  */
-export async function setPrepTime(restaurantId: string, orderId: string, minutes: number, now = new Date()): Promise<'OK' | 'STALE'> {
+export async function setPrepTime(restaurantId: string, orderId: string, chosen: number | undefined, now = new Date()): Promise<'OK' | 'STALE'> {
+  // No time given (the apps no longer ask): the kitchen only acknowledges the order, the restaurant's hidden default is recorded as the promise.
+  const minutes = chosen ?? Math.min(PREP_CHOICE_MAX, Math.max(PREP_CHOICE_MIN, (await db.restaurant.findUnique({ where: { id: restaurantId }, select: { defaultPrepMinutes: true } }))?.defaultPrepMinutes ?? 25));
   if (!Number.isInteger(minutes) || minutes < PREP_CHOICE_MIN || minutes > PREP_CHOICE_MAX) throw new Error('TAYYORLASH_VAQTI_NOTOGRI');
   return db.$transaction(async tx => {
     const o = await tx.order.findFirst({
@@ -417,7 +420,7 @@ export async function performOrderAction(
         if (!(await alreadyReady(action))) throw err;
       }
     } else if (action === 'SET_PREP_TIME') {
-      if (await setPrepTime(restaurantId, orderId, args.chosenMinutes!) === 'STALE') return stale('INVALID_STATE');
+      if (await setPrepTime(restaurantId, orderId, args.chosenMinutes) === 'STALE') return stale('INVALID_STATE');
     } else if (action === 'CANCEL_ORDER') {
       const r = await requestCancellation({ actorType: 'RESTAURANT_STAFF', actorTelegramId: label, restaurantId, orderId,
         reasonCode: args.reason as string, ...(args.note ? { note: args.note } : {}) });

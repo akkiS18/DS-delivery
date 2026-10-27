@@ -87,6 +87,7 @@ ${hours}`);
 </ul>
 <h2>Yetkazish</h2>
 <p>Taksi qabul qilinishi yetkazilganini bildirmaydi. Buyurtma yetkazilgani operator yoki siz tomonidan tasdiqlanadi. Narx va vaqt taksi tarifiga bog‘liq bo‘lishi mumkin.</p>
+<p><b>Eshikkacha yetkazish kafolatlanmaydi.</b> Taksi haydovchisi buyurtmani manzilingizdagi bino kirish joyigacha olib keladi. Haydovchi yuqori qavatga (masalan, 5-qavatga) ko‘tarib chiqishga majbur emas; haydovchi kelganda pastga tushib olishingiz so‘raladi. Eshikkacha yetkazish xizmati keyinroq alohida qo‘shilishi va u uchun narx farq qilishi mumkin.
 <h2>Siz nima uchun javobgarsiz</h2>
 <p>To‘g‘ri telefon raqami va manzil kiriting, boshqa shaxsning nomidan soxta buyurtma bermang, to‘lov ma’lumotlarini o‘zgartirmang.</p>
 <h2>O‘zgarishlar</h2>

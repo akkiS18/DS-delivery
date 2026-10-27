@@ -14,8 +14,6 @@ data class OrderDetailUiState(
     /** True while a request is in flight; every action button is disabled meanwhile. */
     val isSubmitting: Boolean = false,
     val showAcceptDialog: Boolean = false,
-    /** Optional manual override of the restaurant's default preparation time; null = use the default. */
-    val prepOverride: Int? = null,
     val showRejectDialog: Boolean = false,
     val selectedRejectReason: RejectReason = RejectReason.UNAVAILABLE,
     val showVerifyDialog: Boolean = false,

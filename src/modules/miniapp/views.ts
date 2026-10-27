@@ -50,14 +50,14 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
     db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true } }),
     db.product.findMany({
       where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ name: 'asc' }],
-      select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true },
+      select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true, image: { select: { version: true } } },
     }),
   ]);
   const hours = openState(r, now);
   const isOpen = !r.isPaused && hours.open;
   return {
     restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null },
-    categories, products,
+    categories, products: products.map(({ image, ...p }) => (image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p)),
     // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
     // `priceSom` stays the restaurant's own menu price.
     pricing: publicPricing(await loadFeeConfig()),
@@ -117,18 +117,15 @@ export async function loadCustomerOrder(owner: CustomerOwner, orderId: string) {
 export type CustomerOrderRow = NonNullable<Awaited<ReturnType<typeof loadCustomerOrder>>>;
 
 /**
- * While the food is being cooked and the restaurant has not yet said in how many minutes it will be ready, the customer is told nothing
- * about time (chosenMinutes is null: the screen says "aniqlanmoqda"). Once the restaurant has chosen, the countdown starts.
+ * Owner decision 2026-10-27: the customer is never told a preparation time (no countdown, no "ready in N minutes", no "being determined").
+ * The field keeps its shape so older apps still parse it; chosenMinutes is 0, not null, so an older screen does not show its "aniqlanmoqda" banner.
  */
 export function customerPrep(o: CustomerOrderRow, now: Date) {
   const clock = prepClock({
     status: o.status, preparingStartedAt: o.preparingStartedAt, prepMinutes: o.prepMinutes, estimatedPrepMinutes: o.estimatedPrepMinutes,
     readyAt: o.readyAt, prepChosenMinutes: o.prepChosenMinutes, restaurant: o.restaurant,
   }, now);
-  if (o.status === 'PREPARING' && o.prepChosenMinutes === null) {
-    return { ...clock, minutes: 0, estimatedReadyAt: null, remainingSeconds: null, overdueMinutes: 0, isOverdue: false };
-  }
-  return clock;
+  return { ...clock, minutes: 0, estimatedReadyAt: null, chosenMinutes: 0, remainingSeconds: null, overdueMinutes: 0, isOverdue: false };
 }
 
 export function customerOrderView(o: CustomerOrderRow, now = new Date()) {

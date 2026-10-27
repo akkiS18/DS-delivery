@@ -68,6 +68,7 @@ model Product {
   createdAt    DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
   orderItems   OrderItem[]
+  image        ProductImage?
 
   @@index([restaurantId, isAvailable])
 }
@@ -891,6 +892,17 @@ model OrderRating {
 }
 
 // The restaurant's photo shown on its card (set by a platform admin in Telegram). Bytes live in the database; version busts the browser cache.
+/// A dish photo set by the restaurant from its app; stored in the database like RestaurantImage. imageUrl on Product stays for legacy external links.
+model ProductImage {
+  productId String   @id
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
+  sha256    String
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
 model RestaurantImage {
   restaurantId String     @id
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)

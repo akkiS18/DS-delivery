@@ -245,6 +245,29 @@ class RestaurantRepositoryImpl(
         }
     }
 
+    override suspend fun uploadProductImage(productId: String, jpeg: ByteArray): Resource<String> {
+        return try {
+            Resource.Success(apiClient.service.uploadProductImage(productId, jpeg.toRequestBody("image/jpeg".toMediaType())).imageUrl)
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
+    override suspend fun deleteProductImage(productId: String): Resource<Unit> {
+        return try {
+            apiClient.service.deleteProductImage(productId)
+            Resource.Success(Unit)
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
+    override fun absoluteUrl(path: String?): String? = apiClient.absoluteUrl(path)
+
     override suspend fun createProduct(
         name: String,
         priceSom: Int,
@@ -493,7 +516,7 @@ class RestaurantRepositoryImpl(
     override suspend fun setOrderPreparing(id: String, prepMinutes: Int?, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.startPreparingOrder(id, PreparingOrderRequestDto(prepMinutes, expectedStatus)) }
 
-    override suspend fun setPrepTime(id: String, minutes: Int, expectedStatus: String?): Resource<Order> =
+    override suspend fun setPrepTime(id: String, minutes: Int?, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.setPrepTime(id, PrepTimeRequestDto(minutes, expectedStatus)) }
 
     override suspend fun setOrderReady(id: String, expectedStatus: String?): Resource<Order> =

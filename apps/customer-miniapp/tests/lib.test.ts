@@ -3,9 +3,8 @@ import { ApiError } from '../src/lib/api';
 import { cartCount, cartReducer, cartTotal, emptyCart, loadCart, MAX_QTY, saveCart, STORAGE_KEY } from '../src/lib/cart';
 import { describeCheckoutError } from '../src/lib/checkoutErrors';
 import { mmss, opensText, som } from '../src/lib/format';
-import { anchorOf, isTerminal, overdueMinutes, pollIntervalMs, remainingSeconds, timeline } from '../src/lib/order';
+import { isTerminal, pollIntervalMs, timeline } from '../src/lib/order';
 import { parentOf, parseRoute, routeToHash } from '../src/lib/router';
-import type { PrepClock } from '../src/lib/types';
 import { checkoutReady, formatPhone, normalizePhone, validateAddress } from '../src/lib/validation';
 
 const add = (s = emptyCart(), id = 'p1', price = 10000, r = 'r1') => cartReducer(s, { type: 'add', restaurantId: r, restaurantName: 'R', product: { id, name: id, priceSom: price } });
@@ -87,26 +86,6 @@ describe('router', () => {
 });
 
 describe('order clock and timeline', () => {
-  const prep = (est: string | null): PrepClock => ({ minutes: 20, startedAt: null, estimatedReadyAt: est, readyAt: null, remainingSeconds: null, overdueMinutes: 0, isOverdue: false });
-  const a = anchorOf('2026-01-01T10:00:00.000Z', 1000);
-  it('counts down from the SERVER clock, ignoring the phone wall clock', () => {
-    const p = prep('2026-01-01T10:10:00.000Z');
-    expect(remainingSeconds(p, a, 1000)).toBe(600);
-    expect(remainingSeconds(p, a, 1000 + 59_500)).toBe(541);
-    expect(remainingSeconds(p, a, 1000 + 600_000)).toBe(0);
-  });
-  it('goes overdue at zero and keeps growing, never negative-clamped', () => {
-    const p = prep('2026-01-01T10:10:00.000Z');
-    const r1 = remainingSeconds(p, a, 1000 + 601_000)!;
-    expect(r1).toBe(-1); expect(overdueMinutes(r1)).toBe(1);
-    expect(overdueMinutes(remainingSeconds(p, a, 1000 + 600_000 + 61_000)!)).toBe(2);
-    expect(overdueMinutes(remainingSeconds(p, a, 1000 + 600_000 + 5 * 60_000)!)).toBe(5);
-    expect(overdueMinutes(30)).toBe(0);
-  });
-  it('has no countdown without an estimate or with a bad one', () => {
-    expect(remainingSeconds(prep(null), a, 1000)).toBeNull();
-    expect(remainingSeconds(prep('garbage'), a, 1000)).toBeNull();
-  });
   it('formats mm:ss', () => { expect(mmss(65)).toBe('1:05'); expect(mmss(-125)).toBe('2:05'); });
   it('keeps accepted and sent taxi as separate steps; nothing is delivered early', () => {
     const t = timeline({ stage: 'TAXI_ACCEPTED' });

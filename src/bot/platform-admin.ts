@@ -72,12 +72,13 @@ export async function renderTaxiMode(): Promise<{ text: string; keyboard: Return
     '🚕 <b>Taksi qachon chaqiriladi</b>',
     mode === 'READY'
       ? 'Hozir: <b>restoran «Tayyor» bosganda</b>. Haydovchi biroz kech qolishi mumkin, lekin erta kelmaydi.'
-      : 'Hozir: <b>taom tayyor bo‘lishidan 4 daqiqa oldin</b> (yoki «Tayyor» bosilsa — o‘sha zahoti).',
+      : 'Hozir: <b>taom tayyor bo‘lishidan 4 daqiqa oldin</b> (yoki «Tayyor» bosilsa — o‘sha zahoti). Tayyorlash vaqti endi so‘ralmagani uchun bu rejim restoranning yashirin standart vaqtiga tayanadi; «Tayyor» bosilganda rejimiga qayting.',
     '',
     'Rejim faqat YANGI boshlangan buyurtmalarga ta’sir qiladi: allaqachon yuborilgan so‘rovlar o‘zgarmaydi.',
   ].join('\n');
+  // The timed (LEAD) button is gone: nobody states a preparation time any more (2026-10-27). The mode and its code stay for a stored LEAD value.
   return { text, keyboard: Markup.inlineKeyboard([[
-    Markup.button.callback(`${mark('READY')}«Tayyor» bosilganda`, 'taxi:set:READY'), Markup.button.callback(`${mark('LEAD')}4 daqiqa oldin`, 'taxi:set:LEAD'),
+    Markup.button.callback(`${mark('READY')}«Tayyor» bosilganda`, 'taxi:set:READY'),
   ]]) };
 }
 

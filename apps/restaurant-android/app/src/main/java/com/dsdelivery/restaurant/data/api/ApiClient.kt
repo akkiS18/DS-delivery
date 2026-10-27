@@ -41,6 +41,13 @@ class ApiClient(
     @Volatile
     private var cachedService: RestaurantApiService? = null
 
+    /** A server-relative path (a dish photo) as an address Coil can load; absolute links (older, external photos) are left alone. */
+    fun absoluteUrl(path: String?): String? = when {
+        path.isNullOrBlank() -> null
+        path.startsWith("http://") || path.startsWith("https://") -> path
+        else -> apiConfig.baseUrl.trimEnd('/') + "/" + path.trimStart('/')
+    }
+
     val service: RestaurantApiService
         get() {
             val currentUrl = apiConfig.baseUrl

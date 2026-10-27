@@ -98,6 +98,18 @@ interface RestaurantApiService {
         @Path("id") id: String
     ): Response<Unit>
 
+    /** The dish photo as the raw body (image/jpeg), already shrunk by the app. */
+    @PUT("api/v1/restaurant/products/{id}/image")
+    suspend fun uploadProductImage(
+        @Path("id") id: String,
+        @Body body: okhttp3.RequestBody
+    ): com.dsdelivery.restaurant.data.api.dto.ProductImageResponseDto
+
+    @DELETE("api/v1/restaurant/products/{id}/image")
+    suspend fun deleteProductImage(
+        @Path("id") id: String
+    ): Response<Unit>
+
     // --- Stage 5B: Restaurant Categories CRUD ---
     @GET("api/v1/restaurant/categories")
     suspend fun getCategories(): CategoriesResponseDto

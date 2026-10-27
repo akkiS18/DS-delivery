@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Star, UtensilsCrossed } from 'lucide-react';
-import { FeeProgress, PriceTag } from '../components/FeeProgress';
+import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
-import { cartBase, cartCount, cartTotal, qtyOf } from '../lib/cart';
+import { cartBase, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
-import { opensText, som } from '../lib/format';
+import { opensText } from '../lib/format';
 import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
 import { confirmDialog } from '../lib/telegram';
 import type { Product } from '../lib/types';
 import { useApp, useLoad } from '../state';
 
-export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
+export function Menu({ id }: { id: string; go?: (r: Route) => void }) {
   const { cart, dispatch, toast } = useApp();
   const { data, error, loading, reload } = useLoad(signal => api.menu(id, signal), [id]);
   const [category, setCategory] = useState<string | 'all'>('all');
@@ -36,7 +36,6 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
     dispatch({ type: 'add', restaurantId: r.id, restaurantName: r.name, product: { id: p.id, name: p.name, priceSom: p.priceSom } });
   };
   const inThisCart = cart.restaurantId === r.id;
-  const count = inThisCart ? cartCount(cart) : 0;
   const pricing = data.pricing ?? cart.pricing ?? FLAT_PRICING;
   const base = inThisCart ? cartBase(cart) : 0;
 
@@ -48,7 +47,6 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? 'Ochiq' : r.closedReason === 'PAUSED' ? 'Vaqtincha yopiq' : 'Yopiq'}</span>
           {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
-          {r.isOpen && <span className="sub small">Tayyorlash ~{r.prepMinutes} daqiqa</span>}
         </div>
       </div>
       {!r.isOpen && (
@@ -85,12 +83,6 @@ export function Menu({ id, go }: { id: string; go: (r: Route) => void }) {
           </div>
         );
       })}
-      {count > 0 && (
-        <div className="cartbar">
-          <FeeProgress base={base} pricing={pricing} />
-          <Button onClick={() => go({ name: 'cart' })}>Savat • {count} ta • {som(cartTotal(cart))}</Button>
-        </div>
-      )}
     </div>
   );
 }

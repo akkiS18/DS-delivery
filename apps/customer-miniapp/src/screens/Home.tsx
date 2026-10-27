@@ -36,7 +36,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
             <h3 className="rname">{r.name}</h3>
             <div className="rmeta">
               {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
-              <span className="sub">{r.isOpen ? `Tayyorlash ~${r.prepMinutes} daqiqa` : r.closedReason === 'HOURS' ? opensText(r.opensNext) : 'Hozircha buyurtma qabul qilmaydi'}</span>
+              {!r.isOpen && <span className="sub">{r.closedReason === 'HOURS' ? opensText(r.opensNext) : 'Hozircha buyurtma qabul qilmaydi'}</span>}
             </div>
           </div>
         </div>

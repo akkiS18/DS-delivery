@@ -23,6 +23,8 @@ const BOT_TOKEN = '123456789:AAFakeQaUiTokenLocalOnly_0123456789ab';
 process.env.BOT_TOKEN = BOT_TOKEN;
 process.env.MINIAPP_ENABLED = 'true';
 process.env.MINIAPP_ORDER_RATE_PER_MINUTE = '500';
+process.env.MINIAPP_USER_RATE_PER_MINUTE = '5000'; // one browser walks every screen of four widths within a minute
+process.env.MINIAPP_IP_RATE_PER_MINUTE = '5000';
 delete process.env.BOT_PAYMENT_MODE;
 const dist = path.resolve(process.cwd(), 'apps', 'customer-miniapp', 'dist');
 process.env.MINIAPP_DIST_DIR = dist;
@@ -70,7 +72,8 @@ class Cdp {
   async waitFor(expression: string, what: string, ms = 8000): Promise<void> {
     const end = Date.now() + ms;
     while (Date.now() < end) { if (await this.eval<boolean>(`Boolean(${expression})`).catch(() => false)) return; await new Promise(r => setTimeout(r, 100)); }
-    throw new Error(`timed out waiting for: ${what}`);
+    const seen = await this.eval<string>(`location.hash + ' | ' + document.body.innerText.slice(0, 300).replace(/\s+/g, ' ')`).catch(() => '(page not answering)');
+    throw new Error(`timed out waiting for: ${what} [page: ${seen}]`);
   }
   close() { this.ws.close(); }
 }
@@ -211,7 +214,7 @@ for (const width of [320, 375, 390, 430]) {
         assert.ok(await page.eval(`document.body.innerText.includes('Lavash Markazi ${nonce}') && !document.body.innerText.includes('Shashlik Uyi ${nonce}')`));
         const bar = await page.eval<{ shown: boolean; bottomOk: boolean; buttons: number }>(`(() => { const b = document.querySelector('.tabbar'); const r = b.getBoundingClientRect();
           return { shown: getComputedStyle(b).display !== 'none' && r.height > 30, bottomOk: r.bottom <= window.innerHeight + 1 && r.top >= 0, buttons: b.querySelectorAll('button').length }; })()`);
-        assert.deepEqual(bar, { shown: true, bottomOk: true, buttons: 4 }, 'tab bar remains while the search field is focused');
+        assert.deepEqual(bar, { shown: true, bottomOk: true, buttons: 5 }, 'tab bar remains while the search field is focused');
         await page.send('Input.insertText', { text: ' zzzz-no-match' });
         await page.waitFor(`document.querySelectorAll('.card.tap').length === 0`, 'empty result');
         await assertNoOverflow(page, 'search');
@@ -256,6 +259,26 @@ for (const width of [320, 375, 390, 430]) {
         await go(page, `#/menu/${menuRestaurant}`);
         await page.waitFor(`document.body.innerText.includes('Savat •')`, 'cart restored after reload');
         assert.equal(await page.eval(`localStorage.getItem('ds.cart.v1')`), before);
+      });
+      await t.test('basket button: floats above the tab bar on every browsing screen, the Savat tab carries the count, the page end stays reachable', async () => {
+        for (const hash of [`#/menu/${menuRestaurant}`, '#/', '#/orders', '#/profile']) {
+          await go(page, hash);
+          await page.waitFor(`document.querySelector('.cartfloat')`, `basket button on ${hash}`);
+          const m = await page.eval<{ above: boolean; gap: number; badge: string }>(`(() => { const f = document.querySelector('.cartfloat').getBoundingClientRect(); const t = document.querySelector('.tabbar').getBoundingClientRect();
+            const tab = [...document.querySelectorAll('.tabbar button')].find(b => b.textContent.includes('Savat')); window.scrollTo(0, document.documentElement.scrollHeight);
+            let bottom = 0; for (const e of document.querySelectorAll('.app-main button, .app-main .card')) bottom = Math.max(bottom, e.getBoundingClientRect().bottom);
+            return { above: f.bottom <= t.top + 1, gap: f.top - bottom, badge: tab.querySelector('.dot')?.textContent ?? '' }; })()`);
+          assert.ok(m.above, `${hash}: the basket button sits over the tab bar`);
+          assert.equal(m.badge, '1', `${hash}: Savat tab badge`);
+          assert.ok(m.gap >= -1, `${hash}: content ends ${-m.gap}px under the basket button`);
+        }
+        for (const hash of ['#/cart', '#/checkout']) {
+          await go(page, hash);
+          await new Promise(r => setTimeout(r, 300));
+          assert.equal(await page.eval(`document.querySelector('.cartfloat') === null`), true, `${hash}: no floating button on the basket itself`);
+        }
+        await go(page, '#/cart');
+        await page.waitFor(`document.body.innerText.includes('Eshikkacha yetkazish kafolatlanmaydi')`, 'door-to-door notice in the basket');
       });
       await t.test('Back: Telegram BackButton is shown on a menu and returns home; hidden on tab pages', async () => {
         await go(page, `#/menu/${menuRestaurant}`);

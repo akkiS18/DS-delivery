@@ -25,6 +25,11 @@ interface RestaurantRepository {
 
     // --- Protected Restaurant Catalog CRUD (Stage 5B) ---
     suspend fun getProducts(includeArchived: Boolean = false): Resource<List<Product>>
+    /** Dish photo: [jpeg] is already shrunk. Returns the new (relative) image URL. */
+    suspend fun uploadProductImage(productId: String, jpeg: ByteArray): Resource<String>
+    suspend fun deleteProductImage(productId: String): Resource<Unit>
+    /** Turns a server-relative image path into a full address (see ApiClient.absoluteUrl). */
+    fun absoluteUrl(path: String?): String?
     suspend fun createProduct(
         name: String,
         priceSom: Int,
@@ -63,7 +68,7 @@ interface RestaurantRepository {
     suspend fun rejectOrder(id: String, reasonCode: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun setOrderPreparing(id: String, prepMinutes: Int?, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     /** "Ready in [minutes] minutes" (5..60), counted from now; allowed while the order is being cooked. */
-    suspend fun setPrepTime(id: String, minutes: Int, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
+    suspend fun setPrepTime(id: String, minutes: Int?, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     suspend fun setOrderReady(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
 
     /** The restaurant explicitly confirms the real bank credit. Cooking then starts by itself. */

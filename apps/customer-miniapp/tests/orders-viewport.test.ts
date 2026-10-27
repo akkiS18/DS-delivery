@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { STAGE_LABEL, timeline } from '../src/lib/order';
-import { groupOrders, needsAttention, nextAction, prepHint } from '../src/lib/orderList';
+import { groupOrders, needsAttention, nextAction } from '../src/lib/orderList';
 import type { CustomerStage } from '../src/lib/types';
 import { keyboardOffset, keyboardOpen, navMode } from '../src/lib/viewport';
 
@@ -45,14 +45,6 @@ describe('status wording', () => {
     expect(needsAttention('PREPARING')).toBe(false);
     expect(nextAction('PREPARING')).toBe('Kuzatish');
     expect(nextAction('PAYMENT_PENDING')).toBe('To‘lash');
-  });
-  it('shows a prep hint only while preparing, on the server clock', () => {
-    const prep = { minutes: 20, startedAt: null, estimatedReadyAt: '2026-10-19T10:10:00Z', readyAt: null, remainingSeconds: null, overdueMinutes: 0, isOverdue: false };
-    const base = { prep, serverNow: '2026-10-19T10:00:00Z' };
-    expect(prepHint({ ...base, stage: 'PREPARING' }, 0, 0)).toBe('~10 daqiqa qoldi');
-    expect(prepHint({ ...base, stage: 'PREPARING' }, 11 * 60_000, 0)).toBe('Tez orada tayyor bo‘ladi');
-    expect(prepHint({ ...base, stage: 'PAYMENT_PENDING' }, 0, 0)).toBeNull();
-    expect(prepHint({ stage: 'PREPARING' }, 0, 0)).toBeNull();   // old backend without prep data
   });
 });
 
