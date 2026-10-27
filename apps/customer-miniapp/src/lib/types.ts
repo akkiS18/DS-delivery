@@ -16,7 +16,7 @@ export interface Restaurant {
   rating?: { avg: number; count: number } | null;
 }
 
-export interface Category { id: string; name: string }
+export interface Category { id: string; name: string; imageUrl?: string | null }
 
 export interface Product {
   id: string;
@@ -116,6 +116,8 @@ export interface OrderView {
   stage: CustomerStage;
   createdAt: string;
   restaurantName: string;
+  /** The restaurant's phone, for "contact the restaurant" notes (null/absent on an older backend or when not set). */
+  restaurantPhone?: string | null;
   items: Array<{ name: string; unitSom: number; quantity: number; subtotalSom: number }>;
   foodTotalSom: number;
   delivery: { feeSom: null; note: 'TAXI_TARIFF' };

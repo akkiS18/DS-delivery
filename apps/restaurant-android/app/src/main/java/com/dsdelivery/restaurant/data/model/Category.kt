@@ -5,5 +5,7 @@ data class Category(
     val name: String,
     val position: Int,
     val version: Int = 1,
-    val productCount: Int = 0
+    val productCount: Int = 0,
+    /** The category photo as a full address (null = none). */
+    val imageUrl: String? = null
 )

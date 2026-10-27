@@ -93,6 +93,18 @@ h1, h2, h3, p { margin: 0; }
 .chip { flex: none; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; font-weight: 600; }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
 
+/* The menu opens on the categories: big photo cards, two per row, the name over the bottom of the photo. */
+.cat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cat-card { position: relative; display: block; padding: 0; border: 0; border-radius: var(--radius); overflow: hidden; aspect-ratio: 1 / 1; background: var(--mint-soft); text-align: left; cursor: pointer; min-height: 120px; }
+.cat-card .rphoto-img, .cat-card .rphoto-empty { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.cat-card .rphoto-empty { font-size: 40px; }
+.cat-card:active { transform: scale(0.98); }
+.cat-label { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 2px; padding: 26px 12px 10px; color: #fff; background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0)); }
+.cat-name { font-weight: 800; font-size: 16px; line-height: 1.2; overflow-wrap: anywhere; }
+.cat-count { font-size: 12px; opacity: 0.9; }
+.cat-head { gap: 10px; align-items: center; }
+.cat-head .chip { display: inline-flex; align-items: center; gap: 2px; padding-left: 10px; }
+
 .product { display: flex; gap: 12px; }
 .product .img { width: 84px; height: 84px; border-radius: 14px; background: var(--mint-soft); object-fit: cover; flex: none; display: flex; align-items: center; justify-content: center; color: var(--primary); }
 .product .desc { color: var(--ink-soft); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

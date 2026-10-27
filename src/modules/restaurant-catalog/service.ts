@@ -44,8 +44,9 @@ const productView = (p: Product, imageVersion: number | null = null) => ({
   categoryId: p.categoryId, imageUrl: imageVersion === null ? p.imageUrl : `/api/v1/miniapp/products/${p.id}/image?v=${imageVersion}`, archivedAt: p.archivedAt?.toISOString() ?? null,
   version: p.version, createdAt: p.createdAt.toISOString(), updatedAt: p.updatedAt.toISOString(),
 });
-const categoryView = (c: Category, productCount?: number) => ({
+const categoryView = (c: Category, productCount?: number, imageVersion: number | null = null) => ({
   id: c.id, name: c.name, position: c.position, version: c.version, ...(productCount !== undefined ? { productCount } : {}),
+  imageUrl: imageVersion === null ? null : `/api/v1/miniapp/categories/${c.id}/image?v=${imageVersion}`,
 });
 const snap = (p: Product) => ({ name: p.name, description: p.description, priceSom: p.priceSom, categoryId: p.categoryId,
   isAvailable: p.isAvailable, archivedAt: p.archivedAt, version: p.version });
@@ -159,11 +160,11 @@ export async function archiveProduct(restaurantId: string, sessionId: string, pr
 // ---- categories ----
 export async function listCategories(restaurantId: string) {
   const [cats, counts] = await Promise.all([
-    db.category.findMany({ where: { restaurantId }, orderBy: [{ position: 'asc' }, { name: 'asc' }, { id: 'asc' }], take: 500 }),
+    db.category.findMany({ where: { restaurantId }, orderBy: [{ position: 'asc' }, { name: 'asc' }, { id: 'asc' }], take: 500, include: { image: { select: { version: true } } } }),
     db.product.groupBy({ by: ['categoryId'], where: { restaurantId, archivedAt: null }, _count: { _all: true } }),
   ]);
   const n = new Map(counts.map(c => [c.categoryId, c._count._all]));
-  return cats.map(c => categoryView(c, n.get(c.id) ?? 0));
+  return cats.map(c => categoryView(c, n.get(c.id) ?? 0, c.image?.version ?? null));
 }
 
 export async function createCategory(restaurantId: string, sessionId: string, input: z.infer<typeof categoryCreateSchema>) {
@@ -184,7 +185,7 @@ export async function updateCategory(restaurantId: string, sessionId: string, ca
       name: input.name, position: input.position, version: { increment: 1 } } });
     await event(tx, restaurantId, sessionId, 'CATEGORY', categoryId, 'CATEGORY_UPDATED',
       { name: before.name, position: before.position }, { name: after.name, position: after.position });
-    return categoryView(after);
+    return categoryView(after, undefined, (await tx.categoryImage.findUnique({ where: { categoryId }, select: { version: true } }))?.version ?? null);
   }));
 }
 

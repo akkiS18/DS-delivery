@@ -12,7 +12,10 @@ data class CategoryDto(
     @SerializedName("version")
     val version: Int = 1,
     @SerializedName("productCount")
-    val productCount: Int? = null
+    val productCount: Int? = null,
+    /** Relative URL of the category photo (null = none). */
+    @SerializedName("imageUrl")
+    val imageUrl: String? = null
 )
 
 data class CategoriesResponseDto(

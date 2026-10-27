@@ -12,6 +12,12 @@ import { Capacitor } from '@capacitor/core';
 
 export const isAndroidApp: boolean = (typeof __DS_TARGET__ !== 'undefined' && __DS_TARGET__ === 'android') && Capacitor.isNativePlatform();
 
+/** A picture URL from the API. The restaurant's own uploads are relative (/api/v1/miniapp/...): in the APK they must go to the server, not to the app's local origin. */
+export function mediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith('/') ? `${apiOrigin()}${url}` : url;
+}
+
 /** Absolute API origin for the APK (set at build time, no trailing slash). The web build keeps same-origin relative URLs. */
 export function apiOrigin(): string {
   if (!isAndroidApp) return '';

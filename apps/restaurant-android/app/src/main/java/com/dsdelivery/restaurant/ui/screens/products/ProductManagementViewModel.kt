@@ -229,6 +229,33 @@ class ProductManagementViewModel(
         }
     }
 
+    /** A photo for a category (the customer menu opens on a grid of categories). The app has already shrunk it. */
+    fun setCategoryPhoto(id: String, jpeg: ByteArray) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isActionLoading = true, categoryErrorMessage = null) }
+            when (val result = repository.uploadCategoryImage(id, jpeg)) {
+                is Resource.Success -> { _uiState.update { it.copy(isActionLoading = false) }; refreshCategories() }
+                is Resource.Error -> _uiState.update { it.copy(isActionLoading = false, categoryErrorMessage = result.message) }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun removeCategoryPhoto(id: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isActionLoading = true, categoryErrorMessage = null) }
+            when (val result = repository.deleteCategoryImage(id)) {
+                is Resource.Success -> { _uiState.update { it.copy(isActionLoading = false) }; refreshCategories() }
+                is Resource.Error -> _uiState.update { it.copy(isActionLoading = false, categoryErrorMessage = result.message) }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    fun categoryPhotoProblem(message: String) {
+        _uiState.update { it.copy(categoryErrorMessage = message) }
+    }
+
     private suspend fun refreshCategories() {
         when (val result = repository.getCategories()) {
             is Resource.Success -> {

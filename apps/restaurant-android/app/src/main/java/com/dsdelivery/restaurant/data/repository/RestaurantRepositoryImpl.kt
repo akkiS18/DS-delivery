@@ -267,6 +267,27 @@ class RestaurantRepositoryImpl(
         }
     }
 
+    override suspend fun uploadCategoryImage(categoryId: String, jpeg: ByteArray): Resource<String> {
+        return try {
+            Resource.Success(apiClient.service.uploadCategoryImage(categoryId, jpeg.toRequestBody("image/jpeg".toMediaType())).imageUrl)
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
+    override suspend fun deleteCategoryImage(categoryId: String): Resource<Unit> {
+        return try {
+            apiClient.service.deleteCategoryImage(categoryId)
+            Resource.Success(Unit)
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
     override fun absoluteUrl(path: String?): String? = apiClient.absoluteUrl(path)
 
     override suspend fun createProduct(
@@ -398,7 +419,8 @@ class RestaurantRepositoryImpl(
                     name = dto.name,
                     position = dto.position,
                     version = dto.version,
-                    productCount = dto.productCount ?: 0
+                    productCount = dto.productCount ?: 0,
+                    imageUrl = apiClient.absoluteUrl(dto.imageUrl)
                 )
             }
             Resource.Success(list)

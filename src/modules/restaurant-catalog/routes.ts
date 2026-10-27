@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
 import { RECEIPT_TYPES } from '../refunds/receipts.js';
-import { PRODUCT_IMAGE_MAX_BYTES, deleteProductImage, setProductImage } from './images.js';
+import { PRODUCT_IMAGE_MAX_BYTES, deleteCategoryImage, deleteProductImage, setCategoryImage, setProductImage } from './images.js';
 import {
   archiveProduct, availabilitySchema, categoryCreateSchema, categoryUpdateSchema, createCategory, createProduct,
   deleteCategory, idSchema, listCategories, listProducts, productCreateSchema, productUpdateSchema, setAvailability,
@@ -64,6 +64,21 @@ export async function restaurantCatalogRoutes(app: FastifyInstance): Promise<voi
   });
 
   // ---- categories ----
+  // The category photo: same raw-body rules as the dish photo (the content-type parser above covers this route too).
+  app.put<IdParams>('/categories/:id/image', {
+    bodyLimit: PRODUCT_IMAGE_MAX_BYTES,
+    onRequest: async request => { await requireRestaurantSession(request); },
+  }, async request => {
+    const s = await requireRestaurantSession(request);
+    return setCategoryImage(s.restaurant.id, s.sessionId, idSchema.parse(request.params.id), request.body as Buffer);
+  });
+
+  app.delete<IdParams>('/categories/:id/image', async (request, reply) => {
+    const s = await requireRestaurantSession(request);
+    await deleteCategoryImage(s.restaurant.id, s.sessionId, idSchema.parse(request.params.id));
+    return reply.code(204).send();
+  });
+
   app.get('/categories', async request => {
     const s = await requireRestaurantSession(request);
     return { categories: await listCategories(s.restaurant.id) };

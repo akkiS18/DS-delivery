@@ -56,6 +56,9 @@ interface RestaurantRepository {
     suspend fun createCategory(name: String, position: Int? = null): Resource<Category>
     suspend fun updateCategory(id: String, name: String, position: Int, version: Int): Resource<Category>
     suspend fun deleteCategory(id: String, reassignTo: String? = null): Resource<Unit>
+    /** Category photo: [jpeg] is already shrunk. Returns the new (relative) image URL. */
+    suspend fun uploadCategoryImage(categoryId: String, jpeg: ByteArray): Resource<String>
+    suspend fun deleteCategoryImage(categoryId: String): Resource<Unit>
 
     // --- Stage 4: Orders & Order Details ---
     /** [filter] is one of all|incoming|inProgress|ready|history; [cursor] is the previous page's nextCursor. */

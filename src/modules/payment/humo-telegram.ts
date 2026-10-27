@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import type { PaymentEngineV3, MatchResult } from './engine.js';
-import { parseHumoMessage } from './humo.js';
+import { isKnownHumoTitle, looksLikeHumoCredit, parseHumoMessage } from './humo.js';
 import { isFreshIncoming } from './gmail-health.js';
 
 /**
@@ -21,7 +21,11 @@ import { isFreshIncoming } from './gmail-health.js';
 export type HumoAlert =
   | { type: 'DOWN'; failure: 'auth' | 'bot' | 'network' | 'config' }
   | { type: 'RECOVERED' }
-  | { type: 'REVIEW'; reason: string; amountTiyin: bigint; cardLast4: string };
+  | { type: 'REVIEW'; reason: string; amountTiyin: bigint; cardLast4: string }
+  /** A credit under a heading we have not seen before (the sign says credit, so it was accepted like any other); the admin is only told. */
+  | { type: 'NOTICE'; title: string; amountTiyin: bigint; cardLast4: string; matched: boolean }
+  /** A message with a plus sign that could not be read at all (unknown shape): nothing was credited; a person should look. */
+  | { type: 'UNREADABLE' };
 export type HumoHooks = {
   onAlert?: (alert: HumoAlert) => void | Promise<void>;
   /** A credit just matched an open payment: the host runs the automatic confirmation right away instead of waiting for its next sweep. */
@@ -73,7 +77,7 @@ export async function humoSettings(): Promise<HumoSettings> {
 /** Pure part of message handling (also what the tests drive): one message from the verified bot -> engine result, or null when not a credit. */
 export async function ingestHumoMessage(
   engine: PaymentEngineV3, botId: string, message: TgMessage, nowMs = Date.now(), lookbackMs = 1_800_000,
-): Promise<{ result: MatchResult; cardLast4: string; amountTiyin: bigint } | null> {
+): Promise<{ result: MatchResult; cardLast4: string; amountTiyin: bigint; title: string } | null> {
   // Authority check first, before the text is read: only the verified bot account, never our own outgoing messages.
   if (message.out || message.senderId?.toString() !== botId) return null;
   const messageMs = message.date * 1000;
@@ -84,7 +88,16 @@ export async function ingestHumoMessage(
     cardLast4: parsed.cardLast4, amountTiyin: parsed.amountTiyin, occurredAt: parsed.occurredAt, minutePrecision: true,
     messageDate: new Date(messageMs), trustedSender: true,
   });
-  return { result, cardLast4: parsed.cardLast4, amountTiyin: parsed.amountTiyin };
+  return { result, cardLast4: parsed.cardLast4, amountTiyin: parsed.amountTiyin, title: parsed.title };
+}
+
+/** Pure: is this a message of the verified bot that looks like a credit but could not be read? (Same authority and freshness rules as ingestHumoMessage.) */
+export function isUnreadableHumoCredit(botId: string, message: TgMessage, nowMs: number, lookbackMs: number): boolean {
+  if (message.out || message.senderId?.toString() !== botId) return false;
+  const messageMs = message.date * 1000;
+  if (!Number.isFinite(messageMs) || nowMs - messageMs > lookbackMs) return false;
+  const text = message.message ?? '';
+  return looksLikeHumoCredit(text) && parseHumoMessage(text) === null;
 }
 
 export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHooks = {}): Promise<() => void> {
@@ -129,9 +142,20 @@ export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHook
   const botId = botEntity.id.toString();
   const lookbackMs = settings.lookbackSeconds * 1000;
 
+  // Unreadable credits are not stored anywhere, so the live handler and the poll would both see them again: tell the admin once per message.
+  const toldUnreadable = new Set<number>();
   const handle = async (message: TgMessage): Promise<void> => {
     try {
       const r = await ingestHumoMessage(engine, botId, message, Date.now(), lookbackMs);
+      if (!r && !toldUnreadable.has(message.id) && isUnreadableHumoCredit(botId, message, Date.now(), lookbackMs)) {
+        toldUnreadable.add(message.id);
+        if (toldUnreadable.size > 500) toldUnreadable.delete(toldUnreadable.values().next().value as number);
+        void alert({ type: 'UNREADABLE' });
+      }
+      // A different heading is fine (the sign decides): just let the admin know it was taken, once (a repeat of the same message is a DUPLICATE).
+      if (r && r.result.status !== 'DUPLICATE' && !isKnownHumoTitle(r.title) && isFreshIncoming(message.date * 1000, Date.now())) {
+        void alert({ type: 'NOTICE', title: r.title, amountTiyin: r.amountTiyin, cardLast4: r.cardLast4, matched: r.result.status === 'MATCHED_UNVERIFIED' });
+      }
       if (r?.result.status === 'MATCHED_UNVERIFIED') { try { await hooks.onMatched?.(); } catch (err) { console.error(`[HUMO] onMatched: ${err instanceof Error ? err.message.slice(0, 120) : 'error'}`); } }
       if (r && r.result.status === 'REVIEW_REQUIRED' && isFreshIncoming(message.date * 1000, Date.now())) {
         void alert({ type: 'REVIEW', reason: r.result.reason ?? 'UNKNOWN', amountTiyin: r.amountTiyin, cardLast4: r.cardLast4 });

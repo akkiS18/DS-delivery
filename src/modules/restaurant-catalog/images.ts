@@ -45,6 +45,37 @@ export async function deleteProductImage(restaurantId: string, sessionId: string
   });
 }
 
+export const categoryImageUrl = (categoryId: string, version: number): string => `/api/v1/miniapp/categories/${categoryId}/image?v=${version}`;
+
+/** Stores (or replaces) the photo of one of THIS restaurant's categories. Same rules as a dish photo (type from the bytes, 1 KB..4 MB). */
+export async function setCategoryImage(restaurantId: string, sessionId: string, categoryId: string, bytes: Buffer): Promise<{ version: number; imageUrl: string }> {
+  const { mime, sha256 } = validateProductImage(bytes);
+  return db.$transaction(async tx => {
+    const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Category" WHERE "id" = ${categoryId} AND "restaurantId" = ${restaurantId} FOR UPDATE`;
+    if (!rows.length) throw new CatalogError(404, 'NOT_FOUND');
+    const existing = await tx.categoryImage.findUnique({ where: { categoryId }, select: { version: true } });
+    const version = (existing?.version ?? 0) + 1;
+    const data = Uint8Array.from(bytes);
+    await tx.categoryImage.upsert({ where: { categoryId }, create: { categoryId, mime, data, sha256, version }, update: { mime, data, sha256, version } });
+    await tx.catalogEvent.create({ data: { restaurantId, entity: 'CATEGORY', entityId: categoryId, action: 'CATEGORY_IMAGE_SET', actorSessionId: sessionId, after: { bytes: bytes.length, version } } });
+    return { version, imageUrl: categoryImageUrl(categoryId, version) };
+  });
+}
+
+/** Removes the photo. Idempotent; a foreign category is the same 204 and writes nothing. */
+export async function deleteCategoryImage(restaurantId: string, sessionId: string, categoryId: string): Promise<void> {
+  await db.$transaction(async tx => {
+    const removed = await tx.categoryImage.deleteMany({ where: { categoryId, category: { restaurantId } } });
+    if (removed.count > 0) await tx.catalogEvent.create({ data: { restaurantId, entity: 'CATEGORY', entityId: categoryId, action: 'CATEGORY_IMAGE_REMOVED', actorSessionId: sessionId } });
+  });
+}
+
+/** For the public image URL: only a category of an active restaurant. */
+export async function readCategoryImage(categoryId: string): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
+  const row = await db.categoryImage.findFirst({ where: { categoryId, category: { restaurant: { isActive: true } } }, select: { mime: true, data: true, sha256: true } });
+  return row ? { mime: row.mime, data: Buffer.from(row.data), sha256: row.sha256 } : null;
+}
+
 /** For the public image URL: only an active restaurant's live (not archived) dish. */
 export async function readProductImage(productId: string): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
   const row = await db.productImage.findFirst({ where: { productId, product: { archivedAt: null, restaurant: { isActive: true } } }, select: { mime: true, data: true, sha256: true } });

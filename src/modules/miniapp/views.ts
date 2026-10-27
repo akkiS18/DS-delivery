@@ -47,7 +47,7 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   });
   if (!r) return null;
   const [categories, products] = await Promise.all([
-    db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true } }),
+    db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true, image: { select: { version: true } } } }),
     db.product.findMany({
       where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ name: 'asc' }],
       select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true, image: { select: { version: true } } },
@@ -57,7 +57,8 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const isOpen = !r.isPaused && hours.open;
   return {
     restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null },
-    categories, products: products.map(({ image, ...p }) => (image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p)),
+    categories: categories.map(({ image, ...c }) => ({ ...c, imageUrl: image ? `/api/v1/miniapp/categories/${c.id}/image?v=${image.version}` : null })),
+    products: products.map(({ image, ...p }) => (image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p)),
     // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
     // `priceSom` stays the restaurant's own menu price.
     pricing: publicPricing(await loadFeeConfig()),
@@ -100,7 +101,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 }
 
 const orderInclude = {
-  restaurant: { select: { name: true, defaultPrepMinutes: true } },
+  restaurant: { select: { name: true, defaultPrepMinutes: true, pickupPhone: true } },
   taxiCompany: { select: { name: true } },
   items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
@@ -167,6 +168,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     id: o.id, code: o.code, status: o.status, stage,
     createdAt: o.createdAt.toISOString(),
     restaurantName: o.restaurant.name,
+    /** The restaurant's own number, shown where the customer must contact it (a payment that cannot be matched automatically). */
+    restaurantPhone: o.restaurant.pickupPhone ?? null,
     items: o.items,
     // Food and delivery are separate. Delivery is priced by the taxi service; the platform never states an amount.
     foodTotalSom: o.totalSom,

@@ -196,7 +196,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
               ? <div className="banner bad" role="alert"><strong>To‘lov qabul qiluvchi hozircha sozlanmagan.</strong><br />Hozir pul o‘tkazmang. Restoran bilan bog‘laning yoki keyinroq qaytib keling.</div>
               : (
                 <div className="stack">
-                  <PayWarning amountSom={pay.amountSom} windowMinutes={windowMinutes(ins.windowSeconds)} remaining={payLeft} total={ins.windowSeconds ?? null} />
+                  <PayWarning amountSom={pay.amountSom} windowMinutes={windowMinutes(ins.windowSeconds)} remaining={payLeft} total={ins.windowSeconds ?? null} contactPhone={o.restaurantPhone} />
                   <PayCard number={ins.cardNumber} holder={ins.cardHolder ?? o.restaurantName} onCopy={d => void copy(d)} />
                 </div>
               )

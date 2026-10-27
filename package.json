@@ -58,6 +58,7 @@
     "test:setup": "node --env-file=.env --import tsx src/tools/setup-local-test.ts",
     "test:telegram:db": "node --env-file=.env --import tsx --test src/tests/telegram.integration.db.test.ts",
     "humo:login": "node --env-file=.env --import tsx src/tools/humo-login.ts",
+    "test:catimg:db": "node --env-file=.env --import tsx --test src/tests/category-image.db.test.ts",
     "test:humo:db": "node --env-file=.env --import tsx --test src/tests/humo.db.test.ts",
     "test:self:db": "node --env-file=.env --import tsx --test src/tests/self-delivery.db.test.ts",
     "miniapp:dev-initdata": "node --env-file=.env --import tsx src/tools/miniapp-dev-initdata.ts",

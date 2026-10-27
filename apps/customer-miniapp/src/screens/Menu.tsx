@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Star, UtensilsCrossed } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
+import { ChevronLeft, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
@@ -7,21 +7,41 @@ import { api } from '../lib/api';
 import { cartBase, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
 import { opensText } from '../lib/format';
+import { mediaUrl } from '../lib/platform';
 import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
 import { confirmDialog } from '../lib/telegram';
 import type { Product } from '../lib/types';
 import { useApp, useLoad } from '../state';
 
-export function Menu({ id }: { id: string; go?: (r: Route) => void }) {
+/** The group of dishes that has no category (shown as its own card in the grid). */
+export const OTHER_CATEGORY = 'other';
+
+export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route) => void }) {
   const { cart, dispatch, toast } = useApp();
   const { data, error, loading, reload } = useLoad(signal => api.menu(id, signal), [id]);
-  const [category, setCategory] = useState<string | 'all'>('all');
 
   // The fee model is part of the menu: keep the cart pricing in step with what the server uses now.
   useEffect(() => { if (data?.pricing) dispatch({ type: 'pricing', pricing: data.pricing }); }, [data?.pricing, dispatch]);
 
-  const visible = useMemo(() => (data?.products ?? []).filter(p => category === 'all' || p.categoryId === category), [data, category]);
+  // The menu opens on the categories (a grid with the restaurant's photos); a tap opens that category's dishes. The category is part of the route, so
+  // the back button returns to the grid. Without categories (or with a single group) the dishes are shown directly.
+  const groups = useMemo(() => {
+    const products = data?.products ?? [];
+    const named = (data?.categories ?? []).map(c => ({ id: c.id, name: c.name, imageUrl: c.imageUrl ?? null, count: products.filter(p => p.categoryId === c.id).length })).filter(g => g.count > 0);
+    const known = new Set((data?.categories ?? []).map(c => c.id));
+    const loose = products.filter(p => !p.categoryId || !known.has(p.categoryId)).length;
+    return loose > 0 ? [...named, { id: OTHER_CATEGORY, name: named.length ? 'Boshqa taomlar' : 'Taomlar', imageUrl: null, count: loose }] : named;
+  }, [data]);
+  const showGrid = groups.length > 1;
+  const active = showGrid ? groups.find(g => g.id === cat) ?? null : null;
+  const visible = useMemo(() => {
+    const products = data?.products ?? [];
+    if (!showGrid) return products;
+    if (!active) return [];
+    const known = new Set((data?.categories ?? []).map(c => c.id));
+    return active.id === OTHER_CATEGORY ? products.filter(p => !p.categoryId || !known.has(p.categoryId)) : products.filter(p => p.categoryId === active.id);
+  }, [data, showGrid, active]);
 
   if (loading && !data) return <div className="page"><Skeletons n={5} /></div>;
   if (error || !data) return <div className="page"><ErrorBox error={error} onRetry={reload} /></div>;
@@ -52,13 +72,23 @@ export function Menu({ id }: { id: string; go?: (r: Route) => void }) {
       {!r.isOpen && (
         <div className="banner warn">{r.closedReason === 'HOURS' ? `Hozir yopiq. ${opensText(r.opensNext)}.` : 'Restoran vaqtincha buyurtma qabul qilmayapti.'} Menyuni ko‘rishingiz mumkin.</div>
       )}
-      {data.categories.length > 0 && (
-        <div className="chips" role="tablist" aria-label="Toifalar">
-          <button className={`chip ${category === 'all' ? 'on' : ''}`} onClick={() => setCategory('all')}>Hammasi</button>
-          {data.categories.map(c => <button key={c.id} className={`chip ${category === c.id ? 'on' : ''}`} onClick={() => setCategory(c.id)}>{c.name}</button>)}
+      {showGrid && !active && (
+        <div className="cat-grid" role="list" aria-label="Toifalar">
+          {groups.map(g => (
+            <button key={g.id} role="listitem" className="cat-card" onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
+              <RestaurantPhoto name={g.name} url={g.imageUrl} />
+              <span className="cat-label"><span className="cat-name">{g.name}</span><span className="cat-count">{g.count} ta taom</span></span>
+            </button>
+          ))}
         </div>
       )}
-      {visible.length === 0 && <Empty icon={<Icon as={UtensilsCrossed} size={44} />} title="Bu toifada mahsulot yo‘q" />}
+      {showGrid && active && (
+        <div className="row cat-head">
+          <button className="chip" onClick={() => go?.({ name: 'menu', id })}><Icon as={ChevronLeft} size={18} /> Toifalar</button>
+          <h2 className="grow" style={{ fontSize: 18 }}>{active.name}</h2>
+        </div>
+      )}
+      {(!showGrid || active) && visible.length === 0 && <Empty icon={<Icon as={UtensilsCrossed} size={44} />} title="Bu toifada mahsulot yo‘q" />}
       {visible.map(p => {
         const q = inThisCart ? qtyOf(cart, p.id) : 0;
         const orderable = r.isOpen && p.isAvailable;
@@ -68,7 +98,7 @@ export function Menu({ id }: { id: string; go?: (r: Route) => void }) {
         return (
           <div key={p.id} className={`card product ${p.isAvailable ? '' : 'muted'}`}>
             {p.imageUrl
-              ? <img className="img" src={p.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              ? <img className="img" src={mediaUrl(p.imageUrl) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               : <div className="img" aria-hidden><Icon as={UtensilsCrossed} size={30} /></div>}
             <div className="grow stack" style={{ gap: 4 }}>
               <div className="bold">{p.name}</div>

@@ -46,6 +46,7 @@ model Category {
   position     Int        @default(0)
   version      Int        @default(0)
   products     Product[]
+  image        CategoryImage?
 
   @@index([restaurantId, position])
 }
@@ -907,6 +908,17 @@ model ProductImage {
   sha256    String
   version   Int      @default(1)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+/// A category photo set by the restaurant from its app; the customer menu opens on a grid of categories.
+model CategoryImage {
+  categoryId String   @id
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  mime       String
+  data       Bytes
+  sha256     String
+  version    Int      @default(1)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
 }
 
 model RestaurantImage {

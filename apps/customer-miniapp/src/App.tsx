@@ -61,7 +61,7 @@ export function App() {
 function screen(route: Route, go: (r: Route, o?: { replace?: boolean }) => void) {
   switch (route.name) {
     case 'home': return <Home go={go} />;
-    case 'menu': return <Menu id={route.id} go={go} />;
+    case 'menu': return <Menu id={route.id} {...(route.cat ? { cat: route.cat } : {})} go={go} />;
     case 'cart': return <Cart go={go} />;
     case 'checkout': return <Checkout go={go} />;
     case 'order': return <OrderScreen id={route.id} go={go} />;

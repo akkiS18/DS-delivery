@@ -83,6 +83,14 @@ describe('router', () => {
     expect(parentOf({ name: 'checkout' })).toEqual({ name: 'cart' });
     expect(parentOf({ name: 'order', id: 'x' })).toEqual({ name: 'orders' });
   });
+  it('a menu category is part of the route, and back from it returns to the category grid', () => {
+    const r = { name: 'menu', id: 'r1', cat: 'c_9' } as const;
+    expect(parseRoute(routeToHash(r))).toEqual(r);
+    expect(parentOf(r)).toEqual({ name: 'menu', id: 'r1' });
+    expect(parentOf({ name: 'menu', id: 'r1' })).toEqual({ name: 'home' });
+    expect(parseRoute('#/menu/r1/<x>')).toEqual({ name: 'home' });
+    expect(parseRoute('#/menu/r1/a/b')).toEqual({ name: 'home' });
+  });
 });
 
 describe('order clock and timeline', () => {

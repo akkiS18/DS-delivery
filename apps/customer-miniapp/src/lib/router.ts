@@ -1,6 +1,6 @@
 export type Route =
   | { name: 'home' }
-  | { name: 'menu'; id: string }
+  | { name: 'menu'; id: string; cat?: string }
   | { name: 'cart' }
   | { name: 'checkout' }
   | { name: 'order'; id: string }
@@ -18,6 +18,7 @@ export function parseRoute(hash: string): Route {
   const [a, b] = parts;
   if (parts.length === 0) return { name: 'home' };
   if (a === 'menu' && b && ID.test(b) && parts.length === 2) return { name: 'menu', id: b };
+  if (a === 'menu' && b && ID.test(b) && parts.length === 3 && parts[2] && ID.test(parts[2])) return { name: 'menu', id: b, cat: parts[2] };
   if (a === 'order' && b && ID.test(b) && parts.length === 2) return { name: 'order', id: b };
   if (a === 'support' && b === 'new' && parts[2] && ID.test(parts[2]) && parts.length === 3) return { name: 'supportNew', orderId: parts[2] };
   if (a === 'support' && b && b !== 'new' && ID.test(b) && parts.length === 2) return { name: 'ticket', id: b };
@@ -34,7 +35,7 @@ export function parseRoute(hash: string): Route {
 export function routeToHash(r: Route): string {
   switch (r.name) {
     case 'home': return '#/';
-    case 'menu': return `#/menu/${r.id}`;
+    case 'menu': return r.cat ? `#/menu/${r.id}/${r.cat}` : `#/menu/${r.id}`;
     case 'order': return `#/order/${r.id}`;
     case 'cart': return '#/cart';
     case 'checkout': return '#/checkout';
@@ -50,7 +51,7 @@ export function routeToHash(r: Route): string {
 export function parentOf(r: Route): Route | null {
   switch (r.name) {
     case 'home': return null;
-    case 'menu': return { name: 'home' };
+    case 'menu': return r.cat ? { name: 'menu', id: r.id } : { name: 'home' };
     case 'cart': return { name: 'home' };
     case 'checkout': return { name: 'cart' };
     case 'order': return { name: 'orders' };

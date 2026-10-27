@@ -16,7 +16,7 @@ import { addAppCustomerMessage } from '../support/conversation.js';
 import { createAppTicket } from '../support/service.js';
 import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
 import { readRestaurantImage } from '../restaurant/image.js';
-import { readProductImage } from '../restaurant-catalog/images.js';
+import { readCategoryImage, readProductImage } from '../restaurant-catalog/images.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
 import { createGuest, guestAuthEnabled, guestTokenFromHeader, installationIdSchemaRe, resolveGuestSession, revokeSession } from './guest.js';
 import { cancelLink, completeLink, createLinkAttempt, LinkError, linkStatus } from './telegram-link.js';
@@ -228,6 +228,14 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   // A dish photo. Public for the same reason as the restaurant's: an <img> cannot send the auth header, and the URL carries ?v=<version>.
   app.get<{ Params: { id: string } }>('/products/:id/image', { config: { public: true } }, async (request, reply) => {
     const img = await readProductImage(idParam.parse(request.params.id));
+    if (!img) throw httpError(404, 'NOT_FOUND');
+    if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
+    return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)
+      .header('Cache-Control', 'public, max-age=2592000, immutable').send(img.data);
+  });
+  // A category photo (the customer menu opens on a grid of categories). Public for the same reason as the dish photo.
+  app.get<{ Params: { id: string } }>('/categories/:id/image', { config: { public: true } }, async (request, reply) => {
+    const img = await readCategoryImage(idParam.parse(request.params.id));
     if (!img) throw httpError(404, 'NOT_FOUND');
     if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
     return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)

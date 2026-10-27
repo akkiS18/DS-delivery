@@ -1,5 +1,20 @@
 package com.dsdelivery.restaurant.ui.components
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import com.dsdelivery.restaurant.ui.screens.orders.detail.ReceiptImage
+import coil.request.ImageRequest
+import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
+import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -61,9 +76,25 @@ fun CategoryManagementDialog(
     onAddCategory: (name: String, position: Int?) -> Unit,
     onEditCategory: (id: String, name: String, position: Int, version: Int) -> Unit,
     onDeleteCategory: (id: String, reassignTo: String?) -> Unit,
+    onSetPhoto: (id: String, jpeg: ByteArray) -> Unit = { _, _ -> },
+    onRemovePhoto: (id: String) -> Unit = {},
+    onPhotoProblem: (message: String) -> Unit = {},
     isLoading: Boolean = false,
     errorMessage: String? = null
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // The category photo is shown as a card in the customer menu: 1024 px and about 600 KB are plenty (the server accepts up to 4 MB).
+    var photoTargetId by remember { mutableStateOf<String?>(null) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        val target = photoTargetId
+        if (uri != null && target != null) {
+            scope.launch {
+                val bytes = withContext(Dispatchers.IO) { ReceiptImage.compressToJpeg(context, uri, maxSide = 1024, targetBytes = 600 * 1024) }
+                if (bytes == null) onPhotoProblem("Bu fayl rasm emas yoki ochilmadi. Boshqa rasm tanlang.") else onSetPhoto(target, bytes)
+            }
+        }
+    }
     var newCategoryName by remember { mutableStateOf("") }
     var editingCategory by remember { mutableStateOf<Category?>(null) }
     var editName by remember { mutableStateOf("") }
@@ -133,6 +164,15 @@ fun CategoryManagementDialog(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
+                                    if (!cat.imageUrl.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(context).data(cat.imageUrl).crossfade(true).build(),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp))
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = cat.name,
@@ -199,6 +239,35 @@ fun CategoryManagementDialog(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    // The photo is saved at once (it is not part of the name edit).
+                    val photoUrl = categories.firstOrNull { it.id == editingCategory!!.id }?.imageUrl
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (!photoUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(context).data(photoUrl).crossfade(true).build(),
+                                contentDescription = "Toifa rasmi",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp))
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { photoTargetId = editingCategory!!.id; photoPicker.launch("image/*") },
+                            enabled = !isLoading,
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(if (photoUrl.isNullOrBlank()) "Rasm tanlash" else "Almashtirish", fontSize = 13.sp)
+                        }
+                        if (!photoUrl.isNullOrBlank()) {
+                            TextButton(onClick = { onRemovePhoto(editingCategory!!.id) }, enabled = !isLoading) { Text("O‘chirish", fontSize = 13.sp) }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
