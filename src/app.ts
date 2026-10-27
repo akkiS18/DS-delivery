@@ -15,6 +15,7 @@ import { taxiAppRoutes } from './modules/taxi-app/routes.js';
 import { restaurantCatalogRoutes } from './modules/restaurant-catalog/routes.js';
 import { restaurantOrdersRoutes } from './modules/restaurant-orders/routes.js';
 import { restaurantOperationsRoutes } from './modules/restaurant-operations/routes.js';
+import { restaurantReservationRoutes } from './modules/reservations/routes.js';
 import { restaurantCardsRoutes } from './modules/restaurant-cards/routes.js';
 import { legalRoutes } from './modules/legal/routes.js';
 import { restaurantFinanceRoutes } from './modules/restaurant-finance/routes.js';
@@ -62,6 +63,7 @@ export function buildApp(engine: PaymentEngineV3, deps: { pingDatabase?: () => P
   app.register(restaurantFinanceRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantRatingsRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantOperationsRoutes, { prefix: '/api/v1/restaurant' });
+  app.register(restaurantReservationRoutes, { prefix: '/api/v1/restaurant' });
   app.register(restaurantCardsRoutes, { prefix: '/api/v1/restaurant' });
   app.register(legalRoutes);
   app.register(async orders => { await restaurantOrdersRoutes(orders, engine); }, { prefix: '/api/v1/restaurant' });

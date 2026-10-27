@@ -7,6 +7,8 @@ import { restaurantTelegramEnabled } from '../lib/features.js';
 import { isDelivered, notificationKey, sendOnce } from '../lib/notify-once.js';
 import { autoAdvanceMockOrders, autoConfirmRealOrders } from '../modules/restaurant-orders/auto.js';
 import { deliverAutoConfirmRefusals, deliverPaidOrderAlerts } from './restaurant-alert.js';
+import { autoConfirmReservations, expireReservations } from '../modules/reservations/service.js';
+import { deliverReservationNotices } from './reservation-notify.js';
 
 /** At-least-once delivery: Telegram sends can repeat after a process crash.
  *  Buttons are guarded with DB compare-and-swap and therefore safe on retry.
@@ -22,6 +24,9 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
       await autoAdvanceMockOrders(); // MOCK-only: safe test payments move on to cooking by themselves (restart-safe sweep)
       await deliverAutoConfirmRefusals(bot, (await autoConfirmRealOrders()).refused); // Stage 8D: Gmail-matched REAL payments confirm themselves; only refusals reach an admin
       await deliverRefundNotices(bot); // Stage 6A: refund request / decision / sent notices
+      await expireReservations(); // unpaid table reservations whose payment window has passed
+      await autoConfirmReservations(); // a matched deposit books the table (same policy as an order's payment)
+      await deliverReservationNotices(bot); // "money arrived, table booked" to the restaurant's Telegram staff (the app shows it too)
       await deliverPaidOrderAlerts(bot); // Stage 8C: "open the app" alert for the restaurant staff (no push yet)
       const rows = await db.order.findMany({
         where: {

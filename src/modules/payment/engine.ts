@@ -150,6 +150,29 @@ export class PaymentEngineV3 {
     return { order, payment: await this.db.payment.findUniqueOrThrow({ where: { id: payment.id } }) };
   }
 
+  /** Table reservation deposit: the Payment (no order, the restaurant's card) and the Reservation that points at it are created under one DB
+   *  transaction, so a crash can never leave a reservation without its payment or a payment nobody asked for. Allocation, queueing, the one-AWAITING
+   *  per (card, amount) rule and the cooldowns are exactly those of an order payment. */
+  async createReservationCheckout<T extends { id: string }>(
+    input: { restaurantId: string; depositSom: number; isTest: boolean },
+    createReservation: (tx: Prisma.TransactionClient, payment: Payment) => Promise<T>,
+  ): Promise<{ reservation: T; payment: Payment }> {
+    const { reservation, payment, assigned } = await this.locked(async tx => {
+      const now = new Date();
+      await this.expireWithin(tx, now);
+      const amountTiyin = BigInt(input.depositSom) * 100n;
+      allowedMoney(amountTiyin);
+      const payment = await tx.payment.create({ data: { amountTiyin, isTest: input.isTest, status: 'QUEUED', restaurantId: input.restaurantId } });
+      await record(tx, { paymentId: payment.id, action: 'CREATED', toStatus: 'QUEUED', details: { kind: 'RESERVATION_DEPOSIT' } });
+      const reservation = await createReservation(tx, payment);
+      const assigned = await this.assignForAmount(tx, amountTiyin, input.isTest, input.restaurantId, now);
+      return { reservation, payment, assigned };
+    });
+    this.printAssignments(assigned);
+    if (!assigned.some(p => p.id === payment.id)) this.log(`[QUEUE] ${key(payment)} | ${formatSom(payment.amountTiyin)} | bron`);
+    return { reservation, payment: await this.db.payment.findUniqueOrThrow({ where: { id: payment.id } }) };
+  }
+
   /** Cash on delivery: the order and a CASH_PENDING payment are created together. No card is allocated and nothing is matched against bank mail;
    *  the restaurant's acceptance (restaurant/cash.ts) is what makes the order cookable. */
   async createCashCheckout<T extends { id: string; restaurantId: string; totalSom: number }>(

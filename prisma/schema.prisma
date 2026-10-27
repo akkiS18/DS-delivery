@@ -14,6 +14,10 @@ model Restaurant {
   isActive            Boolean               @default(true)
   isPaused            Boolean               @default(false)
   defaultPrepMinutes  Int                   @default(25)
+  /// Table reservations (off until the restaurant switches them on): the deposit is paid to the restaurant's card.
+  reservationsEnabled   Boolean             @default(false)
+  reservationDepositSom Int                 @default(100000)
+  reservations          Reservation[]
   /// IANA zone in which workingHours are evaluated for new checkouts.
   timezone            String                @default("Asia/Tashkent")
   workingHours        Json?
@@ -141,6 +145,7 @@ model Customer {
   mergedInto     Customer?       @relation("CustomerMerge", fields: [mergedIntoId], references: [id])
   mergedFrom     Customer[]      @relation("CustomerMerge")
   orders         Order[]
+  reservations   Reservation[]
   supportTickets SupportTicket[]
   ratings        OrderRating[]
   addresses      CustomerAddress[]
@@ -411,6 +416,7 @@ model Payment {
   expiresAt             DateTime?         @db.Timestamptz(3)
   matchedAt             DateTime?         @db.Timestamptz(3)
   matchedTransactionId  String?           @unique
+  reservation           Reservation?
   events                PaymentEvent[]
   refundRequests        RefundRequest[]
   commissionEntries     CommissionEntry[]
@@ -421,6 +427,40 @@ model Payment {
   @@index([cardId, amountTiyin, assignedAt])
   @@index([isTest, amountTiyin, status])
   @@index([isStress])
+}
+
+/// A table reservation with a deposit paid to the restaurant's card through the normal payment engine (a Payment without an order).
+/// PENDING_PAYMENT -> PAID (money matched and confirmed) | EXPIRED (payment window passed) ; PAID -> CANCELLED (the restaurant, after contacting the customer).
+model Reservation {
+  id                   String     @id @default(cuid())
+  /// Public reference shown to people (internal ids are never shown).
+  code                 String     @unique
+  restaurantId         String
+  restaurant           Restaurant @relation(fields: [restaurantId], references: [id])
+  customerId           String
+  customer             Customer   @relation(fields: [customerId], references: [id])
+  paymentId            String     @unique
+  payment              Payment    @relation(fields: [paymentId], references: [id])
+  checkoutKey          String?    @unique
+  startsAt             DateTime   @db.Timestamptz(3)
+  partySize            Int
+  note                 String?
+  phoneSnapshot        String
+  nameSnapshot         String?
+  depositSom           Int
+  status               String     @default("PENDING_PAYMENT")
+  paidAt               DateTime?  @db.Timestamptz(3)
+  paidBy               String?
+  restaurantNotifiedAt DateTime?  @db.Timestamptz(3)
+  restaurantSeenAt     DateTime?  @db.Timestamptz(3)
+  cancelledAt          DateTime?  @db.Timestamptz(3)
+  cancelReason         String?
+  createdAt            DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime   @updatedAt @db.Timestamptz(3)
+
+  @@index([restaurantId, startsAt])
+  @@index([customerId, createdAt])
+  @@index([status])
 }
 
 model CardCooldown {

@@ -43,7 +43,7 @@ export const restaurantImageUrl = (id: string, version: number | undefined): str
 export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const r = await db.restaurant.findFirst({
     where: { isActive: true, OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } } },
+    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, reservationsEnabled: true, reservationDepositSom: true, image: { select: { version: true } } },
   });
   if (!r) return null;
   const [categories, products] = await Promise.all([
@@ -56,7 +56,9 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const hours = openState(r, now);
   const isOpen = !r.isPaused && hours.open;
   return {
-    restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null },
+    restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null,
+      // Table reservations: present only while the restaurant takes them (the deposit is what the customer pays to the restaurant's card).
+      reservation: r.reservationsEnabled ? { depositSom: r.reservationDepositSom } : null },
     categories: categories.map(({ image, ...c }) => ({ ...c, imageUrl: image ? `/api/v1/miniapp/categories/${c.id}/image?v=${image.version}` : null })),
     products: products.map(({ image, ...p }) => (image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p)),
     // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
@@ -131,6 +133,22 @@ export function customerPrep(o: CustomerOrderRow, now: Date) {
   return { ...clock, minutes: 0, estimatedReadyAt: null, chosenMinutes: 0, remainingSeconds: null, overdueMinutes: 0, isOverdue: false };
 }
 
+/** Where and how much to pay, once a card is allocated (null before that). Shared by orders and table reservations. */
+export function paymentInstructionsOf(pay: { status: string; expiresAt: Date | null; assignedAt: Date | null; card: { last4: string; isTest: boolean; number: string | null; holderName: string | null } | null } | null | undefined): unknown {
+  if (pay?.status !== 'AWAITING' || !pay.card) return null;
+  const requisite = pay.card.isTest ? null : payeeNumber(pay.card);
+  return {
+    cardLast4: pay.card.last4, isTest: pay.card.isTest,
+    // The payee number is the approved Card.number (or the legacy operator configuration); if neither exists the customer is told NOT to pay.
+    cardNumber: requisite, recipientUnavailable: !pay.card.isTest && !requisite,
+    // The name on the card, so the customer can check they are paying the right person (legacy cards have none: the app shows the restaurant name).
+    cardHolder: pay.card.holderName ?? null,
+    expiresAt: pay.expiresAt?.toISOString() ?? null,
+    // The length of the payment window, so the screen can say "within N minutes" (it counts down to expiresAt on the server's clock).
+    windowSeconds: pay.expiresAt && pay.assignedAt ? Math.max(1, Math.round((pay.expiresAt.getTime() - pay.assignedAt.getTime()) / 1000)) : null,
+  };
+}
+
 export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const pay = o.payment;
   const taxi = o.taxiDispatches[0];
@@ -149,20 +167,7 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   // Rating the food: offered on the delivered order's card for 24 h after the delivery (nothing is asked at "Ha, oldim").
   const rate = ratingWindow({ stage, deliveredAt, receivedAt: o.customerReceivedAt, completedAt: o.updatedAt }, now);
 
-  let instructions: unknown = null;
-  if (pay?.status === 'AWAITING' && pay.card) {
-    const requisite = pay.card.isTest ? null : payeeNumber(pay.card);
-    instructions = {
-      cardLast4: pay.card.last4, isTest: pay.card.isTest,
-      // The payee number is the approved Card.number (or the legacy operator configuration); if neither exists the customer is told NOT to pay.
-      cardNumber: requisite, recipientUnavailable: !pay.card.isTest && !requisite,
-      // The name on the card, so the customer can check they are paying the right person (legacy cards have none: the app shows the restaurant name).
-      cardHolder: pay.card.holderName ?? null,
-      expiresAt: pay.expiresAt?.toISOString() ?? null,
-      // The length of the payment window, so the screen can say "within N minutes" (it counts down to expiresAt on the server's clock).
-      windowSeconds: pay.expiresAt && pay.assignedAt ? Math.max(1, Math.round((pay.expiresAt.getTime() - pay.assignedAt.getTime()) / 1000)) : null,
-    };
-  }
+  const instructions = paymentInstructionsOf(pay);
   return {
     serverNow: now.toISOString(),
     id: o.id, code: o.code, status: o.status, stage,

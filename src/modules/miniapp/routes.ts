@@ -17,6 +17,7 @@ import { createAppTicket } from '../support/service.js';
 import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
 import { readRestaurantImage } from '../restaurant/image.js';
 import { readCategoryImage, readProductImage } from '../restaurant-catalog/images.js';
+import { ReservationError, customerReservationView, listCustomerReservations, loadCustomerReservation, placeReservation, reservationSchema } from '../reservations/service.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
 import { createGuest, guestAuthEnabled, guestTokenFromHeader, installationIdSchemaRe, resolveGuestSession, revokeSession } from './guest.js';
 import { cancelLink, completeLink, createLinkAttempt, LinkError, linkStatus } from './telegram-link.js';
@@ -294,6 +295,28 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
       });
     }
     return reply.code(201).send({ order: await ownedView(request, placed.id), replayed: false });
+  });
+
+  // ------------------------------------------------------------------ table reservations (a deposit paid to the restaurant's card)
+  const reservationErrors = (err: unknown): never => {
+    if (err instanceof ReservationError) throw httpError(err.statusCode, err.message);
+    throw err;
+  };
+  app.post('/reservations', async (request, reply) => {
+    strict(request, 'reservation', Number(process.env.MINIAPP_RESERVATION_RATE_PER_MINUTE ?? 6));
+    const body = reservationSchema.parse(request.body);
+    const customer = await customerRow(request);
+    try {
+      const placed = await placeReservation(engine, customer, body, paymentMode());
+      if (body.phone && body.phone !== customer.phone) await setPhone(customer.id, body.phone);
+      return reply.code(placed.replayed ? 200 : 201).send({ reservation: customerReservationView(placed.reservation), replayed: placed.replayed });
+    } catch (err) { return reservationErrors(err); }
+  });
+  app.get('/reservations', async request => ({ reservations: await listCustomerReservations((await customerRow(request)).id) }));
+  app.get<{ Params: { id: string } }>('/reservations/:id', async request => {
+    const row = await loadCustomerReservation((await customerRow(request)).id, idParam.parse(request.params.id));
+    if (!row) throw httpError(404, 'NOT_FOUND'); // another customer's reservation looks exactly like a missing one
+    return { reservation: customerReservationView(row) };
   });
 
   app.get('/orders', async request => ({ orders: await listCustomerOrders(owner(request)) }));
