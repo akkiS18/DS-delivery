@@ -4,7 +4,7 @@ import { notificationKey, sendOnce, type Sender } from '../lib/notify-once.js';
 import { formatSom } from '../modules/payment/uzcard.js';
 import { gmailAutoConfirmEnabled } from '../modules/restaurant/auto-policy.js';
 import { supportAdminIds } from '../modules/support/service.js';
-import type { AutoConfirmRefusal } from '../modules/restaurant-orders/auto.js';
+import { gmailMatchedTransactionIds, type AutoConfirmRefusal } from '../modules/restaurant-orders/auto.js';
 
 /**
  * Stage 8C: the restaurant app only polls while it is on screen and there is no push yet, so a phone with the screen off would miss a
@@ -31,10 +31,13 @@ export async function deliverPaidOrderAlerts(bot: Sender, now = new Date()): Pro
       restaurant: { staffTelegramUserId: { not: null } },
     },
     orderBy: { updatedAt: 'asc' }, take: 100,
-    select: { id: true, code: true, totalSom: true, status: true, paymentIsTest: true, restaurant: { select: { staffTelegramUserId: true } }, payment: { select: { matchedAt: true } } },
+    select: { id: true, code: true, totalSom: true, status: true, paymentIsTest: true, restaurant: { select: { staffTelegramUserId: true } }, payment: { select: { matchedAt: true, matchedTransactionId: true } } },
   });
-  const auto = gmailAutoConfirmEnabled();
+  const autoEnabled = gmailAutoConfirmEnabled();
+  const viaMail = await gmailMatchedTransactionIds(orders.map(o => o.payment?.matchedTransactionId));
   for (const o of orders) {
+    // Only a payment the bank e-mail matched confirms itself; a Humocard Telegram match waits for the restaurant right away.
+    const auto = autoEnabled && !!o.payment?.matchedTransactionId && viaMail.has(o.payment.matchedTransactionId);
     const chatId = o.restaurant.staffTelegramUserId!;
     const unconfirmed = !o.paymentIsTest && o.status === 'PAYMENT_MATCHED_UNVERIFIED';
     // Automatic confirmation takes seconds: do not announce "please confirm" for an order that is about to confirm itself. If it did NOT

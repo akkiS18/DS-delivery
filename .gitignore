@@ -5,6 +5,7 @@ dist/
 !.env.example
 credentials.json
 gmail-token.json
+humo-session.txt
 *.log
 *.zip
 

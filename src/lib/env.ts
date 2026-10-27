@@ -5,6 +5,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   INTERNAL_API_KEY: z.string().min(20, 'INTERNAL_API_KEY kamida 20 ta belgi bo‘lsin'),
   GMAIL_ENABLED: z.enum(['true', 'false']).default('false'),
+  HUMO_TG_ENABLED: z.enum(['true', 'false']).default('false'),
   BOT_ENABLED: z.enum(['true', 'false']).default('false'),
   BOT_TOKEN: z.string().optional(),
 });

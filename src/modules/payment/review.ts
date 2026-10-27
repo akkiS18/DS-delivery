@@ -20,7 +20,7 @@ export interface ReviewItem {
 
 export async function listUnhandledReviews(limit = 10): Promise<ReviewItem[]> {
   const rows = await db.incomingTransaction.findMany({
-    where: { status: 'REVIEW_REQUIRED', handledAt: null, source: 'GMAIL' },
+    where: { status: 'REVIEW_REQUIRED', handledAt: null, source: { in: ['GMAIL', 'HUMO_TG'] } },
     orderBy: [{ receivedAt: 'desc' }, { id: 'desc' }], take: limit,
   });
   const cards = await db.card.findMany({
@@ -34,7 +34,7 @@ export async function listUnhandledReviews(limit = 10): Promise<ReviewItem[]> {
 }
 
 export const countUnhandledReviews = (): Promise<number> =>
-  db.incomingTransaction.count({ where: { status: 'REVIEW_REQUIRED', handledAt: null, source: 'GMAIL' } });
+  db.incomingTransaction.count({ where: { status: 'REVIEW_REQUIRED', handledAt: null, source: { in: ['GMAIL', 'HUMO_TG'] } } });
 
 export type HandleResult = { result: 'HANDLED' } | { result: 'ALREADY_HANDLED' | 'NOT_FOUND' };
 

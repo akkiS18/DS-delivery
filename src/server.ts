@@ -7,6 +7,8 @@ import { createShutdown } from './lib/shutdown.js';
 import { PaymentEngineV3, defaultOptions } from './modules/payment/engine.js';
 import { startGmail } from './modules/payment/gmail.js';
 import { gmailAlertSender } from './bot/gmail-alerts.js';
+import { startHumoTelegram } from './modules/payment/humo-telegram.js';
+import { humoAlertSender } from './bot/humo-alerts.js';
 import { startCardApprovalNotifier } from './bot/card-admin.js';
 import { startReceiptRetention } from './modules/refunds/retention.js';
 import { createClientBot } from './bot/client.js';
@@ -34,6 +36,7 @@ const releaseMs = (name: string): number => {
 const engine = new PaymentEngineV3(db, { ...defaultOptions, ...opts, cancelCooldownMs: releaseMs('CARD_CANCEL_COOLDOWN_SECONDS'), matchCooldownMs: releaseMs('CARD_MATCH_COOLDOWN_SECONDS') });
 const app = buildApp(engine);
 let stopGmail: (() => void) | undefined;
+let stopHumo: (() => void) | undefined;
 let clientBot: ReturnType<typeof createClientBot> | undefined;
 let taxiBot: ReturnType<typeof createTaxiBot> | undefined;
 let stopBotNotifier: (() => void) | undefined;
@@ -85,6 +88,7 @@ const shutdown = createShutdown(() => [
   { name: 'health', run: () => { runtime.phase = 'stopping'; } },
   { name: 'timers', run: () => clearInterval(maintenance) },
   { name: 'gmail', run: () => stopGmail?.() },
+  { name: 'humo-telegram', run: () => stopHumo?.() },
   { name: 'bot-notifier', run: () => stopBotNotifier?.() },
   { name: 'restaurant-notifier', run: () => stopRestaurantNotifier?.() },
   { name: 'taxi-dispatcher', run: () => stopTaxiDispatcher?.() },
@@ -159,6 +163,11 @@ try {
   if (env.GMAIL_ENABLED === 'true') {
     try { stopGmail = await startGmail(engine, { onAlert: gmailAlertSender(clientBot) }); }
     catch (err) { app.log.error({ err }, 'Gmail failed to start. API remains available.'); }
+  }
+  // Humocard bot messages read through one Telegram user account (see humo-telegram.ts). Also only after the polling check above.
+  if (env.HUMO_TG_ENABLED === 'true') {
+    try { stopHumo = await startHumoTelegram(engine, { onAlert: humoAlertSender(clientBot) }); }
+    catch (err) { app.log.error({ err }, 'Humo Telegram reader failed to start. API remains available.'); }
   }
   stopReceiptRetention = startReceiptRetention((line) => app.log.info(line));
   runtime.phase = 'ready';

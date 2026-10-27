@@ -8,7 +8,7 @@ import { formatSom } from './uzcard.js';
 
 export type Incoming = {
   sourceId: string;
-  source: 'MOCK' | 'GMAIL';
+  source: 'MOCK' | 'GMAIL' | 'HUMO_TG';
   cardLast4: string;
   amountTiyin: bigint;
   occurredAt: Date;
@@ -323,7 +323,7 @@ export class PaymentEngineV3 {
           amountTiyin: input.amountTiyin, occurredAt: input.occurredAt,
           emailReceivedAt: input.emailReceivedAt,
           minutePrecision: input.minutePrecision, trustedSender: input.trustedSender,
-          fingerprint: input.source === 'GMAIL' ? incomingFingerprint(input.cardLast4, input.amountTiyin, input.occurredAt) : null,
+          fingerprint: input.source !== 'MOCK' ? incomingFingerprint(input.cardLast4, input.amountTiyin, input.occurredAt) : null,
         },
       });
       // Stage 4A: every doubtful event ends here. Candidate payments get an audit entry but are never changed.
@@ -342,7 +342,7 @@ export class PaymentEngineV3 {
       if (input.occurredAt.getTime() > now.getTime() + 120_000) return reviewed('FUTURE_OPERATION_TIME');
       const card = await tx.card.findUnique({ where: { last4: input.cardLast4 } });
       if (!card) return reviewed('UNKNOWN_CARD');
-      if (card.isTest && input.source === 'GMAIL') return reviewed('GMAIL_FOR_MOCK_CARD');
+      if (card.isTest && input.source !== 'MOCK') return reviewed('GMAIL_FOR_MOCK_CARD'); // any real bank signal (mail or Telegram) for a test card
       if (!card.isTest && input.source === 'MOCK') return reviewed('MOCK_FOR_REAL_CARD');
       if (!input.trustedSender) return reviewed('UNVERIFIED_EMAIL_SENDER');
       // Same bank event under a different Gmail id (forward, resend): keep it, but never match it twice.
@@ -480,6 +480,20 @@ export class PaymentEngineV3 {
       update: { status: result.status, reason: result.reason },
     });
     return result;
+  }
+  /**
+   * A credit read from the Humocard Telegram bot chat. `messageKey` is stable per Telegram message (`<chatId>:<messageId>`), so a restart that
+   * re-reads recent history, or a second listener, can never match the same message twice (IncomingTransaction.sourceId is unique).
+   * `messageDate` is when Telegram delivered it (the analogue of the e-mail date: it feeds the delay and "before the payment existed" checks).
+   * `trustedSender` must be true only when the listener has verified that the message came from the configured Humocard bot account.
+   */
+  async ingestHumo(messageKey: string, incoming: Omit<Incoming, 'sourceId' | 'source' | 'emailReceivedAt'> & { messageDate: Date }): Promise<MatchResult> {
+    const { messageDate, ...rest } = incoming;
+    return this.ingest({ ...rest, emailReceivedAt: messageDate, sourceId: `humo:${messageKey}`, source: 'HUMO_TG' });
+  }
+  async seenHumo(messageKeys: string[]): Promise<Set<string>> {
+    const rows = await this.db.incomingTransaction.findMany({ where: { sourceId: { in: messageKeys.map(k => `humo:${k}`) } }, select: { sourceId: true } });
+    return new Set(rows.map(r => r.sourceId.slice('humo:'.length)));
   }
   async seenGmail(gmailIds: string[]): Promise<Set<string>> {
     const [processed, incoming] = await Promise.all([

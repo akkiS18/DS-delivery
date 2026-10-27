@@ -74,6 +74,24 @@ describe('checkConfig', () => {
   });
 });
 
+describe('checkConfig: Humocard Telegram reader', () => {
+  const humo = { ...base, HUMO_TG_ENABLED: 'true', HUMO_TG_API_ID: '1234567', HUMO_TG_API_HASH: 'a'.repeat(32), HUMO_TG_BOT: 'humocardbot' };
+  it('is off by default and needs api id, api hash and the bot username when on', () => {
+    assert.deepEqual(errs({ ...base }), []);
+    assert.deepEqual(errs(humo), []);
+    assert.ok(has(errs({ ...humo, HUMO_TG_API_ID: 'abc' }), 'HUMO_TG_API_ID'));
+    assert.ok(has(errs({ ...humo, HUMO_TG_API_HASH: 'short' }), 'HUMO_TG_API_HASH'));
+    assert.ok(has(errs({ ...humo, HUMO_TG_BOT: '' }), 'HUMO_TG_BOT'));
+    assert.ok(has(errs({ ...base, HUMO_TG_ENABLED: 'yes' }), 'HUMO_TG_ENABLED must be'));
+    assert.ok(!JSON.stringify(checkConfig({ ...humo, HUMO_TG_API_HASH: 'SECRET' } as NodeJS.ProcessEnv)).includes('SECRET'));
+  });
+  it('REAL payments accept Humo messages instead of Gmail, but need at least one of them', () => {
+    const real = { ...base, BOT_PAYMENT_MODE: 'REAL', BOT_ENABLED: 'true', BOT_TOKEN: TOKEN, SUPPORT_ADMIN_1_TELEGRAM_ID: '123456789' };
+    assert.ok(has(errs(real), 'GMAIL_ENABLED=true'));
+    assert.deepEqual(errs({ ...real, ...humo, BOT_PAYMENT_MODE: 'REAL' }), []);
+  });
+});
+
 describe('parseTrustProxy', () => {
   it('parses off / on / hop count and rejects typos', () => {
     assert.equal(parseTrustProxy(undefined), false);

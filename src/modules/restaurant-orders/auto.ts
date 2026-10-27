@@ -62,6 +62,17 @@ export async function advanceGmailMatchedOrder(orderId: string): Promise<boolean
   return (await autoStartPreparing(GMAIL_AUTO, row.id)).started;
 }
 
+/**
+ * Which of these incoming transactions came from a real bank e-mail. The automatic confirmation relies on the e-mail only: a Humocard Telegram
+ * match (source HUMO_TG) stays MATCHED_UNVERIFIED for the restaurant to confirm, so the sweep must leave it alone instead of "refusing" it.
+ */
+export async function gmailMatchedTransactionIds(ids: Array<string | null | undefined>): Promise<Set<string>> {
+  const wanted = [...new Set(ids.filter((x): x is string => !!x))];
+  if (!wanted.length) return new Set();
+  const rows = await db.incomingTransaction.findMany({ where: { id: { in: wanted }, source: 'GMAIL' }, select: { id: true } });
+  return new Set(rows.map(r => r.id));
+}
+
 export interface AutoConfirmRefusal { orderId: string; code: string; reason: string }
 const refusedAt = new Map<string, number>();
 const RETRY_AFTER_REFUSAL_MS = 5 * 60_000;
@@ -75,10 +86,12 @@ export async function autoConfirmRealOrders(limit = 25, now = Date.now()): Promi
       createdViaBot: true, paymentIsTest: false, payment: { is: { isTest: false, status: { in: ['MATCHED_UNVERIFIED', 'CONFIRMED_MANUAL'] } } },
       OR: [{ status: 'PAYMENT_MATCHED_UNVERIFIED' }, { status: 'PAYMENT_CONFIRMED', paymentVerifiedBy: `system:${GMAIL_AUTO_ACTOR}` }],
     },
-    orderBy: { updatedAt: 'asc' }, take: limit, select: { id: true, code: true },
+    orderBy: { updatedAt: 'asc' }, take: limit, select: { id: true, code: true, payment: { select: { matchedTransactionId: true } } },
   });
+  const viaMail = await gmailMatchedTransactionIds(rows.map(r => r.payment?.matchedTransactionId));
   for (const row of rows) {
     if ((refusedAt.get(row.id) ?? 0) > now) continue;
+    if (!row.payment?.matchedTransactionId || !viaMail.has(row.payment.matchedTransactionId)) continue; // not matched by the bank e-mail (e.g. Humocard Telegram): the restaurant confirms
     try {
       if (await advanceGmailMatchedOrder(row.id)) out.confirmed.push(row.id);
     } catch (err) {

@@ -68,6 +68,13 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
   const botEnabled = env.BOT_ENABLED === 'true';
   if (env.BOT_ENABLED !== undefined && !['true', 'false'].includes(env.BOT_ENABLED)) errors.push('BOT_ENABLED must be "true" or "false".');
   if (env.GMAIL_ENABLED !== undefined && !['true', 'false'].includes(env.GMAIL_ENABLED)) errors.push('GMAIL_ENABLED must be "true" or "false".');
+  if (env.HUMO_TG_ENABLED !== undefined && !['true', 'false'].includes(env.HUMO_TG_ENABLED)) errors.push('HUMO_TG_ENABLED must be "true" or "false".');
+  if (env.HUMO_TG_ENABLED === 'true') {
+    if (!/^\d{1,12}$/.test(env.HUMO_TG_API_ID?.trim() ?? '')) errors.push('HUMO_TG_ENABLED=true requires HUMO_TG_API_ID (the number from my.telegram.org).');
+    if (!/^[0-9a-f]{32}$/i.test(env.HUMO_TG_API_HASH?.trim() ?? '')) errors.push('HUMO_TG_ENABLED=true requires HUMO_TG_API_HASH (32 hex characters from my.telegram.org).');
+    if (!/^@?[A-Za-z][A-Za-z0-9_]{3,31}$/.test(env.HUMO_TG_BOT?.trim() ?? '')) errors.push('HUMO_TG_ENABLED=true requires HUMO_TG_BOT (the Humocard bot username).');
+    if (!env.HUMO_TG_SESSION?.trim() && !env.HUMO_TG_SESSION_FILE?.trim()) warnings.push('HUMO_TG_ENABLED=true without HUMO_TG_SESSION / HUMO_TG_SESSION_FILE: the reader looks for ./humo-session.txt (made by `npm run humo:login`).');
+  }
   const botToken = env.BOT_TOKEN?.trim() ?? '';
   const taxiToken = env.TAXI_BOT_TOKEN?.trim() ?? '';
   if (botEnabled && !TOKEN.test(botToken)) errors.push('BOT_ENABLED=true requires a valid BOT_TOKEN.');
@@ -95,7 +102,7 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
     errors.push('NODE_ENV=staging with BOT_PAYMENT_MODE=MOCK and ANDROID_GUEST_ENABLED=true on a non-loopback HOST needs STAGING_ACCESS_GATE=edge, confirming that a reverse-proxy access restriction (IP allowlist or VPN) is in front. Otherwise anyone can create guest sessions and MOCK orders.');
   }
   if (mode === 'REAL') {
-    if (env.GMAIL_ENABLED !== 'true') errors.push('BOT_PAYMENT_MODE=REAL requires GMAIL_ENABLED=true (payments are confirmed from the bank e-mail).');
+    if (env.GMAIL_ENABLED !== 'true' && env.HUMO_TG_ENABLED !== 'true') errors.push('BOT_PAYMENT_MODE=REAL requires GMAIL_ENABLED=true (payments are confirmed from the bank e-mail) or HUMO_TG_ENABLED=true (Humocard Telegram messages).');
     if (/test/i.test(dbName)) errors.push('BOT_PAYMENT_MODE=REAL is not allowed on a test database.');
     // Stage 8C: a restaurant's new payee card only becomes usable after an administrator approves it in Telegram, and Gmail/money alerts go to the admins.
     if (!botEnabled) errors.push('BOT_PAYMENT_MODE=REAL requires BOT_ENABLED=true (payee cards are approved and money alerts are sent through the Telegram bot).');
