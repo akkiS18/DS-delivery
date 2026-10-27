@@ -12,6 +12,9 @@ import { Checkout } from './screens/Checkout';
 import { Home } from './screens/Home';
 import { Menu } from './screens/Menu';
 import { OrderScreen } from './screens/Order';
+import { Reserve } from './screens/Reserve';
+import { ReservationScreen } from './screens/Reservation';
+import { Reservations } from './screens/Reservations';
 import { Orders } from './screens/Orders';
 import { Profile } from './screens/Profile';
 import { Support } from './screens/Support';
@@ -26,8 +29,8 @@ export function App() {
   const [route, go] = useRoute();
   useViewportLayout();
   const supportUnread = useSupportUnread(route.name === 'ticket' ? 'ticket' : route.name);
-  // Pull down / coming back to the app reloads the current screen (not the checkout form: typed input must survive).
-  const { epoch, pull, refreshing } = useRefreshEpoch(route.name !== 'checkout');
+  // Pull down / coming back to the app reloads the current screen (not the checkout or reservation form: typed input must survive).
+  const { epoch, pull, refreshing } = useRefreshEpoch(route.name !== 'checkout' && route.name !== 'reserve');
 
   // Telegram's native back button follows an explicit parent map so it never leaves the app or loops.
   useEffect(() => {
@@ -66,6 +69,9 @@ function screen(route: Route, go: (r: Route, o?: { replace?: boolean }) => void)
     case 'checkout': return <Checkout go={go} />;
     case 'order': return <OrderScreen id={route.id} go={go} />;
     case 'orders': return <Orders go={go} />;
+    case 'reserve': return <Reserve id={route.id} go={go} />;
+    case 'reservation': return <ReservationScreen id={route.id} go={go} />;
+    case 'reservations': return <Reservations go={go} />;
     case 'profile': return <Profile />;
     case 'support': return <Support go={go} />;
     case 'ticket': return <Ticket id={route.id} go={go} />;

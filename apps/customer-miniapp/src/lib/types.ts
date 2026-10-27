@@ -14,6 +14,8 @@ export interface Restaurant {
   imageUrl?: string | null;
   /** The plain average and the number of ratings; null until enough people rated (and from an older backend). */
   rating?: { avg: number; count: number } | null;
+  /** Present while the restaurant takes table reservations: the deposit the customer pays to the restaurant's card. */
+  reservation?: { depositSom: number } | null;
 }
 
 export interface Category { id: string; name: string; imageUrl?: string | null }
@@ -105,6 +107,25 @@ export interface PrepClock {
   isOverdue: boolean;
   /** What the restaurant chose ("ready in N minutes"); null while it has not chosen yet: no time is shown, only "aniqlanmoqda". */
   chosenMinutes?: number | null;
+}
+
+export type ReservationStatus = 'PENDING_PAYMENT' | 'PAID' | 'EXPIRED' | 'CANCELLED';
+
+export interface ReservationView {
+  serverNow: string;
+  id: string;
+  code: string;
+  status: ReservationStatus;
+  restaurantName: string;
+  restaurantPhone: string | null;
+  startsAt: string;
+  partySize: number;
+  note: string | null;
+  depositSom: number;
+  createdAt: string;
+  paidAt: string | null;
+  isTest: boolean;
+  payment: { status: string; amountSom: number; mode: 'MOCK' | 'REAL'; queued: boolean; checking: boolean; instructions: PaymentInstructions | null };
 }
 
 export interface OrderView {

@@ -5,6 +5,9 @@ export type Route =
   | { name: 'checkout' }
   | { name: 'order'; id: string }
   | { name: 'orders' }
+  | { name: 'reserve'; id: string }
+  | { name: 'reservation'; id: string }
+  | { name: 'reservations' }
   | { name: 'profile' }
   | { name: 'support' }
   | { name: 'ticket'; id: string }
@@ -20,12 +23,15 @@ export function parseRoute(hash: string): Route {
   if (a === 'menu' && b && ID.test(b) && parts.length === 2) return { name: 'menu', id: b };
   if (a === 'menu' && b && ID.test(b) && parts.length === 3 && parts[2] && ID.test(parts[2])) return { name: 'menu', id: b, cat: parts[2] };
   if (a === 'order' && b && ID.test(b) && parts.length === 2) return { name: 'order', id: b };
+  if (a === 'reserve' && b && ID.test(b) && parts.length === 2) return { name: 'reserve', id: b };
+  if (a === 'reservation' && b && ID.test(b) && parts.length === 2) return { name: 'reservation', id: b };
   if (a === 'support' && b === 'new' && parts[2] && ID.test(parts[2]) && parts.length === 3) return { name: 'supportNew', orderId: parts[2] };
   if (a === 'support' && b && b !== 'new' && ID.test(b) && parts.length === 2) return { name: 'ticket', id: b };
   if (parts.length === 1) {
     if (a === 'cart') return { name: 'cart' };
     if (a === 'checkout') return { name: 'checkout' };
     if (a === 'orders') return { name: 'orders' };
+    if (a === 'reservations') return { name: 'reservations' };
     if (a === 'profile') return { name: 'profile' };
     if (a === 'support') return { name: 'support' };
   }
@@ -37,6 +43,9 @@ export function routeToHash(r: Route): string {
     case 'home': return '#/';
     case 'menu': return r.cat ? `#/menu/${r.id}/${r.cat}` : `#/menu/${r.id}`;
     case 'order': return `#/order/${r.id}`;
+    case 'reserve': return `#/reserve/${r.id}`;
+    case 'reservation': return `#/reservation/${r.id}`;
+    case 'reservations': return '#/reservations';
     case 'cart': return '#/cart';
     case 'checkout': return '#/checkout';
     case 'orders': return '#/orders';
@@ -55,6 +64,9 @@ export function parentOf(r: Route): Route | null {
     case 'cart': return { name: 'home' };
     case 'checkout': return { name: 'cart' };
     case 'order': return { name: 'orders' };
+    case 'reserve': return { name: 'menu', id: r.id };
+    case 'reservation': return { name: 'reservations' };
+    case 'reservations': return { name: 'orders' };
     case 'ticket':
     case 'supportNew': return { name: 'support' };
     case 'orders':
@@ -67,4 +79,4 @@ export const isTab = (r: Route): boolean => r.name === 'home' || r.name === 'car
 
 /** The floating basket button: any screen while the cart has something, except the basket itself, the checkout (own button) and the support conversation screens (own input). */
 export const cartBarVisible = (r: Route, count: number): boolean =>
-  count > 0 && r.name !== 'cart' && r.name !== 'checkout' && r.name !== 'ticket' && r.name !== 'supportNew';
+  count > 0 && r.name !== 'cart' && r.name !== 'checkout' && r.name !== 'reserve' && r.name !== 'ticket' && r.name !== 'supportNew';

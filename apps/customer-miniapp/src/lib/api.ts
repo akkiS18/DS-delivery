@@ -2,7 +2,7 @@ import { ApiError } from './apiError';
 import { apiOrigin, isAndroidApp } from './platform';
 import { dropGuestToken, getGuestToken } from './session';
 import { getInitData } from './telegram';
-import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, Restaurant, TaxiOption, TicketSummary, TicketThread } from './types';
+import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, ReservationView, Restaurant, TaxiOption, TicketSummary, TicketThread } from './types';
 
 export { ApiError };
 
@@ -78,6 +78,16 @@ export interface CheckoutBody {
   deliveryPreference?: 'WALK_OK';
 }
 
+export interface ReservationBody {
+  checkoutKey: string;
+  restaurantId: string;
+  /** ISO time with an offset (the restaurant's local time). */
+  startsAt: string;
+  partySize: number;
+  note?: string;
+  phone?: string;
+}
+
 export const api = {
   config: (signal?: AbortSignal) => request<AppConfig>('/config', { signal }),
   me: (signal?: AbortSignal) => request<Profile>('/me', { signal }),
@@ -112,5 +122,9 @@ export const api = {
   sendTicketMessage: (id: string, text: string, clientKey: string) => request<{ sent: boolean }>(`/support/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { text, clientKey } }),
   /** Rate the food of a delivered order (1-5; reasons and a short note only matter for 1-3). */
   rateOrder: (id: string, body: { stars: number; reasons?: string[]; note?: string }) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/rating`, { method: 'PUT', body }),
+  /** Table reservations: a deposit paid to the restaurant's card books the table. */
+  createReservation: (body: ReservationBody) => request<{ reservation: ReservationView; replayed: boolean }>('/reservations', { method: 'POST', body }),
+  reservations: (signal?: AbortSignal) => request<{ reservations: ReservationView[] }>('/reservations', { signal }),
+  reservation: (id: string, signal?: AbortSignal) => request<{ reservation: ReservationView }>(`/reservations/${encodeURIComponent(id)}`, { signal }),
   mockPay: (id: string) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/mock-payment`, { method: 'POST' }),
 };

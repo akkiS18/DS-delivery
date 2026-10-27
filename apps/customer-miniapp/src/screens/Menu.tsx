@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from 'react';
-import { ChevronLeft, Star, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
 import { cartBase, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
-import { opensText } from '../lib/format';
+import { opensText, som } from '../lib/format';
 import { mediaUrl } from '../lib/platform';
 import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
@@ -71,6 +71,9 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       </div>
       {!r.isOpen && (
         <div className="banner warn">{r.closedReason === 'HOURS' ? `Hozir yopiq. ${opensText(r.opensNext)}.` : 'Restoran vaqtincha buyurtma qabul qilmayapti.'} Menyuni ko‘rishingiz mumkin.</div>
+      )}
+      {r.reservation && !active && (
+        <button type="button" className="helpbar" onClick={() => go?.({ name: 'reserve', id })}><Icon as={CalendarClock} size={18} /><span>Joy bron qilish • oldindan to‘lov {som(r.reservation.depositSom)}</span><Icon as={ChevronRight} size={18} /></button>
       )}
       {showGrid && !active && (
         <div className="cat-grid" role="list" aria-label="Toifalar">
