@@ -22,7 +22,11 @@ export type HumoAlert =
   | { type: 'DOWN'; failure: 'auth' | 'bot' | 'network' | 'config' }
   | { type: 'RECOVERED' }
   | { type: 'REVIEW'; reason: string; amountTiyin: bigint; cardLast4: string };
-export type HumoHooks = { onAlert?: (alert: HumoAlert) => void | Promise<void> };
+export type HumoHooks = {
+  onAlert?: (alert: HumoAlert) => void | Promise<void>;
+  /** A credit just matched an open payment: the host runs the automatic confirmation right away instead of waiting for its next sweep. */
+  onMatched?: () => void | Promise<void>;
+};
 
 // The few gramjs members used here. Declared locally so this file type-checks without the package present.
 type TgId = { toString(): string };
@@ -128,6 +132,7 @@ export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHook
   const handle = async (message: TgMessage): Promise<void> => {
     try {
       const r = await ingestHumoMessage(engine, botId, message, Date.now(), lookbackMs);
+      if (r?.result.status === 'MATCHED_UNVERIFIED') { try { await hooks.onMatched?.(); } catch (err) { console.error(`[HUMO] onMatched: ${err instanceof Error ? err.message.slice(0, 120) : 'error'}`); } }
       if (r && r.result.status === 'REVIEW_REQUIRED' && isFreshIncoming(message.date * 1000, Date.now())) {
         void alert({ type: 'REVIEW', reason: r.result.reason ?? 'UNKNOWN', amountTiyin: r.amountTiyin, cardLast4: r.cardLast4 });
       }

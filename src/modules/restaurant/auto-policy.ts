@@ -13,3 +13,21 @@ export const GMAIL_AUTO_ACTOR = 'gmail-auto';
 
 export const gmailAutoConfirmEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
   (env.GMAIL_AUTO_CONFIRM ?? '').trim().toLowerCase() !== 'false';
+
+/**
+ * Owner decision 2026-10-27: a Humocard Telegram message from the verified bot account is confirmed the same way (its own actor, so the audit
+ * trail says which signal was relied on). Kill switch: HUMO_AUTO_CONFIRM=false. Each actor may rely ONLY on its own signal source: the
+ * e-mail actor never confirms a Telegram match and vice versa (checked in takeStaffAction).
+ */
+export const HUMO_AUTO_ACTOR = 'humo-auto';
+export const humoAutoConfirmEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
+  (env.HUMO_AUTO_CONFIRM ?? '').trim().toLowerCase() !== 'false';
+
+export type AutoSource = 'GMAIL' | 'HUMO_TG';
+/** The IncomingTransaction.source an automatic actor relies on (null: not an automatic bank-signal actor). */
+export const autoSourceOfActor = (actor: string | undefined): AutoSource | null =>
+  actor === GMAIL_AUTO_ACTOR ? 'GMAIL' : actor === HUMO_AUTO_ACTOR ? 'HUMO_TG' : null;
+export const autoActorOfSource = (source: string): string | null =>
+  source === 'GMAIL' ? GMAIL_AUTO_ACTOR : source === 'HUMO_TG' ? HUMO_AUTO_ACTOR : null;
+export const autoConfirmEnabledForSource = (source: string | undefined, env: NodeJS.ProcessEnv = process.env): boolean =>
+  source === 'GMAIL' ? gmailAutoConfirmEnabled(env) : source === 'HUMO_TG' ? humoAutoConfirmEnabled(env) : false;

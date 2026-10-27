@@ -118,6 +118,7 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
       } catch { errors.push('BOT_REAL_CARD_NUMBERS_JSON must be valid JSON.'); }
     }
     if ((env.GMAIL_AUTO_CONFIRM ?? '').trim().toLowerCase() === 'false') warnings.push('GMAIL_AUTO_CONFIRM=false: a matched payment waits for the restaurant to confirm it in the app (manual fallback). Remove the variable to confirm exact Gmail matches automatically.');
+    if ((env.HUMO_AUTO_CONFIRM ?? '').trim().toLowerCase() === 'false') warnings.push('HUMO_AUTO_CONFIRM=false: a payment matched by a Humocard Telegram message waits for the restaurant to confirm it in the app. Remove the variable to confirm exact Humocard matches automatically.');
     if (production && env.CONFIRM_REAL_PAYMENTS !== 'yes') {
       errors.push('REAL payments in production need an explicit CONFIRM_REAL_PAYMENTS=yes. This is a deliberate extra switch so they cannot be enabled by accident.');
     }

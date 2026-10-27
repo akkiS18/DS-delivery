@@ -58,6 +58,7 @@ services:
       RECEIPT_DIR: /app/data/receipts
       GMAIL_CREDENTIALS_FILE: /app/data/gmail/credentials.json
       GMAIL_TOKEN_FILE: /app/data/gmail/gmail-token.json
+      HUMO_TG_SESSION_FILE: /app/data/gmail/humo-session.txt   # Humocard reader login (only used when HUMO_TG_ENABLED=true in production.env); installed by deploy/bin/install-humo-session.sh
     depends_on:
       db: { condition: service_healthy }
     networks:

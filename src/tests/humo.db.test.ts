@@ -5,7 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { PaymentEngineV3, defaultOptions } from '../modules/payment/engine.js';
 import { placeOrder } from '../modules/orders/service.js';
 import { takeStaffAction } from '../modules/restaurant/service.js';
-import { autoConfirmRealOrders } from '../modules/restaurant-orders/auto.js';
+import { advanceGmailMatchedOrder, autoConfirmRealOrders } from '../modules/restaurant-orders/auto.js';
 import { countUnhandledReviews } from '../modules/payment/review.js';
 import { sampleHumoMessage } from '../modules/payment/humo.js';
 import { ingestHumoMessage, type TgMessage } from '../modules/payment/humo-telegram.js';
@@ -131,7 +131,7 @@ test('doubtful money goes to review, never to an order: wrong amount, unknown ca
   await db.incomingTransaction.deleteMany({ where: { cardLast4: '0000' } });
 
   // the exact payment, through Telegram, then the same bank event again through the mail: only the first one pays
-  const at = new Date(Date.now() - 20_000); at.setSeconds(0, 0);
+  const at = new Date(); at.setSeconds(0, 0); // the bank prints minutes: the current minute always overlaps the payment window
   const viaTg = await ingestHumoMessage(engine, BOT, message({ text: sampleHumoMessage(last4, pay.amountTiyin, at) }));
   assert.equal(viaTg?.result.status, 'MATCHED_UNVERIFIED');
   const viaMail = await engine.ingestGmail(`hm-${randomUUID()}`, {
@@ -142,16 +142,72 @@ test('doubtful money goes to review, never to an order: wrong amount, unknown ca
   assert.ok(await countUnhandledReviews() >= 3, 'Telegram-sourced reviews are listed for the administrator too');
 });
 
-test('a Humo match is left for the restaurant: the Gmail auto-confirm sweep neither confirms nor refuses it, and the restaurant can confirm it', async () => {
+const gmailMatch = (amountTiyin: bigint) => engine.ingestGmail(`hm-${randomUUID()}`, {
+  cardLast4: last4, amountTiyin, occurredAt: new Date(), emailReceivedAt: new Date(), minutePrecision: true, trustedSender: true,
+});
+
+test('a Humo match confirms itself through its own actor, starts cooking, and is audited as humo-auto', async () => {
   const { id, pay } = await realOrder();
   await ingestHumoMessage(engine, BOT, message({ text: credit(pay.amountTiyin) }));
+  assert.equal((await order(id)).status, 'PAYMENT_MATCHED_UNVERIFIED', 'the engine alone still only produces a signal');
   const sweep = await autoConfirmRealOrders(100);
-  assert.ok(!sweep.confirmed.includes(id), 'not confirmed by the e-mail-only automation');
-  assert.ok(!sweep.refused.some(r => r.orderId === id), 'and no admin alert is produced for it');
-  assert.equal((await order(id)).status, 'PAYMENT_MATCHED_UNVERIFIED');
-  await assert.rejects(() => takeStaffAction({ actorSystemId: 'gmail-auto', orderId: id, action: 'VERIFY_PAYMENT' }), /TOLOV_MOS_EMAS|RUXSAT_YOQ/);
-  const r = await takeStaffAction({ actorTelegramId: staffTg, orderId: id, action: 'VERIFY_PAYMENT' });
-  assert.equal(r.changed, true);
-  assert.equal((await order(id)).status, 'PAYMENT_CONFIRMED');
+  assert.ok(sweep.confirmed.includes(id));
+  assert.ok(!sweep.refused.some(r => r.orderId === id));
+  const o = await order(id);
+  assert.equal(o.status, 'PREPARING');
+  assert.equal(o.paymentVerifiedBy, 'system:humo-auto');
   assert.equal((await db.payment.findUniqueOrThrow({ where: { id: pay.id } })).status, 'CONFIRMED_MANUAL');
+  const ev = await db.paymentEvent.findFirstOrThrow({ where: { paymentId: pay.id, action: 'CONFIRMED_MANUAL' } });
+  assert.equal(ev.actorType, 'SYSTEM');
+  assert.equal(ev.actorId, 'system:humo-auto');
+  assert.equal(await db.taxiDispatch.count({ where: { orderId: id } }), 1);
+  assert.equal((await autoConfirmRealOrders(100)).confirmed.includes(id), false, 'a second sweep changes nothing');
+});
+
+test('concurrent confirmations of a Humo match act once', async () => {
+  const { id, pay } = await realOrder();
+  await ingestHumoMessage(engine, BOT, message({ text: credit(pay.amountTiyin) }));
+  await Promise.allSettled([1, 2, 3, 4, 5].map(() => advanceGmailMatchedOrder(id, 'humo-auto')));
+  assert.equal((await order(id)).status, 'PREPARING');
+  assert.equal(await db.orderEvent.count({ where: { orderId: id, action: 'VERIFY_PAYMENT' } }), 1);
+  assert.equal(await db.orderEvent.count({ where: { orderId: id, action: 'START_PREPARING' } }), 1);
+  assert.equal(await db.paymentEvent.count({ where: { paymentId: pay.id, action: 'CONFIRMED_MANUAL' } }), 1);
+});
+
+test('each automatic actor relies only on its own signal: the e-mail actor cannot confirm a Humo match and the Humo actor cannot confirm an e-mail match', async () => {
+  const h = await realOrder();
+  await ingestHumoMessage(engine, BOT, message({ text: credit(h.pay.amountTiyin) }));
+  await assert.rejects(() => takeStaffAction({ actorSystemId: 'gmail-auto', orderId: h.id, action: 'VERIFY_PAYMENT' }), /TOLOV_MOS_EMAS/);
+  assert.equal((await order(h.id)).status, 'PAYMENT_MATCHED_UNVERIFIED');
+
+  const g = await realOrder();
+  assert.equal((await gmailMatch(g.pay.amountTiyin)).status, 'MATCHED_UNVERIFIED');
+  await assert.rejects(() => takeStaffAction({ actorSystemId: 'humo-auto', orderId: g.id, action: 'VERIFY_PAYMENT' }), /TOLOV_MOS_EMAS/);
+  assert.equal((await order(g.id)).status, 'PAYMENT_MATCHED_UNVERIFIED');
+  await assert.rejects(() => takeStaffAction({ actorSystemId: 'humo-auto', orderId: g.id, action: 'MARK_READY' }), /RUXSAT_YOQ/, 'never READY');
+  await assert.rejects(() => takeStaffAction({ actorSystemId: 'someone-else', orderId: h.id, action: 'VERIFY_PAYMENT' }), /RUXSAT_YOQ/);
+  // the sweep picks the right actor for each
+  const sweep = await autoConfirmRealOrders(100);
+  assert.ok(sweep.confirmed.includes(h.id) && sweep.confirmed.includes(g.id));
+  assert.equal((await order(h.id)).paymentVerifiedBy, 'system:humo-auto');
+  assert.equal((await order(g.id)).paymentVerifiedBy, 'system:gmail-auto');
+});
+
+test('kill switch HUMO_AUTO_CONFIRM=false: Humo matches wait for the restaurant (who can confirm them); e-mail matches still confirm themselves', async () => {
+  process.env.HUMO_AUTO_CONFIRM = 'false';
+  try {
+    const h = await realOrder();
+    await ingestHumoMessage(engine, BOT, message({ text: credit(h.pay.amountTiyin) }));
+    const g = await realOrder();
+    await gmailMatch(g.pay.amountTiyin);
+    const sweep = await autoConfirmRealOrders(100);
+    assert.ok(!sweep.confirmed.includes(h.id) && !sweep.refused.some(r => r.orderId === h.id));
+    assert.ok(sweep.confirmed.includes(g.id), 'the other signal is unaffected');
+    assert.equal((await order(h.id)).status, 'PAYMENT_MATCHED_UNVERIFIED');
+    await assert.rejects(() => takeStaffAction({ actorSystemId: 'humo-auto', orderId: h.id, action: 'VERIFY_PAYMENT' }), /RUXSAT_YOQ/);
+    const r = await takeStaffAction({ actorTelegramId: staffTg, orderId: h.id, action: 'VERIFY_PAYMENT' });
+    assert.equal(r.changed, true);
+    assert.equal((await order(h.id)).status, 'PAYMENT_CONFIRMED');
+    assert.equal((await db.payment.findUniqueOrThrow({ where: { id: h.pay.id } })).status, 'CONFIRMED_MANUAL');
+  } finally { delete process.env.HUMO_AUTO_CONFIRM; }
 });

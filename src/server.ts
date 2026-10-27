@@ -9,6 +9,8 @@ import { startGmail } from './modules/payment/gmail.js';
 import { gmailAlertSender } from './bot/gmail-alerts.js';
 import { startHumoTelegram } from './modules/payment/humo-telegram.js';
 import { humoAlertSender } from './bot/humo-alerts.js';
+import { autoConfirmRealOrders } from './modules/restaurant-orders/auto.js';
+import { deliverAutoConfirmRefusals } from './bot/restaurant-alert.js';
 import { startCardApprovalNotifier } from './bot/card-admin.js';
 import { startReceiptRetention } from './modules/refunds/retention.js';
 import { createClientBot } from './bot/client.js';
@@ -166,7 +168,13 @@ try {
   }
   // Humocard bot messages read through one Telegram user account (see humo-telegram.ts). Also only after the polling check above.
   if (env.HUMO_TG_ENABLED === 'true') {
-    try { stopHumo = await startHumoTelegram(engine, { onAlert: humoAlertSender(clientBot) }); }
+    try {
+      stopHumo = await startHumoTelegram(engine, {
+        onAlert: humoAlertSender(clientBot),
+        // A matched Humocard credit is confirmed at once (the 7-second notifier sweep stays as the restart-safe backstop).
+        onMatched: async () => { const r = await autoConfirmRealOrders(); if (clientBot) await deliverAutoConfirmRefusals(clientBot, r.refused); },
+      });
+    }
     catch (err) { app.log.error({ err }, 'Humo Telegram reader failed to start. API remains available.'); }
   }
   stopReceiptRetention = startReceiptRetention((line) => app.log.info(line));
