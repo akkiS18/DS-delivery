@@ -191,16 +191,30 @@ class OrdersViewModel(
     }
 
     /** "Tayyor" straight from the list (the card asks for confirmation first; the customer is told and the taxi is called). */
-    fun markReady(orderId: String) {
+    fun markReady(orderId: String, selfDelivery: Boolean = false) {
         if (_uiState.value.readyBusyId != null) return
         _uiState.update { it.copy(readyBusyId = orderId) }
         viewModelScope.launch {
-            when (val result = repository.setOrderReady(orderId, "PREPARING")) {
+            when (val result = repository.setOrderReady(orderId, "PREPARING", selfDelivery)) {
                 is Resource.Success -> _uiState.update { it.copy(readyBusyId = null, errorMessage = null) }
                 is Resource.Error -> _uiState.update { it.copy(readyBusyId = null, errorMessage = result.message) }
                 Resource.Loading -> {}
             }
             loadOrders(isRefresh = true, silent = true) // success: the order moves to "Tayyor"; failure: it may have changed elsewhere
+        }
+    }
+
+    /** Walking delivery: "Yetkazildi" (the card asks for confirmation first). Only the restaurant can complete a self-delivered order. */
+    fun markSelfDelivered(orderId: String) {
+        if (_uiState.value.readyBusyId != null) return
+        _uiState.update { it.copy(readyBusyId = orderId) }
+        viewModelScope.launch {
+            when (val result = repository.setSelfDelivered(orderId, "READY")) {
+                is Resource.Success -> _uiState.update { it.copy(readyBusyId = null, errorMessage = null) }
+                is Resource.Error -> _uiState.update { it.copy(readyBusyId = null, errorMessage = result.message) }
+                Resource.Loading -> {}
+            }
+            loadOrders(isRefresh = true, silent = true)
         }
     }
 

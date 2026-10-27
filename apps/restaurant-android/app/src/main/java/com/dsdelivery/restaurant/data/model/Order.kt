@@ -66,7 +66,7 @@ enum class TaxiStage {
 
 /** Restaurant-side order actions exposed by the backend. The server decides which are currently allowed. */
 enum class OrderAction {
-    ACCEPT, REJECT, PROPOSE_PRICE, VERIFY_PAYMENT, START_PREPARING, SET_PREP_TIME, MARK_READY, CANCEL_ORDER, REFUND_APPROVE, REFUND_REJECT, REFUND_SENT;
+    ACCEPT, REJECT, PROPOSE_PRICE, VERIFY_PAYMENT, START_PREPARING, SET_PREP_TIME, MARK_READY, CANCEL_ORDER, REFUND_APPROVE, REFUND_REJECT, REFUND_SENT, SELF_DELIVERED;
 
     companion object {
         fun fromRaw(raw: String?): OrderAction? = entries.firstOrNull { it.name == raw }
@@ -213,6 +213,13 @@ data class Order(
     val taxiAcceptedAt: String? = null,
     val taxiDispatchedAt: String? = null,
     val taxiDeliveredAt: String? = null,
+    /** Walking delivery: the customer allowed the restaurant to bring the order on foot. The restaurant still decides at "Tayyor". */
+    val walkOk: Boolean = false,
+    /** The restaurant chose to deliver this order itself (no taxi); it reports "Yetkazildi" when it is done. */
+    val selfDelivery: Boolean = false,
+    /** The customer's map point; the server shares it only for a walking-delivery order. */
+    val deliveryLat: Double? = null,
+    val deliveryLng: Double? = null,
     val restaurantDeadlineAt: String? = null,
     /** Server-decided; the app only shows buttons for actions listed here. */
     val allowedActions: Set<OrderAction> = emptySet(),
@@ -253,4 +260,8 @@ data class Order(
 
     val itemsCount: Int
         get() = items.sumOf { it.quantity }
+
+    /** A link that opens the customer's point in any maps app or the browser; null when no point is shared. */
+    val mapUrl: String?
+        get() = if (deliveryLat != null && deliveryLng != null) "https://www.google.com/maps/search/?api=1&query=$deliveryLat,$deliveryLng" else null
 }

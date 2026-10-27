@@ -18,11 +18,15 @@ if (!Number.isSafeInteger(leadMinutes) || leadMinutes < 0 || leadMinutes > 120) 
 /** Must be called from the SAME transaction that starts cooking. */
 export async function scheduleTaxiWhenPreparing(
   tx: Transaction,
-  order: { id: string; taxiCompanyId: string | null; createdViaBot: boolean },
+  order: { id: string; taxiCompanyId: string | null; createdViaBot: boolean; deliveryPreference?: string },
   prepMinutes: number,
   now: Date,
+  opts: { immediate?: boolean } = {},
 ): Promise<void> {
   if (!order.createdViaBot) return;
+  // The customer allowed walking delivery: nothing is booked while cooking. The restaurant chooses at "Tayyor": self delivery (never a taxi) or a taxi,
+  // which is then requested at once (`immediate`, from the MARK_READY step).
+  if (order.deliveryPreference === 'WALK_OK' && !opts.immediate) return;
   const existing = await tx.taxiDispatch.count({ where: { orderId: order.id } });
   if (existing) return;
   // Dispatch is automatic: the restaurant never requests a taxi. The customer's chosen company is used; an order
@@ -34,7 +38,7 @@ export async function scheduleTaxiWhenPreparing(
     });
     if (!eligible) {
       await tx.orderEvent.create({ data: { orderId: order.id, actorTelegramId: 'SYSTEM', actorType: 'SYSTEM', action: 'TAXI_NO_ELIGIBLE_COMPANY',
-        fromStatus: 'PREPARING', toStatus: 'PREPARING' } });
+        fromStatus: order.deliveryPreference === 'WALK_OK' && opts.immediate ? 'READY' : 'PREPARING', toStatus: order.deliveryPreference === 'WALK_OK' && opts.immediate ? 'READY' : 'PREPARING' } });
       return;
     }
     companyId = eligible.id;
@@ -44,7 +48,7 @@ export async function scheduleTaxiWhenPreparing(
   const hold = (await loadTaxiMode(tx)) === 'READY';
   await tx.taxiDispatch.create({
     data: { orderId: order.id, taxiCompanyId: companyId, attemptNo: 1,
-      dueAt: hold ? new Date(now.getTime() + TAXI_HOLD_MS) : calculateTaxiDueAt(now, prepMinutes, leadMinutes), status: 'SCHEDULED' },
+      dueAt: opts.immediate ? now : hold ? new Date(now.getTime() + TAXI_HOLD_MS) : calculateTaxiDueAt(now, prepMinutes, leadMinutes), status: 'SCHEDULED' },
   });
 }
 

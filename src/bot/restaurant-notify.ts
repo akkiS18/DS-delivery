@@ -65,6 +65,8 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
             PAYMENT_CONFIRMED: `✅ #${order.code}: to‘lov qabul qilindi.`,
             PREPARING: `👨‍🍳 #${order.code}: buyurtmangiz tayyorlanmoqda.`,
           };
+          // Walking delivery has no taxi "on the way" news, so the customer is told here that the restaurant brings it itself.
+          if (order.status === 'READY' && order.deliveryMode === 'SELF') messages.READY = `🚶 #${order.code}: buyurtmangiz tayyor, restoran uni o‘zi olib boradi.`;
           if (!messages[order.status]) { // READY has no message of its own: the next news is "on the way"
             await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
             continue;

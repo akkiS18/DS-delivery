@@ -1,5 +1,6 @@
 package com.dsdelivery.restaurant.data.repository
 
+import com.dsdelivery.restaurant.data.api.dto.SelfDeliveredRequestDto
 import com.dsdelivery.restaurant.data.api.ApiClient
 import com.dsdelivery.restaurant.data.api.dto.AcceptOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CancelOrderRequestDto
@@ -519,8 +520,11 @@ class RestaurantRepositoryImpl(
     override suspend fun setPrepTime(id: String, minutes: Int?, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.setPrepTime(id, PrepTimeRequestDto(minutes, expectedStatus)) }
 
-    override suspend fun setOrderReady(id: String, expectedStatus: String?): Resource<Order> =
-        orderAction { apiClient.service.markOrderReady(id, ReadyOrderRequestDto(expectedStatus)) }
+    override suspend fun setOrderReady(id: String, expectedStatus: String?, selfDelivery: Boolean): Resource<Order> =
+        orderAction { apiClient.service.markOrderReady(id, ReadyOrderRequestDto(delivery = if (selfDelivery) "SELF" else null, expectedStatus = expectedStatus)) }
+
+    override suspend fun setSelfDelivered(id: String, expectedStatus: String?): Resource<Order> =
+        orderAction { apiClient.service.markDeliveredSelf(id, SelfDeliveredRequestDto(expectedStatus)) }
 
     override suspend fun verifyPayment(id: String, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.verifyPayment(id, VerifyPaymentRequestDto(confirmReceived = true, expectedStatus = expectedStatus)) }

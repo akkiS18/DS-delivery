@@ -4,7 +4,7 @@ import type { PaymentEngineV3 } from '../payment/engine.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
 import {
   acceptBodySchema, cancelBodySchema, getOrderView, listOrders, listQuerySchema, orderIdSchema, performOrderAction, prepTimeBodySchema, preparingBodySchema,
-  readyBodySchema, refundDecisionBodySchema, refundReceiptQuerySchema, rejectBodySchema, verifyBodySchema,
+  readyBodySchema, refundDecisionBodySchema, selfDeliveredBodySchema, refundReceiptQuerySchema, rejectBodySchema, verifyBodySchema,
   type ActionArgs, type ActionOutcome, type OrderAction,
 } from './service.js';
 
@@ -41,6 +41,8 @@ export async function restaurantOrdersRoutes(app: FastifyInstance, engine: Payme
   act('reject', 'REJECT', b => rejectBodySchema.parse(b));
   act('preparing', 'START_PREPARING', b => preparingBodySchema.parse(b));
   act('ready', 'MARK_READY', b => readyBodySchema.parse(b));
+  // Walking delivery: the restaurant reports that it brought the order itself (only after "Tayyor" with delivery SELF).
+  act('delivered-self', 'SELF_DELIVERED', b => selfDeliveredBodySchema.parse(b));
   // "Ready in N minutes" (5..60), chosen after the payment while the food is already cooking.
   act('prep-time', 'SET_PREP_TIME', b => { const x = prepTimeBodySchema.parse(b); return { chosenMinutes: x.minutes, expectedStatus: x.expectedStatus }; });
   // Stage 6E: the restaurant confirms the REAL bank credit itself (explicit confirmReceived:true). Gmail only ever signals.

@@ -71,11 +71,11 @@ export async function listTaxiOptions() {
 
 // ------------------------------------------------------------------------------------------------ the customer's own orders
 export type CustomerStage =
-  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
+  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'SELF_DELIVERY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
   | 'DELIVERED' | 'CANCELLATION_REQUESTED' | 'CANCELLED' | 'EXPIRED' | 'NEEDS_HELP';
 
 /** One honest stage per order for the tracking screen, derived only from the real order and taxi dispatch state. */
-export function customerStage(status: string, paymentStatus: string | null, taxi: TaxiStage | null, now = new Date()): CustomerStage {
+export function customerStage(status: string, paymentStatus: string | null, taxi: TaxiStage | null, now = new Date(), selfDelivery = false): CustomerStage {
   void now;
   switch (status) {
     case 'COMPLETED': return 'DELIVERED';
@@ -87,6 +87,8 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
     case 'PAYMENT_MATCHED_UNVERIFIED': return 'PAYMENT_CHECKING';
     case 'PAYMENT_CONFIRMED': case 'ACCEPTED': return 'PREPARING';
     case 'PREPARING': case 'READY': {
+      // Walking delivery: the restaurant itself brings the order (it never has a taxi).
+      if (status === 'READY' && selfDelivery) return 'SELF_DELIVERY';
       if (taxi === 'NEEDS_HELP') return 'NEEDS_HELP';
       if (taxi === 'DISPATCHED') return 'TAXI_SENT';
       if (taxi === 'ACCEPTED') return 'TAXI_ACCEPTED';
@@ -132,7 +134,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const pay = o.payment;
   const taxi = o.taxiDispatches[0];
   const taxiSt = taxi ? taxiStage(taxi.status) : null;
-  const stage = customerStage(o.status, pay?.status ?? null, taxiSt, now);
+  const stage = customerStage(o.status, pay?.status ?? null, taxiSt, now, o.deliveryMode === 'SELF');
+  const deliveredAt = taxi?.deliveredAt ?? o.selfDeliveredAt ?? null;
   const refund = o.refundRequests[0] ?? null;
   const openRefund = refund !== null && OPEN_REFUND.includes(refund.status);
   const cash = pay?.method === 'CASH';
@@ -143,7 +146,7 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     : ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(o.status) ? 'REFUND_REQUEST' : null;
 
   // Rating the food: offered on the delivered order's card for 24 h after the delivery (nothing is asked at "Ha, oldim").
-  const rate = ratingWindow({ stage, deliveredAt: taxi?.deliveredAt ?? null, receivedAt: o.customerReceivedAt, completedAt: o.updatedAt }, now);
+  const rate = ratingWindow({ stage, deliveredAt, receivedAt: o.customerReceivedAt, completedAt: o.updatedAt }, now);
 
   let instructions: unknown = null;
   if (pay?.status === 'AWAITING' && pay.card) {
@@ -182,7 +185,10 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     taxi: taxi ? { stage: taxiSt, companyName: taxi.taxiCompany.name } : null,
     // The taxi service the customer picked (or the one assigned automatically); shown on the order before any dispatch exists.
     taxiCompanyName: o.taxiCompany?.name ?? null,
-    deliveredAt: taxi?.deliveredAt?.toISOString() ?? null, // the operator-confirmed time; nothing earlier counts as delivered
+    deliveredAt: deliveredAt?.toISOString() ?? null, // the operator-confirmed (taxi) or restaurant-reported (self delivery) time; nothing earlier counts as delivered
+    // Walking delivery: what the customer allowed at checkout and what the restaurant decided (TAXI until it presses "Tayyor").
+    deliveryPreference: o.deliveryPreference === 'WALK_OK' ? 'WALK_OK' as const : 'TAXI' as const,
+    deliveryMode: o.deliveryMode === 'SELF' ? 'SELF' as const : 'TAXI' as const,
     // "Did you receive it?": asked once the taxi is on its way (or the operator says delivered). A signal only: it never changes the order status.
     receivedAt: o.customerReceivedAt?.toISOString() ?? null,
     canConfirmReceived: o.customerReceivedAt === null && stage === 'DELIVERED',

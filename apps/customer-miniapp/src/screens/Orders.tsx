@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, LifeBuoy, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, Footprints, LifeBuoy, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
 import { RateRow } from '../components/RateRow';
 import { Button, Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
@@ -10,7 +10,7 @@ import type { Route } from '../lib/router';
 import type { CustomerStage, OrderSummary } from '../lib/types';
 
 const STAGE_ICON: Record<CustomerStage, LucideIcon> = {
-  PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Clock3, PREPARING: ChefHat, READY: PackageCheck, TAXI_REQUESTED: CarFront,
+  PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Clock3, PREPARING: ChefHat, READY: PackageCheck, SELF_DELIVERY: Footprints, TAXI_REQUESTED: CarFront,
   TAXI_ACCEPTED: CarFront, TAXI_SENT: CarFront, DELIVERED: PackageCheck, CANCELLATION_REQUESTED: Clock3, CANCELLED: AlertTriangle,
   EXPIRED: AlertTriangle, NEEDS_HELP: AlertTriangle,
 };

@@ -276,6 +276,12 @@ model Order {
   prepChosenAt               DateTime?            @db.Timestamptz(3)
   // Stage 9: the customer said "I received it" (a signal next to the taxi operator's confirmation, never a replacement for it).
   customerReceivedAt         DateTime?            @db.Timestamptz(3)
+  // Walking / self delivery (owner decision 2026-10-27). deliveryPreference: what the customer allowed at checkout (TAXI = taxi only, WALK_OK = "my home is
+  // close, the restaurant may bring it on foot"). deliveryMode: what actually happens, decided by the restaurant at "Tayyor" (SELF only if WALK_OK).
+  // A SELF order never gets a taxi dispatch (database trigger) and is completed by the restaurant (selfDeliveredAt).
+  deliveryPreference         String               @default("TAXI")
+  deliveryMode               String               @default("TAXI")
+  selfDeliveredAt            DateTime?            @db.Timestamptz(3)
   staffLastNotifiedStatus    String?
   customerLastNotifiedStatus String?
   events                     OrderEvent[]

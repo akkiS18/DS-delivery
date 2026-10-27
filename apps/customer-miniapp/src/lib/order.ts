@@ -25,6 +25,7 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
   PAYMENT_CHECKING: 'To‘lov tekshirilmoqda',
   PREPARING: 'Tayyorlanmoqda',
   READY: 'Taom tayyor',
+  SELF_DELIVERY: 'Restoran olib bormoqda',
   TAXI_REQUESTED: 'Taksi so‘ralgan',
   TAXI_ACCEPTED: 'Taksi operatori qabul qildi',
   TAXI_SENT: 'Taksi yo‘lga chiqdi',
@@ -36,7 +37,7 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
 };
 
 export const isTerminal = (s: CustomerStage): boolean => s === 'DELIVERED' || s === 'CANCELLED' || s === 'EXPIRED';
-const PAID_STAGES: CustomerStage[] = ['PREPARING', 'READY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
+const PAID_STAGES: CustomerStage[] = ['PREPARING', 'READY', 'SELF_DELIVERY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
 const WAITING_FOR_PAYMENT: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING'];
 /** A payment that was accepted this recently still counts as "just now" when the screen is opened for the first time. */
 const JUST_NOW_MS = 2 * 60_000;
@@ -60,13 +61,13 @@ export const pollIntervalMs = (s: CustomerStage): number | null => (isTerminal(s
 export type StepState = 'done' | 'current' | 'todo' | 'bad';
 export interface Step { key: string; label: string; state: StepState; note?: string }
 
-const ORDER: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING', 'READY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
+const ORDER: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING', 'READY', 'SELF_DELIVERY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
 
 /**
  * The tracking timeline, built only from the real stage. "Taxi accepted" and "Taxi sent" are separate steps (an accepted booking is
  * not a dispatched taxi), and nothing is shown as delivered before the operator-confirmed DELIVERED.
  */
-export function timeline(o: Pick<OrderView, 'stage'>): Step[] {
+export function timeline(o: Pick<OrderView, 'stage'> & { deliveryMode?: 'TAXI' | 'SELF' }): Step[] {
   const stage = o.stage;
   if (stage === 'CANCELLED' || stage === 'EXPIRED') {
     return [{ key: 'placed', label: 'Buyurtma berildi', state: 'done' }, { key: 'end', label: STAGE_LABEL[stage], state: 'bad' }];
@@ -86,9 +87,9 @@ export function timeline(o: Pick<OrderView, 'stage'>): Step[] {
     step('PAYMENT_CHECKING', 'To‘lov tasdiqlanishi'),
     step('PREPARING', 'Tayyorlanmoqda'),
     step('READY', 'Taom tayyor'),
-    step('TAXI_REQUESTED', 'Taksi so‘raldi'),
-    step('TAXI_ACCEPTED', 'Operator qabul qildi'),
-    step('TAXI_SENT', 'Taksi yo‘lda'),
+    ...(o.deliveryMode === 'SELF' || stage === 'SELF_DELIVERY'
+      ? [step('SELF_DELIVERY', 'Restoran olib bormoqda')]
+      : [step('TAXI_REQUESTED', 'Taksi so‘raldi'), step('TAXI_ACCEPTED', 'Operator qabul qildi'), step('TAXI_SENT', 'Taksi yo‘lda')]),
     step('DELIVERED', 'Yetkazildi'),
   ];
   if (stage === 'NEEDS_HELP') {
@@ -111,7 +112,7 @@ export interface HeroStep { key: HeroKey; label: string; state: 'done' | 'curren
 const HERO_DONE: Partial<Record<CustomerStage, number>> = {
   PAYMENT_PENDING: 0, PAYMENT_CHECKING: 0,
   PREPARING: 1,
-  READY: 2, TAXI_REQUESTED: 2, TAXI_ACCEPTED: 2, TAXI_SENT: 2,
+  READY: 2, SELF_DELIVERY: 2, TAXI_REQUESTED: 2, TAXI_ACCEPTED: 2, TAXI_SENT: 2,
   DELIVERED: 3,
 };
 

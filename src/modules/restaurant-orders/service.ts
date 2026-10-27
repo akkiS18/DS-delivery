@@ -11,6 +11,7 @@ import { REJECT_REASONS as REFUND_REJECT_REASONS, RESTAURANT_REASONS } from '../
 import { taxiStage } from '../taxi/workflow.js';
 import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
 import { rescheduleTaxiForPrep } from '../taxi/service.js';
+import { completeSelfDelivery } from '../orders/self-delivery.js';
 import { autoStartPreparing } from './auto.js';
 import { CASH_PENDING, isPaymentCleared } from '../payment/status.js';
 import { acceptCashOrder, rejectCashOrder } from '../restaurant/cash.js';
@@ -75,7 +76,9 @@ const expected = z.string().regex(/^[A-Z_]{3,40}$/).optional();
 export const acceptBodySchema = z.object({ prepMinutes: prepSchema, expectedStatus: expected }).strict();
 export const rejectBodySchema = z.object({ reason: z.enum(REJECT_REASONS), expectedStatus: expected }).strict();
 export const preparingBodySchema = z.object({ prepMinutes: prepSchema, expectedStatus: expected }).strict();
-export const readyBodySchema = z.object({ expectedStatus: expected }).strict();
+/** `delivery: SELF` = the restaurant brings it itself (only when the customer allowed walking delivery); omitted = taxi, as before. */
+export const readyBodySchema = z.object({ delivery: z.enum(['TAXI', 'SELF']).optional(), expectedStatus: expected }).strict();
+export const selfDeliveredBodySchema = z.object({ expectedStatus: expected }).strict();
 /** Owner decision 2026-10-27: nobody is asked "ready in N minutes" any more. SET_PREP_TIME stays as the kitchen's one-tap acknowledgement of a paid order
  *  (it silences the bell and moves the order to "cooking"); `minutes` is optional and older apps may still send it. */
 export const PREP_CHOICE_MIN = 5;
@@ -92,13 +95,14 @@ export const refundReceiptQuerySchema = z.object({ expectedStatus: expected }).s
 export const orderIdSchema = idSchema;
 
 export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPARING' | 'MARK_READY' | 'SET_PREP_TIME'
-  | 'CANCEL_ORDER' | 'REFUND_APPROVE' | 'REFUND_REJECT' | 'REFUND_SENT';
+  | 'CANCEL_ORDER' | 'REFUND_APPROVE' | 'REFUND_REJECT' | 'REFUND_SENT' | 'SELF_DELIVERED';
 
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 const detailSelect = {
   id: true, code: true, status: true, totalSom: true, serviceFeeSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true, prepChosenMinutes: true,
   addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, rejectReason: true,
+  deliveryPreference: true, deliveryMode: true, selfDeliveredAt: true, deliveryLat: true, deliveryLng: true,
   restaurantDeadlineAt: true, acceptedAt: true, paymentVerifiedAt: true, preparingStartedAt: true, readyAt: true,
   restaurantId: true,
   restaurant: { select: { defaultPrepMinutes: true, isPaused: true } },
@@ -128,6 +132,8 @@ const NO_EXTRAS: Extras = { incoming: null, menuProblems: [] };
 
 type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'> & {
   paymentStatus: string | null; paymentMethod?: string | null; refund: { status: string } | null; paymentIsTest: boolean;
+  /** Optional so older callers keep compiling: only 'SELF' matters. */
+  deliveryMode?: string;
 };
 
 /** What the app may offer. The server re-checks every transition; this only drives which buttons are shown.
@@ -151,6 +157,9 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblem
     actions.push('START_PREPARING', 'CANCEL_ORDER');
   } else if (o.status === 'PREPARING' && isPaymentCleared(o.paymentStatus) && !openRefund) {
     actions.push('SET_PREP_TIME', 'MARK_READY', 'CANCEL_ORDER');
+  } else if (o.status === 'READY' && o.deliveryMode === 'SELF' && isPaymentCleared(o.paymentStatus) && !openRefund) {
+    // Self delivery: no taxi operator will ever confirm it, so the restaurant reports it delivered.
+    actions.push('SELF_DELIVERED');
   }
   if (openRefund === 'REQUESTED') actions.push('REFUND_APPROVE', 'REFUND_REJECT');
   if (openRefund === 'APPROVED' || openRefund === 'DISPUTED') actions.push('REFUND_SENT');
@@ -232,6 +241,12 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
       dispatchedAt: iso(taxi.dispatchedAt), deliveredAt: iso(taxi.deliveredAt),
     } : null,
     taxiCompanyName: o.taxiCompany?.name ?? null,
+    /** Walking delivery. preference: what the customer allowed (TAXI | WALK_OK); mode: what happens (TAXI | SELF, fixed at "Tayyor").
+     *  Only a WALK_OK order shares the customer's map point, so the restaurant can judge the distance and walk there. */
+    delivery: {
+      preference: o.deliveryPreference, mode: o.deliveryMode, selfDeliveredAt: iso(o.selfDeliveredAt),
+      location: o.deliveryPreference === 'WALK_OK' && o.deliveryLat !== null && o.deliveryLng !== null ? { lat: o.deliveryLat, lng: o.deliveryLng } : null,
+    },
     customerName: o.customer.displayName ?? null,
     customerPhone: o.phoneSnapshot,
     addressText: o.addressText,
@@ -304,9 +319,9 @@ export type ActionOutcome =
   | { ok: true; order: OrderView; autoStart?: { started: boolean; reason?: string } }
   | { ok: false; httpStatus: 400 | 404 | 409; error: string; status?: string; problems?: SnapshotProblem[] };
 
-const BAD_INPUT = new Set(['TAYYORLASH_VAQTI_NOTOGRI', 'RAD_SABABI_NOTOGRI', 'SABAB_NOTOGRI', 'CHEK_RASMI_NOTOGRI']);
+const BAD_INPUT = new Set(['TAYYORLASH_VAQTI_NOTOGRI', 'RAD_SABABI_NOTOGRI', 'SABAB_NOTOGRI', 'CHEK_RASMI_NOTOGRI', 'YETKAZISH_USULI_NOTOGRI']);
 const WRONG_STATE = new Set(['TOLOV_MOS_EMAS_YOKI_AVVAL_TASDIQLANGAN', 'TAYYORLASH_UCHUN_TOLOV_TASDIGI_KERAK',
-  'BUYURTMA_TAYYORLASHDA_EMAS', 'CHEK_RASMI_TAKROR', 'REFUND_SUMMASI_MOS_EMAS', 'NOTOGRI_OTISH', 'HOLAT_ORALIQDA_OZGARDI']);
+  'BUYURTMA_TAYYORLASHDA_EMAS', 'QAYTARISH_JARAYONIDA', 'CHEK_RASMI_TAKROR', 'REFUND_SUMMASI_MOS_EMAS', 'NOTOGRI_OTISH', 'HOLAT_ORALIQDA_OZGARDI']);
 /** The stored bank signal does not match the payment (amount, sender, link): the restaurant must not confirm. */
 const EVIDENCE_INVALID = new Set(['TOLOV_SUMMASI_MOS_EMAS', 'TOLOV_MOS_EMAS']);
 
@@ -346,7 +361,7 @@ export async function setPrepTime(restaurantId: string, orderId: string, chosen:
 export type ActionArgs = {
   prepMinutes?: number | undefined; chosenMinutes?: number | undefined; reason?: (typeof REJECT_REASONS)[number] | (typeof RESTAURANT_REASONS)[number] | undefined;
   note?: string | undefined; decision?: 'APPROVE' | 'REJECT' | undefined; rejectReason?: (typeof REFUND_REJECT_REASONS)[number] | undefined;
-  receipt?: StoredReceipt | undefined; expectedStatus?: string | undefined;
+  receipt?: StoredReceipt | undefined; expectedStatus?: string | undefined; delivery?: 'TAXI' | 'SELF' | undefined;
 };
 
 /** Runs one restaurant action through the same services the Telegram staff buttons used. The restaurant id is the
@@ -413,12 +428,16 @@ export async function performOrderAction(
         return view ? { ok: true, order: view } : { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
       }
       try {
-        const r = await takeStaffAction({ ...actor, action, ...(action === 'START_PREPARING' ? { prepMinutes } : {}) });
+        const r = await takeStaffAction({ ...actor, action, ...(action === 'START_PREPARING' ? { prepMinutes } : {}), ...(action === 'MARK_READY' && args.delivery ? { delivery: args.delivery } : {}) });
         if (!r.changed && !(await alreadyReady(action))) return stale();
       } catch (err) {
         // Concurrent taps: the loser's transition is refused because the winner already made the order READY - that is success.
         if (!(await alreadyReady(action))) throw err;
       }
+    } else if (action === 'SELF_DELIVERED') {
+      const r = await completeSelfDelivery({ restaurantId, orderId, actorLabel: label });
+      if (r === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+      if (r === 'STALE') return stale('INVALID_STATE');
     } else if (action === 'SET_PREP_TIME') {
       if (await setPrepTime(restaurantId, orderId, args.chosenMinutes) === 'STALE') return stale('INVALID_STATE');
     } else if (action === 'CANCEL_ORDER') {

@@ -6,7 +6,7 @@ export const isActive = (s: CustomerStage): boolean => !isTerminal(s);
 
 /** Lower = shown first. Things that need the customer come first, then the furthest-along orders. */
 const RELEVANCE: Record<CustomerStage, number> = {
-  NEEDS_HELP: 0, PAYMENT_PENDING: 1, TAXI_SENT: 2, TAXI_ACCEPTED: 3, TAXI_REQUESTED: 4, READY: 5, PREPARING: 6,
+  NEEDS_HELP: 0, PAYMENT_PENDING: 1, SELF_DELIVERY: 2, TAXI_SENT: 2, TAXI_ACCEPTED: 3, TAXI_REQUESTED: 4, READY: 5, PREPARING: 6,
   PAYMENT_CHECKING: 7, CANCELLATION_REQUESTED: 8, DELIVERED: 20, CANCELLED: 21, EXPIRED: 22,
 };
 

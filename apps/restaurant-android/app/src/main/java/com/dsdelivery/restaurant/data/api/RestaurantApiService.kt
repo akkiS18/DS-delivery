@@ -1,5 +1,6 @@
 package com.dsdelivery.restaurant.data.api
 
+import com.dsdelivery.restaurant.data.api.dto.SelfDeliveredRequestDto
 import com.dsdelivery.restaurant.data.api.dto.AcceptOrderRequestDto
 import com.dsdelivery.restaurant.data.api.dto.AddCardRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CardResponseDto
@@ -172,6 +173,13 @@ interface RestaurantApiService {
     suspend fun markOrderReady(
         @Path("id") id: String,
         @Body body: ReadyOrderRequestDto
+    ): OrderDto
+
+    /** Walking delivery: the restaurant reports that it brought the order itself. */
+    @POST("api/v1/restaurant/orders/{id}/delivered-self")
+    suspend fun markDeliveredSelf(
+        @Path("id") id: String,
+        @Body body: SelfDeliveredRequestDto
     ): OrderDto
 
     // --- Stage 6E: payment verification, price proposals, cancellation / refunds (Telegram staff panel replaced) ---

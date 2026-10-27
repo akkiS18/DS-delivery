@@ -48,6 +48,8 @@ export const checkoutRequestSchema = z.object({
   taxiCompanyId: id.optional(),
   /** How the customer pays. Omitted (older app versions): CARD, exactly as before. */
   paymentMethod: z.enum(['CARD', 'CASH']).optional(),
+  /** Omitted (older app versions): TAXI. WALK_OK = the customer allows the restaurant to bring the order on foot (the restaurant still decides). */
+  deliveryPreference: z.enum(['TAXI', 'WALK_OK']).optional(),
 }).strict().refine(x => (x.addressId === undefined) !== (x.address === undefined), { message: 'addressId yoki address' });
 // A chosen company is the customer's decision (the delivery price is the taxi service's own): no silent fallback to another one.
 
@@ -71,13 +73,13 @@ export async function quoteCheckout(input: z.infer<typeof quoteRequestSchema>, o
 export function toPlaceOrderInput(
   owner: string | { customerId: string }, customerName: string | undefined,
   resolved: { phone: string; addressText: string; lat?: number | null; lng?: number | null },
-  req: Pick<z.infer<typeof checkoutRequestSchema>, 'checkoutKey' | 'restaurantId' | 'items' | 'expectedTotalSom' | 'expectedUnitPrices'> & { taxiCompanyId?: string | undefined; paymentMethod?: 'CARD' | 'CASH' | undefined },
+  req: Pick<z.infer<typeof checkoutRequestSchema>, 'checkoutKey' | 'restaurantId' | 'items' | 'expectedTotalSom' | 'expectedUnitPrices'> & { taxiCompanyId?: string | undefined; paymentMethod?: 'CARD' | 'CASH' | undefined; deliveryPreference?: 'TAXI' | 'WALK_OK' | undefined },
   paymentMode: 'MOCK' | 'REAL',
 ): PlaceOrderInput {
   return {
     restaurantId: req.restaurantId, ...(typeof owner === 'string' ? { telegramUserId: owner } : { customerId: owner.customerId }), ...(customerName ? { customerName } : {}), phone: resolved.phone, addressText: resolved.addressText,
     ...(resolved.lat != null && resolved.lng != null ? { deliveryLat: resolved.lat, deliveryLng: resolved.lng } : {}),
-    checkoutKey: req.checkoutKey, createdViaBot: true, paymentMode, paymentMethod: req.paymentMethod ?? 'CARD', items: req.items, expectedTotalSom: req.expectedTotalSom,
+    checkoutKey: req.checkoutKey, createdViaBot: true, paymentMode, paymentMethod: req.paymentMethod ?? 'CARD', ...(req.deliveryPreference ? { deliveryPreference: req.deliveryPreference } : {}), items: req.items, expectedTotalSom: req.expectedTotalSom,
     ...(req.taxiCompanyId ? { taxiCompanyId: req.taxiCompanyId } : { autoTaxi: true }),
     ...(req.expectedUnitPrices ? { expectedUnitPrices: req.expectedUnitPrices } : {}),
   };

@@ -76,7 +76,7 @@ export type QuoteResponse =
   | { ok: false; issues: CheckoutIssue[]; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing };
 
 export type CustomerStage =
-  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
+  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'SELF_DELIVERY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
   | 'DELIVERED' | 'CANCELLATION_REQUESTED' | 'CANCELLED' | 'EXPIRED' | 'NEEDS_HELP';
 
 export interface PaymentInstructions {
@@ -135,6 +135,9 @@ export interface OrderView {
   /** The taxi service chosen at checkout; known before any dispatch exists. */
   taxiCompanyName?: string | null;
   deliveredAt: string | null;
+  /** Walking delivery: what the customer allowed at checkout, and what the restaurant decided at "Tayyor" (absent from an older backend: taxi). */
+  deliveryPreference?: 'TAXI' | 'WALK_OK';
+  deliveryMode?: 'TAXI' | 'SELF';
   /** "Did you receive it?" is asked once the taxi is on its way; a signal only. */
   receivedAt?: string | null;
   canConfirmReceived?: boolean;

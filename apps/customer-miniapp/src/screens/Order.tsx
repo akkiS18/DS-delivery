@@ -136,6 +136,10 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
           </div>
         )}
         {o.receivedAt && <p className="sub center">Qabul qilganingiz uchun rahmat!</p>}
+        {o.stage === 'SELF_DELIVERY' && <div className="banner notice">Restoran buyurtmani o‘zi olib boradi. Taksi chaqirilmaydi, yetkazish uchun alohida haq to‘lamaysiz.</div>}
+        {o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage) && (
+          <div className="banner notice">Siz “uyim yaqin, piyoda olib borsa bo‘ladi” deb belgilagansiz. Yakuniy qarorni restoran qiladi: rozi bo‘lmasa, taksi chaqiriladi.</div>
+        )}
         {o.stage === 'NEEDS_HELP' && <div className="banner warn">Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.</div>}
         {o.stage === 'EXPIRED' && <div className="banner bad">To‘lov muddati tugadi. Yangi buyurtma bering.</div>}
         {trouble && (
@@ -213,7 +217,9 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
         {o.items.map((it, i) => <div key={i} className="row between small"><span className="grow">{it.quantity} × {it.name}</span><span className="mono">{som(it.subtotalSom)}</span></div>)}
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
-        <div className="row between sub small"><span>Yetkazish{o.taxiCompanyName ? ` (${o.taxiCompanyName})` : ''}</span><span>taksi tarifi bo‘yicha, alohida</span></div>
+        {o.deliveryMode === 'SELF'
+          ? <div className="row between sub small"><span>Yetkazish</span><span>restoran o‘zi, haqsiz</span></div>
+          : <div className="row between sub small"><span>Yetkazish{o.taxiCompanyName ? ` (${o.taxiCompanyName})` : ''}</span><span>{o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage) ? 'restoran piyoda yoki taksi (alohida)' : 'taksi tarifi bo‘yicha, alohida'}</span></div>}
         <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={MapPin} size={16} className="shrink" /><span className="grow">{o.address}</span></div>
       </div>
 

@@ -32,6 +32,8 @@ export async function takeStaffAction(input: StaffActor & {
   orderId: string;
   action: StaffAction;
   prepMinutes?: number;
+  /** MARK_READY only. SELF = the restaurant brings the order itself (allowed only when the customer allowed walking delivery). Omitted = taxi, as always. */
+  delivery?: 'TAXI' | 'SELF';
 }): Promise<{ changed: boolean; status: string }> {
   // Payment verification is the restaurant's own bank check: Telegram staff (legacy) or the authenticated restaurant app
   // after an explicit confirmation. The built-in system actor exists ONLY for MOCK/test payments (checked below).
@@ -58,6 +60,10 @@ export async function takeStaffAction(input: StaffActor & {
         throw new Error('TOLOV_MOS_EMAS'); // the customer already asked for the money back: a person decides
       }
     }
+    // Walking delivery: SELF needs the customer's consent (WALK_OK). Without a choice, a WALK_OK order simply gets its taxi when it is ready.
+    const walkOk = order.deliveryPreference === 'WALK_OK';
+    const selfDelivery = input.action === 'MARK_READY' && input.delivery === 'SELF';
+    if (selfDelivery && !walkOk) throw new Error('YETKAZISH_USULI_NOTOGRI');
     // Verify may only be requested for payment matcher, never from a photo or unchecked receipt.
     const plan = planStaffTransition(order.status, order.payment?.status ?? null, input.action, input.prepMinutes);
     const now = new Date();
@@ -71,6 +77,7 @@ export async function takeStaffAction(input: StaffActor & {
         ...(input.action === 'VERIFY_PAYMENT' ? { paymentVerifiedAt: now, paymentVerifiedBy: actor } : {}),
         ...(input.action === 'START_PREPARING' ? { prepMinutes: input.prepMinutes, preparingStartedAt: now } : {}),
         ...(input.action === 'MARK_READY' ? { readyAt: now } : {}),
+        ...(selfDelivery ? { deliveryMode: 'SELF' } : {}),
       },
     });
     if (updated.count !== 1) return { changed: false, status: 'STALE' };
@@ -78,7 +85,14 @@ export async function takeStaffAction(input: StaffActor & {
       await scheduleTaxiWhenPreparing(tx, order, input.prepMinutes!, now);
     }
     if (input.action === 'MARK_READY') {
-      await advanceTaxiWhenReady(tx, order.id, now);
+      if (selfDelivery) {
+        // No taxi for this order, ever (a database trigger refuses a dispatch row too). A dispatch that already exists means the state moved on.
+        if (await tx.taxiDispatch.count({ where: { orderId: order.id } })) throw new Error('HOLAT_ORALIQDA_OZGARDI');
+      } else if (walkOk) {
+        await scheduleTaxiWhenPreparing(tx, order, 0, now, { immediate: true });
+      } else {
+        await advanceTaxiWhenReady(tx, order.id, now);
+      }
     }
     if (input.action === 'VERIFY_PAYMENT') {
       // Stage 4A: a mail match is only a signal. The restaurant actor confirms it against the real bank
@@ -113,6 +127,7 @@ export async function takeStaffAction(input: StaffActor & {
         details: {
           channel,
           ...(input.prepMinutes ? { prepMinutes: input.prepMinutes } : {}),
+          ...(input.action === 'MARK_READY' ? { delivery: selfDelivery ? 'SELF' : 'TAXI', deliveryPreference: order.deliveryPreference } : {}),
           ...(input.action === 'VERIFY_PAYMENT' && order.payment ? {
             amountTiyin: order.payment.amountTiyin.toString(), paymentIsTest: order.payment.isTest, matchedTransactionId: order.payment.matchedTransactionId,
           } : {}),

@@ -69,7 +69,11 @@ interface RestaurantRepository {
     suspend fun setOrderPreparing(id: String, prepMinutes: Int?, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
     /** "Ready in [minutes] minutes" (5..60), counted from now; allowed while the order is being cooked. */
     suspend fun setPrepTime(id: String, minutes: Int?, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
-    suspend fun setOrderReady(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
+    /** [selfDelivery] = the restaurant brings it itself (allowed only when the customer allowed walking); false = the taxi is called, as always. */
+    suspend fun setOrderReady(id: String, expectedStatus: String?, selfDelivery: Boolean = false): Resource<com.dsdelivery.restaurant.data.model.Order>
+
+    /** Walking delivery: "Yetkazildi". The restaurant is the only one who can confirm it. */
+    suspend fun setSelfDelivered(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
 
     /** The restaurant explicitly confirms the real bank credit. Cooking then starts by itself. */
     suspend fun verifyPayment(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>

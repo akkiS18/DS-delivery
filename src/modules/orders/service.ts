@@ -30,6 +30,8 @@ export const orderSchema = z.object({
   paymentMode: z.enum(['MOCK', 'REAL']).default('MOCK'),
   /** CARD: transfer to the restaurant card (matched from the bank e-mail). CASH: the customer pays the taxi driver on delivery; the restaurant must accept the order first. */
   paymentMethod: z.enum(['CARD', 'CASH']).default('CARD'),
+  /** TAXI (default): delivered by taxi. WALK_OK: "my home is close, the restaurant may bring it on foot": only a wish, the restaurant decides at "Tayyor". */
+  deliveryPreference: z.enum(['TAXI', 'WALK_OK']).default('TAXI'),
   /** What the customer saw. A mismatch refuses the order (409 NARX_OZGARGAN) instead of charging a different amount. */
   expectedTotalSom: z.number().int().min(0).max(100_000_000).optional(),
   expectedUnitPrices: z.record(z.string(), z.number().int().min(0)).optional(),
@@ -273,7 +275,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
           restaurantId: data.restaurantId, customerId: customer.id,
           addressText: data.addressText,
           deliveryLat: data.deliveryLat, deliveryLng: data.deliveryLng,
-          phoneSnapshot: data.phone, taxiCompanyId: data.taxiCompanyId,
+          phoneSnapshot: data.phone, taxiCompanyId: data.taxiCompanyId, deliveryPreference: data.deliveryPreference,
           checkoutKey: data.checkoutKey, createdViaBot: data.createdViaBot,
           allowTaxiFallback: data.allowTaxiFallback || data.autoTaxi, // automatic assignment implies trying another company when one declines
           totalSom, status: waiting ? 'WAITING_RESTAURANT' : 'PAYMENT_PENDING',

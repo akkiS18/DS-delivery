@@ -1,5 +1,6 @@
 package com.dsdelivery.restaurant.ui.components
 
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -191,8 +192,9 @@ fun PaymentPill(order: Order, modifier: Modifier = Modifier) {
 fun CashDueLine(order: Order, modifier: Modifier = Modifier) {
     val due = order.cashDueSom ?: return
     if (order.paymentMethod != "CASH") return
+    val amount = NumberFormat.getNumberInstance(Locale("uz", "UZ")).format(due)
     Text(
-        text = "Haydovchi restoranga ${NumberFormat.getNumberInstance(Locale("uz", "UZ")).format(due)} so‘m to‘laydi",
+        text = if (order.selfDelivery) "Mijozdan $amount so‘m naqd oling" else "Haydovchi restoranga $amount so‘m to‘laydi",
         modifier = modifier.padding(top = 6.dp),
         style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = BrandDark
     )
@@ -220,6 +222,58 @@ fun taxiStageText(stage: TaxiStage): String = when (stage) {
     TaxiStage.CANCELLED -> "bekor qilingan"
 }
 
+/** "Mijoz piyoda olib borishga rozi" / "O'zimiz yetkazamiz", with the address the restaurant would walk to. */
+@Composable
+fun WalkLine(order: Order, modifier: Modifier = Modifier) {
+    if (!order.walkOk) return
+    Surface(shape = RoundedCornerShape(8.dp), color = BrandMint.copy(alpha = 0.25f), modifier = modifier) {
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = null, tint = BrandDark, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = if (order.selfDelivery) "O‘zimiz yetkazamiz" else "Mijoz piyoda olib borishga rozi",
+                    style = MaterialTheme.typography.bodySmall, color = BrandDark, fontWeight = FontWeight.SemiBold
+                )
+            }
+            order.addressText?.takeIf { it.isNotBlank() }?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = BrandDark, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+    }
+}
+
+/**
+ * "Tayyor" for an order whose customer allowed walking delivery: the restaurant decides who brings it. Taxi is the default
+ * outcome of closing the dialog without choosing: nothing is sent until one of the two buttons is tapped.
+ */
+@Composable
+fun ReadyChoiceDialog(order: Order, onSelf: () -> Unit, onTaxi: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Buyurtma tayyor", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)) },
+        text = {
+            Column {
+                Text("Mijoz uyi yaqin, piyoda olib borsangiz ham bo‘ladi, deb belgilagan. Kim yetkazadi?", style = MaterialTheme.typography.bodyMedium)
+                order.addressText?.takeIf { it.isNotBlank() }?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Manzil: $it", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("“O‘zimiz yetkazamiz” bosilsa taksi chaqirilmaydi; yetkazgach “Yetkazildi” tugmasini bosasiz.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onSelf, colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)) { Text("O‘zimiz yetkazamiz") }
+                Button(onClick = onTaxi, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) { Text("Taksi chaqirish") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Yopish") } },
+        shape = RoundedCornerShape(16.dp)
+    )
+}
+
 @Composable
 fun OrderCard(
     order: Order,
@@ -231,7 +285,9 @@ fun OrderCard(
     prepBusy: Boolean = false,
     /** "Tayyor" from the list (the caller asks for confirmation); null hides the button. */
     onReady: (() -> Unit)? = null,
-    readyBusy: Boolean = false
+    readyBusy: Boolean = false,
+    /** Walking delivery: "Yetkazildi" from the list (the caller asks for confirmation); null hides the button. */
+    onSelfDelivered: (() -> Unit)? = null
 ) {
     val cooking = order.status == OrderStatus.PREPARING
     val attention = attentionLine(order.attention)
@@ -312,6 +368,12 @@ fun OrderCard(
                     Text("Tayyor" + (order.readyAtMillis?.let { " • ${formatClock(it)}" } ?: ""), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = SuccessGreen)
                 }
 
+                // 4b. walking delivery: who brings it, and where to
+                if (order.walkOk && order.status in setOf(OrderStatus.PREPARING, OrderStatus.READY)) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    WalkLine(order)
+                }
+
                 // 5. taxi, visually separate from the food/payment state
                 order.taxiStage?.let { stage ->
                     Spacer(modifier = Modifier.height(8.dp))
@@ -349,6 +411,20 @@ fun OrderCard(
                         modifier = Modifier.fillMaxWidth().height(52.dp)
                     ) {
                         Text("Tayyor", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+
+                // 8. walking delivery: nobody else can confirm it, so the restaurant does
+                if (onSelfDelivered != null && OrderAction.SELF_DELIVERED in order.allowedActions) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onSelfDelivered,
+                        enabled = !readyBusy,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
+                        Text("Yetkazildi", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }

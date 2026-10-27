@@ -74,6 +74,8 @@ export interface CheckoutBody {
   taxiCompanyId?: string;
   /** CARD (default) or CASH on delivery. */
   paymentMethod?: 'CARD' | 'CASH';
+  /** WALK_OK = "my home is close, the restaurant may bring it on foot" (the restaurant decides; otherwise a taxi comes). Omitted = taxi. */
+  deliveryPreference?: 'WALK_OK';
 }
 
 export const api = {

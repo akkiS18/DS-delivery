@@ -1,5 +1,6 @@
 package com.dsdelivery.restaurant.ui.screens.orders
 
+import com.dsdelivery.restaurant.ui.components.ReadyChoiceDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -105,6 +106,7 @@ fun OrdersScreen(
         onOrderClick = onNavigateToOrderDetail,
         onAcknowledge = viewModel::acknowledgeOrder,
         onMarkReady = viewModel::markReady,
+        onSelfDelivered = viewModel::markSelfDelivered,
         alarmRinging = alarmRinging,
         onSilence = onSilence,
         isPaused = isPaused,
@@ -128,7 +130,8 @@ fun OrdersContent(
     onOrderClick: (orderId: String) -> Unit,
     modifier: Modifier = Modifier,
     onAcknowledge: ((orderId: String) -> Unit)? = null,
-    onMarkReady: ((orderId: String) -> Unit)? = null,
+    onMarkReady: ((orderId: String, selfDelivery: Boolean) -> Unit)? = null,
+    onSelfDelivered: ((orderId: String) -> Unit)? = null,
     alarmRinging: Boolean = false,
     onSilence: () -> Unit = {},
     isPaused: Boolean = false,
@@ -154,13 +157,36 @@ fun OrdersContent(
     // "Tayyor" cannot be taken back (the customer is told, the taxi is called), so the list asks once.
     var confirmReadyFor by remember { mutableStateOf<String?>(null) }
     confirmReadyFor?.let { id ->
+        val target = state.orders.firstOrNull { it.id == id }
+        if (target?.walkOk == true) {
+            // The customer allowed walking delivery: the restaurant chooses who brings it.
+            ReadyChoiceDialog(
+                order = target,
+                onSelf = { confirmReadyFor = null; onMarkReady?.invoke(id, true) },
+                onTaxi = { confirmReadyFor = null; onMarkReady?.invoke(id, false) },
+                onDismiss = { confirmReadyFor = null }
+            )
+        } else {
+            ActionConfirmDialog(
+                title = "Buyurtma tayyor",
+                message = "Taksi operatoriga xabar yuboriladi.",
+                confirmText = "Tayyor",
+                confirmButtonColor = SuccessGreen,
+                onConfirm = { confirmReadyFor = null; onMarkReady?.invoke(id, false) },
+                onDismiss = { confirmReadyFor = null }
+            )
+        }
+    }
+    // "Yetkazildi" cannot be taken back either: it completes the order and books the commission.
+    var confirmDeliveredFor by remember { mutableStateOf<String?>(null) }
+    confirmDeliveredFor?.let { id ->
         ActionConfirmDialog(
-            title = "Buyurtma tayyor",
-            message = "Taksi operatoriga xabar yuboriladi.",
-            confirmText = "Tayyor",
+            title = "Yetkazildimi?",
+            message = "Buyurtma mijozga yetkazilganini tasdiqlaysiz. Bu qaytarilmaydi.",
+            confirmText = "Yetkazildi",
             confirmButtonColor = SuccessGreen,
-            onConfirm = { confirmReadyFor = null; onMarkReady?.invoke(id) },
-            onDismiss = { confirmReadyFor = null }
+            onConfirm = { confirmDeliveredFor = null; onSelfDelivered?.invoke(id) },
+            onDismiss = { confirmDeliveredFor = null }
         )
     }
     // One ticker for the whole list: every second while something is being cooked (live countdowns), otherwise every 30 s (order ages).
@@ -399,7 +425,8 @@ fun OrdersContent(
                                 onAcknowledge = onAcknowledge?.let { f -> { f(order.id) } },
                                 prepBusy = state.prepBusyId == order.id,
                                 onReady = if (onMarkReady != null) ({ confirmReadyFor = order.id }) else null,
-                                readyBusy = state.readyBusyId == order.id
+                                readyBusy = state.readyBusyId == order.id,
+                                onSelfDelivered = if (onSelfDelivered != null) ({ confirmDeliveredFor = order.id }) else null
                             )
                         }
                         if (state.hasMore && state.searchQuery.isBlank()) {

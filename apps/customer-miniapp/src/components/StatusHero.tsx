@@ -1,4 +1,4 @@
-import { CreditCard, ChefHat, Car, PackageCheck, XCircle, LifeBuoy, Hourglass, Check, type LucideIcon } from 'lucide-react';
+import { CreditCard, ChefHat, Car, Footprints, PackageCheck, XCircle, LifeBuoy, Hourglass, Check, type LucideIcon } from 'lucide-react';
 import { Icon } from './ui';
 import { heroSteps, type HeroKey } from '../lib/order';
 import type { CustomerStage } from '../lib/types';
@@ -10,6 +10,7 @@ const HEADLINE: Record<CustomerStage, string> = {
   PAYMENT_CHECKING: 'To‘lov tekshirilmoqda',
   PREPARING: 'Tayyorlanmoqda',
   READY: 'Taom tayyor',
+  SELF_DELIVERY: 'Restoran o‘zi olib bormoqda',
   TAXI_REQUESTED: 'Haydovchi qidirilmoqda',
   TAXI_ACCEPTED: 'Haydovchi qidirilmoqda',
   TAXI_SENT: 'Buyurtmangiz yo‘lda',
@@ -21,7 +22,7 @@ const HEADLINE: Record<CustomerStage, string> = {
 };
 
 const BIG_ICON: Record<CustomerStage, LucideIcon> = {
-  PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Hourglass, PREPARING: ChefHat, READY: ChefHat, TAXI_REQUESTED: Car, TAXI_ACCEPTED: Car,
+  PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Hourglass, PREPARING: ChefHat, READY: ChefHat, SELF_DELIVERY: Footprints, TAXI_REQUESTED: Car, TAXI_ACCEPTED: Car,
   TAXI_SENT: Car, DELIVERED: PackageCheck, CANCELLATION_REQUESTED: Hourglass, CANCELLED: XCircle, EXPIRED: XCircle, NEEDS_HELP: LifeBuoy,
 };
 

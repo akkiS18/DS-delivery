@@ -28,7 +28,9 @@ interface OrderDetailCallbacks {
     fun startPreparing() {}
     fun acknowledgeOrder() {}
     fun showReadyConfirm(show: Boolean) {}
-    fun confirmReady() {}
+    fun confirmReady(selfDelivery: Boolean) {}
+    fun showSelfDeliveredConfirm(show: Boolean) {}
+    fun confirmSelfDelivered() {}
     fun showCancelDialog(show: Boolean) {}
     fun onCancelReasonSelected(reason: CancelReason) {}
     fun confirmCancel() {}
@@ -79,6 +81,7 @@ class OrderDetailViewModel(
     override fun showVerifyDialog(show: Boolean) = _uiState.update { it.copy(showVerifyDialog = show, verifyChecked = false) }.let { }
     override fun onVerifyChecked(checked: Boolean) = _uiState.update { it.copy(verifyChecked = checked) }.let { }
     override fun showReadyConfirm(show: Boolean) = _uiState.update { it.copy(showReadyConfirm = show) }.let { }
+    override fun showSelfDeliveredConfirm(show: Boolean) = _uiState.update { it.copy(showSelfDeliveredConfirm = show) }.let { }
     override fun showCancelDialog(show: Boolean) = _uiState.update { it.copy(showCancelDialog = show) }.let { }
     override fun onCancelReasonSelected(reason: CancelReason) = _uiState.update { it.copy(selectedCancelReason = reason) }.let { }
     override fun showRefundApproveDialog(show: Boolean) = _uiState.update { it.copy(showRefundApproveDialog = show) }.let { }
@@ -99,7 +102,7 @@ class OrderDetailViewModel(
             it.copy(
                 isSubmitting = true,
                 showAcceptDialog = false, showRejectDialog = false, showVerifyDialog = false,
-                showReadyConfirm = false, showCancelDialog = false, showRefundApproveDialog = false,
+                showReadyConfirm = false, showSelfDeliveredConfirm = false, showCancelDialog = false, showRefundApproveDialog = false,
                 showRefundRejectDialog = false, showRefundSentDialog = false
             )
         }
@@ -155,9 +158,16 @@ class OrderDetailViewModel(
         }
     }
 
-    override fun confirmReady() {
-        runAction("Tayyor.") { expected ->
-            repository.setOrderReady(orderId, expected)
+    override fun confirmReady(selfDelivery: Boolean) {
+        runAction(if (selfDelivery) "Tayyor. Yetkazgach “Yetkazildi” tugmasini bosing." else "Tayyor.") { expected ->
+            repository.setOrderReady(orderId, expected, selfDelivery)
+        }
+    }
+
+    /** Walking delivery: the restaurant reports it brought the order. */
+    override fun confirmSelfDelivered() {
+        runAction("Yetkazildi.") { expected ->
+            repository.setSelfDelivered(orderId, expected)
         }
     }
 

@@ -1,5 +1,8 @@
 package com.dsdelivery.restaurant.ui.screens.orders.detail
 
+import androidx.compose.ui.platform.LocalUriHandler
+import com.dsdelivery.restaurant.ui.components.WalkLine
+import com.dsdelivery.restaurant.ui.components.ReadyChoiceDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -180,7 +183,10 @@ fun OrderDetailContent(
         bottomBar = {
             // Sticky and always visible while the order is being cooked, so the kitchen never has to scroll for it.
             if (order != null && OrderAction.MARK_READY in order.allowedActions) {
-                StickyReadyBar(order = order, nowElapsed = nowElapsed, busy = state.isSubmitting, onClick = { callbacks.showReadyConfirm(true) })
+                StickyReadyBar(text = "Tayyor ${order.orderNumberDisplay}", busy = state.isSubmitting, onClick = { callbacks.showReadyConfirm(true) })
+            } else if (order != null && OrderAction.SELF_DELIVERED in order.allowedActions) {
+                // Walking delivery: nobody else can confirm it.
+                StickyReadyBar(text = "Yetkazildi ${order.orderNumberDisplay}", busy = state.isSubmitting, onClick = { callbacks.showSelfDeliveredConfirm(true) })
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -545,13 +551,34 @@ fun OrderDetailContent(
 
         // Ready: the restaurant itself confirms the food is really ready (never automatic)
         if (state.showReadyConfirm) {
+            val ready = state.order
+            if (ready?.walkOk == true) {
+                // The customer allowed walking delivery: the restaurant chooses who brings it.
+                ReadyChoiceDialog(
+                    order = ready,
+                    onSelf = { callbacks.confirmReady(true) },
+                    onTaxi = { callbacks.confirmReady(false) },
+                    onDismiss = { callbacks.showReadyConfirm(false) }
+                )
+            } else {
+                ActionConfirmDialog(
+                    title = "Buyurtma tayyor",
+                    message = "Taksi operatoriga xabar yuboriladi.",
+                    confirmText = "Tayyor",
+                    confirmButtonColor = SuccessGreen,
+                    onConfirm = { callbacks.confirmReady(false) },
+                    onDismiss = { callbacks.showReadyConfirm(false) }
+                )
+            }
+        }
+        if (state.showSelfDeliveredConfirm) {
             ActionConfirmDialog(
-                title = "Buyurtma tayyor",
-                message = "Taksi operatoriga xabar yuboriladi.",
-                confirmText = "Tayyor",
+                title = "Yetkazildimi?",
+                message = "Buyurtma mijozga yetkazilganini tasdiqlaysiz. Bu qaytarilmaydi.",
+                confirmText = "Yetkazildi",
                 confirmButtonColor = SuccessGreen,
-                onConfirm = callbacks::confirmReady,
-                onDismiss = { callbacks.showReadyConfirm(false) }
+                onConfirm = callbacks::confirmSelfDelivered,
+                onDismiss = { callbacks.showSelfDeliveredConfirm(false) }
             )
         }
 
@@ -618,9 +645,13 @@ private fun SummaryCard(order: Order, nowElapsed: State<Long>) {
                 PaymentPill(order)
                 Text(order.formattedTotal, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = BrandPrimary)
             }
+            if (order.walkOk && !ended(order)) {
+                WalkLine(order, modifier = Modifier.padding(top = 8.dp))
+            }
             if (order.paymentMethod == "CASH") {
                 Text(
-                    if (order.paymentStatus == PaymentStatus.CASH_PENDING) "Naqd to‘lov: buyurtmani qabul qilsangiz, taksi haydovchisi restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi va mijozdan oladi."
+                    if (order.selfDelivery) "Naqd to‘lov: yetkazganingizda mijozdan ${som(order.cashDueSom ?: order.totalSom)} oling."
+                    else if (order.paymentStatus == PaymentStatus.CASH_PENDING) "Naqd to‘lov: buyurtmani qabul qilsangiz, taksi haydovchisi restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi va mijozdan oladi."
                     else "Naqd to‘lov: taksi haydovchisi olib ketayotganda restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi.",
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = BrandDark, modifier = Modifier.padding(top = 6.dp)
                 )
@@ -669,7 +700,9 @@ private fun TimelineCard(order: Order) {
             add(Step("Tayyorlanmoqda", when { readyOrLater -> StepState.DONE; s == OrderStatus.PREPARING -> StepState.CURRENT; else -> StepState.PENDING }, order.prep?.startedAtMillis?.let { formatClock(it) }))
             add(Step("Tayyor", if (readyOrLater) StepState.DONE else StepState.PENDING, order.readyAtMillis?.let { formatClock(it) }))
             val stage = order.taxiStage
-            add(
+            if (order.selfDelivery) {
+                add(Step("Restoran yetkazadi", when { s == OrderStatus.COMPLETED -> StepState.DONE; s == OrderStatus.READY -> StepState.CURRENT; else -> StepState.PENDING }, if (s == OrderStatus.READY) "yetkazgach “Yetkazildi” bosiladi" else null))
+            } else add(
                 Step(
                     "Taksi",
                     when (stage) {
@@ -678,7 +711,7 @@ private fun TimelineCard(order: Order) {
                         TaxiStage.NEEDS_HELP, TaxiStage.CANCELLED -> StepState.FAILED
                         null -> StepState.PENDING
                     },
-                    stage?.let { taxiStageText(it) } ?: "o‘zi chaqiriladi"
+                    stage?.let { taxiStageText(it) } ?: if (order.walkOk) "taksi yoki piyoda: “Tayyor” bosilganda tanlanadi" else "o‘zi chaqiriladi"
                 )
             )
             add(Step("Yetkazildi", if (s == OrderStatus.COMPLETED) StepState.DONE else StepState.PENDING, null))
@@ -739,13 +772,18 @@ private fun CustomerCard(order: Order) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(order.addressText ?: "Manzil ko‘rsatilmagan", style = MaterialTheme.typography.bodyMedium)
             }
+            // Walking delivery only: the customer's map point, so the restaurant can judge the distance and walk there.
+            order.mapUrl?.let { url ->
+                val uriHandler = LocalUriHandler.current
+                TextButton(onClick = { runCatching { uriHandler.openUri(url) } }) { Text("Xaritada ochish") }
+            }
         }
     }
 }
 
 /** Large, full-width, pinned to the bottom. While a request is in flight it is disabled and shows progress (no double submit). */
 @Composable
-private fun StickyReadyBar(order: Order, nowElapsed: State<Long>, busy: Boolean, onClick: () -> Unit) {
+private fun StickyReadyBar(text: String, busy: Boolean, onClick: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 12.dp) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
             Button(
@@ -760,12 +798,17 @@ private fun StickyReadyBar(order: Order, nowElapsed: State<Long>, busy: Boolean,
                 } else {
                     Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Tayyor ${order.orderNumberDisplay}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
     }
 }
+
+private fun ended(order: Order): Boolean = order.status in setOf(
+    OrderStatus.RESTAURANT_REJECTED, OrderStatus.RESTAURANT_EXPIRED, OrderStatus.PAYMENT_EXPIRED,
+    OrderStatus.CUSTOMER_CANCELLED, OrderStatus.CANCELLED, OrderStatus.FAILED, OrderStatus.COMPLETED
+)
 
 private fun som(amount: Int): String = "${NumberFormat.getNumberInstance(Locale("uz", "UZ")).format(amount)} so‘m"
 

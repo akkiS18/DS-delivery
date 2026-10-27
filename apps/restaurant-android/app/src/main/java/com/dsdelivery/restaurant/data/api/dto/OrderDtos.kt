@@ -94,6 +94,19 @@ data class OrderTaxiDto(
     @SerializedName("deliveredAt") val deliveredAt: String? = null
 )
 
+data class LatLngDto(
+    @SerializedName("lat") val lat: Double? = null,
+    @SerializedName("lng") val lng: Double? = null
+)
+
+/** Walking delivery: preference = what the customer allowed (TAXI | WALK_OK), mode = what happens (TAXI | SELF). location only for WALK_OK. */
+data class OrderDeliveryDto(
+    @SerializedName("preference") val preference: String? = null,
+    @SerializedName("mode") val mode: String? = null,
+    @SerializedName("selfDeliveredAt") val selfDeliveredAt: String? = null,
+    @SerializedName("location") val location: LatLngDto? = null
+)
+
 data class OrderDto(
     @SerializedName("id") val id: String,
     @SerializedName("code") val code: String = "",
@@ -108,6 +121,7 @@ data class OrderDto(
     @SerializedName("cash") val cash: OrderCashDto? = null,
     @SerializedName("taxi") val taxi: OrderTaxiDto? = null,
     @SerializedName("taxiCompanyName") val taxiCompanyName: String? = null,
+    @SerializedName("delivery") val delivery: OrderDeliveryDto? = null,
     @SerializedName("customerName") val customerName: String? = null,
     @SerializedName("customerPhone") val customerPhone: String? = null,
     @SerializedName("addressText") val addressText: String? = null,
@@ -183,6 +197,12 @@ data class PrepTimeRequestDto(
 )
 
 data class ReadyOrderRequestDto(
+    /** "SELF" = the restaurant brings it itself (only when the customer allowed walking); null = taxi, as before. */
+    @SerializedName("delivery") val delivery: String? = null,
+    @SerializedName("expectedStatus") val expectedStatus: String? = null
+)
+
+data class SelfDeliveredRequestDto(
     @SerializedName("expectedStatus") val expectedStatus: String? = null
 )
 
@@ -212,6 +232,10 @@ fun OrderDto.toDomain(): Order {
         taxiAcceptedAt = taxi?.acceptedAt,
         taxiDispatchedAt = taxi?.dispatchedAt,
         taxiDeliveredAt = taxi?.deliveredAt,
+        walkOk = delivery?.preference == "WALK_OK",
+        selfDelivery = delivery?.mode == "SELF",
+        deliveryLat = delivery?.location?.lat,
+        deliveryLng = delivery?.location?.lng,
         restaurantDeadlineAt = restaurantDeadlineAt,
         allowedActions = allowedActions.orEmpty().mapNotNull { OrderAction.fromRaw(it) }.toSet(),
         awaitingPaymentVerification = awaitingPaymentVerification ?: false,

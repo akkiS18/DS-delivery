@@ -37,6 +37,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [save, setSave] = useState(true);
   const [phoneInput, setPhoneInput] = useState('');
   const [editPhone, setEditPhone] = useState(false);
+  const [walk, setWalk] = useState(false);
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Described | null>(null);
@@ -72,7 +73,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const method = effectiveMethod(chosen, payOptions);
   const choices = methodChoices(payOptions);
 
-  const signature = useMemo(() => `${cart.restaurantId}|${itemsKey}|${taxiId ?? ''}|${method}`, [cart.restaurantId, itemsKey, taxiId, method]);
+  const signature = useMemo(() => `${cart.restaurantId}|${itemsKey}|${taxiId ?? ''}|${method}|${walk ? 'walk' : ''}`, [cart.restaurantId, itemsKey, taxiId, method, walk]);
 
   if (cart.lines.length === 0) return <div className="page"><Empty icon={<Icon as={ShoppingBasket} size={44} />} title="Savat bo‘sh" action={<Button onClick={() => go({ name: 'home' })}>Restoranlar</Button>} /></div>;
   if (!profile) return <div className="page"><Spinner /></div>;
@@ -110,6 +111,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       ...(phone && phone !== profile.phone ? { phone } : {}),
       ...(taxiId ? { taxiCompanyId: taxiId } : {}),
       ...(method === 'CASH' ? { paymentMethod: 'CASH' as const } : {}),
+      ...(walk ? { deliveryPreference: 'WALK_OK' as const } : {}),
     };
     try {
       const { order } = await api.createOrder(body);
@@ -176,8 +178,23 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         )}
       </section>
 
-      <section className="stack" aria-label="Taksi xizmati">
-        <h2 style={{ fontSize: 17 }}>3. Yetkazib beruvchi taksi</h2>
+      <section className="stack" aria-label="Yetkazish usuli">
+        <h2 style={{ fontSize: 17 }}>3. Yetkazish usuli</h2>
+        <label className="card row" style={{ border: !walk ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
+          <input type="radio" name="deliverymode" checked={!walk} onChange={() => setWalk(false)} style={{ width: 22, height: 22 }} />
+          <div className="grow">
+            <div className="bold">Taksi xizmatidan foydalanaman</div>
+            <div className="sub small">Taksi buyurtmani manzilingizgacha olib boradi</div>
+          </div>
+        </label>
+        <label className="card row" style={{ border: walk ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
+          <input type="radio" name="deliverymode" checked={walk} onChange={() => setWalk(true)} style={{ width: 22, height: 22 }} />
+          <div className="grow">
+            <div className="bold">Uyim yaqin — piyoda olib borsa bo‘ladi</div>
+            <div className="sub small">Yakuniy qarorni restoran qiladi. Rozi bo‘lsa, taksi chaqirilmaydi va yetkazish uchun haq to‘lamaysiz. Rozi bo‘lmasa, taksi chaqiriladi.</div>
+          </div>
+        </label>
+        <h3 style={{ fontSize: 15 }}>{walk ? 'Zaxira taksi xizmati' : 'Yetkazib beruvchi taksi'}</h3>
         {taxiOptions === null && !taxiFailed && <Spinner />}
         {taxiFailed && <div className="banner warn" role="alert">Taksi xizmatlari ro‘yxatini yuklab bo‘lmadi. <Button small variant="secondary" onClick={loadTaxis}>Qayta urinish</Button></div>}
         {taxiOptions !== null && taxiOptions.length === 0 && <div className="banner warn" role="alert">Hozir yetkazib berish uchun taksi xizmati mavjud emas. Birozdan keyin urinib ko‘ring.</div>}
@@ -221,7 +238,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(total)}</span></div>
-        <div className="row between sub small"><span>Yetkazish ({taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi'})</span><span>alohida, taksi tarifi bo‘yicha</span></div>
+        <div className="row between sub small"><span>Yetkazish ({walk ? 'piyoda yoki ' : ''}{taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi'})</span><span>{walk ? 'restoran hal qiladi' : 'alohida, taksi tarifi bo‘yicha'}</span></div>
         <DeliveryNotice />
         <p className="sub small">{method === 'CASH' ? 'Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.' : 'Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.'}</p>
       </section>
