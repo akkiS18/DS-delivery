@@ -27,6 +27,7 @@ import com.dsdelivery.restaurant.data.auth.SessionState
 import com.dsdelivery.restaurant.ui.navigation.Screen
 import com.dsdelivery.restaurant.ui.screens.finance.FinanceViewModel
 import com.dsdelivery.restaurant.ui.screens.ratings.RatingsViewModel
+import com.dsdelivery.restaurant.ui.screens.reservations.ReservationsViewModel
 import com.dsdelivery.restaurant.ui.screens.login.LoginScreen
 import com.dsdelivery.restaurant.ui.screens.login.LoginViewModel
 import com.dsdelivery.restaurant.ui.screens.main.MainScreen
@@ -185,6 +186,16 @@ fun RestaurantNavGraph(
                 }
             )
 
+            val reservationsViewModel: ReservationsViewModel = viewModel(
+                key = "ReservationsViewModel_$slug",
+                factory = object : ViewModelProvider.Factory {
+                    @Suppress("UNCHECKED_CAST")
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        return ReservationsViewModel(app.repository) as T
+                    }
+                }
+            )
+
             val operationsViewModel: OperationsViewModel = viewModel(
                 key = "OperationsViewModel_$slug",
                 factory = object : ViewModelProvider.Factory {
@@ -203,6 +214,7 @@ fun RestaurantNavGraph(
                 productManagementViewModel = managementViewModel,
                 financeViewModel = financeViewModel,
                 ratingsViewModel = ratingsViewModel,
+                reservationsViewModel = reservationsViewModel,
                 operationsViewModel = operationsViewModel,
                 onNavigateToOrderDetail = { orderId ->
                     navController.navigate(Screen.OrderDetail.createRoute(orderId))

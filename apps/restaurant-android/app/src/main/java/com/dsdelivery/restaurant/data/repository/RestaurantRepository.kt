@@ -101,4 +101,11 @@ interface RestaurantRepository {
 
     // --- Ratings (read-only) ---
     suspend fun getRatings(): Resource<com.dsdelivery.restaurant.data.model.RatingsReport>
+
+    // --- Table reservations ---
+    suspend fun getReservations(): Resource<com.dsdelivery.restaurant.data.model.ReservationsReport>
+    suspend fun markReservationSeen(id: String): Resource<Unit>
+    suspend fun confirmReservationPayment(id: String): Resource<Unit>
+    suspend fun cancelReservation(id: String, reason: String?): Resource<Unit>
+    suspend fun updateReservationSettings(enabled: Boolean, depositSom: Int): Resource<Unit>
 }

@@ -3,6 +3,7 @@ package com.dsdelivery.restaurant.data.alarm
 import android.content.Context
 import android.os.SystemClock
 import com.dsdelivery.restaurant.data.model.Order
+import com.dsdelivery.restaurant.data.model.Reservation
 import com.dsdelivery.restaurant.data.model.Resource
 import com.dsdelivery.restaurant.data.repository.RestaurantRepository
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,7 @@ class OrderWatcher(
     val player = AlarmPlayer(context)
     private var job: Job? = null
     private var lastOrders: List<Order> = emptyList()
+    private var notifiedReservations: Set<String> = emptySet()
 
     private val _ringing = MutableStateFlow(false)
     /** True while the bell is sounding (the Orders screen shows a "mute" strip). */
@@ -40,11 +42,20 @@ class OrderWatcher(
     fun start() {
         if (job?.isActive == true) return
         job = scope.launch {
+            var tick = 0
             while (isActive) {
                 when (val result = repository.getOrders("new", null)) {
                     is Resource.Success -> onOrders(result.data.orders)
                     is Resource.Error -> if ((result.cause as? HttpException)?.code() == 401) { stop(); return@launch }
                     Resource.Loading -> {}
+                }
+                // Reservations change rarely: look every third round (about every 15 s), with the same sign-out rule.
+                if (tick++ % RESERVATION_EVERY == 0) {
+                    when (val result = repository.getReservations()) {
+                        is Resource.Success -> onReservations(result.data.upcoming)
+                        is Resource.Error -> if ((result.cause as? HttpException)?.code() == 401) { stop(); return@launch }
+                        Resource.Loading -> {}
+                    }
                 }
                 delay(POLL_MS)
             }
@@ -59,6 +70,8 @@ class OrderWatcher(
         lastOrders = emptyList()
         player.setRinging(false)
         notifier.clearAlert()
+        notifier.clearReservationAlert()
+        notifiedReservations = emptySet()
         _ringing.value = false
     }
 
@@ -76,6 +89,16 @@ class OrderWatcher(
         render()
     }
 
+    /** Reservations that are paid (or need the payment confirmed) and that nobody has opened yet. Sound only for ones not announced before. */
+    @Synchronized
+    private fun onReservations(upcoming: List<Reservation>) {
+        val waiting = upcoming.filter { !it.cancelled && (!it.seen || it.awaitingConfirm) }
+        val ids = waiting.map { it.id }.toSet()
+        val soundAgain = !notifiedReservations.containsAll(ids)
+        notifiedReservations = ids
+        notifier.reservationAlert(waiting, soundAgain)
+    }
+
     private fun render() {
         val ringingNow = attention.ringing(SystemClock.elapsedRealtime()).isNotEmpty()
         player.setRinging(ringingNow)
@@ -85,5 +108,6 @@ class OrderWatcher(
 
     private companion object {
         const val POLL_MS = 5_000L
+        const val RESERVATION_EVERY = 3
     }
 }

@@ -222,6 +222,22 @@ interface RestaurantApiService {
     @GET("api/v1/restaurant/ratings")
     suspend fun getRatings(): RatingsReportDto
 
+    // --- Table reservations: the deposit arrives on the restaurant's card; the list, the "seen" marker, manual confirm, cancel and the settings ---
+    @GET("api/v1/restaurant/reservations")
+    suspend fun getReservations(): com.dsdelivery.restaurant.data.api.dto.ReservationsReportDto
+
+    @POST("api/v1/restaurant/reservations/{id}/seen")
+    suspend fun markReservationSeen(@Path("id") id: String)
+
+    @POST("api/v1/restaurant/reservations/{id}/confirm-payment")
+    suspend fun confirmReservationPayment(@Path("id") id: String, @Body body: EmptyBodyDto = EmptyBodyDto())
+
+    @POST("api/v1/restaurant/reservations/{id}/cancel")
+    suspend fun cancelReservation(@Path("id") id: String, @Body body: com.dsdelivery.restaurant.data.api.dto.ReservationCancelRequestDto)
+
+    @PUT("api/v1/restaurant/reservations/settings")
+    suspend fun updateReservationSettings(@Body body: com.dsdelivery.restaurant.data.api.dto.ReservationSettingsRequestDto)
+
     // --- Stage 6C: Restaurant Operations ---
     @GET("api/v1/restaurant/operations")
     suspend fun getOperations(): OperationsResponseDto

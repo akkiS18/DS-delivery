@@ -15,6 +15,7 @@ import com.dsdelivery.restaurant.MainActivity
 import com.dsdelivery.restaurant.R
 import com.dsdelivery.restaurant.RestaurantApp
 import com.dsdelivery.restaurant.data.model.Order
+import com.dsdelivery.restaurant.data.model.Reservation
 import android.os.Build
 
 /** Status-bar notifications of the kitchen bell. The sound itself comes from [AlarmPlayer], so the channels are silent. */
@@ -31,6 +32,11 @@ class AlarmNotifier(private val context: Context) {
             description = "Oshxona javob berishi kerak bo‘lgan buyurtmalar"
             setSound(null, null)
             enableVibration(false)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        })
+        // A paid table reservation is news, not an emergency: one normal sound, no repeating bell.
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_RESERVATION, "Yangi bron", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Mijoz bron uchun pul to‘lagan va joy band bo‘lgan"
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         })
     }
@@ -78,6 +84,36 @@ class AlarmNotifier(private val context: Context) {
 
     fun clearAlert() = manager.cancel(ID_ALERT)
 
+    /**
+     * "Money arrived, the table is booked" for reservations the restaurant has not opened yet (or that still need the payment confirmed).
+     * [soundAgain] is true only when a reservation the notification has not mentioned before appeared, so a poll never repeats the sound.
+     */
+    fun reservationAlert(waiting: List<Reservation>, soundAgain: Boolean) {
+        if (waiting.isEmpty()) { manager.cancel(ID_RESERVATION); return }
+        if (!canPost()) return
+        val needsConfirm = waiting.any { it.awaitingConfirm }
+        val title = when {
+            waiting.size == 1 && needsConfirm -> "Bron: pulni tasdiqlang"
+            waiting.size == 1 -> "Yangi bron: joy band qilindi"
+            else -> "${waiting.size} ta yangi bron"
+        }
+        val body = waiting.joinToString("\n") { "${it.whenText} • ${it.partySize} kishi • ${it.customerName} • ${it.formattedDeposit}" }
+        val b = NotificationCompat.Builder(context, CHANNEL_RESERVATION)
+            .setSmallIcon(R.drawable.ic_stat_restaurant)
+            .setContentTitle(title)
+            .setContentText(body.lineSequence().first())
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(!soundAgain)
+            .setContentIntent(openApp())
+        manager.notify(ID_RESERVATION, b.build())
+    }
+
+    fun clearReservationAlert() = manager.cancel(ID_RESERVATION)
+
     private fun canPost(): Boolean =
         (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) &&
             manager.areNotificationsEnabled()
@@ -85,8 +121,10 @@ class AlarmNotifier(private val context: Context) {
     companion object {
         const val CHANNEL_WATCH = "order_watch"
         const val CHANNEL_ALERT = "order_alert"
+        const val CHANNEL_RESERVATION = "reservation_alert"
         const val ID_WATCH = 2001
         const val ID_ALERT = 2002
+        const val ID_RESERVATION = 2003
     }
 }
 

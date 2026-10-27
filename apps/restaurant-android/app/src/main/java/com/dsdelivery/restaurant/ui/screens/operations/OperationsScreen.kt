@@ -60,6 +60,7 @@ import com.dsdelivery.restaurant.data.model.WorkingDay
 import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
 import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.components.ServerConfigDialog
+import com.dsdelivery.restaurant.ui.screens.reservations.ReservationsViewModel
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.DSRestaurantTheme
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
@@ -68,10 +69,12 @@ import com.dsdelivery.restaurant.ui.theme.WarningOrange
 @Composable
 fun OperationsScreen(
     viewModel: OperationsViewModel,
+    reservationsViewModel: ReservationsViewModel,
     onLoggedOut: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsState()
+    val reservations by reservationsViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.infoMessage) {
@@ -103,6 +106,15 @@ fun OperationsScreen(
         onSubmitCard = viewModel::submitCard,
         onToggleCard = viewModel::toggleCard,
         onReloadCards = { viewModel.loadOperations(); viewModel.loadCards() },
+        reservationSection = {
+            ReservationSettingsSection(
+                settings = reservations.settings,
+                busy = reservations.settingsBusy,
+                error = reservations.settingsError,
+                onSave = reservationsViewModel::saveSettings,
+                onDismissError = reservationsViewModel::dismissSettingsError
+            )
+        },
         modifier = modifier
     )
 }
@@ -166,7 +178,8 @@ fun OperationsContent(
     onSubmitCard: (String, String) -> Unit,
     onToggleCard: (PayeeCard) -> Unit,
     onReloadCards: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    reservationSection: @Composable () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
 
@@ -234,6 +247,9 @@ fun OperationsContent(
                 onToggle = onToggleCard,
                 onRetry = onReloadCards
             )
+
+            // 2b. Table reservations
+            reservationSection()
 
             // 3. Working hours
             SettingsSection(title = "Ish vaqti") {

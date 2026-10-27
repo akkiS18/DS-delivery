@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Star
@@ -22,6 +23,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.runtime.collectAsState
@@ -43,6 +47,8 @@ import com.dsdelivery.restaurant.ui.screens.finance.FinanceViewModel
 import com.dsdelivery.restaurant.ui.screens.operations.OperationsScreen
 import com.dsdelivery.restaurant.ui.screens.ratings.RatingsScreen
 import com.dsdelivery.restaurant.ui.screens.ratings.RatingsViewModel
+import com.dsdelivery.restaurant.ui.screens.reservations.ReservationsScreen
+import com.dsdelivery.restaurant.ui.screens.reservations.ReservationsViewModel
 import com.dsdelivery.restaurant.ui.screens.operations.OperationsViewModel
 import com.dsdelivery.restaurant.ui.screens.orders.OrdersScreen
 import com.dsdelivery.restaurant.ui.screens.orders.OrdersViewModel
@@ -53,11 +59,14 @@ import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 
 enum class MainTab(val title: String, val icon: ImageVector) {
     ORDERS("Buyurtmalar", Icons.Default.Receipt),
+    RESERVATIONS("Bronlar", Icons.Default.EventSeat),
     MENU("Menyu", Icons.Default.RestaurantMenu),
     FINANCE("Moliya", Icons.Default.AccountBalance),
     RATINGS("Baholar", Icons.Default.Star),
     OPERATIONS("Sozlamalar", Icons.Default.Storefront)
 }
+
+private const val RESERVATION_POLL_MS = 30_000L
 
 @Composable
 fun MainScreen(
@@ -65,6 +74,7 @@ fun MainScreen(
     productManagementViewModel: ProductManagementViewModel,
     financeViewModel: FinanceViewModel,
     ratingsViewModel: RatingsViewModel,
+    reservationsViewModel: ReservationsViewModel,
     operationsViewModel: OperationsViewModel,
     onNavigateToOrderDetail: (orderId: String) -> Unit,
     onNavigateToCreateProduct: () -> Unit,
@@ -82,6 +92,7 @@ fun MainScreen(
     val bellOn by alarm.settings.enabled.collectAsState()
     val bellRinging by alarm.watcher.ringing.collectAsState()
     val operationsState by operationsViewModel.uiState.collectAsState()
+    val reservationsState by reservationsViewModel.uiState.collectAsState()
 
     // Anything that changed while the app was away (a card the administrator approved, a new order, the menu on another phone) shows up
     // as soon as the app is opened again or a tab is selected; no need to close the app.
@@ -92,8 +103,20 @@ fun MainScreen(
         productManagementViewModel.loadData(silent = true)
         financeViewModel.refresh()
         ratingsViewModel.refresh()
+        reservationsViewModel.refresh(silent = true)
         operationsViewModel.loadOperations()
         operationsViewModel.loadCards()
+    }
+
+    // A paid reservation shows up on the tab badge within half a minute while the app is open (the background bell covers the app being closed).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(RESERVATION_POLL_MS)
+                reservationsViewModel.refresh(silent = true)
+            }
+        }
     }
     var shownTab by remember { mutableStateOf(selectedTab) }
     LaunchedEffect(selectedTab) {
@@ -101,6 +124,7 @@ fun MainScreen(
         shownTab = selectedTab
         when (selectedTab) {
             MainTab.ORDERS -> ordersViewModel.loadOrders(silent = true)
+            MainTab.RESERVATIONS -> reservationsViewModel.refresh(silent = true)
             MainTab.MENU -> productManagementViewModel.loadData(silent = true)
             MainTab.FINANCE -> financeViewModel.refresh()
             MainTab.RATINGS -> ratingsViewModel.refresh()
@@ -129,7 +153,11 @@ fun MainScreen(
                         selected = isSelected,
                         onClick = { selectedTab = tab },
                         icon = {
-                            val badge = if (tab == MainTab.ORDERS) ordersState.newOrdersCount + ordersState.attentionOrdersCount else 0
+                            val badge = when (tab) {
+                                MainTab.ORDERS -> ordersState.newOrdersCount + ordersState.attentionOrdersCount
+                                MainTab.RESERVATIONS -> reservationsState.unseenCount + reservationsState.awaitingCount
+                                else -> 0
+                            }
                             if (badge > 0) {
                                 BadgedBox(badge = { Badge { Text(badge.toString()) } }) {
                                     Icon(imageVector = tab.icon, contentDescription = tab.title)
@@ -175,6 +203,9 @@ fun MainScreen(
                         onSetPaused = operationsViewModel::setPaused
                     )
                 }
+                MainTab.RESERVATIONS -> {
+                    ReservationsScreen(viewModel = reservationsViewModel)
+                }
                 MainTab.MENU -> {
                     ProductManagementScreen(
                         viewModel = productManagementViewModel,
@@ -195,6 +226,7 @@ fun MainScreen(
                 MainTab.OPERATIONS -> {
                     OperationsScreen(
                         viewModel = operationsViewModel,
+                        reservationsViewModel = reservationsViewModel,
                         onLoggedOut = onLoggedOut
                     )
                 }

@@ -670,6 +670,33 @@ class RestaurantRepositoryImpl(
         }
     }
 
+    // --- Table reservations ---
+
+    override suspend fun getReservations(): Resource<com.dsdelivery.restaurant.data.model.ReservationsReport> = call {
+        apiClient.service.getReservations().toDomain()
+    }
+
+    override suspend fun markReservationSeen(id: String): Resource<Unit> = call { apiClient.service.markReservationSeen(id) }
+
+    override suspend fun confirmReservationPayment(id: String): Resource<Unit> = call { apiClient.service.confirmReservationPayment(id) }
+
+    override suspend fun cancelReservation(id: String, reason: String?): Resource<Unit> = call {
+        apiClient.service.cancelReservation(id, com.dsdelivery.restaurant.data.api.dto.ReservationCancelRequestDto(reason?.trim()?.takeIf { it.isNotEmpty() }))
+    }
+
+    override suspend fun updateReservationSettings(enabled: Boolean, depositSom: Int): Resource<Unit> = call {
+        apiClient.service.updateReservationSettings(com.dsdelivery.restaurant.data.api.dto.ReservationSettingsRequestDto(enabled, depositSom))
+    }
+
+    private suspend fun <T> call(block: suspend () -> T): Resource<T> =
+        try {
+            Resource.Success(block())
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+
     // --- Error Parser Helper ---
 
     private fun parseErrorMessage(e: HttpException): String {
@@ -730,6 +757,7 @@ class RestaurantRepositoryImpl(
                 "CARD_LIMIT" -> "Kartalar soni chegaraga yetdi."
                 "CARD_PENDING_LIMIT" -> "Tasdiq kutayotgan kartalar bor. Administrator tasdiqlagach yana qo‘shing."
                 "NOT_APPROVED" -> "Karta hali tasdiqlanmagan."
+                "KARTA_YOQ" -> "Bronni yoqish uchun avval Sozlamalarda faol to‘lov kartasini qo‘shing."
                 else -> "Bajarib bo‘lmadi. Yangilab, qayta urinib ko‘ring."
             }
             422 -> when (parsedCode) {
