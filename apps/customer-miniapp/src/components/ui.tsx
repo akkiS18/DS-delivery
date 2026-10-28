@@ -1,5 +1,5 @@
-import { AlertTriangle, LifeBuoy, ReceiptText, Minus, Plus, ShoppingBasket, UserRound, UtensilsCrossed, type LucideIcon } from 'lucide-react';
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { AlertTriangle, MessageCircle, ReceiptText, Minus, Plus, ShoppingBasket, UserRound, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
 import { haptic, pushBackHandler } from '../lib/telegram';
@@ -62,6 +62,45 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   );
 }
 
+/**
+ * The screen's next-step button, pinned above the tab bar so it is always in sight (a button at the end of a long page goes unnoticed).
+ * Publishes its height as --cartbar-h (like the basket bar, which is hidden on these screens) so the page keeps its last lines reachable.
+ */
+export function StickyAction({ hint, tone = 'soft', children }: { hint?: ReactNode; tone?: 'soft' | 'bad'; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.documentElement;
+    const el = ref.current;
+    if (!el) return;
+    const publish = () => root.style.setProperty('--cartbar-h', `${Math.ceil(el.getBoundingClientRect().height) + 8}px`);
+    publish();
+    if (typeof ResizeObserver === 'undefined') return () => root.style.removeProperty('--cartbar-h');
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => { ro.disconnect(); root.style.removeProperty('--cartbar-h'); };
+  }, []);
+  return (
+    <div className="cartfloat actionbar" ref={ref}>
+      {hint ? <p className={`actionhint ${tone === 'bad' ? 'bad' : ''}`} role={tone === 'bad' ? 'alert' : undefined}>{hint}</p> : null}
+      {children}
+    </div>
+  );
+}
+
+/** A chosen option shown as one line with a "change" button; the full list of choices opens only when the customer wants to change it. */
+export function ChoiceSummary({ title, value, sub, onChange }: { title: string; value: string; sub?: string; onChange: () => void }) {
+  return (
+    <div className="card row between choice-summary">
+      <div className="grow">
+        <div className="sub small">{title}</div>
+        <div className="bold">{value}</div>
+        {sub ? <div className="sub small">{sub}</div> : null}
+      </div>
+      <Button small variant="ghost" onClick={onChange} aria-label={`${title}: o‘zgartirish`}>O‘zgartirish</Button>
+    </div>
+  );
+}
+
 export function Qty({ value, onInc, onDec, max = 30 }: { value: number; onInc: () => void; onDec: () => void; max?: number }) {
   return (
     <div className="qty" role="group" aria-label="Miqdor">
@@ -77,7 +116,7 @@ export function TabBar({ route, go, orders, support = 0, cart = 0 }: { route: Ro
     { r: { name: 'home' }, icon: UtensilsCrossed, label: 'Restoranlar', on: route.name === 'home' || route.name === 'menu' || route.name === 'reserve' },
     { r: { name: 'cart' }, icon: ShoppingBasket, label: 'Savat', on: route.name === 'cart' || route.name === 'checkout', ...(cart > 0 ? { badge: cart } : {}) },
     { r: { name: 'orders' }, icon: ReceiptText, label: 'Buyurtmalar', on: route.name === 'orders' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
-    { r: { name: 'support' }, icon: LifeBuoy, label: 'Yordam', on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
+    { r: { name: 'support' }, icon: MessageCircle, label: 'Yordam', on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
     { r: { name: 'profile' }, icon: UserRound, label: 'Profil', on: route.name === 'profile' },
   ];
   return (

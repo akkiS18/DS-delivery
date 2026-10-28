@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheck, MapPin, ShoppingBasket } from 'lucide-react';
 import { DeliveryNotice } from '../components/DeliveryNotice';
-import { Button, Empty, Icon, Spinner } from '../components/ui';
+import { Button, ChoiceSummary, Empty, Icon, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartCount, cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
@@ -38,6 +38,10 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [phoneInput, setPhoneInput] = useState('');
   const [editPhone, setEditPhone] = useState(false);
   const [walk, setWalk] = useState(false);
+  // Chosen options are shown as one line each; the full list opens only when the customer taps "O‘zgartirish".
+  const [addrOpen, setAddrOpen] = useState(false);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Described | null>(null);
@@ -88,6 +92,18 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const view = cartView(cart);
   const total = view.totalSom;
 
+  // Chosen options collapse into one line each; they open when the customer changes them or when something there still needs an answer.
+  const addrExpanded = addrOpen || selected === 'new' || addresses.length === 0;
+  const deliveryExpanded = deliveryOpen || taxiOptions === null || taxiFailed || taxiOptions.length === 0 || taxiMissing;
+  const missingText = [
+    ready.missing.includes('address') || (selected === 'new' && hasErrors(newErrors)) ? 'Manzilni kiriting' : '',
+    ready.missing.includes('phone') ? 'Telefon raqamini kiriting' : '',
+    taxiMissing ? 'Taksi xizmatini tanlang' : '',
+  ].filter(Boolean).join(' • ');
+  const stickyHint = touched && !canSubmit && taxiOptions !== null && missingText
+    ? missingText
+    : method === 'CASH' ? 'Restoran tasdiqlagach taom tayyorlanadi, pulni haydovchiga berasiz' : 'Keyingi ekranda restoran kartasiga o‘tkazma qilasiz';
+
   const locate = () => {
     if (!navigator.geolocation) { toast('Joylashuvni aniqlab bo‘lmadi'); return; }
     navigator.geolocation.getCurrentPosition(
@@ -97,7 +113,15 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
 
   const submit = async () => {
     setTouched(true);
-    if (!canSubmit || busy.current) return;   // a ref, not just state: two taps in the same frame still send one request
+    if (busy.current) return;   // a ref, not just state: two taps in the same frame still send one request
+    if (!canSubmit) {
+      // Not silently disabled: say what is missing and take the customer to it.
+      const target = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') ? 'co-address' : ready.missing.includes('phone') ? 'co-phone' : taxiMissing ? 'co-delivery' : null;
+      if (target === 'co-address') setAddrOpen(true);
+      if (target === 'co-delivery') setDeliveryOpen(true);
+      if (target) window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      return;
+    }
     busy.current = true; setSubmitting(true); setProblem(null);
     const body: CheckoutBody = {
       checkoutKey: keyFor(signature),
@@ -136,8 +160,11 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     <div className="page">
       <h1 className="page-title">Buyurtmani rasmiylashtirish</h1>
 
-      <section className="stack" aria-label="Yetkazish manzili">
-        <h2 style={{ fontSize: 17 }}>1. Yetkazish manzili</h2>
+      <section className="stack" id="co-address" aria-label="Yetkazish manzili">
+        <h2 style={{ fontSize: 17 }}>Yetkazish manzili</h2>
+        {!addrExpanded && savedAddress ? (
+          <ChoiceSummary title="Manzil" value={savedAddress.label} sub={savedAddress.addressText} onChange={() => setAddrOpen(true)} />
+        ) : (<>
         {addresses.map(a => (
           <label key={a.id} className="card row" style={{ border: selected === a.id ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
             <input type="radio" name="addr" checked={selected === a.id} onChange={() => setSelected(a.id)} style={{ width: 22, height: 22 }} />
@@ -163,10 +190,11 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
             <label className="row"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} style={{ width: 22, height: 22 }} /> Keyingi buyurtmalar uchun saqlash</label>
           </div>
         )}
+        </>)}
       </section>
 
-      <section className="stack" aria-label="Telefon">
-        <h2 style={{ fontSize: 17 }}>2. Telefon raqami</h2>
+      <section className="stack" id="co-phone" aria-label="Telefon">
+        <h2 style={{ fontSize: 17 }}>Telefon raqami</h2>
         {profile.phone && !editPhone ? (
           <div className="card row between"><span className="bold mono">{formatPhone(profile.phone)}</span><Button small variant="ghost" onClick={() => setEditPhone(true)}>O‘zgartirish</Button></div>
         ) : (
@@ -178,8 +206,15 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         )}
       </section>
 
-      <section className="stack" aria-label="Yetkazish usuli">
-        <h2 style={{ fontSize: 17 }}>3. Yetkazish usuli</h2>
+      <section className="stack" id="co-delivery" aria-label="Yetkazish usuli">
+        <h2 style={{ fontSize: 17 }}>Yetkazish usuli</h2>
+        {!deliveryExpanded ? (
+          <ChoiceSummary
+            title="Yetkazish"
+            value={walk ? 'Piyoda (restoran hal qiladi)' : 'Taksi bilan'}
+            sub={`${walk ? 'Zaxira: ' : ''}${taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi xizmati'} • narxni taksi xizmati belgilaydi`}
+            onChange={() => setDeliveryOpen(true)} />
+        ) : (<>
         <label className="card row" style={{ border: !walk ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
           <input type="radio" name="deliverymode" checked={!walk} onChange={() => setWalk(false)} style={{ width: 22, height: 22 }} />
           <div className="grow">
@@ -208,11 +243,15 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
           </label>
         ))}
         {touched && taxiMissing && <div className="err">Taksi xizmatini tanlang.</div>}
+        </>)}
       </section>
 
       {choices.cash && (
         <section className="stack" aria-label="To‘lov usuli">
-          <h2 style={{ fontSize: 17 }}>4. Taom uchun to‘lov</h2>
+          <h2 style={{ fontSize: 17 }}>Taom uchun to‘lov</h2>
+          {!payOpen ? (
+            <ChoiceSummary title="To‘lov usuli" value={method === 'CASH' ? 'Naqd pul' : 'Kartaga o‘tkazma'} sub={method === 'CASH' ? 'Taom narxini haydovchiga berasiz' : 'Buyurtmadan keyin restoran kartasiga o‘tkazasiz'} onChange={() => setPayOpen(true)} />
+          ) : (<>
           {choices.card && (
             <label className="card row" style={{ border: method === 'CARD' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
               <input type="radio" name="paymethod" checked={method === 'CARD'} onChange={() => setChosen('CARD')} style={{ width: 22, height: 22 }} />
@@ -229,11 +268,12 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
               <div className="sub small">Taom narxini yetkazib berilganda haydovchiga berasiz (yetkazish haqi alohida). Restoran buyurtmani tasdiqlaydi.</div>
             </div>
           </label>
+          </>)}
         </section>
       )}
 
       <section className="card stack" aria-label="Buyurtma xulosasi">
-        <h2 style={{ fontSize: 17 }}>{choices.cash ? '5' : '4'}. Buyurtma</h2>
+        <h2 style={{ fontSize: 17 }}>Buyurtma</h2>
         <div className="sub small">{cart.restaurantName} • {cartCount(cart)} ta</div>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         <div className="divider" />
@@ -252,11 +292,11 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         </div>
       )}
 
-      <Button loading={submitting} disabled={!canSubmit && touched ? true : false} onClick={() => void submit()}>
-        {method === 'CASH' ? `Buyurtma berish • ${som(total)}` : problem?.kind === 'PRICE' ? `Yangi narxda to‘lovga o‘tish • ${som(total)}` : `To‘lovga o‘tish • ${som(total)}`}
-      </Button>
-      {touched && ready.ok && taxiMissing && <p className="err center">Taksi xizmatini tanlang.</p>}
-      {!ready.ok && touched && <p className="err center">{ready.missing.includes('address') ? 'Manzilni tanlang yoki kiriting. ' : ''}{ready.missing.includes('phone') ? 'Telefon raqamini kiriting.' : ''}</p>}
+      <StickyAction tone={touched && !canSubmit && taxiOptions !== null ? 'bad' : 'soft'} hint={stickyHint}>
+        <Button loading={submitting} disabled={taxiOptions === null} onClick={() => void submit()}>
+          {method === 'CASH' ? `Buyurtma berish • ${som(total)}` : problem?.kind === 'PRICE' ? `Yangi narxda to‘lovga o‘tish • ${som(total)}` : `To‘lovga o‘tish • ${som(total)}`}
+        </Button>
+      </StickyAction>
     </div>
   );
 }

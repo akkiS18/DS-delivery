@@ -121,6 +121,13 @@ h1, h2, h3, p { margin: 0; }
 :root[data-nav='inline'] .cartfloat { bottom: 8px; }
 :root[data-kb='open'] .cartfloat { display: none; }
 .cartfloat > button { box-shadow: 0 6px 18px rgba(8, 127, 91, 0.35); }
+/* The next-step button of a screen (StickyAction): a solid bar attached to the tab bar, with a one-line hint about what comes next. */
+.actionbar { bottom: var(--nav-space); padding-top: 10px; padding-bottom: 8px; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -6px 14px rgba(0, 0, 0, 0.06); }
+:root[data-nav='inline'] .actionbar { bottom: 0; }
+.actionbar > button { box-shadow: none; }
+.actionhint { margin: 0 0 8px; text-align: center; font-size: 13px; line-height: 1.35; color: var(--ink-soft); }
+.actionhint.bad { color: var(--bad, #c0392b); font-weight: 600; }
+.choice-summary { gap: 12px; }
 .app-main { padding-bottom: calc(var(--nav-space) + var(--gap-end) + var(--cartbar-h, 0px)); }
 :root[data-nav='inline'] .app-main { padding-bottom: calc(var(--gap-end) + var(--cartbar-h, 0px)); }
 

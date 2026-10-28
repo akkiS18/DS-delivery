@@ -117,7 +117,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
 
   return (
     <div className="page">
-      {paidNotice && <PaidDialog onClose={() => setPaidNotice(false)} />}
+      {paidNotice && <PaidDialog cash={cash} onClose={() => setPaidNotice(false)} />}
       <div className="row between">
         <div>
           <h1 className="page-title">Buyurtma #{o.code}</h1>
@@ -141,7 +141,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
           <div className="banner notice">Siz “uyim yaqin, piyoda olib borsa bo‘ladi” deb belgilagansiz. Yakuniy qarorni restoran qiladi: rozi bo‘lmasa, taksi chaqiriladi.</div>
         )}
         {o.stage === 'NEEDS_HELP' && <div className="banner warn">Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.</div>}
-        {o.stage === 'EXPIRED' && <div className="banner bad">To‘lov muddati tugadi. Yangi buyurtma bering.</div>}
+        {o.stage === 'EXPIRED' && <div className="banner bad">{cash ? 'Restoran buyurtmani vaqtida tasdiqlamadi.' : 'To‘lov muddati tugadi.'} Yangi buyurtma bering.</div>}
         {trouble && (
           <div className="banner warn stack" role="alert">
             <div>{trouble}</div>

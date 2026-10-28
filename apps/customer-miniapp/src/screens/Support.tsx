@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LifeBuoy, MessageCircle } from 'lucide-react';
+import { MessageCircle } from 'lucide-react';
 import { Button, Empty, ErrorBox, Icon, Sheet, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, som } from '../lib/format';
@@ -48,7 +48,7 @@ export function Support({ go }: { go: (r: Route) => void }) {
       {error && <div className="banner warn" role="status">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
 
       {tickets.length === 0
-        ? <Empty icon={<Icon as={LifeBuoy} size={44} />} title="Murojaatlar yo‘q" hint="Muammo bo‘lsa, yuqoridagi tugma orqali yozing." />
+        ? <Empty icon={<Icon as={MessageCircle} size={44} />} title="Murojaatlar yo‘q" hint="Muammo bo‘lsa, yuqoridagi tugma orqali yozing." />
         : (
           <section className="stack" aria-label="Murojaatlarim">
             <h2 className="sec-title">Murojaatlarim</h2>

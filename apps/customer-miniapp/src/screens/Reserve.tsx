@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
-import { Button, ErrorBox, Icon, Skeletons } from '../components/ui';
+import { Button, ErrorBox, Icon, Skeletons, StickyAction } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { newKey, som } from '../lib/format';
 import { bookingBounds, checkWhen, describeReservationError, localInputToIso, MAX_PARTY, toLocalInput } from '../lib/reservation';
@@ -118,8 +118,10 @@ export function Reserve({ id, go }: { id: string; go: (r: Route) => void }) {
       </div>
 
       {problem && <div className="banner bad" role="alert">{problem}</div>}
-      <Button loading={busy} onClick={() => void submit()}>To‘lashga o‘tish</Button>
       <Button variant="ghost" onClick={() => go({ name: 'menu', id })}>Orqaga</Button>
+      <StickyAction hint="Keyingi ekranda restoran kartasiga o‘tkazma qilasiz">
+        <Button loading={busy} onClick={() => void submit()}>To‘lashga o‘tish • {som(deposit)}</Button>
+      </StickyAction>
     </div>
   );
 }

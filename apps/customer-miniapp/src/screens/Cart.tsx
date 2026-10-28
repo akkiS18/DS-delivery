@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ShoppingBasket } from 'lucide-react';
 import { DeliveryNotice } from '../components/DeliveryNotice';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
-import { Button, Empty, Icon, Qty, Spinner } from '../components/ui';
+import { Button, Empty, Icon, Qty, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { cartBase, cartView } from '../lib/cart';
 import { describeCheckoutError } from '../lib/checkoutErrors';
@@ -92,8 +92,10 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>Mavjud bo‘lmaganlarni olib tashlash</Button>
       )}
       {checking && <Spinner />}
-      <Button disabled={blocked} onClick={() => { setRepriced([]); go({ name: 'checkout' }); }}>Rasmiylashtirish</Button>
       <Button variant="ghost" onClick={() => { dispatch({ type: 'clear' }); toast('Savat tozalandi'); go({ name: 'home' }); }}>Savatni tozalash</Button>
+      <StickyAction hint={checking ? 'Narxlar tekshirilmoqda…' : blocked ? null : 'Keyingi qadam: manzil va to‘lov usuli'}>
+        <Button disabled={blocked} onClick={() => { setRepriced([]); go({ name: 'checkout' }); }}>Rasmiylashtirish • {som(quote?.ok ? quote.totalSom : view.totalSom)}</Button>
+      </StickyAction>
     </div>
   );
 }

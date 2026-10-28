@@ -1,4 +1,4 @@
-import { CreditCard, ChefHat, Car, Footprints, PackageCheck, XCircle, LifeBuoy, Hourglass, Check, type LucideIcon } from 'lucide-react';
+import { CreditCard, ChefHat, Car, Footprints, PackageCheck, XCircle, MessageCircle, Hourglass, Check, type LucideIcon } from 'lucide-react';
 import { Icon } from './ui';
 import { heroSteps, type HeroKey } from '../lib/order';
 import type { CustomerStage } from '../lib/types';
@@ -23,7 +23,7 @@ const HEADLINE: Record<CustomerStage, string> = {
 
 const BIG_ICON: Record<CustomerStage, LucideIcon> = {
   PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Hourglass, PREPARING: ChefHat, READY: ChefHat, SELF_DELIVERY: Footprints, TAXI_REQUESTED: Car, TAXI_ACCEPTED: Car,
-  TAXI_SENT: Car, DELIVERED: PackageCheck, CANCELLATION_REQUESTED: Hourglass, CANCELLED: XCircle, EXPIRED: XCircle, NEEDS_HELP: LifeBuoy,
+  TAXI_SENT: Car, DELIVERED: PackageCheck, CANCELLATION_REQUESTED: Hourglass, CANCELLED: XCircle, EXPIRED: XCircle, NEEDS_HELP: MessageCircle,
 };
 
 export function StatusHero({ stage, cash = false }: { stage: CustomerStage; cash?: boolean }) {
@@ -32,7 +32,7 @@ export function StatusHero({ stage, cash = false }: { stage: CustomerStage; cash
   return (
     <div className="hero" aria-live="polite">
       <div className={`hero-ico ${bad ? 'bad' : stage === 'DELIVERED' ? 'done' : ''}`} aria-hidden><Icon as={BIG_ICON[stage]} size={56} /></div>
-      <div className="hero-title">{cash && stage === 'PAYMENT_PENDING' ? 'Restoran tasdiqlashini kutmoqda' : HEADLINE[stage]}</div>
+      <div className="hero-title">{cash && stage === 'PAYMENT_PENDING' ? 'Restoran tasdiqlashini kutmoqda' : cash && stage === 'EXPIRED' ? 'Restoran tasdiqlamadi' : HEADLINE[stage]}</div>
       {steps && (
         <ol className="phases" aria-label="Buyurtma bosqichlari">
           {steps.map(p => (
