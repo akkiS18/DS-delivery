@@ -37,6 +37,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
         include: {
           restaurant: { select: { staffTelegramUserId: true, staffLinkedAt: true, name: true } },
           customer: { select: { telegramUserId: true } },
+          payment: { select: { method: true } },
         },
       });
       for (const order of rows) {
@@ -67,7 +68,8 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
             CUSTOMER_CANCELLED: `❌ #${order.code}: buyurtma bekor qilindi. Pul yubormang.`,
             RESTAURANT_REJECTED: `🚫 #${order.code}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.code}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
-            PAYMENT_CONFIRMED: `✅ #${order.code}: to‘lov qabul qilindi.`,
+            // Cash: nothing was paid yet, the restaurant only accepted the order; the customer pays the driver.
+            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. Pulni haydovchiga naqd to‘laysiz.` : `✅ #${order.code}: to‘lov qabul qilindi.`,
             PREPARING: `👨‍🍳 #${order.code}: buyurtmangiz tayyorlanmoqda.`,
           };
           // Walking delivery has no taxi "on the way" news, so the customer is told here that the restaurant brings it itself.
