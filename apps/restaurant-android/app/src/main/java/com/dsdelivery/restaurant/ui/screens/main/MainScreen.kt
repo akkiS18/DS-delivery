@@ -8,7 +8,6 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.RestaurantMenu
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -21,6 +20,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.repeatOnLifecycle
@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.dsdelivery.restaurant.RestaurantApp
 import com.dsdelivery.restaurant.data.notify.NewOrderNotifier
+import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -61,10 +62,13 @@ enum class MainTab(val title: String, val icon: ImageVector) {
     ORDERS("Buyurtmalar", Icons.Default.Receipt),
     RESERVATIONS("Bronlar", Icons.Default.EventSeat),
     MENU("Menyu", Icons.Default.RestaurantMenu),
-    FINANCE("Moliya", Icons.Default.AccountBalance),
-    RATINGS("Baholar", Icons.Default.Star),
-    OPERATIONS("Sozlamalar", Icons.Default.Storefront)
+    OPERATIONS("Sozlamalar", Icons.Default.Storefront),
+    /** Not in the bar: opened by tapping Sozlamalar three times quickly. */
+    FINANCE("Moliya", Icons.Default.AccountBalance)
 }
+
+/** Three taps on Sozlamalar within this window open the hidden Moliya page. */
+private const val FINANCE_TAP_WINDOW_MS = 900L
 
 private const val RESERVATION_POLL_MS = 30_000L
 
@@ -83,6 +87,9 @@ fun MainScreen(
     modifier: Modifier = Modifier
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.ORDERS) }
+    // Baholar lives inside Sozlamalar now: a sub-screen with a back arrow.
+    var showRatings by rememberSaveable { mutableStateOf(false) }
+    var settingsTaps by remember { mutableStateOf(emptyList<Long>()) }
     val ordersState by ordersViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -108,6 +115,11 @@ fun MainScreen(
         operationsViewModel.loadCards()
     }
 
+    // Back from the hidden Moliya page or from Baholar goes to Sozlamalar.
+    BackHandler(enabled = selectedTab == MainTab.FINANCE || (selectedTab == MainTab.OPERATIONS && showRatings)) {
+        if (selectedTab == MainTab.FINANCE) selectedTab = MainTab.OPERATIONS else showRatings = false
+    }
+
     // A paid reservation shows up on the tab badge within half a minute while the app is open (the background bell covers the app being closed).
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(lifecycleOwner) {
@@ -127,7 +139,6 @@ fun MainScreen(
             MainTab.RESERVATIONS -> reservationsViewModel.refresh(silent = true)
             MainTab.MENU -> productManagementViewModel.loadData(silent = true)
             MainTab.FINANCE -> financeViewModel.refresh()
-            MainTab.RATINGS -> ratingsViewModel.refresh()
             MainTab.OPERATIONS -> { operationsViewModel.loadOperations(); operationsViewModel.loadCards() }
         }
     }
@@ -147,11 +158,29 @@ fun MainScreen(
                 containerColor = MaterialTheme.colorScheme.surface,
                 tonalElevation = 8.dp
             ) {
-                MainTab.entries.forEach { tab ->
-                    val isSelected = selectedTab == tab
+                MainTab.entries.filter { it != MainTab.FINANCE }.forEach { tab ->
+                    // The hidden Moliya page keeps Sozlamalar highlighted.
+                    val isSelected = selectedTab == tab || (tab == MainTab.OPERATIONS && selectedTab == MainTab.FINANCE)
                     NavigationBarItem(
                         selected = isSelected,
-                        onClick = { selectedTab = tab },
+                        onClick = {
+                            if (tab == MainTab.OPERATIONS) {
+                                val now = SystemClock.elapsedRealtime()
+                                val recent = (settingsTaps + now).filter { now - it <= FINANCE_TAP_WINDOW_MS }
+                                if (recent.size >= 3) {
+                                    settingsTaps = emptyList()
+                                    showRatings = false
+                                    selectedTab = MainTab.FINANCE
+                                } else {
+                                    settingsTaps = recent
+                                    showRatings = false
+                                    selectedTab = MainTab.OPERATIONS
+                                }
+                            } else {
+                                settingsTaps = emptyList()
+                                selectedTab = tab
+                            }
+                        },
                         icon = {
                             val badge = when (tab) {
                                 MainTab.ORDERS -> ordersState.newOrdersCount + ordersState.attentionOrdersCount
@@ -220,15 +249,17 @@ fun MainScreen(
                         viewModel = financeViewModel
                     )
                 }
-                MainTab.RATINGS -> {
-                    RatingsScreen(viewModel = ratingsViewModel)
-                }
                 MainTab.OPERATIONS -> {
-                    OperationsScreen(
-                        viewModel = operationsViewModel,
-                        reservationsViewModel = reservationsViewModel,
-                        onLoggedOut = onLoggedOut
-                    )
+                    if (showRatings) {
+                        RatingsScreen(viewModel = ratingsViewModel, onBack = { showRatings = false })
+                    } else {
+                        OperationsScreen(
+                            viewModel = operationsViewModel,
+                            reservationsViewModel = reservationsViewModel,
+                            onLoggedOut = onLoggedOut,
+                            onOpenRatings = { ratingsViewModel.refresh(); showRatings = true }
+                        )
+                    }
                 }
             }
         }

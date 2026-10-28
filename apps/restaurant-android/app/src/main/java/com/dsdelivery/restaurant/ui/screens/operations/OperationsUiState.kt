@@ -14,6 +14,8 @@ data class OperationsUiState(
     val isPaused: Boolean = false,
     val defaultPrepMinutes: Int = 25,
     val workingDays: List<WorkingDay> = RestaurantOperationsConfig.defaultWorkingDays(),
+    /** false = no schedule is saved on the server, so the restaurant is open at any hour whatever the list below shows. */
+    val workingHoursSet: Boolean = true,
     val showPauseConfirmDialog: Boolean = false,
     val pendingPauseState: Boolean = false,
     val editingWorkingDay: WorkingDay? = null,

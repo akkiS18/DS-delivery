@@ -89,7 +89,7 @@ test('every operations route requires a valid session', async () => {
 test('a new restaurant reads the defaults', async () => {
   const r = await call('GET', '/operations', ta);
   assert.equal(r.statusCode, 200);
-  assert.deepEqual(r.json(), { isPaused: false, defaultPrepMinutes: 25, timezone: 'Asia/Tashkent', workingDays: DEFAULT_WORKING_DAYS });
+  assert.deepEqual(r.json(), { isPaused: false, defaultPrepMinutes: 25, timezone: 'Asia/Tashkent', workingDays: DEFAULT_WORKING_DAYS, workingHoursSet: false });
 });
 
 test('pause/resume is an idempotent set, persisted, and isolated per tenant', async () => {
@@ -118,8 +118,9 @@ test('working hours and prep time persist across sessions and do not leak to ano
   assert.equal(put.statusCode, 200, put.body);
   assert.equal((await call('PATCH', '/operations/prep-time', ta, { defaultPrepMinutes: 40 })).statusCode, 200);
   const fresh = await loginToken(slugA, PW_A);
-  assert.deepEqual((await call('GET', '/operations', fresh)).json(), { isPaused: false, defaultPrepMinutes: 40, timezone: 'Asia/Tashkent', workingDays: days });
+  assert.deepEqual((await call('GET', '/operations', fresh)).json(), { isPaused: false, defaultPrepMinutes: 40, timezone: 'Asia/Tashkent', workingDays: days, workingHoursSet: true });
   assert.deepEqual((await call('GET', '/operations', tb)).json().workingDays, DEFAULT_WORKING_DAYS);
+  assert.equal((await call('GET', '/operations', tb)).json().workingHoursSet, false, 'a restaurant that never saved hours is told its schedule is not saved');
   const bad = await call('PUT', '/operations/working-hours', ta, { days: days.map(d => (d.dayOfWeek === 2 ? { ...d, openTime: '22:00', closeTime: '09:00' } : d)) });
   assert.equal(bad.statusCode, 400);
   assert.deepEqual((await call('GET', '/operations', ta)).json().workingDays, days); // a rejected write changed nothing

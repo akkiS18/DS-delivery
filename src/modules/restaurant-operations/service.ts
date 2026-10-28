@@ -39,7 +39,9 @@ function readDays(raw: Prisma.JsonValue | null): WorkingDay[] {
 
 const select = { isPaused: true, defaultPrepMinutes: true, workingHours: true, timezone: true } as const;
 type Row = { isPaused: boolean; defaultPrepMinutes: number; workingHours: Prisma.JsonValue | null; timezone: string };
-const view = (r: Row) => ({ isPaused: r.isPaused, defaultPrepMinutes: r.defaultPrepMinutes, workingDays: readDays(r.workingHours), timezone: r.timezone });
+/** false = no schedule was ever saved: customers are NOT limited by hours (always open) even though `workingDays` shows the defaults; the app says so and offers to save them. */
+const hoursSaved = (raw: Prisma.JsonValue | null): boolean => workingHoursSchema.safeParse({ days: raw }).success;
+const view = (r: Row) => ({ isPaused: r.isPaused, defaultPrepMinutes: r.defaultPrepMinutes, workingDays: readDays(r.workingHours), workingHoursSet: hoursSaved(r.workingHours), timezone: r.timezone });
 
 export async function getOperations(restaurantId: string) {
   return view(await db.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select }));

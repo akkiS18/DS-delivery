@@ -71,7 +71,8 @@ fun OperationsScreen(
     viewModel: OperationsViewModel,
     reservationsViewModel: ReservationsViewModel,
     onLoggedOut: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onOpenRatings: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val reservations by reservationsViewModel.uiState.collectAsState()
@@ -106,6 +107,8 @@ fun OperationsScreen(
         onSubmitCard = viewModel::submitCard,
         onToggleCard = viewModel::toggleCard,
         onReloadCards = { viewModel.loadOperations(); viewModel.loadCards() },
+        onOpenRatings = onOpenRatings,
+        onSaveSchedule = viewModel::saveShownWorkingHours,
         reservationSection = {
             ReservationSettingsSection(
                 settings = reservations.settings,
@@ -179,6 +182,8 @@ fun OperationsContent(
     onToggleCard: (PayeeCard) -> Unit,
     onReloadCards: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenRatings: () -> Unit = {},
+    onSaveSchedule: () -> Unit = {},
     reservationSection: @Composable () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -251,8 +256,38 @@ fun OperationsContent(
             // 2b. Table reservations
             reservationSection()
 
+            // 2c. Customers' ratings of the food (was a bottom tab)
+            SettingsSection(title = "Baholar") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onOpenRatings() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Mijozlar baholari", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
             // 3. Working hours
             SettingsSection(title = "Ish vaqti") {
+                if (!state.workingHoursSet) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            "Ish vaqti hali saqlanmagan: hozir restoran kechayu-kunduz ochiq hisoblanadi va mijozlar istalgan soatda buyurtma bera oladi. Pastdagi soatlar ko‘rsatma xolos.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = WarningOrange
+                        )
+                        Button(onClick = onSaveSchedule, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) {
+                            Text("Shu soatlarni saqlash")
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                }
                 state.workingDays.forEachIndexed { index, day ->
                     Row(
                         modifier = Modifier

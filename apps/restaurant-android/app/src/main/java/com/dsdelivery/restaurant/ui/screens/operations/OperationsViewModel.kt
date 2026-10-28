@@ -105,7 +105,8 @@ class OperationsViewModel(
                         it.copy(
                             isPaused = result.data.isPaused,
                             defaultPrepMinutes = result.data.defaultPrepMinutes,
-                            workingDays = result.data.workingDays
+                            workingDays = result.data.workingDays,
+                            workingHoursSet = result.data.workingHoursSet
                         )
                     }
                 }
@@ -197,12 +198,24 @@ class OperationsViewModel(
         viewModelScope.launch {
             when (val result = repository.updateWorkingHours(currentDays)) {
                 is Resource.Success -> {
-                    _uiState.update { it.copy(infoMessage = "Ish vaqti saqlandi") }
+                    _uiState.update { it.copy(infoMessage = "Ish vaqti saqlandi", workingHoursSet = true) }
                 }
                 is Resource.Error -> {
                     // Not saved on the server: restore the previous schedule.
                     _uiState.update { it.copy(workingDays = previousDays, backendNotice = result.message) }
                 }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    /** Saves the schedule as shown (nothing was stored yet): from then on customers can order only inside these hours. */
+    fun saveShownWorkingHours() {
+        val days = _uiState.value.workingDays
+        viewModelScope.launch {
+            when (val result = repository.updateWorkingHours(days)) {
+                is Resource.Success -> _uiState.update { it.copy(infoMessage = "Ish vaqti saqlandi", workingHoursSet = true) }
+                is Resource.Error -> _uiState.update { it.copy(backendNotice = result.message) }
                 Resource.Loading -> {}
             }
         }

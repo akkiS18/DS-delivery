@@ -11,7 +11,8 @@ data class WorkingDay(
 data class RestaurantOperationsConfig(
     val isPaused: Boolean = false,
     val defaultPrepMinutes: Int = 25,
-    val workingDays: List<WorkingDay> = defaultWorkingDays()
+    val workingDays: List<WorkingDay> = defaultWorkingDays(),
+    val workingHoursSet: Boolean = true
 ) {
     companion object {
         fun defaultWorkingDays(): List<WorkingDay> = listOf(

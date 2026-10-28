@@ -16,7 +16,9 @@ data class WorkingDayDto(
 data class OperationsResponseDto(
     @SerializedName("isPaused") val isPaused: Boolean? = null,
     @SerializedName("defaultPrepMinutes") val defaultPrepMinutes: Int? = null,
-    @SerializedName("workingDays") val workingDays: List<WorkingDayDto>? = null
+    @SerializedName("workingDays") val workingDays: List<WorkingDayDto>? = null,
+    /** false = the server has no saved schedule (restaurant always open); older servers omit it, which counts as saved. */
+    @SerializedName("workingHoursSet") val workingHoursSet: Boolean? = null
 )
 
 data class UpdateStatusRequestDto(@SerializedName("isPaused") val isPaused: Boolean)
@@ -35,6 +37,7 @@ fun OperationsResponseDto.toDomain(): RestaurantOperationsConfig {
         workingDays = workingDays
             ?.map { WorkingDay(it.dayOfWeek, names[it.dayOfWeek] ?: "", it.isOpen, it.openTime, it.closeTime) }
             ?.sortedBy { it.dayOfWeek }
-            ?: RestaurantOperationsConfig.defaultWorkingDays()
+            ?: RestaurantOperationsConfig.defaultWorkingDays(),
+        workingHoursSet = workingHoursSet ?: true
     )
 }
