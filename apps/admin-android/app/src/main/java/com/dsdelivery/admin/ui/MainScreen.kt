@@ -171,7 +171,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                     onAck = { key, minutes -> ack(key, minutes) },
                     onOpen = { t, section -> if (t == Tab.HELP) helpSection = section; tab = t },
                 )
-                Tab.MONEY -> MoneyTab(onMessage = { say(it) })
+                Tab.MONEY -> MoneyHome(onMessage = { say(it) })
                 Tab.CARDS -> CardsTab(onMessage = { say(it) })
                 Tab.MANAGE -> ManageTab(onMessage = { say(it) })
                 Tab.HELP -> HelpTab(section = helpSection, onSection = { helpSection = it }, onMessage = { say(it) })

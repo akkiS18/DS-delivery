@@ -15,6 +15,7 @@ import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.PUT
+import retrofit2.http.Query
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -69,6 +70,8 @@ interface AdminApi {
     @GET("api/v1/admin/refunds") suspend fun refunds(): Response<RefundsResponse>
     @GET("api/v1/admin/refunds/{id}") suspend fun refund(@Path("id") id: String): Response<RefundDetailDto>
     @POST("api/v1/admin/refunds/{id}/confirm") suspend fun confirmRefund(@Path("id") id: String, @Body body: ConfirmRefundRequest): Response<OkResponse>
+    @GET("api/v1/admin/payouts") suspend fun payouts(@Query("days") days: Int): Response<PayoutsResponse>
+    @GET("api/v1/admin/payouts/{date}/{restaurantId}") suspend fun payoutDay(@Path("date") date: String, @Path("restaurantId") restaurantId: String): Response<PayoutDetailDto>
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 }
@@ -203,6 +206,8 @@ class Repository(private val session: SessionStore) {
     suspend fun refunds(): ApiResult<RefundsResponse> = call { api.refunds() }
     suspend fun refund(id: String): ApiResult<RefundDetailDto> = call { api.refund(id) }
     suspend fun confirmRefund(id: String, note: String): ApiResult<OkResponse> = call { api.confirmRefund(id, ConfirmRefundRequest(note.trim())) }
+    suspend fun payouts(days: Int = 7): ApiResult<PayoutsResponse> = call { api.payouts(days) }
+    suspend fun payoutDay(date: String, restaurantId: String): ApiResult<PayoutDetailDto> = call { api.payoutDay(date, restaurantId) }
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 }

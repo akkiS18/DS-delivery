@@ -43,6 +43,14 @@ class FormatTest {
         assertEquals("", stampOf("not a time", today, utc))
     }
 
+    @Test fun `payout days read as today, yesterday or dd_MM`() {
+        val now = java.time.LocalDate.of(2026, 10, 30)
+        assertEquals("Bugun", dayLabel("2026-10-30", now))
+        assertEquals("Kecha", dayLabel("2026-10-29", now))
+        assertEquals("28.10", dayLabel("2026-10-28", now))
+        assertEquals("garbage", dayLabel("garbage", now))
+    }
+
     @Test fun `quiet hours convert between hours and HH_MM`() {
         assertEquals(1, hourOf("01:00"))
         assertEquals(23, hourOf("23:30"))

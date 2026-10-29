@@ -20,6 +20,16 @@ fun stampOf(iso: String?, today: java.time.LocalDate = java.time.LocalDate.now()
         }.getOrNull()
     } ?: ""
 
+/** "2026-10-30" -> "Bugun" / "Kecha" / "28.10": a payout day as the administrator reads it. */
+fun dayLabel(key: String, today: java.time.LocalDate = java.time.LocalDate.now()): String {
+    val day = runCatching { java.time.LocalDate.parse(key) }.getOrNull() ?: return key
+    return when (day) {
+        today -> "Bugun"
+        today.minusDays(1) -> "Kecha"
+        else -> DateTimeFormatter.ofPattern("dd.MM").format(day)
+    }
+}
+
 /** "45 soniya", "7 daqiqa", "2 soat 10 daqiqa": how long an item has been waiting. */
 fun ageText(seconds: Long?): String {
     if (seconds == null) return ""

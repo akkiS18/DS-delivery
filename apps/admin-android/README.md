@@ -48,6 +48,12 @@ Botdagi administrator imkoniyatlarining hammasi endi ilovada ham bor. Sozlamalar
 - **Platforma**: real to'lov (`/payments`, ochish ikki bosqichli va botdagi to'siqlar bilan bir xil), naqd (`/cash`), xizmat haqi (`/fee`), taksi rejimi (`/taxi`), reyting tartibi va baholar (`/ratings`).
   Har bir o'zgarish auditga yoziladi va admin Telegram chatiga ham xabar qilinadi.
 
+## Pul > To'lov hisoboti (A5a)
+Platforma kartasiga (pool) to'langan restoranlar uchun kunlik hisob: **beriladi = yig'ilgan − komissiya − restoran yuborgan qaytarishlar**. Faqat YETKAZILGAN buyurtmalar (kun — Toshkent vaqti bilan yetkazilgan sana),
+taksi haqi kirmaydi. Hozir yetkazilmagan (yo'ldagi) buyurtmalar alohida ko'rinadi. Restoran qatorini bossangiz — shu kunning buyurtmalari va qaytarishlari. Ochiq murojaati bor buyurtmalar belgilanadi.
+Hisobot faqat KO'RSATADI: DS pul o'tkazmaydi, summani bankda o'zingiz o'tkazasiz ("o'tkazdim" belgisi hali yo'q). Platforma kartasiga tushgan buyurtmalarning komissiyasi shu hisobda ushlanadi, shuning uchun
+haftalik komissiya hisobiga (`Boshqaruv > Komissiya`) endi kirmaydi (ikki marta to'latmaslik uchun); naqd va restoran o'z kartasiga olgan buyurtmalar avvalgidek.
+
 ## Backend
 `ADMIN_APP_ENABLED=true` bo'lmasa API 404 qaytaradi. Migratsiyalar: `20261107000200_admin_app_auth`, `20261107000300_admin_attention_ack`.
 

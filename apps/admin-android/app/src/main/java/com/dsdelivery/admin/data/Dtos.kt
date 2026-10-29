@@ -400,6 +400,28 @@ data class RefundDetailDto(
 data class ConfirmRefundRequest(@SerializedName("note") val note: String)
 data class OkResponse(@SerializedName("ok") val ok: Boolean)
 
+/** A5a: the daily payout report (read only). payableSom = collected - commission - refunds; it can be negative. */
+data class PayoutRestaurantDto(
+    @SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String, @SerializedName("orders") val orders: Int,
+    @SerializedName("collectedSom") val collectedSom: Long, @SerializedName("commissionSom") val commissionSom: Long, @SerializedName("refundsSom") val refundsSom: Long,
+    @SerializedName("payableSom") val payableSom: Long, @SerializedName("withOpenTicket") val withOpenTicket: Int = 0,
+)
+data class PayoutDayDto(@SerializedName("date") val date: String, @SerializedName("restaurants") val restaurants: List<PayoutRestaurantDto>, @SerializedName("totalPayableSom") val totalPayableSom: Long)
+data class InProgressDto(@SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String, @SerializedName("orders") val orders: Int, @SerializedName("amountSom") val amountSom: Long)
+data class PayoutsResponse(@SerializedName("days") val days: List<PayoutDayDto>, @SerializedName("inProgress") val inProgress: List<InProgressDto>, @SerializedName("generatedAt") val generatedAt: String)
+data class PayoutOrderDto(
+    @SerializedName("code") val code: String, @SerializedName("at") val at: String, @SerializedName("collectedSom") val collectedSom: Long,
+    @SerializedName("commissionSom") val commissionSom: Long, @SerializedName("openTicket") val openTicket: Boolean = false,
+)
+data class PayoutRefundDto(
+    @SerializedName("number") val number: Int, @SerializedName("orderCode") val orderCode: String, @SerializedName("at") val at: String,
+    @SerializedName("amountSom") val amountSom: Long, @SerializedName("status") val status: String,
+)
+data class PayoutDetailDto(
+    @SerializedName("date") val date: String, @SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String,
+    @SerializedName("orders") val orders: List<PayoutOrderDto>, @SerializedName("refunds") val refunds: List<PayoutRefundDto>,
+)
+
 data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
 data class StatementDto(
     @SerializedName("restaurantId") val restaurantId: String,
