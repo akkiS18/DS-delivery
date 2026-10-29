@@ -922,6 +922,17 @@ model AdminAuthAttempt {
   @@index([createdAt])
 }
 
+/// Admin app "Diqqat": the administrator pressed "called" on an attention item; its alarm stays quiet until snoozeUntil
+/// (then rings again if the problem is still open). key = "<KIND>:<id>" of the item, see modules/admin-attention.
+model AdminAttentionAck {
+  key         String   @id
+  ackedBy     String
+  ackedAt     DateTime @default(now()) @db.Timestamptz(3)
+  snoozeUntil DateTime @db.Timestamptz(3)
+
+  @@index([snoozeUntil])
+}
+
 model CommissionEvent {
   id        String          @id @default(cuid())
   entryId   String

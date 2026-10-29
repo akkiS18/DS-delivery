@@ -23,6 +23,7 @@ import { startRestaurantOrderNotifier } from './bot/restaurant-notify.js';
 import { startSupportNotifier } from './bot/support-notify.js';
 import { startTaxiDispatcher } from './modules/taxi/worker.js';
 import { setAdminMessenger } from './modules/admin-auth/messenger.js';
+import { startAttentionNotifier } from './bot/attention-notify.js';
 
 const opts = {
   paymentWindowMs: Number(process.env.PAYMENT_WINDOW_SECONDS ?? 600) * 1000,
@@ -49,6 +50,7 @@ let stopReceiptRetention: (() => void) | undefined;
 let stopRestaurantNotifier: (() => void) | undefined;
 let stopTaxiDispatcher: (() => void) | undefined;
 let stopSupportNotifier: (() => void) | undefined;
+let stopAttentionNotifier: (() => void) | undefined;
 let botStarted = false;
 let taxiBotStarted = false;
 let busy = false;
@@ -97,6 +99,7 @@ const shutdown = createShutdown(() => [
   { name: 'restaurant-notifier', run: () => stopRestaurantNotifier?.() },
   { name: 'taxi-dispatcher', run: () => stopTaxiDispatcher?.() },
   { name: 'support-notifier', run: () => stopSupportNotifier?.() },
+  { name: 'attention-notifier', run: () => stopAttentionNotifier?.() },
   { name: 'card-notifier', run: () => stopCardNotifier?.() },
   { name: 'receipt-retention', run: () => stopReceiptRetention?.() },
   { name: 'telegram-polling', run: () => stopPolling('shutdown') },
@@ -163,6 +166,8 @@ try {
     app.log.info('Taxi dispatch worker started (DB-backed)');
     stopSupportNotifier = startSupportNotifier(clientBot);
     app.log.info('Support ticket notifier started');
+    stopAttentionNotifier = startAttentionNotifier(clientBot);
+    app.log.info('Admin attention notifier started');
     stopCardNotifier = startCardApprovalNotifier(clientBot);
     app.log.info('Card approval notifier started');
   }
