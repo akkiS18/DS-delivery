@@ -20,7 +20,8 @@ import { chatCheckoutEnabled, miniAppUrl, setMiniAppMenuButton } from './bot/min
 import { restaurantTelegramEnabled, taxiTelegramEnabled } from './lib/features.js';
 import { startBotPaymentNotifier } from './bot/notify.js';
 import { startRestaurantOrderNotifier } from './bot/restaurant-notify.js';
-import { startSupportNotifier } from './bot/support-notify.js';
+import { deliverSupportNotifications, refreshAdminMessages, startSupportNotifier } from './bot/support-notify.js';
+import { setSupportSync } from './modules/admin-support/service.js';
 import { startTaxiDispatcher } from './modules/taxi/worker.js';
 import { setAdminMessenger } from './modules/admin-auth/messenger.js';
 import { startAttentionNotifier } from './bot/attention-notify.js';
@@ -166,6 +167,8 @@ try {
     app.log.info('Taxi dispatch worker started (DB-backed)');
     stopSupportNotifier = startSupportNotifier(clientBot);
     app.log.info('Support ticket notifier started');
+    // DS Admin app: after a ticket changes in the app, edit the admins' Telegram copies and send what is pending right away.
+    setSupportSync(async ticketId => { await refreshAdminMessages(adminBot, ticketId); await deliverSupportNotifications(adminBot); });
     stopAttentionNotifier = startAttentionNotifier(clientBot);
     app.log.info('Admin attention notifier started');
     stopCardNotifier = startCardApprovalNotifier(clientBot);

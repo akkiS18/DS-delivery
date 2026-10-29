@@ -101,11 +101,13 @@ export async function addAppCustomerMessage(input: {
   });
 }
 
-/** Admin reply: only the admin who currently owns an IN_PROGRESS ticket. */
+/** Admin reply: only the admin who currently owns an IN_PROGRESS ticket. Written in Telegram it carries the Telegram message id; written in the
+ *  admin app it carries a `clientKey` instead (a retry with the same key is a DUPLICATE, never a second message). One of the two is required. */
 export async function addAdminReply(input: {
-  actorTelegramId: string; actorName: string; ticketId: string; text: string; telegramMessageId: number;
+  actorTelegramId: string; actorName: string; ticketId: string; text: string; telegramMessageId?: number | undefined; clientKey?: string | undefined;
 }): Promise<MessageResult> {
   requireAdmin(input.actorTelegramId);
+  if (input.telegramMessageId === undefined && !input.clientKey) throw new Error('SUPPORT_XABAR_KALITI_YOQ');
   const text = validateText(input.text);
   return db.$transaction(async tx => {
     const t = await lockTicket(tx, input.ticketId);
@@ -118,13 +120,13 @@ export async function addAdminReply(input: {
     const id = randomUUID();
     const { count } = await tx.supportTicketMessage.createMany({
       data: [{ id, ticketId: t.id, senderType: 'ADMIN', senderTelegramId: input.actorTelegramId,
-        senderName: input.actorName.slice(0, 100), telegramMessageId: input.telegramMessageId, text }],
+        senderName: input.actorName.slice(0, 100), telegramMessageId: input.telegramMessageId ?? null, clientKey: input.clientKey ?? null, text }],
       skipDuplicates: true,
     });
     if (count !== 1) return { result: 'DUPLICATE' };
     await tx.supportTicketEvent.create({
       data: { ticketId: t.id, actorTelegramId: input.actorTelegramId, actorType: 'ADMIN',
-        action: 'ADMIN_REPLY', fromStatus: t.status, toStatus: t.status, details: { messageId: id } },
+        action: 'ADMIN_REPLY', fromStatus: t.status, toStatus: t.status, details: { messageId: id, ...(input.clientKey ? { via: 'admin-app' } : {}) } },
     });
     return { result: 'SENT', messageId: id, number: t.number };
   });
