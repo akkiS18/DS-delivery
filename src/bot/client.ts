@@ -17,6 +17,7 @@ import { registerTaxiAdminHandlers } from './taxi-admin.js';
 import { registerSupportHandlers } from './support.js';
 import { registerCardAdminHandlers } from './card-admin.js';
 import { registerPoolAdminHandlers } from './pool-admin.js';
+import { registerAdminAppHandlers } from './admin-app.js';
 import { registerMoneyAdminHandlers } from './money-admin.js';
 import { registerCommissionAdminHandlers } from './commission-admin.js';
 import { registerRestaurantAdminHandlers } from './restaurant-admin.js';
@@ -637,6 +638,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
     registerTaxiAdminHandlers(bot); // the taxi bot is not running, so the recovery buttons of the dispatcher's alerts are answered here
   }
   registerSupportHandlers(bot);
+  registerAdminAppHandlers(bot); // /logoutall: closes every DS Admin app session (support admins only)
   registerPoolAdminHandlers(bot); // /pool, /platformcard, /collect: platform card pool (support admins only)
   registerCardAdminHandlers(bot); // /cards + approval of restaurant-added payee cards (support admins only)
   registerPlatformAdminHandlers(bot); // /payments (real-payment door), /newrestaurant, /resetpassword, /linkstaff (support admins only)

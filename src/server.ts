@@ -22,6 +22,7 @@ import { startBotPaymentNotifier } from './bot/notify.js';
 import { startRestaurantOrderNotifier } from './bot/restaurant-notify.js';
 import { startSupportNotifier } from './bot/support-notify.js';
 import { startTaxiDispatcher } from './modules/taxi/worker.js';
+import { setAdminMessenger } from './modules/admin-auth/messenger.js';
 
 const opts = {
   paymentWindowMs: Number(process.env.PAYMENT_WINDOW_SECONDS ?? 600) * 1000,
@@ -138,6 +139,9 @@ try {
       const menu = await setMiniAppMenuButton(clientBot);
       app.log.info({ miniApp: menu, miniAppUrl: miniAppUrl() ? 'configured' : 'not configured', chatCheckout: chatCheckoutEnabled() }, 'Mini App launcher');
     }
+    // DS Admin app: sign-in codes and device notices go to the administrator's Telegram through this bot.
+    const adminBot = clientBot;
+    setAdminMessenger(async (chatId, html) => { await adminBot.telegram.sendMessage(chatId, html, { parse_mode: 'HTML' }); });
     stopBotNotifier = startBotPaymentNotifier(clientBot);
     stopRestaurantNotifier = startRestaurantOrderNotifier(clientBot);
     const taxiToken = process.env.TAXI_BOT_TOKEN?.trim();

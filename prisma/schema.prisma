@@ -881,6 +881,47 @@ model AdminAuditEvent {
   @@index([targetType, targetId, createdAt])
 }
 
+/// Admin app (DS Admin): one-time sign-in code sent through the customer bot to a SUPPORT_ADMIN_* Telegram account.
+/// Only a hash of the code is stored; a code works once, for a few minutes, with a few tries.
+model AdminLoginCode {
+  id             String    @id @default(cuid())
+  telegramUserId String
+  codeHash       String
+  attempts       Int       @default(0)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt      DateTime  @db.Timestamptz(3)
+  usedAt         DateTime? @db.Timestamptz(3)
+
+  @@index([telegramUserId, createdAt])
+}
+
+/// Admin app device session (token hash only, revocable like RestaurantSession). Access also needs the Telegram id to still be a support admin.
+model AdminSession {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  telegramUserId String
+  deviceName     String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  lastSeenAt     DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt      DateTime  @db.Timestamptz(3)
+  revokedAt      DateTime? @db.Timestamptz(3)
+  revokedReason  String?
+
+  @@index([telegramUserId, revokedAt, expiresAt])
+}
+
+/// Admin sign-in throttling. keyHash = sha256 of "tg:<id>" or "ip:<ip>"; kind = CODE_REQUEST | VERIFY. No raw identifiers are stored.
+model AdminAuthAttempt {
+  id        String   @id @default(cuid())
+  keyHash   String
+  kind      String
+  success   Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([keyHash, kind, createdAt])
+  @@index([createdAt])
+}
+
 model CommissionEvent {
   id        String          @id @default(cuid())
   entryId   String

@@ -36,6 +36,9 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '🛠 <b>Admin buyruqlari</b>',
       '/money — mos kelmagan pul va uzoq tasdiqlanmagan to‘lovlar',
       '/cards — restoran kartalari va yangi karta tasdig‘i',
+      '/pool — platforma kartalari (guruh) va aylanma',
+      '/platformcard — platforma kartasini qo‘shish',
+      '/collect — restoran pulini platforma kartalariga o‘tkazish / qaytarish',
       '/commission — haftalik komissiya hisobi',
       '/restaurants — restoranni to‘xtatish / yoqish',
       '/newrestaurant — yangi restoran qo‘shish (rasm bilan: rasm izohiga yozing)',
@@ -52,6 +55,7 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/taxiapp — taksi ilovasi uchun yangi parol',
       '/deletetaxi — taksi kompaniyasini o‘chirish (tarixi bo‘lsa arxivlanadi)',
       '/tickets — mijoz murojaatlari',
+      '/logoutall — DS Admin ilovasidagi barcha qurilmalarni yopish',
       'Taksi muammolari: /taxiadmin (taksi botida; taksi boti o‘chirilgan bo‘lsa shu botda)',
     ].join('\n'), { parse_mode: 'HTML' });
   });

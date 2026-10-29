@@ -16,5 +16,12 @@ export const RESTAURANT_TELEGRAM_DISABLED_MESSAGE =
 export const taxiTelegramEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
   env.TAXI_TELEGRAM_ENABLED?.trim().toLowerCase() !== 'false';
 
+/**
+ * DS Admin app API (/api/v1/admin). A new, powerful door: OFF (404) unless explicitly "true". The Telegram admin
+ * commands never depend on it.
+ */
+export const adminAppEnabled = (env: NodeJS.ProcessEnv = process.env): boolean =>
+  env.ADMIN_APP_ENABLED?.trim().toLowerCase() === 'true';
+
 export const TAXI_TELEGRAM_DISABLED_MESSAGE =
   'ℹ️ Taksi operatorlari endi DS Taxi ilovasida (Android) ishlaydi. Telegram orqali taksi amallari o‘chirilgan; hech narsa o‘zgartirilmadi.';
