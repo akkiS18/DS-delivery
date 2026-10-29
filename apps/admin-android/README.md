@@ -1,7 +1,7 @@
 # DS Admin — administrator ilovasi (Android, Kotlin + Compose)
 
-Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3a**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar va platforma sozlamalari.
-Restoran ochish/parol/o'chirish (A3b), qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichlarda qo'shiladi; hozircha ularning hammasi botda.
+Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish) va platforma sozlamalari.
+Qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichda qo'shiladi; hozircha ularning hammasi botda.
 
 ## Nima qiladi
 - **Kirish**: Telegram ID → botga 6 xonali kod keladi → kod → telefon uchun PIN (4–8 raqam). Kod 10 daqiqa amal qiladi, urinishlar cheklangan.
@@ -27,6 +27,9 @@ Restoran ochish/parol/o'chirish (A3b), qo'llab-quvvatlash/taksi/qaytarish (A4) k
 
 ## Boshqaruv (A3a)
 - **Restoranlar** (`/restaurants`): faol/to'xtatilgan, kartalar soni; o'chirish ikki bosqichli, restoran ilovasidan chiqarib yuboriladi.
+  Shu yerning o'zida (A3b): yangi restoran (`/newrestaurant`; parol BIR MARTA ko'rsatiladi, tizim saqlamaydi), yangi parol (`/resetpassword`),
+  Telegram xodimini ulash (`/linkstaff`), rasm (`/restaurantphoto`; galereyadan, 1280 px gacha kichraytirilib yuboriladi), o'chirish/arxivlash (`/deleterestaurant`:
+  tarixi yo'q — butunlay o'chadi, tarixi bor — arxivlanadi, tugallanmagan buyurtma bo'lsa — rad etiladi).
 - **Komissiya** (`/commission`): haftalik to'lanishi kerak summa; "to'landi" faqat qayd etadi (pulga tegmaydi), izoh kamida 10 belgi, summa o'zgargan bo'lsa hech narsa yozilmaydi.
 - **Platforma**: real to'lov (`/payments`, ochish ikki bosqichli va botdagi to'siqlar bilan bir xil), naqd (`/cash`), xizmat haqi (`/fee`), taksi rejimi (`/taxi`), reyting tartibi va baholar (`/ratings`).
   Har bir o'zgarish auditga yoziladi va admin Telegram chatiga ham xabar qilinadi.
@@ -41,7 +44,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build-release-apks.ps1 -OnlyAdm
 ```
 Natija: `ds-admin-release-<versiya>.apk` (`-OnlyAdmin`siz — boshqa uchta ilova bilan birga). Faqat shu modul:
 `apps\customer-miniapp\android\gradlew.bat -p apps\admin-android :app:assembleRelease -PdsApiBaseUrl=https://api.sultonxoja.uz/` (JAVA_HOME = Android Studio jbr; keystore `DS_KEYSTORE_*` muhit o'zgaruvchilarida).
-Unit-test: `apps\customer-miniapp\android\gradlew.bat -p apps\admin-android :app:testDebugUnitTest` (AttentionTracker, PinLock, Format).
+Unit-test: `apps\customer-miniapp\android\gradlew.bat -p apps\admin-android :app:testDebugUnitTest` (AttentionTracker, PinLock, Format, ImagePrep).
 
 ## Holat
 Kod yozilgan, lekin **kompilyatsiya qilinmagan va telefonda sinalmagan** (`docs/PENDING_MANUAL_TESTS.md` H47). Birinchi build'da kompilyatsiya xatolari chiqishi mumkin.

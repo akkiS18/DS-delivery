@@ -3,7 +3,10 @@ package com.dsdelivery.admin.data
 import com.dsdelivery.admin.BuildConfig
 import com.google.gson.Gson
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -42,6 +45,12 @@ interface AdminApi {
     @GET("api/v1/admin/ratings") suspend fun ratings(): Response<RatingsDto>
     @GET("api/v1/admin/restaurants") suspend fun restaurants(): Response<RestaurantsResponse>
     @PUT("api/v1/admin/restaurants/{id}/active") suspend fun setRestaurantActive(@Path("id") id: String, @Body body: ActiveRequest): Response<ActiveResponse>
+    @POST("api/v1/admin/restaurants") suspend fun createRestaurant(@Body body: CreateRestaurantRequest): Response<CredentialResponse>
+    @POST("api/v1/admin/restaurants/{id}/password") suspend fun resetPassword(@Path("id") id: String): Response<CredentialResponse>
+    @PUT("api/v1/admin/restaurants/{id}/staff") suspend fun linkStaff(@Path("id") id: String, @Body body: StaffRequest): Response<NameResponse>
+    @PUT("api/v1/admin/restaurants/{id}/image") suspend fun setRestaurantImage(@Path("id") id: String, @Body body: RequestBody): Response<ImageResponse>
+    @GET("api/v1/admin/restaurants/{id}/removal") suspend fun removalPlan(@Path("id") id: String): Response<RemovalPlanResponse>
+    @POST("api/v1/admin/restaurants/{id}/remove") suspend fun removeRestaurant(@Path("id") id: String, @Body body: RemoveRequest): Response<RemoveResponse>
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 }
@@ -54,6 +63,8 @@ sealed interface ApiResult<out T> {
     data class Failed(
         val code: Int, val error: String?, val message: String?, val count: Int? = null,
         val blockers: List<String>? = null, val amountSom: Long? = null,
+        /** The one extra word some refusals carry (TELEGRAM_TAKEN: the other restaurant's slug; REMOVAL_BLOCKED: the reason). */
+        val detail: String? = null,
     ) : ApiResult<Nothing>
     /** No connection / timeout. */
     data object Offline : ApiResult<Nothing>
@@ -100,7 +111,7 @@ class Repository(private val session: SessionStore) {
             else -> {
                 val body = runCatching { gson.fromJson(r.errorBody()?.string(), ApiErrorBody::class.java) }.getOrNull()
                 if (r.code() == 429) ApiResult.Locked(body?.retryAfterSeconds ?: 900)
-                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count, body?.blockers, body?.amountSom)
+                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count, body?.blockers, body?.amountSom, body?.otherSlug ?: body?.reason)
             }
         }
     } catch (e: IOException) {
@@ -146,6 +157,15 @@ class Repository(private val session: SessionStore) {
     suspend fun ratings(): ApiResult<RatingsDto> = call { api.ratings() }
     suspend fun restaurants(): ApiResult<RestaurantsResponse> = call { api.restaurants() }
     suspend fun setRestaurantActive(id: String, active: Boolean): ApiResult<ActiveResponse> = call { api.setRestaurantActive(id, ActiveRequest(active)) }
+    suspend fun createRestaurant(name: String, address: String, phone: String): ApiResult<CredentialResponse> =
+        call { api.createRestaurant(CreateRestaurantRequest(name.trim(), address.trim(), phone.trim().ifEmpty { null })) }
+    suspend fun resetPassword(id: String): ApiResult<CredentialResponse> = call { api.resetPassword(id) }
+    suspend fun linkStaff(id: String, telegramId: String): ApiResult<NameResponse> = call { api.linkStaff(id, StaffRequest(telegramId.trim())) }
+    /** [jpeg] is already shrunk by ImagePrep; the server decides the type from the bytes. */
+    suspend fun setRestaurantImage(id: String, jpeg: ByteArray): ApiResult<ImageResponse> =
+        call { api.setRestaurantImage(id, jpeg.toRequestBody("image/jpeg".toMediaType())) }
+    suspend fun removalPlan(id: String): ApiResult<RemovalPlanResponse> = call { api.removalPlan(id) }
+    suspend fun removeRestaurant(id: String, expected: String): ApiResult<RemoveResponse> = call { api.removeRestaurant(id, RemoveRequest(expected)) }
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 }

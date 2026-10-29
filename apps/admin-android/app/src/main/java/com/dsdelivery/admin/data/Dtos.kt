@@ -101,6 +101,10 @@ data class ApiErrorBody(
     @SerializedName("blockers") val blockers: List<String>? = null,
     /** CHANGED: the amount now due, when it moved under the administrator's hands. */
     @SerializedName("amountSom") val amountSom: Long? = null,
+    /** TELEGRAM_TAKEN: the restaurant that already uses that Telegram account. */
+    @SerializedName("otherSlug") val otherSlug: String? = null,
+    /** REMOVAL_BLOCKED: OPEN_ORDERS / OPEN_REFUNDS / OPEN_DISPATCHES. */
+    @SerializedName("reason") val reason: String? = null,
 )
 
 // ---- A2: money review, cards, platform pool (src/modules/admin-money) ----
@@ -260,6 +264,35 @@ data class AdminRestaurantDto(
 )
 data class RestaurantsResponse(@SerializedName("restaurants") val restaurants: List<AdminRestaurantDto>)
 data class ActiveResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String, @SerializedName("signedOut") val signedOut: Int)
+
+// A3b: add a restaurant, new password, Telegram staff link, photo, delete/archive.
+data class CreateRestaurantRequest(
+    @SerializedName("name") val name: String,
+    @SerializedName("pickupAddress") val pickupAddress: String,
+    @SerializedName("pickupPhone") val pickupPhone: String? = null,
+)
+/** The one-time login handed out by "new restaurant" and "new password". The password is never shown again. */
+data class CredentialResponse(
+    @SerializedName("ok") val ok: Boolean,
+    @SerializedName("slug") val slug: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("password") val password: String,
+)
+data class StaffRequest(@SerializedName("telegramId") val telegramId: String)
+data class NameResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("name") val name: String)
+data class ImageResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("version") val version: Int)
+/** What removal WOULD do: result is DELETE, ARCHIVE or BLOCKED (with reason + count). */
+data class RemovalPlanDto(
+    @SerializedName("result") val result: String,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("orders") val orders: Int? = null,
+    @SerializedName("dueSom") val dueSom: Long? = null,
+    @SerializedName("reason") val reason: String? = null,
+    @SerializedName("count") val count: Int? = null,
+)
+data class RemovalPlanResponse(@SerializedName("plan") val plan: RemovalPlanDto)
+data class RemoveRequest(@SerializedName("expected") val expected: String)
+data class RemoveResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String, @SerializedName("name") val name: String)
 
 data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
 data class StatementDto(

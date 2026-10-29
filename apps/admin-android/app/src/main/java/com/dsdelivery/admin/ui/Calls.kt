@@ -15,7 +15,21 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     "OPEN_PAYMENTS" -> "Hozir to‘lanmagan ${f.count ?: "bir nechta"} ta karta to‘lovi bor. Ular tugagach (taxminan 10 daqiqa) qayta urining."
     "NOT_FOUND" -> "Topilmadi. Ro‘yxatni yangilang."
     "BLOCKED" -> "Yoqib bo‘lmadi: " + f.blockers.orEmpty().joinToString(" ") { "• $it" }
-    "CHANGED" -> "Ma’lumot o‘zgargan (hozir ${f.count ?: 0} ta, ${somText(f.amountSom ?: 0)}). Hech narsa yozilmadi. Ro‘yxatni yangilab, qayta tekshiring."
+    "CHANGED" ->
+        if (f.count == null && f.amountSom == null) "Holat o‘zgargan. Hech narsa qilinmadi. Ro‘yxatni yangilab, qayta tekshiring."
+        else "Ma’lumot o‘zgargan (hozir ${f.count ?: 0} ta, ${somText(f.amountSom ?: 0)}). Hech narsa yozilmadi. Ro‘yxatni yangilab, qayta tekshiring."
+    "NAME_INVALID" -> "Restoran nomi juda qisqa."
+    "ADDRESS_INVALID" -> "Manzil juda qisqa."
+    "PHONE_INVALID" -> "Telefon raqami noto‘g‘ri (9–15 raqam, + bilan boshlanishi mumkin)."
+    "IMAGE_INVALID" -> "Rasm yaroqsiz (JPG, PNG yoki WebP, 3 MB gacha)."
+    "TELEGRAM_ID_INVALID" -> "Telegram ID faqat raqamlardan iborat bo‘lsin."
+    "TELEGRAM_TAKEN" -> "Bu Telegram akkaunti allaqachon boshqa restoranga ulangan (${f.detail ?: "?"})."
+    "REMOVAL_BLOCKED" -> "Hozir olib bo‘lmaydi: " + when (f.detail) {
+        "OPEN_ORDERS" -> "tugallanmagan buyurtma bor (${f.count ?: "?"} ta)."
+        "OPEN_REFUNDS" -> "hal qilinmagan qaytarish so‘rovi bor (${f.count ?: "?"} ta)."
+        "OPEN_DISPATCHES" -> "taksi buyurtmasi tugamagan (${f.count ?: "?"} ta)."
+        else -> "tugallanmagan ish bor."
+    }
     "NOTHING_DUE" -> "To‘lanishi kerak komissiya qolmagan."
     "PERCENT_INVALID" -> "Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
     else -> if (f.code in 500..599) "Server xatosi. Birozdan keyin qayta urinib ko‘ring." else "Bajarilmadi."
