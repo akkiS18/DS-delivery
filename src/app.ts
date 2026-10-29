@@ -26,6 +26,7 @@ import { adminMoneyRoutes } from './modules/admin-money/routes.js';
 import { adminPlatformRoutes } from './modules/admin-platform/routes.js';
 import { adminProvisionRoutes } from './modules/admin-platform/provision-routes.js';
 import { adminSupportRoutes } from './modules/admin-support/routes.js';
+import { adminTaxiRoutes } from './modules/admin-taxi/routes.js';
 
 /** Fastify's typings take a hop-count only as a function: trust the first N proxies in front of us. */
 function trustProxySetting(): boolean | ((address: string, hop: number) => boolean) {
@@ -77,6 +78,7 @@ export function buildApp(engine: PaymentEngineV3, deps: { pingDatabase?: () => P
   app.register(adminPlatformRoutes, { prefix: '/api/v1/admin' }); // DS Admin A3: platform settings, restaurants on/off, commission
   app.register(adminProvisionRoutes, { prefix: '/api/v1/admin' }); // DS Admin A3b: add restaurant, password, staff link, photo, delete/archive
   app.register(adminSupportRoutes, { prefix: '/api/v1/admin' }); // DS Admin A4a: support inbox, conversation, ticket actions
+  app.register(adminTaxiRoutes, { prefix: '/api/v1/admin' }); // DS Admin A4b: taxi problems and taxi companies
   app.register(legalRoutes);
   app.register(async orders => { await restaurantOrdersRoutes(orders, engine); }, { prefix: '/api/v1/restaurant' });
   app.register(async internal => { await internalRoutes(internal, engine); }, { prefix: '/api/v1/internal' });
