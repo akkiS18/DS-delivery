@@ -10,6 +10,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.PUT
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -22,6 +23,15 @@ interface AdminApi {
     @GET("api/v1/admin/attention") suspend fun attention(): Response<AttentionResponse>
     @POST("api/v1/admin/attention/ack") suspend fun ack(@Body body: AckRequest): Response<AckResponse>
     @PUT("api/v1/admin/attention/quiet-hours") suspend fun quietHours(@Body body: QuietRequest): Response<QuietResponse>
+
+    @GET("api/v1/admin/money") suspend fun money(): Response<MoneyResponse>
+    @POST("api/v1/admin/money/reviews/{id}/handle") suspend fun handleReview(@Path("id") id: String, @Body body: HandleReviewRequest): Response<HandleReviewResponse>
+    @GET("api/v1/admin/cards") suspend fun cards(): Response<CardsResponse>
+    @GET("api/v1/admin/cards/{id}") suspend fun cardDetail(@Path("id") id: String): Response<CardDetailDto>
+    @POST("api/v1/admin/cards/{id}/decision") suspend fun decideCard(@Path("id") id: String, @Body body: DecisionRequest): Response<DecisionResponse>
+    @GET("api/v1/admin/pool") suspend fun pool(): Response<PoolResponse>
+    @POST("api/v1/admin/pool/cards") suspend fun addPlatformCard(@Body body: PlatformCardRequest): Response<PlatformCardResponse>
+    @POST("api/v1/admin/pool/collect") suspend fun collect(@Body body: CollectRequest): Response<CollectResponse>
 }
 
 sealed interface ApiResult<out T> {
@@ -29,7 +39,7 @@ sealed interface ApiResult<out T> {
     /** The session is gone (signed out elsewhere, closed with /logoutall, expired): sign in again. */
     data object Unauthorized : ApiResult<Nothing>
     data class Locked(val retryAfterSeconds: Int) : ApiResult<Nothing>
-    data class Failed(val code: Int, val error: String?, val message: String?) : ApiResult<Nothing>
+    data class Failed(val code: Int, val error: String?, val message: String?, val count: Int? = null) : ApiResult<Nothing>
     /** No connection / timeout. */
     data object Offline : ApiResult<Nothing>
 }
@@ -75,7 +85,7 @@ class Repository(private val session: SessionStore) {
             else -> {
                 val body = runCatching { gson.fromJson(r.errorBody()?.string(), ApiErrorBody::class.java) }.getOrNull()
                 if (r.code() == 429) ApiResult.Locked(body?.retryAfterSeconds ?: 900)
-                else ApiResult.Failed(r.code(), body?.error, body?.message)
+                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count)
             }
         }
     } catch (e: IOException) {
@@ -99,4 +109,16 @@ class Repository(private val session: SessionStore) {
     suspend fun ack(key: String, minutes: Int?): ApiResult<AckResponse> = call { api.ack(AckRequest(key, minutes)) }
     suspend fun setQuietHours(off: Boolean, from: String?, to: String?): ApiResult<QuietResponse> =
         call { api.quietHours(if (off) QuietRequest(off = true) else QuietRequest(from = from, to = to)) }
+
+    suspend fun money(): ApiResult<MoneyResponse> = call { api.money() }
+    suspend fun handleReview(id: String, action: String, note: String): ApiResult<HandleReviewResponse> =
+        call { api.handleReview(id, HandleReviewRequest(action, note.trim())) }
+    suspend fun cards(): ApiResult<CardsResponse> = call { api.cards() }
+    suspend fun cardDetail(id: String): ApiResult<CardDetailDto> = call { api.cardDetail(id) }
+    suspend fun decideCard(id: String, approve: Boolean): ApiResult<DecisionResponse> =
+        call { api.decideCard(id, DecisionRequest(if (approve) "APPROVE" else "REJECT")) }
+    suspend fun pool(): ApiResult<PoolResponse> = call { api.pool() }
+    suspend fun addPlatformCard(number: String, holderName: String): ApiResult<PlatformCardResponse> =
+        call { api.addPlatformCard(PlatformCardRequest(number.trim(), holderName.trim())) }
+    suspend fun collect(slug: String, on: Boolean): ApiResult<CollectResponse> = call { api.collect(CollectRequest(slug, on)) }
 }

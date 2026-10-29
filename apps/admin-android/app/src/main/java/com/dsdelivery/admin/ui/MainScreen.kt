@@ -19,6 +19,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
@@ -51,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.admin.AdminApp
 import com.dsdelivery.admin.core.WatchState
+import com.dsdelivery.admin.data.AttentionItem
 import kotlinx.coroutines.launch
 
 /** What must be true for the phone to ring reliably. Checked every time the app comes back to the screen. */
@@ -71,7 +74,21 @@ data class Readiness(val notifications: Boolean, val battery: Boolean, val volum
     }
 }
 
-private enum class Tab(val label: String) { ATTENTION("Diqqat"), SETTINGS("Sozlamalar") }
+private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), SETTINGS("Sozlamalar") }
+
+/** Which tab deals with an attention item (null = the card itself is all there is to it). */
+private fun tabFor(kind: String): Tab? = when (kind) {
+    "MONEY_REVIEW", "PAYMENT_UNVERIFIED" -> Tab.MONEY
+    "CARD_PENDING", "CARD_TURN_MID", "CARD_TURN_HIGH" -> Tab.CARDS
+    else -> null
+}
+
+/** Open (not yet acknowledged) attention items that belong to a tab: the number on its icon. */
+private fun badgeFor(tab: Tab, items: List<AttentionItem>): Int = when (tab) {
+    Tab.ATTENTION -> items.count { !it.acked }
+    Tab.MONEY, Tab.CARDS -> items.count { !it.acked && tabFor(it.kind) == tab }
+    Tab.SETTINGS -> 0
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,8 +113,6 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
         }
     }
 
-    val open = state.items.count { !it.acked }
-
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -113,11 +128,9 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                     NavigationBarItem(
                         selected = tab == t, onClick = { tab = t },
                         icon = {
-                            if (t == Tab.ATTENTION && open > 0) {
-                                BadgedBox(badge = { Badge { Text(open.toString()) } }) { Icon(Icons.Filled.Notifications, null) }
-                            } else {
-                                Icon(if (t == Tab.ATTENTION) Icons.Filled.Notifications else Icons.Filled.Settings, null)
-                            }
+                            val icon = when (t) { Tab.ATTENTION -> Icons.Filled.Notifications; Tab.MONEY -> Icons.Filled.AttachMoney; Tab.CARDS -> Icons.Filled.CreditCard; Tab.SETTINGS -> Icons.Filled.Settings }
+                            val count = badgeFor(t, state.items)
+                            if (count > 0) BadgedBox(badge = { Badge { Text(count.toString()) } }) { Icon(icon, null) } else Icon(icon, null)
                         },
                         label = { Text(t.label) },
                         colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer),
@@ -138,7 +151,10 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                         ack(key, 15) // calling the restaurant counts as "I am on it"
                     },
                     onAck = { key, minutes -> ack(key, minutes) },
+                    onOpen = { tab = it },
                 )
+                Tab.MONEY -> MoneyTab(onMessage = { say(it) })
+                Tab.CARDS -> CardsTab(onMessage = { say(it) })
                 Tab.SETTINGS -> SettingsTab(readiness, duty, onReadinessChanged, onMessage = { say(it) })
             }
         }
@@ -156,6 +172,7 @@ private fun AttentionTab(
     onSilence: () -> Unit,
     onCall: (key: String, phone: String) -> Unit,
     onAck: (key: String, minutes: Int) -> Unit,
+    onOpen: (Tab) -> Unit,
 ) {
     PullRefresh(onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -188,6 +205,8 @@ private fun AttentionTab(
                     onCall = { onCall(item.key, it) },
                     onAck = { onAck(item.key, it) },
                     onSilence = onSilence,
+                    openLabel = tabFor(item.kind)?.let { "${it.label}ni ochish" },
+                    onOpen = { tabFor(item.kind)?.let(onOpen) },
                 )
             }
         }

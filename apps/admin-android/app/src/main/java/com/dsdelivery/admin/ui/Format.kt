@@ -24,6 +24,13 @@ fun ageText(seconds: Long?): String {
     }
 }
 
+/** 12300000 -> "12 300 000 so‘m". */
+fun somText(amount: Long): String {
+    val digits = kotlin.math.abs(amount).toString()
+    val grouped = digits.reversed().chunked(3).joinToString(" ").reversed()
+    return (if (amount < 0) "−" else "") + grouped + " so‘m"
+}
+
 /** Phone numbers are dialled as typed; spaces and dashes are dropped. */
 fun dialable(phone: String): String = phone.filter { it.isDigit() || it == '+' }
 

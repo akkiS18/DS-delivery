@@ -1,7 +1,7 @@
 # DS Admin — administrator ilovasi (Android, Kotlin + Compose)
 
-Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 bosqichi**: kirish + "Diqqat" ro'yxati + signal.
-Pul/kartalar (A2), restoran va sozlamalar (A3), qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichlarda qo'shiladi; hozircha ularning hammasi botda.
+Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2**: kirish, "Diqqat" ro'yxati, signal, pul va kartalar.
+Restoran va sozlamalar (A3), qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichlarda qo'shiladi; hozircha ularning hammasi botda.
 
 ## Nima qiladi
 - **Kirish**: Telegram ID → botga 6 xonali kod keladi → kod → telefon uchun PIN (4–8 raqam). Kod 10 daqiqa amal qiladi, urinishlar cheklangan.
@@ -16,6 +16,14 @@ Pul/kartalar (A2), restoran va sozlamalar (A3), qo'llab-quvvatlash/taksi/qaytari
 - **Jim soatlar**: standart 01:00–07:00; shu vaqtda faqat shoshilinch holatlar signal beradi, qolganlari ro'yxatda jim turadi. Sozlamalarda o'zgartiriladi yoki o'chiriladi.
 - **Xavfsizlik**: `FLAG_SECURE` (skrinshot yo'q), token shifrlangan xotirada, "Barcha qurilmalarni yopish" (yoki botda `/logoutall`).
 - Telegram nusxasi (backend): ayrim ogohlantirishlar adminga Telegramga ham boradi (`ADMIN_ATTENTION_TELEGRAM=false` o'chiradi).
+
+## Pul va kartalar (A2)
+- **Pul** (`/money` botda): mos kelmagan pul (sabab o'zbekcha tushuntiriladi) — amal tanlanadi va 10–300 belgilik izoh yoziladi; ilova pulga tegmaydi, faqat qaror saqlanadi.
+  Restoran 10+ daqiqa tasdiqlamagan to'lovlar alohida ro'yxatda.
+- **Kartalar** (`/cards`, `/pool`, `/platformcard`, `/collect` botda): tasdiq kutayotgan karta — to'liq raqam faqat shu oynada ko'rinadi (so'rovi auditga yoziladi),
+  tasdiqlash ikki bosqichli. Platforma kartalari: 30 kunlik aylanma foizi (70% — jim ogohlantirish, 90% — Diqqatda yumshoq signal), karta qo'shish
+  (darhol ishlatilmaydi, avval tasdiqlanadi), restoranni platforma kartalariga o'tkazish/qaytarish (ochiq to'lov bo'lsa rad etiladi).
+- "Diqqat" kartalaridagi "Pulni ochish" / "Kartalarni ochish" tugmasi tegishli oynaga o'tkazadi.
 
 ## Backend
 `ADMIN_APP_ENABLED=true` bo'lmasa API 404 qaytaradi. Migratsiyalar: `20261107000200_admin_app_auth`, `20261107000300_admin_attention_ack`.

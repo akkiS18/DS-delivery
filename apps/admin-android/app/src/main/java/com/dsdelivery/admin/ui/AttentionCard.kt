@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.admin.data.AttentionItem
+import com.dsdelivery.admin.data.Severity
 import kotlinx.coroutines.delay
 
 /**
@@ -40,6 +41,8 @@ fun AttentionCard(
     onCall: (phone: String) -> Unit,
     onAck: (minutes: Int) -> Unit,
     onSilence: () -> Unit,
+    openLabel: String? = null,
+    onOpen: () -> Unit = {},
 ) {
     val color = toneColor(toneOf(item.severity))
     val nowMs by produceState(SystemClock.elapsedRealtime()) {
@@ -78,9 +81,16 @@ fun AttentionCard(
             if (phone != null) {
                 Button(onClick = { onCall(phone) }, enabled = !busy, colors = ButtonDefaults.buttonColors(containerColor = color)) { Text("📞 Qo‘ng‘iroq") }
             }
+            if (openLabel != null) {
+                OutlinedButton(onClick = onOpen, border = BorderStroke(1.dp, color)) { Text(openLabel) }
+            }
             if (!item.acked) {
                 OutlinedButton(onClick = { onAck(15) }, enabled = !busy, border = BorderStroke(1.dp, color)) { Text("Jim: 15 daq") }
                 OutlinedButton(onClick = { onAck(60) }, enabled = !busy, border = BorderStroke(1.dp, color)) { Text("Jim: 1 soat") }
+                // A heads-up that is not an emergency (a card nearing its turnover cap) may be quieted for the rest of the day.
+                if (item.severity != Severity.CRITICAL) {
+                    OutlinedButton(onClick = { onAck(720) }, enabled = !busy, border = BorderStroke(1.dp, color)) { Text("Jim: 12 soat") }
+                }
             }
             if (ringing) TextButton(onClick = onSilence) { Text("Ovozni o‘chirish") }
         }

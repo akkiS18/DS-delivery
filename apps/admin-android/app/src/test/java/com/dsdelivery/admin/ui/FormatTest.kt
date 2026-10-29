@@ -14,6 +14,14 @@ class FormatTest {
         assertEquals("2 soat 10 daqiqa", ageText(7800))
     }
 
+    @Test fun `money is grouped by thousands`() {
+        assertEquals("0 so‘m", somText(0))
+        assertEquals("950 so‘m", somText(950))
+        assertEquals("12 300 000 so‘m", somText(12_300_000))
+        assertEquals("40 000 000 so‘m", somText(40_000_000))
+        assertEquals("−1 500 so‘m", somText(-1500))
+    }
+
     @Test fun `phone numbers are dialled without spaces and dashes`() {
         assertEquals("+998901234567", dialable("+998 90 123-45-67"))
         assertEquals("", dialable(" - "))
