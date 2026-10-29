@@ -1,5 +1,15 @@
+import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { isSupportAdmin } from '../support/service.js';
+
+/**
+ * An order paid on a PLATFORM card (Card.restaurantId null: the platform pool) was collected by the platform, which nets this commission in the
+ * daily payout report (admin-payouts). Billing it again in the weekly statement would charge the restaurant twice. Cash and own-card orders
+ * (the restaurant holds the money) stay in the weekly statement exactly as before.
+ */
+export const NOT_PLATFORM_COLLECTED: Prisma.CommissionEntryWhereInput = {
+  NOT: { payment: { is: { method: 'CARD', card: { is: { restaurantId: null } } } } },
+};
 
 /**
  * Stage 8C: weekly commission settlement (docs/ROADMAP.html: week = Monday 00:00 to the next Monday 00:00, Asia/Tashkent; an open support
@@ -33,7 +43,7 @@ const add = (t: { count: number; amountSom: number }, e: Entry) => { t.count += 
 
 async function unsettledEntries(restaurantId?: string): Promise<Array<Entry & { held: boolean; name: string }>> {
   const rows = await db.commissionEntry.findMany({
-    where: { settlement: null, ...(restaurantId ? { restaurantId } : {}) },
+    where: { settlement: null, ...NOT_PLATFORM_COLLECTED, ...(restaurantId ? { restaurantId } : {}) },
     select: { id: true, restaurantId: true, amountSom: true, accruedAt: true, orderId: true, restaurant: { select: { name: true } } },
     orderBy: [{ accruedAt: 'asc' }, { id: 'asc' }],
   });
@@ -77,7 +87,7 @@ export async function settleRestaurant(
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7017, hashtext(${input.restaurantId}))`;
     const rows = await tx.commissionEntry.findMany({
-      where: { restaurantId: input.restaurantId, settlement: null, accruedAt: { lt: cutoff } },
+      where: { restaurantId: input.restaurantId, settlement: null, accruedAt: { lt: cutoff }, ...NOT_PLATFORM_COLLECTED },
       select: { id: true, amountSom: true, orderId: true }, orderBy: [{ accruedAt: 'asc' }, { id: 'asc' }],
     });
     const tickets = rows.length
