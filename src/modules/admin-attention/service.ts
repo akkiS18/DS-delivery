@@ -14,14 +14,14 @@ import { taxiStage } from '../taxi/workflow.js';
  */
 export type AttentionKind =
   | 'ORDER_UNSEEN' | 'CASH_UNACCEPTED' | 'PAYMENT_UNVERIFIED' | 'TAXI_NEEDS_HELP' | 'MONEY_REVIEW' | 'GMAIL_DOWN'
-  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH';
+  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH' | 'REFUND_DISPUTED';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
 const SEVERITY: Record<AttentionKind, Severity> = {
   ORDER_UNSEEN: 'CRITICAL', CASH_UNACCEPTED: 'CRITICAL', PAYMENT_UNVERIFIED: 'CRITICAL', TAXI_NEEDS_HELP: 'CRITICAL', MONEY_REVIEW: 'CRITICAL', GMAIL_DOWN: 'CRITICAL',
   RESTAURANT_OFFLINE: 'HIGH', READY_NO_TAXI: 'HIGH',
   NOT_DELIVERED: 'MEDIUM', CARD_PENDING: 'MEDIUM', SUPPORT_TICKET: 'MEDIUM',
-  CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH',
+  CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH', REFUND_DISPUTED: 'HIGH',
 };
 /** Listed but never rung: a heads-up, not something to wake anybody for. */
 const SILENT_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>(['CARD_TURN_MID']);
@@ -251,7 +251,7 @@ export async function getQuietHours(): Promise<QuietHours> {
 
 export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv = process.env): Promise<AttentionSnapshot> {
   const cfg = attentionConfig(env);
-  const [orders, reviews, cards, tickets, quiet, acks, poolCards] = await Promise.all([
+  const [orders, reviews, cards, tickets, quiet, acks, poolCards, disputes] = await Promise.all([
     db.order.findMany({ where: activeOrdersWhere(now, cfg), select: orderSelect, orderBy: { createdAt: 'asc' }, take: 300 }),
     listUnhandledReviews(5),
     db.card.findMany({ where: { approvalStatus: 'PENDING', isTest: false }, orderBy: { createdAt: 'asc' }, take: 10,
@@ -261,6 +261,9 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
     getQuietHours(),
     db.adminAttentionAck.findMany({ where: { snoozeUntil: { gt: now } } }),
     db.card.findMany({ where: { restaurantId: null, isTest: false, active: true, approvalStatus: 'APPROVED' }, select: { id: true, last4: true } }),
+    // The customer says the refunded money never arrived: the restaurant must prove it again, or an administrator checks and confirms.
+    db.refundRequest.findMany({ where: { status: 'DISPUTED' }, orderBy: { disputedAt: 'asc' }, take: 10,
+      select: { id: true, number: true, paidAmountTiyin: true, disputedAt: true, order: { select: { code: true, restaurant: { select: { id: true, name: true, pickupPhone: true } } } } } }),
   ]);
 
   const restaurantIds = [...new Set(orders.map(o => o.restaurant.id))];
@@ -287,6 +290,11 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
     raw.push({ key: `SUPPORT_TICKET:${t.id}`, kind: 'SUPPORT_TICKET', title: 'Mijoz murojaati javobsiz',
       detail: `Murojaat #${t.number} · buyurtma #${t.order.code}`, restaurant: { id: t.order.restaurant.id, name: t.order.restaurant.name, phone: t.order.restaurant.pickupPhone },
       orderCode: t.order.code, since: t.createdAt });
+  }
+  for (const d of disputes) {
+    raw.push({ key: `REFUND_DISPUTED:${d.id}`, kind: 'REFUND_DISPUTED', title: 'Qaytarish: mijoz pul KELMADI dedi',
+      detail: `Qaytarish #${d.number} · buyurtma #${d.order.code} · ${somText(Number(d.paidAmountTiyin / 100n))} so‘m`,
+      restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.disputedAt });
   }
   const cap = poolCapSom(env);
   if (cap > 0 && poolCards.length) raw.push(...evaluateTurnover(poolCards, await cardTurnoverSom(db, poolCards.map(c => c.id), now), cap));
