@@ -43,3 +43,10 @@ apps/taxi-android/.gradle/
 apps/taxi-android/.idea/
 apps/taxi-android/**/build/
 apps/taxi-android/local.properties
+
+
+# DS Admin Android (Kotlin) build output and machine-local files
+apps/admin-android/.gradle/
+apps/admin-android/.idea/
+apps/admin-android/**/build/
+apps/admin-android/local.properties

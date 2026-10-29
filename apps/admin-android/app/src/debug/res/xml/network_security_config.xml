@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+        DEBUG BUILDS ONLY. Cleartext HTTP so the emulator (10.0.2.2) and a phone on the local
+        Wi-Fi can reach a development backend. The app additionally restricts HTTP URLs to
+        local-development hosts (ApiConfig.validationError). Not shipped in release builds.
+    -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
