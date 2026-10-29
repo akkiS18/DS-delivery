@@ -97,6 +97,10 @@ data class ApiErrorBody(
     @SerializedName("retryAfterSeconds") val retryAfterSeconds: Int?,
     /** OPEN_PAYMENTS: how many unpaid card payments block switching a restaurant. */
     @SerializedName("count") val count: Int? = null,
+    /** BLOCKED: why real payments cannot be opened. */
+    @SerializedName("blockers") val blockers: List<String>? = null,
+    /** CHANGED: the amount now due, when it moved under the administrator's hands. */
+    @SerializedName("amountSom") val amountSom: Long? = null,
 )
 
 // ---- A2: money review, cards, platform pool (src/modules/admin-money) ----
@@ -189,6 +193,85 @@ data class PlatformCardResponse(@SerializedName("ok") val ok: Boolean, @Serializ
 
 data class CollectRequest(@SerializedName("slug") val slug: String, @SerializedName("on") val on: Boolean)
 data class CollectResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String, @SerializedName("name") val name: String)
+
+// ---- A3a: platform settings, restaurants, ratings, commission (src/modules/admin-platform) ----
+
+data class PaymentsPanelDto(
+    @SerializedName("open") val open: Boolean,
+    /** False on a test server: the door is only enforced in production. */
+    @SerializedName("gateActive") val gateActive: Boolean,
+    @SerializedName("mode") val mode: String,
+    @SerializedName("blockers") val blockers: List<String>,
+)
+data class CashDto(@SerializedName("enabled") val enabled: Boolean, @SerializedName("maxOrderSom") val maxOrderSom: Long)
+data class FeeDto(@SerializedName("mode") val mode: String, @SerializedName("percentBp") val percentBp: Int)
+data class RankingDto(@SerializedName("enabled") val enabled: Boolean)
+
+data class SettingsDto(
+    @SerializedName("payments") val payments: PaymentsPanelDto,
+    @SerializedName("cash") val cash: CashDto,
+    @SerializedName("fee") val fee: FeeDto,
+    @SerializedName("taxiMode") val taxiMode: String,
+    @SerializedName("ranking") val ranking: RankingDto,
+)
+
+/** Every settings change answers with the new state, so the screen never shows a stale switch. */
+data class SettingsChangeResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String, @SerializedName("settings") val settings: SettingsDto)
+
+data class OpenRequest(@SerializedName("open") val open: Boolean)
+data class EnabledRequest(@SerializedName("enabled") val enabled: Boolean)
+data class FeeRequest(@SerializedName("mode") val mode: String, @SerializedName("percent") val percent: Double? = null)
+data class ModeRequest(@SerializedName("mode") val mode: String)
+data class ActiveRequest(@SerializedName("active") val active: Boolean)
+
+data class AvgDto(@SerializedName("count") val count: Int, @SerializedName("avg") val avg: Double?)
+data class RatedRestaurantDto(
+    @SerializedName("name") val name: String,
+    @SerializedName("slug") val slug: String,
+    @SerializedName("count") val count: Int,
+    @SerializedName("avg") val avg: Double?,
+    @SerializedName("last30") val last30: AvgDto,
+    @SerializedName("score") val score: Double,
+)
+data class LowRatingDto(
+    @SerializedName("restaurant") val restaurant: String,
+    @SerializedName("stars") val stars: Int,
+    @SerializedName("reasons") val reasons: List<String>,
+    @SerializedName("note") val note: String?,
+    @SerializedName("at") val at: String,
+)
+data class RatingsDto(
+    @SerializedName("rankingOn") val rankingOn: Boolean,
+    @SerializedName("restaurants") val restaurants: List<RatedRestaurantDto>,
+    @SerializedName("lowRecent") val lowRecent: List<LowRatingDto>,
+    @SerializedName("reasonLabels") val reasonLabels: Map<String, String>,
+)
+
+data class AdminRestaurantDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("slug") val slug: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("isActive") val isActive: Boolean,
+    @SerializedName("isPaused") val isPaused: Boolean,
+    @SerializedName("staffLinked") val staffLinked: Boolean,
+    @SerializedName("hasPassword") val hasPassword: Boolean,
+    @SerializedName("enabledCards") val enabledCards: Int,
+    @SerializedName("pendingCards") val pendingCards: Int,
+)
+data class RestaurantsResponse(@SerializedName("restaurants") val restaurants: List<AdminRestaurantDto>)
+data class ActiveResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String, @SerializedName("signedOut") val signedOut: Int)
+
+data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
+data class StatementDto(
+    @SerializedName("restaurantId") val restaurantId: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("due") val due: CountSumDto,
+    @SerializedName("held") val held: CountSumDto,
+    @SerializedName("current") val current: CountSumDto,
+)
+data class StatementsResponse(@SerializedName("statements") val statements: List<StatementDto>)
+data class SettleRequest(@SerializedName("expectedCount") val expectedCount: Int, @SerializedName("expectedSom") val expectedSom: Long, @SerializedName("note") val note: String)
+data class SettleResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("settlementNumber") val settlementNumber: Int, @SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
 
 /** Severity names as the backend sends them. */
 object Severity {

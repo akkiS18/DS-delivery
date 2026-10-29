@@ -1,7 +1,7 @@
 # DS Admin — administrator ilovasi (Android, Kotlin + Compose)
 
-Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2**: kirish, "Diqqat" ro'yxati, signal, pul va kartalar.
-Restoran va sozlamalar (A3), qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichlarda qo'shiladi; hozircha ularning hammasi botda.
+Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3a**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar va platforma sozlamalari.
+Restoran ochish/parol/o'chirish (A3b), qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichlarda qo'shiladi; hozircha ularning hammasi botda.
 
 ## Nima qiladi
 - **Kirish**: Telegram ID → botga 6 xonali kod keladi → kod → telefon uchun PIN (4–8 raqam). Kod 10 daqiqa amal qiladi, urinishlar cheklangan.
@@ -24,6 +24,12 @@ Restoran va sozlamalar (A3), qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bos
   tasdiqlash ikki bosqichli. Platforma kartalari: 30 kunlik aylanma foizi (70% — jim ogohlantirish, 90% — Diqqatda yumshoq signal), karta qo'shish
   (darhol ishlatilmaydi, avval tasdiqlanadi), restoranni platforma kartalariga o'tkazish/qaytarish (ochiq to'lov bo'lsa rad etiladi).
 - "Diqqat" kartalaridagi "Pulni ochish" / "Kartalarni ochish" tugmasi tegishli oynaga o'tkazadi.
+
+## Boshqaruv (A3a)
+- **Restoranlar** (`/restaurants`): faol/to'xtatilgan, kartalar soni; o'chirish ikki bosqichli, restoran ilovasidan chiqarib yuboriladi.
+- **Komissiya** (`/commission`): haftalik to'lanishi kerak summa; "to'landi" faqat qayd etadi (pulga tegmaydi), izoh kamida 10 belgi, summa o'zgargan bo'lsa hech narsa yozilmaydi.
+- **Platforma**: real to'lov (`/payments`, ochish ikki bosqichli va botdagi to'siqlar bilan bir xil), naqd (`/cash`), xizmat haqi (`/fee`), taksi rejimi (`/taxi`), reyting tartibi va baholar (`/ratings`).
+  Har bir o'zgarish auditga yoziladi va admin Telegram chatiga ham xabar qilinadi.
 
 ## Backend
 `ADMIN_APP_ENABLED=true` bo'lmasa API 404 qaytaradi. Migratsiyalar: `20261107000200_admin_app_auth`, `20261107000300_admin_attention_ack`.

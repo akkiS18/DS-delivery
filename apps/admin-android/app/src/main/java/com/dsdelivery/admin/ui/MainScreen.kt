@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -74,7 +75,7 @@ data class Readiness(val notifications: Boolean, val battery: Boolean, val volum
     }
 }
 
-private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), SETTINGS("Sozlamalar") }
+private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), MANAGE("Boshqaruv"), SETTINGS("Sozlamalar") }
 
 /** Which tab deals with an attention item (null = the card itself is all there is to it). */
 private fun tabFor(kind: String): Tab? = when (kind) {
@@ -87,7 +88,7 @@ private fun tabFor(kind: String): Tab? = when (kind) {
 private fun badgeFor(tab: Tab, items: List<AttentionItem>): Int = when (tab) {
     Tab.ATTENTION -> items.count { !it.acked }
     Tab.MONEY, Tab.CARDS -> items.count { !it.acked && tabFor(it.kind) == tab }
-    Tab.SETTINGS -> 0
+    Tab.MANAGE, Tab.SETTINGS -> 0
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,7 +129,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                     NavigationBarItem(
                         selected = tab == t, onClick = { tab = t },
                         icon = {
-                            val icon = when (t) { Tab.ATTENTION -> Icons.Filled.Notifications; Tab.MONEY -> Icons.Filled.AttachMoney; Tab.CARDS -> Icons.Filled.CreditCard; Tab.SETTINGS -> Icons.Filled.Settings }
+                            val icon = when (t) { Tab.ATTENTION -> Icons.Filled.Notifications; Tab.MONEY -> Icons.Filled.AttachMoney; Tab.CARDS -> Icons.Filled.CreditCard; Tab.MANAGE -> Icons.Filled.Tune; Tab.SETTINGS -> Icons.Filled.Settings }
                             val count = badgeFor(t, state.items)
                             if (count > 0) BadgedBox(badge = { Badge { Text(count.toString()) } }) { Icon(icon, null) } else Icon(icon, null)
                         },
@@ -155,6 +156,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                 )
                 Tab.MONEY -> MoneyTab(onMessage = { say(it) })
                 Tab.CARDS -> CardsTab(onMessage = { say(it) })
+                Tab.MANAGE -> ManageTab(onMessage = { say(it) })
                 Tab.SETTINGS -> SettingsTab(readiness, duty, onReadinessChanged, onMessage = { say(it) })
             }
         }

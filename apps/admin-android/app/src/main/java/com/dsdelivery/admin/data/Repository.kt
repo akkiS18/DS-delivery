@@ -32,6 +32,18 @@ interface AdminApi {
     @GET("api/v1/admin/pool") suspend fun pool(): Response<PoolResponse>
     @POST("api/v1/admin/pool/cards") suspend fun addPlatformCard(@Body body: PlatformCardRequest): Response<PlatformCardResponse>
     @POST("api/v1/admin/pool/collect") suspend fun collect(@Body body: CollectRequest): Response<CollectResponse>
+
+    @GET("api/v1/admin/settings") suspend fun settings(): Response<SettingsDto>
+    @PUT("api/v1/admin/settings/payments") suspend fun setPayments(@Body body: OpenRequest): Response<SettingsChangeResponse>
+    @PUT("api/v1/admin/settings/cash") suspend fun setCash(@Body body: EnabledRequest): Response<SettingsChangeResponse>
+    @PUT("api/v1/admin/settings/fee") suspend fun setFee(@Body body: FeeRequest): Response<SettingsChangeResponse>
+    @PUT("api/v1/admin/settings/taxi-mode") suspend fun setTaxiMode(@Body body: ModeRequest): Response<SettingsChangeResponse>
+    @PUT("api/v1/admin/settings/ranking") suspend fun setRanking(@Body body: EnabledRequest): Response<SettingsChangeResponse>
+    @GET("api/v1/admin/ratings") suspend fun ratings(): Response<RatingsDto>
+    @GET("api/v1/admin/restaurants") suspend fun restaurants(): Response<RestaurantsResponse>
+    @PUT("api/v1/admin/restaurants/{id}/active") suspend fun setRestaurantActive(@Path("id") id: String, @Body body: ActiveRequest): Response<ActiveResponse>
+    @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
+    @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 }
 
 sealed interface ApiResult<out T> {
@@ -39,7 +51,10 @@ sealed interface ApiResult<out T> {
     /** The session is gone (signed out elsewhere, closed with /logoutall, expired): sign in again. */
     data object Unauthorized : ApiResult<Nothing>
     data class Locked(val retryAfterSeconds: Int) : ApiResult<Nothing>
-    data class Failed(val code: Int, val error: String?, val message: String?, val count: Int? = null) : ApiResult<Nothing>
+    data class Failed(
+        val code: Int, val error: String?, val message: String?, val count: Int? = null,
+        val blockers: List<String>? = null, val amountSom: Long? = null,
+    ) : ApiResult<Nothing>
     /** No connection / timeout. */
     data object Offline : ApiResult<Nothing>
 }
@@ -85,7 +100,7 @@ class Repository(private val session: SessionStore) {
             else -> {
                 val body = runCatching { gson.fromJson(r.errorBody()?.string(), ApiErrorBody::class.java) }.getOrNull()
                 if (r.code() == 429) ApiResult.Locked(body?.retryAfterSeconds ?: 900)
-                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count)
+                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count, body?.blockers, body?.amountSom)
             }
         }
     } catch (e: IOException) {
@@ -121,4 +136,16 @@ class Repository(private val session: SessionStore) {
     suspend fun addPlatformCard(number: String, holderName: String): ApiResult<PlatformCardResponse> =
         call { api.addPlatformCard(PlatformCardRequest(number.trim(), holderName.trim())) }
     suspend fun collect(slug: String, on: Boolean): ApiResult<CollectResponse> = call { api.collect(CollectRequest(slug, on)) }
+
+    suspend fun settings(): ApiResult<SettingsDto> = call { api.settings() }
+    suspend fun setPayments(open: Boolean): ApiResult<SettingsChangeResponse> = call { api.setPayments(OpenRequest(open)) }
+    suspend fun setCash(enabled: Boolean): ApiResult<SettingsChangeResponse> = call { api.setCash(EnabledRequest(enabled)) }
+    suspend fun setFee(mode: String, percent: Double?): ApiResult<SettingsChangeResponse> = call { api.setFee(FeeRequest(mode, percent)) }
+    suspend fun setTaxiMode(mode: String): ApiResult<SettingsChangeResponse> = call { api.setTaxiMode(ModeRequest(mode)) }
+    suspend fun setRanking(enabled: Boolean): ApiResult<SettingsChangeResponse> = call { api.setRanking(EnabledRequest(enabled)) }
+    suspend fun ratings(): ApiResult<RatingsDto> = call { api.ratings() }
+    suspend fun restaurants(): ApiResult<RestaurantsResponse> = call { api.restaurants() }
+    suspend fun setRestaurantActive(id: String, active: Boolean): ApiResult<ActiveResponse> = call { api.setRestaurantActive(id, ActiveRequest(active)) }
+    suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
+    suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 }

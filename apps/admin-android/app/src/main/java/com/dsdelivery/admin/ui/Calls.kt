@@ -14,6 +14,10 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     "NO_POOL_CARD" -> "Faol, tasdiqlangan platforma kartasi yo‘q. Avval karta qo‘shib, tasdiqlang."
     "OPEN_PAYMENTS" -> "Hozir to‘lanmagan ${f.count ?: "bir nechta"} ta karta to‘lovi bor. Ular tugagach (taxminan 10 daqiqa) qayta urining."
     "NOT_FOUND" -> "Topilmadi. Ro‘yxatni yangilang."
+    "BLOCKED" -> "Yoqib bo‘lmadi: " + f.blockers.orEmpty().joinToString(" ") { "• $it" }
+    "CHANGED" -> "Ma’lumot o‘zgargan (hozir ${f.count ?: 0} ta, ${somText(f.amountSom ?: 0)}). Hech narsa yozilmadi. Ro‘yxatni yangilab, qayta tekshiring."
+    "NOTHING_DUE" -> "To‘lanishi kerak komissiya qolmagan."
+    "PERCENT_INVALID" -> "Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
     else -> if (f.code in 500..599) "Server xatosi. Birozdan keyin qayta urinib ko‘ring." else "Bajarilmadi."
 }
 
