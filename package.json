@@ -80,7 +80,7 @@
     "test:catalog:db": "node --env-file=.env --import tsx --test src/tests/restaurant-catalog.db.test.ts",
     "test:auth": "node --import tsx --test src/modules/restaurant-auth/auth.test.ts",
     "test:admin": "node --import tsx --test src/modules/admin-auth/auth.test.ts src/modules/admin-attention/attention.test.ts",
-    "test:admin:db": "node --env-file=.env --import tsx --test src/tests/admin-auth.db.test.ts src/tests/admin-attention.db.test.ts",
+    "test:admin:db": "node --env-file=.env --import tsx --test src/tests/admin-auth.db.test.ts src/tests/admin-attention.db.test.ts src/tests/admin-money.db.test.ts",
     "test:auth:db": "node --env-file=.env --import tsx --test src/tests/restaurant-auth.db.test.ts",
     "test:acceptance2:db": "node --env-file=.env --import tsx --test src/tests/acceptance2.db.test.ts",
     "test:acceptance:db": "node --env-file=.env --import tsx --test src/tests/acceptance.db.test.ts",

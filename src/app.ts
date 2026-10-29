@@ -22,6 +22,7 @@ import { restaurantFinanceRoutes } from './modules/restaurant-finance/routes.js'
 import { restaurantRatingsRoutes } from './modules/ratings/routes.js';
 import { adminAuthRoutes } from './modules/admin-auth/routes.js';
 import { adminAttentionRoutes } from './modules/admin-attention/routes.js';
+import { adminMoneyRoutes } from './modules/admin-money/routes.js';
 
 /** Fastify's typings take a hop-count only as a function: trust the first N proxies in front of us. */
 function trustProxySetting(): boolean | ((address: string, hop: number) => boolean) {
@@ -69,6 +70,7 @@ export function buildApp(engine: PaymentEngineV3, deps: { pingDatabase?: () => P
   app.register(restaurantCardsRoutes, { prefix: '/api/v1/restaurant' });
   app.register(adminAuthRoutes, { prefix: '/api/v1/admin' }); // DS Admin app: off (404) unless ADMIN_APP_ENABLED=true
   app.register(adminAttentionRoutes, { prefix: '/api/v1/admin' }); // DS Admin "Diqqat" list + acknowledgements
+  app.register(adminMoneyRoutes, { prefix: '/api/v1/admin' }); // DS Admin A2: money review, card approval, platform card pool
   app.register(legalRoutes);
   app.register(async orders => { await restaurantOrdersRoutes(orders, engine); }, { prefix: '/api/v1/restaurant' });
   app.register(async internal => { await internalRoutes(internal, engine); }, { prefix: '/api/v1/internal' });

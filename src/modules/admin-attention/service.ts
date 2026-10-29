@@ -1,6 +1,8 @@
 import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { gmailHealth } from '../payment/gmail-health.js';
+import { cardTurnoverSom, poolCapSom, POOL_TURNOVER_DAYS } from '../payment/pool.js';
+import { explainReason } from '../payment/review-reasons.js';
 import { listUnhandledReviews } from '../payment/review.js';
 import { CASH_PENDING } from '../payment/status.js';
 import { taxiStage } from '../taxi/workflow.js';
@@ -12,14 +14,17 @@ import { taxiStage } from '../taxi/workflow.js';
  */
 export type AttentionKind =
   | 'ORDER_UNSEEN' | 'CASH_UNACCEPTED' | 'PAYMENT_UNVERIFIED' | 'TAXI_NEEDS_HELP' | 'MONEY_REVIEW' | 'GMAIL_DOWN'
-  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET';
+  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
 const SEVERITY: Record<AttentionKind, Severity> = {
   ORDER_UNSEEN: 'CRITICAL', CASH_UNACCEPTED: 'CRITICAL', PAYMENT_UNVERIFIED: 'CRITICAL', TAXI_NEEDS_HELP: 'CRITICAL', MONEY_REVIEW: 'CRITICAL', GMAIL_DOWN: 'CRITICAL',
   RESTAURANT_OFFLINE: 'HIGH', READY_NO_TAXI: 'HIGH',
   NOT_DELIVERED: 'MEDIUM', CARD_PENDING: 'MEDIUM', SUPPORT_TICKET: 'MEDIUM',
+  CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH',
 };
+/** Listed but never rung: a heads-up, not something to wake anybody for. */
+const SILENT_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>(['CARD_TURN_MID']);
 const RANK: Record<Severity, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 };
 
 /** Kinds the Telegram copy announces: the others already reach the administrator through their own Telegram alerts. */
@@ -195,6 +200,28 @@ export function evaluateOrders(rows: OrderRow[], online: ReadonlySet<string>, no
   return out;
 }
 
+export const TURNOVER_MID = 0.7;
+export const TURNOVER_HIGH = 0.9;
+
+/** Pure. Pool cards at 70% / 90% of the turnover cap (cap 0 = unlimited = no warning). Only the higher level is raised for a card. */
+export function evaluateTurnover(cards: ReadonlyArray<{ id: string; last4: string }>, turnoverSom: ReadonlyMap<string, number>, capSom: number): RawItem[] {
+  if (capSom <= 0) return [];
+  const out: RawItem[] = [];
+  for (const c of cards) {
+    const used = turnoverSom.get(c.id) ?? 0;
+    const ratio = used / capSom;
+    if (ratio < TURNOVER_MID) continue;
+    const high = ratio >= TURNOVER_HIGH;
+    out.push({
+      key: `${high ? 'CARD_TURN_HIGH' : 'CARD_TURN_MID'}:${c.id}`, kind: high ? 'CARD_TURN_HIGH' : 'CARD_TURN_MID',
+      title: `Platforma kartasi aylanmasi ${Math.floor(ratio * 100)}%`,
+      detail: `***${c.last4} · ${POOL_TURNOVER_DAYS} kunda ${somText(used)} / ${somText(capSom)} so‘m${high ? ' · yangi to‘lovlar boshqa kartaga o‘tadi' : ''}`,
+      restaurant: null, orderCode: null, since: null,
+    });
+  }
+  return out;
+}
+
 /** Adds severity, age, acknowledgement and the "ring" decision; critical first, then the longest waiting. */
 export function finalize(raw: RawItem[], acks: ReadonlyMap<string, Date>, quiet: boolean, now: Date): AttentionItem[] {
   return raw.map((r): AttentionItem => {
@@ -204,7 +231,7 @@ export function finalize(raw: RawItem[], acks: ReadonlyMap<string, Date>, quiet:
     return {
       key: r.key, kind: r.kind, severity, title: r.title, detail: r.detail, restaurant: r.restaurant, orderCode: r.orderCode,
       since: r.since ? r.since.toISOString() : null, ageSeconds: r.since ? ageSec(r.since, now) : null,
-      acked, snoozeUntil: acked ? snooze!.toISOString() : null, alarm: !acked && (severity === 'CRITICAL' || !quiet),
+      acked, snoozeUntil: acked ? snooze!.toISOString() : null, alarm: !acked && !SILENT_KINDS.has(r.kind) && (severity === 'CRITICAL' || !quiet),
     };
   }).sort((a, b) => RANK[a.severity] - RANK[b.severity] || (b.ageSeconds ?? -1) - (a.ageSeconds ?? -1) || a.key.localeCompare(b.key));
 }
@@ -224,7 +251,7 @@ export async function getQuietHours(): Promise<QuietHours> {
 
 export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv = process.env): Promise<AttentionSnapshot> {
   const cfg = attentionConfig(env);
-  const [orders, reviews, cards, tickets, quiet, acks] = await Promise.all([
+  const [orders, reviews, cards, tickets, quiet, acks, poolCards] = await Promise.all([
     db.order.findMany({ where: activeOrdersWhere(now, cfg), select: orderSelect, orderBy: { createdAt: 'asc' }, take: 300 }),
     listUnhandledReviews(5),
     db.card.findMany({ where: { approvalStatus: 'PENDING', isTest: false }, orderBy: { createdAt: 'asc' }, take: 10,
@@ -233,6 +260,7 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
       select: { id: true, number: true, createdAt: true, order: { select: { code: true, restaurant: { select: { id: true, name: true, pickupPhone: true } } } } } }),
     getQuietHours(),
     db.adminAttentionAck.findMany({ where: { snoozeUntil: { gt: now } } }),
+    db.card.findMany({ where: { restaurantId: null, isTest: false, active: true, approvalStatus: 'APPROVED' }, select: { id: true, last4: true } }),
   ]);
 
   const restaurantIds = [...new Set(orders.map(o => o.restaurant.id))];
@@ -247,7 +275,7 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
   const raw: RawItem[] = evaluateOrders(orders, online, now, cfg);
   for (const r of reviews) {
     raw.push({ key: `MONEY_REVIEW:${r.id}`, kind: 'MONEY_REVIEW', title: 'Mos kelmagan pul',
-      detail: `***${r.cardLast4} · ${somText(Number(r.amountTiyin / 100n))} so‘m${r.reason ? ` · ${r.reason}` : ''}`,
+      detail: `***${r.cardLast4} · ${somText(Number(r.amountTiyin / 100n))} so‘m${r.reason ? ` · ${explainReason(r.reason)}` : ''}`,
       restaurant: null, orderCode: null, since: r.emailReceivedAt ?? r.occurredAt });
   }
   for (const c of cards) {
@@ -260,6 +288,8 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
       detail: `Murojaat #${t.number} · buyurtma #${t.order.code}`, restaurant: { id: t.order.restaurant.id, name: t.order.restaurant.name, phone: t.order.restaurant.pickupPhone },
       orderCode: t.order.code, since: t.createdAt });
   }
+  const cap = poolCapSom(env);
+  if (cap > 0 && poolCards.length) raw.push(...evaluateTurnover(poolCards, await cardTurnoverSom(db, poolCards.map(c => c.id), now), cap));
   if (gmailHealth.status() === 'down') {
     raw.push({ key: 'GMAIL_DOWN:gmail', kind: 'GMAIL_DOWN', title: 'Gmail o‘qilmayapti: to‘lovlar tanilmaydi', detail: 'Bank xabarlari kelmayapti. Mijozlar to‘lagan bo‘lishi mumkin.', restaurant: null, orderCode: null, since: null });
   }

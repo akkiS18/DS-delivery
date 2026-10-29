@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  DEFAULT_QUIET, attentionConfig, evaluateOrders, finalize, formatQuiet, inQuietHours, parseQuiet, tashkentMinutes,
+  DEFAULT_QUIET, attentionConfig, evaluateOrders, evaluateTurnover, finalize, formatQuiet, inQuietHours, parseQuiet, tashkentMinutes,
   type OrderRow, type RawItem,
 } from './service.js';
 
@@ -122,4 +122,21 @@ test('finalize: critical first, then the longest waiting; ack silences until it 
   const quiet = finalize(items, new Map(), true, NOW);
   assert.deepEqual(quiet.filter(i => i.alarm).map(i => i.severity), ['CRITICAL', 'CRITICAL']);
   assert.equal(quiet.length, 4, 'quiet hours silence the sound, they never hide an item');
+});
+
+test('pool card turnover: nothing below 70%, a silent heads-up from 70%, a ringing warning from 90%, only the higher level per card, no cap = no warning', () => {
+  const cards = [{ id: 'a', last4: '1111' }, { id: 'b', last4: '2222' }, { id: 'c', last4: '3333' }, { id: 'd', last4: '4444' }];
+  const cap = 40_000_000;
+  const used = new Map([['a', 27_999_999], ['b', 28_000_000], ['c', 36_000_000], ['d', 0]]);
+  const items = evaluateTurnover(cards, used, cap);
+  assert.deepEqual(items.map(i => i.key), ['CARD_TURN_MID:b', 'CARD_TURN_HIGH:c']);
+  assert.match(items[0]!.title, /70%/);
+  assert.match(items[1]!.title, /90%/);
+  assert.deepEqual(evaluateTurnover(cards, used, 0), [], 'cap 0 = unlimited');
+
+  const final = finalize(items, new Map(), false, NOW);
+  assert.equal(final.find(i => i.kind === 'CARD_TURN_MID')!.alarm, false, '70% is listed but never rings');
+  assert.equal(final.find(i => i.kind === 'CARD_TURN_HIGH')!.alarm, true, '90% rings softly (not critical)');
+  assert.equal(final.find(i => i.kind === 'CARD_TURN_HIGH')!.severity, 'HIGH');
+  assert.equal(finalize(items, new Map(), true, NOW).find(i => i.kind === 'CARD_TURN_HIGH')!.alarm, false, 'quiet hours mute the 90% warning');
 });
