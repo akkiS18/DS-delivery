@@ -10,6 +10,16 @@ private val clock = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemD
 
 fun clockOf(iso: String?): String? = iso?.let { runCatching { clock.format(Instant.parse(it)) }.getOrNull() }
 
+/** "14:05" for today, "29.10 14:05" for another day: when a message was written. */
+fun stampOf(iso: String?, today: java.time.LocalDate = java.time.LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()): String =
+    iso?.let {
+        runCatching {
+            val at = Instant.parse(it).atZone(zone)
+            val time = DateTimeFormatter.ofPattern("HH:mm").format(at)
+            if (at.toLocalDate() == today) time else DateTimeFormatter.ofPattern("dd.MM").format(at) + " " + time
+        }.getOrNull()
+    } ?: ""
+
 /** "45 soniya", "7 daqiqa", "2 soat 10 daqiqa": how long an item has been waiting. */
 fun ageText(seconds: Long?): String {
     if (seconds == null) return ""

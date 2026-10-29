@@ -34,6 +34,15 @@ class FormatTest {
         assertEquals(Tone.NEUTRAL, toneOf("OTHER"))
     }
 
+    @Test fun `a message time shows the date only when it is not today`() {
+        val utc = java.time.ZoneOffset.UTC
+        val today = java.time.LocalDate.of(2026, 10, 30)
+        assertEquals("14:05", stampOf("2026-10-30T14:05:00Z", today, utc))
+        assertEquals("29.10 23:59", stampOf("2026-10-29T23:59:00Z", today, utc))
+        assertEquals("", stampOf(null, today, utc))
+        assertEquals("", stampOf("not a time", today, utc))
+    }
+
     @Test fun `quiet hours convert between hours and HH_MM`() {
         assertEquals(1, hourOf("01:00"))
         assertEquals(23, hourOf("23:30"))

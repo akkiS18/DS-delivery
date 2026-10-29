@@ -105,6 +105,10 @@ data class ApiErrorBody(
     @SerializedName("otherSlug") val otherSlug: String? = null,
     /** REMOVAL_BLOCKED: OPEN_ORDERS / OPEN_REFUNDS / OPEN_DISPATCHES. */
     @SerializedName("reason") val reason: String? = null,
+    /** ALREADY_CLAIMED / NOT_YOURS: who owns the ticket. */
+    @SerializedName("assignedAdminName") val assignedAdminName: String? = null,
+    /** ALREADY_ACTIVE: the number of the ticket that is still open for that order. */
+    @SerializedName("number") val number: Int? = null,
 )
 
 // ---- A2: money review, cards, platform pool (src/modules/admin-money) ----
@@ -293,6 +297,49 @@ data class RemovalPlanDto(
 data class RemovalPlanResponse(@SerializedName("plan") val plan: RemovalPlanDto)
 data class RemoveRequest(@SerializedName("expected") val expected: String)
 data class RemoveResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String, @SerializedName("name") val name: String)
+
+// A4a: support inbox.
+data class TicketRowDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("number") val number: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("assignedAdminName") val assignedAdminName: String? = null,
+    @SerializedName("mine") val mine: Boolean = false,
+    @SerializedName("orderCode") val orderCode: String,
+    @SerializedName("restaurantName") val restaurantName: String,
+    @SerializedName("customerName") val customerName: String? = null,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("lastAt") val lastAt: String,
+    @SerializedName("lastFrom") val lastFrom: String,
+    @SerializedName("lastText") val lastText: String,
+    @SerializedName("waiting") val waiting: Boolean = false,
+    @SerializedName("resolvedAt") val resolvedAt: String? = null,
+)
+data class InboxResponse(@SerializedName("active") val active: List<TicketRowDto>, @SerializedName("resolved") val resolved: List<TicketRowDto>)
+data class ThreadOrderDto(
+    @SerializedName("code") val code: String, @SerializedName("status") val status: String,
+    @SerializedName("totalSom") val totalSom: Long, @SerializedName("restaurantName") val restaurantName: String,
+)
+data class ThreadCustomerDto(
+    @SerializedName("name") val name: String? = null, @SerializedName("phone") val phone: String? = null, @SerializedName("viaApp") val viaApp: Boolean = false,
+)
+data class ThreadMessageDto(
+    @SerializedName("id") val id: String, @SerializedName("from") val from: String, @SerializedName("text") val text: String,
+    @SerializedName("at") val at: String, @SerializedName("byName") val byName: String? = null, @SerializedName("failed") val failed: Boolean = false,
+)
+data class OtherAdminDto(@SerializedName("telegramId") val telegramId: String, @SerializedName("name") val name: String)
+data class ThreadDto(
+    @SerializedName("ticket") val ticket: TicketRowDto,
+    @SerializedName("order") val order: ThreadOrderDto,
+    @SerializedName("customer") val customer: ThreadCustomerDto,
+    @SerializedName("messages") val messages: List<ThreadMessageDto>,
+    @SerializedName("others") val others: List<OtherAdminDto>,
+)
+/** One id per tap, resent unchanged when the tap is retried: the server applies it once. */
+data class KeyRequest(@SerializedName("clientKey") val clientKey: String)
+data class ReassignRequest(@SerializedName("clientKey") val clientKey: String, @SerializedName("targetTelegramId") val targetTelegramId: String)
+data class ReplyRequest(@SerializedName("clientKey") val clientKey: String, @SerializedName("text") val text: String)
+data class TicketActionResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String)
 
 data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
 data class StatementDto(

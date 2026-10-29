@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -30,6 +31,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -75,19 +77,21 @@ data class Readiness(val notifications: Boolean, val battery: Boolean, val volum
     }
 }
 
-private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), MANAGE("Boshqaruv"), SETTINGS("Sozlamalar") }
+/** SETTINGS is not in the bottom bar (the gear icon in the top bar opens it): five tabs is the most a bottom bar should hold. */
+private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), MANAGE("Boshqaruv"), HELP("Yordam"), SETTINGS("Sozlamalar") }
 
 /** Which tab deals with an attention item (null = the card itself is all there is to it). */
 private fun tabFor(kind: String): Tab? = when (kind) {
     "MONEY_REVIEW", "PAYMENT_UNVERIFIED" -> Tab.MONEY
     "CARD_PENDING", "CARD_TURN_MID", "CARD_TURN_HIGH" -> Tab.CARDS
+    "SUPPORT_TICKET" -> Tab.HELP
     else -> null
 }
 
 /** Open (not yet acknowledged) attention items that belong to a tab: the number on its icon. */
 private fun badgeFor(tab: Tab, items: List<AttentionItem>): Int = when (tab) {
     Tab.ATTENTION -> items.count { !it.acked }
-    Tab.MONEY, Tab.CARDS -> items.count { !it.acked && tabFor(it.kind) == tab }
+    Tab.MONEY, Tab.CARDS, Tab.HELP -> items.count { !it.acked && tabFor(it.kind) == tab }
     Tab.MANAGE, Tab.SETTINGS -> 0
 }
 
@@ -118,18 +122,23 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("DS Admin", maxLines = 1) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AdminBlue, titleContentColor = Color.White),
+                title = { Text(if (tab == Tab.SETTINGS) "Sozlamalar" else "DS Admin", maxLines = 1) },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = AdminBlue, titleContentColor = Color.White, actionIconContentColor = Color.White),
+                actions = {
+                    IconButton(onClick = { tab = if (tab == Tab.SETTINGS) Tab.ATTENTION else Tab.SETTINGS }) {
+                        Icon(Icons.Filled.Settings, contentDescription = "Sozlamalar")
+                    }
+                },
             )
         },
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
             NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                Tab.values().forEach { t ->
+                Tab.values().filter { it != Tab.SETTINGS }.forEach { t ->
                     NavigationBarItem(
                         selected = tab == t, onClick = { tab = t },
                         icon = {
-                            val icon = when (t) { Tab.ATTENTION -> Icons.Filled.Notifications; Tab.MONEY -> Icons.Filled.AttachMoney; Tab.CARDS -> Icons.Filled.CreditCard; Tab.MANAGE -> Icons.Filled.Tune; Tab.SETTINGS -> Icons.Filled.Settings }
+                            val icon = when (t) { Tab.ATTENTION -> Icons.Filled.Notifications; Tab.MONEY -> Icons.Filled.AttachMoney; Tab.CARDS -> Icons.Filled.CreditCard; Tab.MANAGE -> Icons.Filled.Tune; Tab.HELP -> Icons.Filled.SupportAgent; Tab.SETTINGS -> Icons.Filled.Settings }
                             val count = badgeFor(t, state.items)
                             if (count > 0) BadgedBox(badge = { Badge { Text(count.toString()) } }) { Icon(icon, null) } else Icon(icon, null)
                         },
@@ -157,6 +166,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                 Tab.MONEY -> MoneyTab(onMessage = { say(it) })
                 Tab.CARDS -> CardsTab(onMessage = { say(it) })
                 Tab.MANAGE -> ManageTab(onMessage = { say(it) })
+                Tab.HELP -> HelpTab(onMessage = { say(it) })
                 Tab.SETTINGS -> SettingsTab(readiness, duty, onReadinessChanged, onMessage = { say(it) })
             }
         }

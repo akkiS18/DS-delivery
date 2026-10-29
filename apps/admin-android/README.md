@@ -1,7 +1,7 @@
 # DS Admin — administrator ilovasi (Android, Kotlin + Compose)
 
-Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish) va platforma sozlamalari.
-Qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichda qo'shiladi; hozircha ularning hammasi botda.
+Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3 + A4a**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish), platforma sozlamalari va mijoz murojaatlari.
+Taksi kompaniyalari va qaytarish (A4b, A4c) keyingi bosqichda qo'shiladi; hozircha ular botda. Sozlamalar tepadagi tishli g'ildirak belgisida.
 
 ## Nima qiladi
 - **Kirish**: Telegram ID → botga 6 xonali kod keladi → kod → telefon uchun PIN (4–8 raqam). Kod 10 daqiqa amal qiladi, urinishlar cheklangan.
@@ -24,6 +24,12 @@ Qo'llab-quvvatlash/taksi/qaytarish (A4) keyingi bosqichda qo'shiladi; hozircha u
   tasdiqlash ikki bosqichli. Platforma kartalari: 30 kunlik aylanma foizi (70% — jim ogohlantirish, 90% — Diqqatda yumshoq signal), karta qo'shish
   (darhol ishlatilmaydi, avval tasdiqlanadi), restoranni platforma kartalariga o'tkazish/qaytarish (ochiq to'lov bo'lsa rad etiladi).
 - "Diqqat" kartalaridagi "Pulni ochish" / "Kartalarni ochish" tugmasi tegishli oynaga o'tkazadi.
+
+## Yordam (A4a)
+- **Murojaatlar** (`/tickets` botda): ochiq va oxirgi 7 kunda hal qilinganlar; "javob kutmoqda" belgisi (mijoz oxirgi yozgan). Murojaatni ochsangiz — butun suhbat (5 soniyada yangilanadi).
+- Tugmalar botdagi bilan bir xil qoidalar: "Men oldim", javob yozish (olinmagan murojaatga javob yozsangiz u sizga o'tadi — botdagi "Reply" kabi), boshqa adminga o'tkazish / menga o'tkazish,
+  "Hal qilindi" (mijozga xabar ketadi), "Qayta ochish". Faqat egasi javob yozadi va yopadi. Har bir bosish o'z kaliti bilan yuboriladi: qayta yuborilsa ham xabar ikki marta ketmaydi.
+- Mijoz Telegramdan yozgan bo'lsa javob botga ketadi, ilovadan yozgan bo'lsa — ilovadagi suhbatiga. Admin Telegramidagi kartalar ham yangilanadi.
 
 ## Boshqaruv (A3a)
 - **Restoranlar** (`/restaurants`): faol/to'xtatilgan, kartalar soni; o'chirish ikki bosqichli, restoran ilovasidan chiqarib yuboriladi.

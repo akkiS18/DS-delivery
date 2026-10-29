@@ -51,6 +51,13 @@ interface AdminApi {
     @PUT("api/v1/admin/restaurants/{id}/image") suspend fun setRestaurantImage(@Path("id") id: String, @Body body: RequestBody): Response<ImageResponse>
     @GET("api/v1/admin/restaurants/{id}/removal") suspend fun removalPlan(@Path("id") id: String): Response<RemovalPlanResponse>
     @POST("api/v1/admin/restaurants/{id}/remove") suspend fun removeRestaurant(@Path("id") id: String, @Body body: RemoveRequest): Response<RemoveResponse>
+    @GET("api/v1/admin/tickets") suspend fun tickets(): Response<InboxResponse>
+    @GET("api/v1/admin/tickets/{id}") suspend fun ticket(@Path("id") id: String): Response<ThreadDto>
+    @POST("api/v1/admin/tickets/{id}/claim") suspend fun claimTicket(@Path("id") id: String, @Body body: KeyRequest): Response<TicketActionResponse>
+    @POST("api/v1/admin/tickets/{id}/resolve") suspend fun resolveTicket(@Path("id") id: String, @Body body: KeyRequest): Response<TicketActionResponse>
+    @POST("api/v1/admin/tickets/{id}/reopen") suspend fun reopenTicket(@Path("id") id: String, @Body body: KeyRequest): Response<TicketActionResponse>
+    @POST("api/v1/admin/tickets/{id}/reassign") suspend fun reassignTicket(@Path("id") id: String, @Body body: ReassignRequest): Response<TicketActionResponse>
+    @POST("api/v1/admin/tickets/{id}/reply") suspend fun replyTicket(@Path("id") id: String, @Body body: ReplyRequest): Response<TicketActionResponse>
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 }
@@ -111,7 +118,7 @@ class Repository(private val session: SessionStore) {
             else -> {
                 val body = runCatching { gson.fromJson(r.errorBody()?.string(), ApiErrorBody::class.java) }.getOrNull()
                 if (r.code() == 429) ApiResult.Locked(body?.retryAfterSeconds ?: 900)
-                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count, body?.blockers, body?.amountSom, body?.otherSlug ?: body?.reason)
+                else ApiResult.Failed(r.code(), body?.error, body?.message, body?.count, body?.blockers, body?.amountSom, body?.otherSlug ?: body?.reason ?: body?.assignedAdminName ?: body?.number?.toString())
             }
         }
     } catch (e: IOException) {
@@ -166,6 +173,13 @@ class Repository(private val session: SessionStore) {
         call { api.setRestaurantImage(id, jpeg.toRequestBody("image/jpeg".toMediaType())) }
     suspend fun removalPlan(id: String): ApiResult<RemovalPlanResponse> = call { api.removalPlan(id) }
     suspend fun removeRestaurant(id: String, expected: String): ApiResult<RemoveResponse> = call { api.removeRestaurant(id, RemoveRequest(expected)) }
+    suspend fun tickets(): ApiResult<InboxResponse> = call { api.tickets() }
+    suspend fun ticket(id: String): ApiResult<ThreadDto> = call { api.ticket(id) }
+    suspend fun claimTicket(id: String, key: String): ApiResult<TicketActionResponse> = call { api.claimTicket(id, KeyRequest(key)) }
+    suspend fun resolveTicket(id: String, key: String): ApiResult<TicketActionResponse> = call { api.resolveTicket(id, KeyRequest(key)) }
+    suspend fun reopenTicket(id: String, key: String): ApiResult<TicketActionResponse> = call { api.reopenTicket(id, KeyRequest(key)) }
+    suspend fun reassignTicket(id: String, key: String, target: String): ApiResult<TicketActionResponse> = call { api.reassignTicket(id, ReassignRequest(key, target)) }
+    suspend fun replyTicket(id: String, key: String, text: String): ApiResult<TicketActionResponse> = call { api.replyTicket(id, ReplyRequest(key, text.trim())) }
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 }
