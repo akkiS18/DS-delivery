@@ -58,6 +58,14 @@ interface AdminApi {
     @POST("api/v1/admin/tickets/{id}/reopen") suspend fun reopenTicket(@Path("id") id: String, @Body body: KeyRequest): Response<TicketActionResponse>
     @POST("api/v1/admin/tickets/{id}/reassign") suspend fun reassignTicket(@Path("id") id: String, @Body body: ReassignRequest): Response<TicketActionResponse>
     @POST("api/v1/admin/tickets/{id}/reply") suspend fun replyTicket(@Path("id") id: String, @Body body: ReplyRequest): Response<TicketActionResponse>
+    @GET("api/v1/admin/taxi/problems") suspend fun taxiProblems(): Response<ProblemsResponse>
+    @GET("api/v1/admin/taxi/problems/{id}") suspend fun taxiProblem(@Path("id") id: String): Response<ProblemDetailDto>
+    @POST("api/v1/admin/taxi/problems/{id}/recover") suspend fun taxiRecover(@Path("id") id: String, @Body body: RecoverRequest): Response<RecoverResponse>
+    @GET("api/v1/admin/taxi/companies") suspend fun taxiCompanies(): Response<CompaniesResponse>
+    @POST("api/v1/admin/taxi/companies") suspend fun createTaxiCompany(@Body body: NameRequest): Response<TaxiCredentialResponse>
+    @POST("api/v1/admin/taxi/companies/{id}/password") suspend fun resetTaxiPassword(@Path("id") id: String): Response<TaxiCredentialResponse>
+    @GET("api/v1/admin/taxi/companies/{id}/removal") suspend fun taxiRemovalPlan(@Path("id") id: String): Response<RemovalPlanResponse>
+    @POST("api/v1/admin/taxi/companies/{id}/remove") suspend fun removeTaxiCompany(@Path("id") id: String, @Body body: RemoveRequest): Response<RemoveResponse>
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 }
@@ -180,6 +188,15 @@ class Repository(private val session: SessionStore) {
     suspend fun reopenTicket(id: String, key: String): ApiResult<TicketActionResponse> = call { api.reopenTicket(id, KeyRequest(key)) }
     suspend fun reassignTicket(id: String, key: String, target: String): ApiResult<TicketActionResponse> = call { api.reassignTicket(id, ReassignRequest(key, target)) }
     suspend fun replyTicket(id: String, key: String, text: String): ApiResult<TicketActionResponse> = call { api.replyTicket(id, ReplyRequest(key, text.trim())) }
+    suspend fun taxiProblems(): ApiResult<ProblemsResponse> = call { api.taxiProblems() }
+    suspend fun taxiProblem(id: String): ApiResult<ProblemDetailDto> = call { api.taxiProblem(id) }
+    suspend fun taxiRecover(id: String, action: String, note: String, companyId: String? = null): ApiResult<RecoverResponse> =
+        call { api.taxiRecover(id, RecoverRequest(action, note.trim(), companyId)) }
+    suspend fun taxiCompanies(): ApiResult<CompaniesResponse> = call { api.taxiCompanies() }
+    suspend fun createTaxiCompany(name: String): ApiResult<TaxiCredentialResponse> = call { api.createTaxiCompany(NameRequest(name.trim())) }
+    suspend fun resetTaxiPassword(id: String): ApiResult<TaxiCredentialResponse> = call { api.resetTaxiPassword(id) }
+    suspend fun taxiRemovalPlan(id: String): ApiResult<RemovalPlanResponse> = call { api.taxiRemovalPlan(id) }
+    suspend fun removeTaxiCompany(id: String, expected: String): ApiResult<RemoveResponse> = call { api.removeTaxiCompany(id, RemoveRequest(expected)) }
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 }

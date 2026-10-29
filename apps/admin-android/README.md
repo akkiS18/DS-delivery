@@ -1,7 +1,7 @@
 # DS Admin — administrator ilovasi (Android, Kotlin + Compose)
 
-Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3 + A4a**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish), platforma sozlamalari va mijoz murojaatlari.
-Taksi kompaniyalari va qaytarish (A4b, A4c) keyingi bosqichda qo'shiladi; hozircha ular botda. Sozlamalar tepadagi tishli g'ildirak belgisida.
+Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3 + A4a + A4b**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish), platforma sozlamalari, mijoz murojaatlari va taksi.
+Qaytarish (A4c) keyingi bosqichda qo'shiladi; hozircha u botda. Sozlamalar tepadagi tishli g'ildirak belgisida.
 
 ## Nima qiladi
 - **Kirish**: Telegram ID → botga 6 xonali kod keladi → kod → telefon uchun PIN (4–8 raqam). Kod 10 daqiqa amal qiladi, urinishlar cheklangan.
@@ -30,6 +30,11 @@ Taksi kompaniyalari va qaytarish (A4b, A4c) keyingi bosqichda qo'shiladi; hozirc
 - Tugmalar botdagi bilan bir xil qoidalar: "Men oldim", javob yozish (olinmagan murojaatga javob yozsangiz u sizga o'tadi — botdagi "Reply" kabi), boshqa adminga o'tkazish / menga o'tkazish,
   "Hal qilindi" (mijozga xabar ketadi), "Qayta ochish". Faqat egasi javob yozadi va yopadi. Har bir bosish o'z kaliti bilan yuboriladi: qayta yuborilsa ham xabar ikki marta ketmaydi.
 - Mijoz Telegramdan yozgan bo'lsa javob botga ketadi, ilovadan yozgan bo'lsa — ilovadagi suhbatiga. Admin Telegramidagi kartalar ham yangilanadi.
+
+- **Taksi** (A4b): *Taksi muammolari* (`/taxiadmin`): javobsiz / rad etilgan / yordam kerak bo'lgan so'rovlar, tarixi bilan. Qayta yuborish va boshqa kompaniyaga o'tkazish uchun
+  10–300 belgilik izoh YOZILADI ("haydovchi YUBORILMAGANINI operator bilan aniqlaganman"), "Haydovchi allaqachon yuborilgan" esa faqat qayd etadi, yangi buyurtma yaratmaydi.
+  *Kompaniyalar* (`/newtaxi`, `/taxiapp`, `/deletetaxi`): yangi kompaniya (login/parol BIR MARTA ko'rsatiladi), yangi parol (kirgan qurilmalar chiqarib yuboriladi), o'chirish/arxivlash.
+  "Diqqat"dagi "taksi yordam so'radi" va "tayyor, taksi yo'q" kartalari shu bo'limni ochadi.
 
 ## Boshqaruv (A3a)
 - **Restoranlar** (`/restaurants`): faol/to'xtatilgan, kartalar soni; o'chirish ikki bosqichli, restoran ilovasidan chiqarib yuboriladi.

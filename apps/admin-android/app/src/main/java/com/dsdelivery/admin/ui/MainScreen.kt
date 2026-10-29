@@ -84,9 +84,12 @@ private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), C
 private fun tabFor(kind: String): Tab? = when (kind) {
     "MONEY_REVIEW", "PAYMENT_UNVERIFIED" -> Tab.MONEY
     "CARD_PENDING", "CARD_TURN_MID", "CARD_TURN_HIGH" -> Tab.CARDS
-    "SUPPORT_TICKET" -> Tab.HELP
+    "SUPPORT_TICKET", "TAXI_NEEDS_HELP", "READY_NO_TAXI" -> Tab.HELP
     else -> null
 }
+
+/** Which part of the Yordam tab an attention item belongs to: 0 = murojaatlar, 1 = taksi. */
+private fun helpSectionFor(kind: String): Int = if (kind == "TAXI_NEEDS_HELP" || kind == "READY_NO_TAXI") 1 else 0
 
 /** Open (not yet acknowledged) attention items that belong to a tab: the number on its icon. */
 private fun badgeFor(tab: Tab, items: List<AttentionItem>): Int = when (tab) {
@@ -103,6 +106,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
     val state by app.watcher.state.collectAsState()
     val duty by app.session.duty.collectAsState()
     var tab by remember { mutableStateOf(Tab.ATTENTION) }
+    var helpSection by remember { mutableStateOf(0) }
     val snack = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var busyKey by remember { mutableStateOf<String?>(null) }
@@ -161,12 +165,12 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
                         ack(key, 15) // calling the restaurant counts as "I am on it"
                     },
                     onAck = { key, minutes -> ack(key, minutes) },
-                    onOpen = { tab = it },
+                    onOpen = { t, section -> if (t == Tab.HELP) helpSection = section; tab = t },
                 )
                 Tab.MONEY -> MoneyTab(onMessage = { say(it) })
                 Tab.CARDS -> CardsTab(onMessage = { say(it) })
                 Tab.MANAGE -> ManageTab(onMessage = { say(it) })
-                Tab.HELP -> HelpTab(onMessage = { say(it) })
+                Tab.HELP -> HelpTab(section = helpSection, onSection = { helpSection = it }, onMessage = { say(it) })
                 Tab.SETTINGS -> SettingsTab(readiness, duty, onReadinessChanged, onMessage = { say(it) })
             }
         }
@@ -184,7 +188,7 @@ private fun AttentionTab(
     onSilence: () -> Unit,
     onCall: (key: String, phone: String) -> Unit,
     onAck: (key: String, minutes: Int) -> Unit,
-    onOpen: (Tab) -> Unit,
+    onOpen: (Tab, helpSection: Int) -> Unit,
 ) {
     PullRefresh(onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -218,7 +222,7 @@ private fun AttentionTab(
                     onAck = { onAck(item.key, it) },
                     onSilence = onSilence,
                     openLabel = tabFor(item.kind)?.let { "${it.label}ni ochish" },
-                    onOpen = { tabFor(item.kind)?.let(onOpen) },
+                    onOpen = { tabFor(item.kind)?.let { onOpen(it, helpSectionFor(item.kind)) } },
                 )
             }
         }

@@ -87,11 +87,11 @@ fun SecretDialog(credential: CredentialResponse, onDone: () -> Unit) {
 }
 
 @Composable
-fun ResetPasswordDialog(name: String, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+fun ResetPasswordDialog(name: String, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit, owner: String = "restoranning") {
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("$name: yangi parol berilsinmi?") },
-        text = { Text("Eski parol ishlamaydi va restoranning barcha qurilmalari ilovadan chiqarib yuboriladi. Yangi parol keyingi oynada bir marta ko‘rsatiladi.") },
+        text = { Text("Eski parol ishlamaydi va $owner barcha qurilmalari ilovadan chiqarib yuboriladi. Yangi parol keyingi oynada bir marta ko‘rsatiladi.") },
         confirmButton = { TextButton(enabled = !busy, onClick = onConfirm) { Text("Ha, yangi parol") } },
         dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Yo‘q") } },
     )
@@ -124,7 +124,7 @@ fun LinkStaffDialog(name: String, busy: Boolean, onDismiss: () -> Unit, onLink: 
 
 /** Step two of removal: shows what the server says WOULD happen; the confirm button echoes it back, so a changed situation does nothing. */
 @Composable
-fun RemovalDialog(name: String, plan: RemovalPlanDto, busy: Boolean, onDismiss: () -> Unit, onConfirm: (expected: String) -> Unit) {
+fun RemovalDialog(name: String, plan: RemovalPlanDto, busy: Boolean, onDismiss: () -> Unit, onConfirm: (expected: String) -> Unit, taxi: Boolean = false) {
     val blocked = plan.result == "BLOCKED"
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
@@ -132,11 +132,16 @@ fun RemovalDialog(name: String, plan: RemovalPlanDto, busy: Boolean, onDismiss: 
         text = {
             Text(
                 when (plan.result) {
-                    "DELETE" -> "Bu restoranda hech qanday buyurtma, to‘lov yoki komissiya yo‘q. Restoran, menyusi va kartalari butunlay o‘chadi. Qaytarib bo‘lmaydi."
-                    "ARCHIVE" -> "Tarixi bor (${plan.orders ?: 0} ta buyurtma" + (if ((plan.dueSom ?: 0) > 0) ", to‘lanmagan komissiya ${somText(plan.dueSom ?: 0)}" else "") +
-                        "). Pul va yetkazib berish yozuvlari o‘chmaydi: restoran o‘chiriladi, mijozlarga ko‘rinmaydi, kirishi yopiladi, kartalari o‘chiriladi, nomi bo‘shatiladi."
+                    "DELETE" ->
+                        if (taxi) "Bu kompaniyada hech qanday taksi buyurtmasi yo‘q. Kompaniya va kirish logini butunlay o‘chadi. Qaytarib bo‘lmaydi."
+                        else "Bu restoranda hech qanday buyurtma, to‘lov yoki komissiya yo‘q. Restoran, menyusi va kartalari butunlay o‘chadi. Qaytarib bo‘lmaydi."
+                    "ARCHIVE" ->
+                        if (taxi) "Tarixi bor (${plan.orders ?: 0} ta yozuv). Yozuvlar o‘chmaydi: kompaniya o‘chiriladi, kirishi yopiladi, nomi bo‘shatiladi."
+                        else "Tarixi bor (${plan.orders ?: 0} ta buyurtma" + (if ((plan.dueSom ?: 0) > 0) ", to‘lanmagan komissiya ${somText(plan.dueSom ?: 0)}" else "") +
+                            "). Pul va yetkazib berish yozuvlari o‘chmaydi: restoran o‘chiriladi, mijozlarga ko‘rinmaydi, kirishi yopiladi, kartalari o‘chiriladi, nomi bo‘shatiladi."
                     else -> when (plan.reason) {
                         "OPEN_ORDERS" -> "Tugallanmagan ${plan.count ?: ""} ta buyurtma bor. Avval ularni yakunlang yoki bekor qiling."
+                        "OPEN_DISPATCHES" -> "Tugallanmagan ${plan.count ?: ""} ta taksi buyurtmasi bor. Avval ularni yakunlang."
                         "OPEN_REFUNDS" -> "Hal qilinmagan ${plan.count ?: ""} ta qaytarish so‘rovi bor."
                         else -> "Tugallanmagan ish bor."
                     }

@@ -341,6 +341,40 @@ data class ReassignRequest(@SerializedName("clientKey") val clientKey: String, @
 data class ReplyRequest(@SerializedName("clientKey") val clientKey: String, @SerializedName("text") val text: String)
 data class TicketActionResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("result") val result: String)
 
+// A4b: taxi problems and taxi companies.
+data class ProblemRowDto(
+    @SerializedName("id") val id: String, @SerializedName("orderCode") val orderCode: String, @SerializedName("restaurantName") val restaurantName: String,
+    @SerializedName("companyName") val companyName: String, @SerializedName("status") val status: String, @SerializedName("attemptNo") val attemptNo: Int,
+    @SerializedName("updatedAt") val updatedAt: String,
+)
+data class ProblemsResponse(@SerializedName("problems") val problems: List<ProblemRowDto>)
+data class HistoryItemDto(@SerializedName("attemptNo") val attemptNo: Int, @SerializedName("companyName") val companyName: String, @SerializedName("status") val status: String)
+data class CompanyChoiceDto(@SerializedName("id") val id: String, @SerializedName("name") val name: String)
+data class ProblemDetailDto(
+    @SerializedName("id") val id: String, @SerializedName("orderCode") val orderCode: String, @SerializedName("orderStatus") val orderStatus: String,
+    @SerializedName("restaurantName") val restaurantName: String, @SerializedName("addressText") val addressText: String,
+    @SerializedName("attemptNo") val attemptNo: Int, @SerializedName("companyName") val companyName: String, @SerializedName("status") val status: String,
+    @SerializedName("history") val history: List<HistoryItemDto>, @SerializedName("open") val open: Boolean,
+    @SerializedName("companies") val companies: List<CompanyChoiceDto>,
+)
+/** action: RETRY_SAME / REASSIGN / DRIVER_SENT. The note is the administrator's written confirmation (10-300 characters). */
+data class RecoverRequest(
+    @SerializedName("action") val action: String, @SerializedName("note") val note: String, @SerializedName("companyId") val companyId: String? = null,
+)
+data class RecoverResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("action") val action: String, @SerializedName("companyName") val companyName: String? = null)
+data class CompanyRowDto(
+    @SerializedName("id") val id: String, @SerializedName("name") val name: String, @SerializedName("isActive") val isActive: Boolean,
+    @SerializedName("login") val login: String? = null, @SerializedName("operatorLinked") val operatorLinked: Boolean = false,
+    @SerializedName("reachable") val reachable: Boolean = false,
+)
+data class CompaniesResponse(@SerializedName("companies") val companies: List<CompanyRowDto>)
+data class NameRequest(@SerializedName("name") val name: String)
+/** The one-time taxi login: shown once, never stored by the server in clear. */
+data class TaxiCredentialResponse(
+    @SerializedName("ok") val ok: Boolean, @SerializedName("name") val name: String,
+    @SerializedName("login") val login: String, @SerializedName("password") val password: String,
+)
+
 data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
 data class StatementDto(
     @SerializedName("restaurantId") val restaurantId: String,

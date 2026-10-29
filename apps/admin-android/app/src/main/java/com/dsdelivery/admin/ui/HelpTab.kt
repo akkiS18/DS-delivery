@@ -7,25 +7,24 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
-private val SECTIONS = listOf("Murojaatlar")
+private val SECTIONS = listOf("Murojaatlar", "Taksi")
 
-/** "Yordam": what the Telegram commands /tickets (and, in the next steps, the taxi and refund commands) did. */
+/**
+ * "Yordam": what the Telegram commands /tickets, /taxiadmin, /newtaxi, /taxiapp and /deletetaxi did (the refund commands follow).
+ * The selected part is owned by the caller so an item in "Diqqat" can open the right one.
+ */
 @Composable
-fun HelpTab(onMessage: (String) -> Unit) {
-    var section by rememberSaveable { mutableIntStateOf(0) }
+fun HelpTab(section: Int, onSection: (Int) -> Unit, onMessage: (String) -> Unit) {
     Column(Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = section, containerColor = MaterialTheme.colorScheme.surface) {
+        TabRow(selectedTabIndex = section.coerceIn(0, SECTIONS.lastIndex), containerColor = MaterialTheme.colorScheme.surface) {
             SECTIONS.forEachIndexed { i, label ->
-                Tab(selected = section == i, onClick = { section = i }, text = { Text(label) })
+                Tab(selected = section == i, onClick = { onSection(i) }, text = { Text(label) })
             }
         }
         when (section) {
+            1 -> TaxiPane(onMessage)
             else -> SupportPane(onMessage)
         }
     }
