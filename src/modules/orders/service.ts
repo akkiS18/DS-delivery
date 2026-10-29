@@ -7,6 +7,7 @@ import { openState } from '../restaurant-operations/hours.js';
 import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.js';
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
 import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, cashMaxOrderSom } from '../payment/method.js';
+import { usableCardCount } from '../payment/pool.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
 
@@ -233,7 +234,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       // keeps its old behaviour: the restaurant sets the pickup address before accepting.)
       if (!waiting && data.paymentMode === 'REAL' && !checked.restaurant.pickupAddress?.trim()) throw new CheckoutError('RESTORAN_OLIB_KETISH_MANZILI_YOQ', 409);
       // Stage 8B: a REAL order needs at least one approved, enabled card; otherwise the payment would wait in the queue and expire.
-      if (!isCash && data.paymentMode === 'REAL' && (await tx.card.count({ where: { restaurantId: data.restaurantId, isTest: false, active: true } })) === 0) {
+      if (!isCash && data.paymentMode === 'REAL' && (await usableCardCount(tx, data.restaurantId, checked.totalSom)) === 0) {
         throw new CheckoutError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409);
       }
       if (!data.taxiCompanyId && data.autoTaxi) {

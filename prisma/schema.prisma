@@ -13,6 +13,8 @@ model Restaurant {
   name                String
   isActive            Boolean               @default(true)
   isPaused            Boolean               @default(false)
+  /// Paid on the platform's own card pool (Card.restaurantId = null) instead of cards of its own (owner decision 2026-10-30).
+  collectsToPlatform  Boolean               @default(false)
   defaultPrepMinutes  Int                   @default(25)
   /// Table reservations (off until the restaurant switches them on): the deposit is paid to the restaurant's card.
   reservationsEnabled   Boolean             @default(false)

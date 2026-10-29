@@ -16,12 +16,14 @@ import { registerTaxiHandlers } from './taxi.js';
 import { registerTaxiAdminHandlers } from './taxi-admin.js';
 import { registerSupportHandlers } from './support.js';
 import { registerCardAdminHandlers } from './card-admin.js';
+import { registerPoolAdminHandlers } from './pool-admin.js';
 import { registerMoneyAdminHandlers } from './money-admin.js';
 import { registerCommissionAdminHandlers } from './commission-admin.js';
 import { registerRestaurantAdminHandlers } from './restaurant-admin.js';
 import { registerPlatformAdminHandlers } from './platform-admin.js';
 import { registerOrderCancelHandler } from './order-cancel.js';
 import { registerRefundHandlers } from './refunds.js';
+import { cardOwnerOf } from '../modules/payment/pool.js';
 import { handleLinkStart, isLinkPayload, registerTelegramLinkHandlers } from './telegram-link.js';
 
 type CheckoutStep = 'phone' | 'address-choice' | 'address-text' | 'location' | 'location-note' | 'taxi' | 'confirm' | 'placed';
@@ -303,7 +305,7 @@ async function beginCheckout(ctx: ClientContext): Promise<void> {
     if (process.env.GMAIL_ENABLED !== 'true') {
       await ctx.reply('Real to‘lov yoqilmagan: Gmail monitoringi o‘chiq.'); return;
     }
-    const realCards = await db.card.findMany({ where: { restaurantId: rest.id, isTest: false, active: true } });
+    const realCards = await db.card.findMany({ where: { restaurantId: await cardOwnerOf(db, rest.id, false), isTest: false, active: true } });
     if (!realCards.length || realCards.some(c => !payeeNumber(c))) {
       await ctx.reply('Restoran uchun haqiqiy karta rekvizitlari sozlanmagan. Administratorga murojaat qiling.'); return;
     }
@@ -635,6 +637,7 @@ export function createClientBot(token: string, engine: PaymentEngineV3, telegram
     registerTaxiAdminHandlers(bot); // the taxi bot is not running, so the recovery buttons of the dispatcher's alerts are answered here
   }
   registerSupportHandlers(bot);
+  registerPoolAdminHandlers(bot); // /pool, /platformcard, /collect: platform card pool (support admins only)
   registerCardAdminHandlers(bot); // /cards + approval of restaurant-added payee cards (support admins only)
   registerPlatformAdminHandlers(bot); // /payments (real-payment door), /newrestaurant, /resetpassword, /linkstaff (support admins only)
   registerRestaurantAdminHandlers(bot); // /restaurants: suspend / resume a restaurant (support admins only, audited)

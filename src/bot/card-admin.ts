@@ -13,11 +13,11 @@ export async function renderPendingCard(cardId: string): Promise<{ text: string;
   if (!c || c.status !== 'PENDING' || !c.number) return null;
   const text = [
     '💳 <b>Yangi to‘lov kartasi tasdig‘i</b>',
-    `Restoran: <b>${escapeHtml(c.restaurant?.name ?? '—')}</b>${c.restaurant?.pickupPhone ? ` (${escapeHtml(c.restaurant.pickupPhone)})` : ''}`,
+    c.restaurant ? `Restoran: <b>${escapeHtml(c.restaurant.name)}</b>${c.restaurant.pickupPhone ? ` (${escapeHtml(c.restaurant.pickupPhone)})` : ''}` : 'Platforma kartasi (administrator qo‘shdi): pul platforma kartalaridan biriga tushadi',
     `Karta: <code>${groupCard(c.number)}</code>`,
     ...(c.holderName ? [`Karta egasi: <b>${escapeHtml(c.holderName)}</b>`] : []),
     '',
-    '⚠️ Mijozlarning puli shu kartaga tushadi. Restoran egasiga qo‘ng‘iroq qilib, karta aynan restoranniki ekanini tasdiqlang. Ishonchingiz komil bo‘lmasa rad eting.',
+    c.restaurant ? '⚠️ Mijozlarning puli shu kartaga tushadi. Restoran egasiga qo‘ng‘iroq qilib, karta aynan restoranniki ekanini tasdiqlang. Ishonchingiz komil bo‘lmasa rad eting.' : '⚠️ Mijozlarning puli shu kartaga tushadi. Raqam va egasining ismi o‘zingiz yozganiga mosligini tekshiring. Noto‘g‘ri bo‘lsa rad eting.',
   ].join('\n');
   return { text, keyboard: Markup.inlineKeyboard([[Markup.button.callback('✅ Tasdiqlash', `card:ask:${c.id}`), Markup.button.callback('❌ Rad etish', `card:no:${c.id}`)]]) };
 }

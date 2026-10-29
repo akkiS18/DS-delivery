@@ -155,7 +155,7 @@ export async function cardsForAdmin(limit = 30) {
     where: { isTest: false }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: limit,
     include: { restaurant: { select: { name: true } } },
   });
-  return rows.map(c => ({ id: c.id, last4: c.last4, status: statusOf(c), restaurant: c.restaurant?.name ?? '—', hasNumber: c.number !== null }));
+  return rows.map(c => ({ id: c.id, last4: c.last4, status: statusOf(c), restaurant: c.restaurant?.name ?? 'PLATFORMA', hasNumber: c.number !== null }));
 }
 
 /** Pending cards no administrator has been told about yet (the Telegram notifier marks them once a message went out). */

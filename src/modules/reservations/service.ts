@@ -7,6 +7,7 @@ import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.j
 import { autoActorOfSource, autoConfirmEnabledForSource, autoSourceOfActor } from '../restaurant/auto-policy.js';
 import { matchedTransactionSources } from '../restaurant-orders/auto.js';
 import { openState } from '../restaurant-operations/hours.js';
+import { cardOwnerOf, usableCardCount } from '../payment/pool.js';
 import { paymentInstructionsOf } from '../miniapp/views.js';
 
 /**
@@ -117,7 +118,7 @@ export async function placeReservation(
         if (Number(payment.amountTiyin / 100n) !== r.reservationDepositSom) throw new ReservationError('BRON_SUMMASI_OZGARDI', 409);
         if (!openState(r, startsAt).open) throw new ReservationError('RESTORAN_SHU_VAQTDA_YOPIQ', 409);
         if (paymentMode === 'REAL' && realPaymentsGateActive() && !(await realPaymentsOpen(tx))) throw new ReservationError('TOLOV_YOPIQ', 409);
-        if (paymentMode === 'REAL' && (await tx.card.count({ where: { restaurantId: input.restaurantId, isTest: false, active: true } })) === 0) throw new ReservationError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409);
+        if (paymentMode === 'REAL' && (await usableCardCount(tx, input.restaurantId, r.reservationDepositSom)) === 0) throw new ReservationError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409);
         const unpaid = await tx.reservation.count({ where: { customerId: customer.id, status: 'PENDING_PAYMENT', payment: { is: { status: { notIn: DEAD_PAYMENT } } } } });
         if (unpaid >= MAX_OPEN_UNPAID) throw new ReservationError('KOP_TOLANMAGAN_BRON', 429);
         if (await tx.reservation.findFirst({ where: { customerId: customer.id, restaurantId: input.restaurantId, startsAt, status: { in: ['PENDING_PAYMENT', 'PAID'] } }, select: { id: true } })) throw new ReservationError('BRON_ALLAQACHON_BOR', 409);
@@ -291,7 +292,7 @@ export const reservationSettingsSchema = z.object({
 }).strict();
 
 export async function setReservationSettings(restaurantId: string, input: z.infer<typeof reservationSettingsSchema>) {
-  if (input.enabled && (await db.card.count({ where: { restaurantId, active: true } })) === 0) throw new ReservationError('KARTA_YOQ', 409);
+  if (input.enabled && (await db.card.count({ where: { restaurantId: await cardOwnerOf(db, restaurantId, false), active: true } })) === 0) throw new ReservationError('KARTA_YOQ', 409);
   const r = await db.restaurant.update({ where: { id: restaurantId }, data: { reservationsEnabled: input.enabled, reservationDepositSom: input.depositSom }, select: { reservationsEnabled: true, reservationDepositSom: true } });
   return { reservationsEnabled: r.reservationsEnabled, reservationDepositSom: r.reservationDepositSom };
 }

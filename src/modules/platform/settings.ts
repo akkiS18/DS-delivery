@@ -33,7 +33,7 @@ export async function realPaymentsBlockers(env: NodeJS.ProcessEnv = process.env,
   const gmail = gmailHealth.status();
   if (gmail !== 'ok') issues.push(`Gmail ishlamayapti (holat: ${gmail}). Pul kelganini ko‘ra olmaymiz.`);
   const cards = await tx.card.count({
-    where: { isTest: false, active: true, approvalStatus: 'APPROVED', restaurant: { is: { isActive: true } } },
+    where: { isTest: false, active: true, approvalStatus: 'APPROVED', OR: [{ restaurant: { is: { isActive: true } } }, { restaurantId: null }] },
   });
   if (cards === 0) issues.push('Faol, tasdiqlangan karta yo‘q (restoran kartasini tasdiqlang: /cards).');
   return issues;

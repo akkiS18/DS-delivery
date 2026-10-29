@@ -4,6 +4,7 @@ import {
   classifyAmountMismatch, couldBelongToEarlierPayment, incomingFingerprint, isDelayedNotification, overlapsPaymentWindow,
 } from './matching.js';
 import { CASH_ACCEPTED, CASH_PENDING, cashAcceptWindowMs } from './method.js';
+import { cardOwnerOf, cardTurnoverSom, paymentsOfOwner, poolCapSom, rankCards, withinCap } from './pool.js';
 import { formatSom } from './uzcard.js';
 
 export type Incoming = {
@@ -215,22 +216,29 @@ export class PaymentEngineV3 {
     restaurantId: string | null,
     now: Date,
   ): Promise<Payment[]> {
-    const cards = await tx.card.findMany({ where: { active: true, isTest, restaurantId } });
+    // Owner decision 2026-10-30 (pool.ts): a restaurant flagged collectsToPlatform is paid on the platform's own cards (owner = null).
+    const owner = await cardOwnerOf(tx, restaurantId, isTest);
+    const cards = await tx.card.findMany({ where: { active: true, isTest, restaurantId: owner } });
     if (!cards.length) return [];
+    const cardIds = cards.map(c => c.id);
     const cooldown = await tx.cardCooldown.findMany({ where: { amountTiyin, until: { gt: now } }, select: { cardId: true } });
     const blocked = new Set(cooldown.map(c => c.cardId));
-    const already = await tx.payment.findMany({ where: { amountTiyin, status: 'AWAITING', isTest, restaurantId }, select: { cardId: true } });
+    const already = await tx.payment.findMany({ where: { amountTiyin, status: 'AWAITING', isTest, cardId: { in: cardIds } }, select: { cardId: true } });
     for (const active of already) if (active.cardId) blocked.add(active.cardId);
-    const activeCounts = await tx.payment.groupBy({ by: ['cardId'], where: { isTest, status: 'AWAITING', restaurantId }, _count: { _all: true } });
-    const count = new Map(activeCounts.map(c => [c.cardId, c._count._all]));
-    const available = cards.filter(c => !blocked.has(c.id)).sort((a, b) =>
-      (count.get(a.id) ?? 0) - (count.get(b.id) ?? 0) ||
-      (a.lastAssignedAt?.getTime() ?? 0) - (b.lastAssignedAt?.getTime() ?? 0) ||
-      a.last4.localeCompare(b.last4));
+    const activeCounts = await tx.payment.groupBy({ by: ['cardId'], where: { isTest, status: 'AWAITING', cardId: { in: cardIds } }, _count: { _all: true } });
+    const count = new Map<string, number>();
+    for (const c of activeCounts) if (c.cardId) count.set(c.cardId, c._count._all);
+    // Platform cards only: keep each card's last-30-days intake under the cap and prefer the least used card.
+    const poolCard = owner === null && !isTest;
+    const turnover = poolCard ? await cardTurnoverSom(tx, cardIds, now) : new Map<string, number>();
+    const capSom = poolCapSom();
+    const amountSom = Number(amountTiyin / 100n);
+    const available = rankCards(
+      cards.filter(c => !blocked.has(c.id) && (!poolCard || withinCap(turnover.get(c.id) ?? 0, amountSom, capSom))), count, turnover);
     const assigned: Payment[] = [];
     for (const card of available) {
       const next = await tx.payment.findFirst({
-        where: { status: 'QUEUED', amountTiyin, isTest, restaurantId }, orderBy: { number: 'asc' },
+        where: { status: 'QUEUED', amountTiyin, isTest, ...paymentsOfOwner(owner, isTest) }, orderBy: { number: 'asc' },
       });
       if (!next) break;
       const updated = await tx.payment.update({
@@ -417,7 +425,8 @@ export class PaymentEngineV3 {
         }
         return reviewed('NO_ACTIVE_PAYMENT');
       }
-      if (payment.restaurantId !== card.restaurantId || payment.isTest !== card.isTest) {
+      // The card must belong to whoever may take this payment: the restaurant's own card, or a platform card for a collectsToPlatform restaurant.
+      if ((await cardOwnerOf(tx, payment.restaurantId, payment.isTest)) !== card.restaurantId || payment.isTest !== card.isTest) {
         return reviewed('CARD_PAYMENT_SCOPE_MISMATCH', payment.number, undefined, [payment.id]);
       }
       if (input.emailReceivedAt && input.emailReceivedAt.getTime() < payment.assignedAt.getTime()) {

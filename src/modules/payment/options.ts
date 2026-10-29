@@ -1,5 +1,6 @@
 import { db } from '../../lib/db.js';
 import { cashEnabled, cashMaxOrderSom } from './method.js';
+import { cardOwnerOf, cardTurnoverSom, paymentsOfOwner, poolCapSom, withinCap } from './pool.js';
 
 /**
  * What the customer may choose at checkout for this restaurant and amount (read only, advisory: the server decides again when the order is made).
@@ -15,11 +16,17 @@ export interface PaymentOptions {
 
 export async function paymentOptions(input: { restaurantId: string; totalSom: number; isTest: boolean }, now = new Date()): Promise<PaymentOptions> {
   const amountTiyin = BigInt(input.totalSom) * 100n;
-  const [cards, cooling, taken, queued, enabled] = await Promise.all([
-    db.card.findMany({ where: { active: true, isTest: input.isTest, restaurantId: input.restaurantId }, select: { id: true } }),
+  // A restaurant flagged collectsToPlatform is paid on the platform's own cards (pool.ts); those cards also stop taking new payments at the turnover cap.
+  const owner = await cardOwnerOf(db, input.restaurantId, input.isTest);
+  const allCards = await db.card.findMany({ where: { active: true, isTest: input.isTest, restaurantId: owner }, select: { id: true } });
+  const poolCard = owner === null && !input.isTest;
+  const turnover = poolCard ? await cardTurnoverSom(db, allCards.map(c => c.id), now) : new Map<string, number>();
+  const capSom = poolCapSom();
+  const cards = poolCard ? allCards.filter(c => withinCap(turnover.get(c.id) ?? 0, input.totalSom, capSom)) : allCards;
+  const [cooling, taken, queued, enabled] = await Promise.all([
     db.cardCooldown.findMany({ where: { amountTiyin, until: { gt: now } }, select: { cardId: true } }),
-    db.payment.findMany({ where: { amountTiyin, status: 'AWAITING', isTest: input.isTest, restaurantId: input.restaurantId }, select: { cardId: true } }),
-    db.payment.count({ where: { amountTiyin, status: 'QUEUED', isTest: input.isTest, restaurantId: input.restaurantId } }),
+    db.payment.findMany({ where: { amountTiyin, status: 'AWAITING', isTest: input.isTest, cardId: { in: allCards.map(c => c.id) } }, select: { cardId: true } }),
+    db.payment.count({ where: { amountTiyin, status: 'QUEUED', isTest: input.isTest, ...paymentsOfOwner(owner, input.isTest) } }),
     cashEnabled(),
   ]);
   const blocked = new Set([...cooling.map(c => c.cardId), ...taken.map(t => t.cardId).filter((id): id is string => id !== null)]);
