@@ -66,6 +66,9 @@ interface AdminApi {
     @POST("api/v1/admin/taxi/companies/{id}/password") suspend fun resetTaxiPassword(@Path("id") id: String): Response<TaxiCredentialResponse>
     @GET("api/v1/admin/taxi/companies/{id}/removal") suspend fun taxiRemovalPlan(@Path("id") id: String): Response<RemovalPlanResponse>
     @POST("api/v1/admin/taxi/companies/{id}/remove") suspend fun removeTaxiCompany(@Path("id") id: String, @Body body: RemoveRequest): Response<RemoveResponse>
+    @GET("api/v1/admin/refunds") suspend fun refunds(): Response<RefundsResponse>
+    @GET("api/v1/admin/refunds/{id}") suspend fun refund(@Path("id") id: String): Response<RefundDetailDto>
+    @POST("api/v1/admin/refunds/{id}/confirm") suspend fun confirmRefund(@Path("id") id: String, @Body body: ConfirmRefundRequest): Response<OkResponse>
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 }
@@ -197,6 +200,9 @@ class Repository(private val session: SessionStore) {
     suspend fun resetTaxiPassword(id: String): ApiResult<TaxiCredentialResponse> = call { api.resetTaxiPassword(id) }
     suspend fun taxiRemovalPlan(id: String): ApiResult<RemovalPlanResponse> = call { api.taxiRemovalPlan(id) }
     suspend fun removeTaxiCompany(id: String, expected: String): ApiResult<RemoveResponse> = call { api.removeTaxiCompany(id, RemoveRequest(expected)) }
+    suspend fun refunds(): ApiResult<RefundsResponse> = call { api.refunds() }
+    suspend fun refund(id: String): ApiResult<RefundDetailDto> = call { api.refund(id) }
+    suspend fun confirmRefund(id: String, note: String): ApiResult<OkResponse> = call { api.confirmRefund(id, ConfirmRefundRequest(note.trim())) }
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 }

@@ -217,7 +217,7 @@ private fun NewCompanyDialog(busy: Boolean, onDismiss: () -> Unit, onCreate: (St
 
 /** The administrator's written confirmation. Retry/reassign are only safe when no driver was sent, so the sentence says what is being attested. */
 @Composable
-private fun NoteDialog(title: String, hint: String, busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+internal fun NoteDialog(title: String, hint: String, busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
     var note by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },

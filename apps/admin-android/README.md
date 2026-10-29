@@ -1,7 +1,7 @@
 # DS Admin — administrator ilovasi (Android, Kotlin + Compose)
 
-Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3 + A4a + A4b**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish), platforma sozlamalari, mijoz murojaatlari va taksi.
-Qaytarish (A4c) keyingi bosqichda qo'shiladi; hozircha u botda. Sozlamalar tepadagi tishli g'ildirak belgisida.
+Telegram botdagi administrator ishlarini ilovaga ko'chirish rejasi: `docs/PLAN_ADMIN_APP.md`. Bu modul — **A1 + A2 + A3 + A4**: kirish, "Diqqat" ro'yxati, signal, pul, kartalar, restoranlar (qo'shish/parol/rasm/o'chirish), platforma sozlamalari, mijoz murojaatlari, taksi va qaytarishlar.
+Botdagi administrator imkoniyatlarining hammasi endi ilovada ham bor. Sozlamalar tepadagi tishli g'ildirak belgisida.
 
 ## Nima qiladi
 - **Kirish**: Telegram ID → botga 6 xonali kod keladi → kod → telefon uchun PIN (4–8 raqam). Kod 10 daqiqa amal qiladi, urinishlar cheklangan.
@@ -35,6 +35,9 @@ Qaytarish (A4c) keyingi bosqichda qo'shiladi; hozircha u botda. Sozlamalar tepad
   10–300 belgilik izoh YOZILADI ("haydovchi YUBORILMAGANINI operator bilan aniqlaganman"), "Haydovchi allaqachon yuborilgan" esa faqat qayd etadi, yangi buyurtma yaratmaydi.
   *Kompaniyalar* (`/newtaxi`, `/taxiapp`, `/deletetaxi`): yangi kompaniya (login/parol BIR MARTA ko'rsatiladi), yangi parol (kirgan qurilmalar chiqarib yuboriladi), o'chirish/arxivlash.
   "Diqqat"dagi "taksi yordam so'radi" va "tayyor, taksi yo'q" kartalari shu bo'limni ochadi.
+- **Qaytarish** (A4c): ochiq qaytarish so'rovlari (restoran javobi kutilmoqda / pulni qaytarishi kerak / yubordi / mijoz "pul KELMADI" dedi) va oxirgi 14 kundagi yopilganlar. Ichida: summa, sabab,
+  tarix va restoran/mijozga qo'ng'iroq tugmalari. "Izoh bilan tasdiqlash" faqat restoran pulni yuborgan (yoki mijoz e'tiroz bildirgan) so'rovlarda, 10–300 belgilik izoh bilan. DS pul o'tkazmaydi.
+  "Mijoz pul KELMADI dedi" holati "Diqqat"da alohida (muhim) karta bo'lib chiqadi va tasdiqlangach yo'qoladi.
 
 ## Boshqaruv (A3a)
 - **Restoranlar** (`/restaurants`): faol/to'xtatilgan, kartalar soni; o'chirish ikki bosqichli, restoran ilovasidan chiqarib yuboriladi.

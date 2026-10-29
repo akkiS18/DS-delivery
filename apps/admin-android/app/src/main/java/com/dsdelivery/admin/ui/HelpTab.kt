@@ -9,10 +9,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-private val SECTIONS = listOf("Murojaatlar", "Taksi")
+private val SECTIONS = listOf("Murojaatlar", "Taksi", "Qaytarish")
 
 /**
- * "Yordam": what the Telegram commands /tickets, /taxiadmin, /newtaxi, /taxiapp and /deletetaxi did (the refund commands follow).
+ * "Yordam": what the Telegram commands /tickets, /taxiadmin, /newtaxi, /taxiapp, /deletetaxi and the refund buttons did.
  * The selected part is owned by the caller so an item in "Diqqat" can open the right one.
  */
 @Composable
@@ -25,6 +25,7 @@ fun HelpTab(section: Int, onSection: (Int) -> Unit, onMessage: (String) -> Unit)
         }
         when (section) {
             1 -> TaxiPane(onMessage)
+            2 -> RefundsPane(onMessage)
             else -> SupportPane(onMessage)
         }
     }
