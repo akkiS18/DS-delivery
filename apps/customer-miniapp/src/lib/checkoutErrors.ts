@@ -54,6 +54,8 @@ export function describeCheckoutError(e: unknown): Described {
       return { kind: 'CASH', retryable: false, message: 'Bu summa naqd to‘lov uchun juda katta. Karta orqali to‘lang yoki savatni kamaytiring.' };
     case 'KOP_NAQD_BUYURTMA':
       return { kind: 'CASH', retryable: false, message: 'Sizda tugallanmagan naqd buyurtmalar bor. Ular yetkazilgach yangisini bera olasiz.' };
+    case 'MIJOZ_BLOKLANGAN':
+      return { kind: 'OTHER', retryable: false, message: 'Hisobingiz bo‘yicha hozircha buyurtma berib bo‘lmaydi. Aniqlashtirish uchun «Yordam» bo‘limiga yozing.' };
     case 'NAQD_MUMKIN_EMAS':
       return { kind: 'CASH', retryable: false, message: 'Bu buyurtmani naqd to‘lovga o‘tkazib bo‘lmaydi.' };
     case 'PHONE_REQUIRED':

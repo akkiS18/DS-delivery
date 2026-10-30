@@ -1,6 +1,7 @@
 import { customerWhere } from '../../lib/customer-owner.js';
 import { db } from '../../lib/db.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
+import { orderVerdict } from '../customer-strikes/service.js';
 import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, cashMaxOrderSom } from '../payment/method.js';
 
 export type SwitchToCashResult = 'SWITCHED' | 'ALREADY_CASH' | 'NOT_FOUND' | 'NOT_ALLOWED' | 'CASH_OFF' | 'TOO_LARGE' | 'LIMIT';
@@ -25,6 +26,7 @@ export async function switchOrderToCash(engine: PaymentEngineV3, input: { telegr
     if (order.payment.method === 'CASH') return order.payment.status === CASH_PENDING || order.payment.status === CASH_ACCEPTED ? 'ALREADY_CASH' : 'NOT_ALLOWED';
     if (status !== 'PAYMENT_PENDING' || order.payment.status !== 'QUEUED') return 'NOT_ALLOWED';
     if (!(await cashEnabled(tx))) return 'CASH_OFF';
+    if ((await orderVerdict(tx, owned.customerId, { cash: true })) !== 'OK') return 'CASH_OFF'; // a strike or a block closes cash for this customer (customer-strikes)
     if (order.totalSom > cashMaxOrderSom()) return 'TOO_LARGE';
     const active = await tx.order.count({
       where: { customerId: owned.customerId, id: { not: owned.id }, payment: { is: { method: 'CASH', status: { in: [CASH_PENDING, CASH_ACCEPTED] } } },

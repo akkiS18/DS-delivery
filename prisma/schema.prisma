@@ -153,6 +153,11 @@ model Customer {
   addresses      CustomerAddress[]
   guestSessions  GuestSession[]
   linkAttempts   TelegramLinkAttempt[]
+  strikes        CustomerStrike[]
+  /// Admin block (owner decision 2026-10-30): the customer cannot order at all. Five active strikes block as well (customer-strikes/service.ts).
+  blockedAt      DateTime?       @db.Timestamptz(3)
+  blockedBy      String?
+  blockNote      String?
 
   @@index([mergedIntoId])
 }
@@ -298,6 +303,7 @@ model Order {
   rating                     OrderRating?
   refundRequests             RefundRequest[]
   commission                 CommissionEntry?
+  customerStrikes            CustomerStrike[]
   addressText                String
   deliveryLat                Float?
   deliveryLng                Float?
@@ -1023,4 +1029,24 @@ model RestaurantImage {
   sha256       String
   version      Int        @default(1)
   updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+}
+
+/// Owner decision 2026-10-30: a customer who did not receive an order gets a strike; one active strike turns cash off for them, five block them.
+/// Strikes are never deleted: an administrator revokes one with a note (revokedAt). source: ADMIN | RESTAURANT | TAXI. The partial unique index
+/// "one strike per order and source" lives in the migration SQL.
+model CustomerStrike {
+  id         String    @id @default(cuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  orderId    String?
+  order      Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  source     String
+  reportedBy String
+  note       String
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  revokedBy  String?
+  revokeNote String?
+
+  @@index([customerId, revokedAt])
 }

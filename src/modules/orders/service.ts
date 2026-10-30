@@ -8,6 +8,7 @@ import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
 import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, cashMaxOrderSom } from '../payment/method.js';
 import { usableCardCount } from '../payment/pool.js';
+import { orderVerdict } from '../customer-strikes/service.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
 
@@ -257,6 +258,11 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
             ...(data.phone ? { phone: data.phone } : {}),
           },
         });
+      // Owner decision 2026-10-30 (customer-strikes): a blocked customer orders nothing; a customer with a strike cannot pay in cash. Cash uses the
+      // existing "cash is closed" code so clients that are already installed show a sensible message.
+      const verdict = await orderVerdict(tx, customer.id, { cash: isCash });
+      if (verdict === 'BLOCKED') throw new CheckoutError('MIJOZ_BLOKLANGAN', 403);
+      if (verdict === 'CASH_OFF') throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409);
       // Stage 8C: every unpaid REAL order holds one (card, amount) slot for up to the payment window; with 3-4 cards a few open orders
       // from one customer could block everybody else. Expired attempts were already swept (engine.createCheckout runs expireWithin first).
       const openLimit = maxOpenUnpaidOrders(data.paymentMode);
