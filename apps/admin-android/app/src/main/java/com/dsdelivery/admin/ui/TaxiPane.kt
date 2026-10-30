@@ -236,7 +236,7 @@ internal fun NoteDialog(title: String, hint: String, busy: Boolean, onDismiss: (
     )
 }
 
-private data class Pending(val action: String, val companyId: String? = null, val companyName: String? = null)
+private data class RecoverAction(val action: String, val companyId: String? = null, val companyName: String? = null)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -248,7 +248,7 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
     var loading by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf(false) }
-    var pending by remember { mutableStateOf<Pending?>(null) }
+    var pending by remember { mutableStateOf<RecoverAction?>(null) }
 
     suspend fun load() {
         if (loading) return
@@ -297,9 +297,9 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                                 style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                             )
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(enabled = !busy, onClick = { pending = Pending("RETRY_SAME") }) { Text("🔁 Shu kompaniyaga qayta yuborish") }
+                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("RETRY_SAME") }) { Text("🔁 Shu kompaniyaga qayta yuborish") }
                                 OutlinedButton(enabled = !busy, onClick = { picking = true }) { Text("🔀 Boshqa kompaniyaga o‘tkazish") }
-                                OutlinedButton(enabled = !busy, onClick = { pending = Pending("DRIVER_SENT") }) { Text("🚕 Haydovchi allaqachon yuborilgan") }
+                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("DRIVER_SENT") }) { Text("🚕 Haydovchi allaqachon yuborilgan") }
                             }
                         }
                     } else {
@@ -319,7 +319,7 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (d == null || d.companies.isEmpty()) Text("Mos faol kompaniya yo‘q.")
                     d?.companies?.forEach { c ->
-                        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { picking = false; pending = Pending("REASSIGN", c.id, c.name) }) { Text(c.name) }
+                        OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { picking = false; pending = RecoverAction("REASSIGN", c.id, c.name) }) { Text(c.name) }
                     }
                 }
             },
