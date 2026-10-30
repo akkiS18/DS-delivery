@@ -14,14 +14,14 @@ import { taxiStage } from '../taxi/workflow.js';
  */
 export type AttentionKind =
   | 'ORDER_UNSEEN' | 'CASH_UNACCEPTED' | 'PAYMENT_UNVERIFIED' | 'TAXI_NEEDS_HELP' | 'MONEY_REVIEW' | 'GMAIL_DOWN'
-  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH' | 'REFUND_DISPUTED';
+  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH' | 'REFUND_DISPUTED' | 'REFUND_POOL_DUE';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
 const SEVERITY: Record<AttentionKind, Severity> = {
   ORDER_UNSEEN: 'CRITICAL', CASH_UNACCEPTED: 'CRITICAL', PAYMENT_UNVERIFIED: 'CRITICAL', TAXI_NEEDS_HELP: 'CRITICAL', MONEY_REVIEW: 'CRITICAL', GMAIL_DOWN: 'CRITICAL',
   RESTAURANT_OFFLINE: 'HIGH', READY_NO_TAXI: 'HIGH',
   NOT_DELIVERED: 'MEDIUM', CARD_PENDING: 'MEDIUM', SUPPORT_TICKET: 'MEDIUM',
-  CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH', REFUND_DISPUTED: 'HIGH',
+  CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH', REFUND_DISPUTED: 'HIGH', REFUND_POOL_DUE: 'HIGH',
 };
 /** Listed but never rung and never announced: a heads-up, not something to wake anybody for. */
 const SILENT_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>(['CARD_TURN_MID']);
@@ -264,7 +264,7 @@ export async function getQuietHours(): Promise<QuietHours> {
 
 export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv = process.env): Promise<AttentionSnapshot> {
   const cfg = attentionConfig(env);
-  const [orders, reviews, cards, tickets, quiet, acks, poolCards, disputes] = await Promise.all([
+  const [orders, reviews, cards, tickets, quiet, acks, poolCards, disputes, poolDue] = await Promise.all([
     db.order.findMany({ where: activeOrdersWhere(now, cfg), select: orderSelect, orderBy: { createdAt: 'asc' }, take: 300 }),
     listUnhandledReviews(5),
     db.card.findMany({ where: { approvalStatus: 'PENDING', isTest: false }, orderBy: { createdAt: 'asc' }, take: 10,
@@ -277,6 +277,9 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
     // The customer says the refunded money never arrived: the restaurant must prove it again, or an administrator checks and confirms.
     db.refundRequest.findMany({ where: { status: 'DISPUTED' }, orderBy: { disputedAt: 'asc' }, take: 10,
       select: { id: true, number: true, paidAmountTiyin: true, disputedAt: true, order: { select: { code: true, restaurant: { select: { id: true, name: true, pickupPhone: true } } } } } }),
+    // The customer paid onto a platform card and the restaurant approved the cancellation: the money is the platform's, so the administrator sends it back.
+    db.refundRequest.findMany({ where: { status: 'APPROVED', payment: { is: { method: 'CARD', card: { is: { restaurantId: null } } } } }, orderBy: { decidedAt: 'asc' }, take: 10,
+      select: { id: true, number: true, approvedAmountTiyin: true, paidAmountTiyin: true, decidedAt: true, requestedAt: true, order: { select: { code: true, restaurant: { select: { id: true, name: true, pickupPhone: true } } } } } }),
   ]);
 
   const restaurantIds = [...new Set(orders.map(o => o.restaurant.id))];
@@ -308,6 +311,11 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
     raw.push({ key: `REFUND_DISPUTED:${d.id}`, kind: 'REFUND_DISPUTED', title: 'Qaytarish: mijoz pul KELMADI dedi',
       detail: `Qaytarish #${d.number} · buyurtma #${d.order.code} · ${somText(Number(d.paidAmountTiyin / 100n))} so‘m`,
       restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.disputedAt });
+  }
+  for (const d of poolDue) {
+    raw.push({ key: `REFUND_POOL_DUE:${d.id}`, kind: 'REFUND_POOL_DUE', title: 'Qaytarish: pul platforma kartasida — mijozga qaytaring',
+      detail: `Qaytarish #${d.number} · buyurtma #${d.order.code} · ${somText(Number((d.approvedAmountTiyin ?? d.paidAmountTiyin) / 100n))} so‘m`,
+      restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.decidedAt ?? d.requestedAt });
   }
   const cap = poolCapSom(env);
   if (cap > 0 && poolCards.length) raw.push(...evaluateTurnover(poolCards, await cardTurnoverSom(db, poolCards.map(c => c.id), now), cap));

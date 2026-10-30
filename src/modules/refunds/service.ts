@@ -4,8 +4,8 @@ import { db } from '../../lib/db.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
 import { isSupportAdmin } from '../support/service.js';
 import {
-  CUSTOMER_REASONS, REJECT_REASONS, RESTAURANT_REASONS, canRefundTransition, cancellationPlan, paymentAllowsRefund,
-  resolveRefundAmount, validateAdminNote, type RefundActor, type RefundStatus,
+  CUSTOMER_REASONS, REJECT_REASONS, RESTAURANT_REASONS, canRefundTransition, cancellationPlan, isPlatformHeld, paymentAllowsRefund,
+  resolveRefundAmount, validateAdminNote, validateBankReference, type RefundActor, type RefundStatus,
 } from './workflow.js';
 import type { StoredReceipt } from './receipts.js';
 import { CASH_ACCEPTED } from '../payment/method.js';
@@ -252,6 +252,9 @@ export async function markRefundSent(input: {
   try {
     return await db.$transaction(async (tx): Promise<StepResult> => {
       const refund = await staffRefund(tx, input.actorTelegramId, input.refundId, input.restaurantId);
+      // The money sits on the platform's card: only the administrator can send it back (adminMarkRefundSent).
+      const held = await tx.payment.findUnique({ where: { id: refund.paymentId }, select: { method: true, card: { select: { restaurantId: true } } } });
+      if (isPlatformHeld(held)) throw new Error('POOL_ADMIN_QAYTARADI');
       if (!canRefundTransition(refund.status as RefundStatus, 'SENT', 'RESTAURANT_STAFF')) {
         await refundEvent(tx, refund.id, input.actorTelegramId, 'RESTAURANT_STAFF', 'SEND_REJECTED', refund.status, refund.status);
         return { result: 'STALE', status: refund.status };
@@ -274,6 +277,34 @@ export async function markRefundSent(input: {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new Error('CHEK_RASMI_TAKROR');
     throw err;
   }
+}
+
+/**
+ * The administrator refunded a customer whose money is on the PLATFORM card (the restaurant never had it) and types the bank reference of that
+ * transfer (it is the proof the database requires for SENT). Same states as the restaurant's send: APPROVED, or DISPUTED (sent again after the
+ * customer said it never arrived). A reference can prove only one refund. The customer is then asked to confirm, exactly as for a restaurant refund.
+ * Refused for money the restaurant holds (NOT_POOL): there the restaurant sends it.
+ */
+export async function adminMarkRefundSent(input: { adminTelegramId: string; refundId: string; bankReference: string }): Promise<StepResult<{ amountTiyin: bigint }> | { result: 'NOT_POOL' } | { result: 'REFERENCE_USED' }> {
+  if (!isSupportAdmin(input.adminTelegramId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  const reference = validateBankReference(input.bankReference);
+  return db.$transaction(async tx => {
+      const refund = await tx.refundRequest.findUnique({ where: { id: input.refundId }, include: { payment: { select: { method: true, card: { select: { restaurantId: true } } } } } });
+      if (!refund) return { result: 'NOT_FOUND' } as const;
+      if (!isPlatformHeld(refund.payment)) return { result: 'NOT_POOL' } as const;
+      if (!canRefundTransition(refund.status as RefundStatus, 'SENT', 'ADMIN')) {
+        await refundEvent(tx, refund.id, input.adminTelegramId, 'ADMIN', 'SEND_REJECTED', refund.status, refund.status);
+        return { result: 'STALE', status: refund.status } as const;
+      }
+      if (await tx.refundRequest.findFirst({ where: { id: { not: refund.id }, bankReference: { equals: reference, mode: 'insensitive' } }, select: { id: true } })) return { result: 'REFERENCE_USED' } as const;
+      const claimed = await tx.refundRequest.updateMany({
+        where: { id: refund.id, status: refund.status },
+        data: { status: 'SENT', sentBy: `admin:${input.adminTelegramId}`, sentAt: new Date(), bankReference: reference, customerSentNotifiedAt: null, disputeNotifiedAt: null, disputedAt: null },
+      });
+      if (claimed.count !== 1) return { result: 'STALE', status: 'CHANGED' } as const;
+      await refundEvent(tx, refund.id, input.adminTelegramId, 'ADMIN', 'SENT', refund.status, 'SENT', { bankReference: reference, byPlatform: true });
+      return { result: 'DONE', amountTiyin: refund.approvedAmountTiyin! } as const;
+  });
 }
 
 // ---------------------------------------------------------------- attestation: customer or DS admin

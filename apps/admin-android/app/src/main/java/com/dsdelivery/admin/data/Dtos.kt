@@ -383,6 +383,8 @@ data class RefundRowDto(
     @SerializedName("restaurantName") val restaurantName: String, @SerializedName("status") val status: String, @SerializedName("kind") val kind: String,
     @SerializedName("reason") val reason: String? = null, @SerializedName("paidSom") val paidSom: Long, @SerializedName("approvedSom") val approvedSom: Long? = null,
     @SerializedName("requestedAt") val requestedAt: String, @SerializedName("lastAt") val lastAt: String, @SerializedName("canConfirm") val canConfirm: Boolean,
+    /** The customer paid onto a platform card: the administrator (not the restaurant) sends this refund. */
+    @SerializedName("byPlatform") val byPlatform: Boolean = false, @SerializedName("canSend") val canSend: Boolean = false,
 )
 data class RefundsResponse(@SerializedName("open") val open: List<RefundRowDto>, @SerializedName("recent") val recent: List<RefundRowDto>)
 data class RefundEventDto(
@@ -394,11 +396,13 @@ data class RefundDetailDto(
     @SerializedName("restaurantName") val restaurantName: String, @SerializedName("status") val status: String, @SerializedName("kind") val kind: String,
     @SerializedName("reason") val reason: String? = null, @SerializedName("paidSom") val paidSom: Long, @SerializedName("approvedSom") val approvedSom: Long? = null,
     @SerializedName("requestedAt") val requestedAt: String, @SerializedName("lastAt") val lastAt: String, @SerializedName("canConfirm") val canConfirm: Boolean,
+    @SerializedName("byPlatform") val byPlatform: Boolean = false, @SerializedName("canSend") val canSend: Boolean = false,
     @SerializedName("rejectReason") val rejectReason: String? = null, @SerializedName("confirmNote") val confirmNote: String? = null,
     @SerializedName("confirmedByType") val confirmedByType: String? = null, @SerializedName("hasReceipt") val hasReceipt: Boolean = false,
     @SerializedName("restaurantPhone") val restaurantPhone: String? = null, @SerializedName("customerName") val customerName: String? = null,
     @SerializedName("customerPhone") val customerPhone: String? = null, @SerializedName("events") val events: List<RefundEventDto> = emptyList(),
 )
+data class SentRefundRequest(@SerializedName("bankReference") val bankReference: String)
 data class ConfirmRefundRequest(@SerializedName("note") val note: String)
 data class OkResponse(@SerializedName("ok") val ok: Boolean)
 

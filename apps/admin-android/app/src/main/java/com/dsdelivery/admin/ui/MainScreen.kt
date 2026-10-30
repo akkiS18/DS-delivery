@@ -84,14 +84,14 @@ private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), C
 private fun tabFor(kind: String): Tab? = when (kind) {
     "MONEY_REVIEW", "PAYMENT_UNVERIFIED" -> Tab.MONEY
     "CARD_PENDING", "CARD_TURN_MID", "CARD_TURN_HIGH" -> Tab.CARDS
-    "SUPPORT_TICKET", "TAXI_NEEDS_HELP", "READY_NO_TAXI", "REFUND_DISPUTED" -> Tab.HELP
+    "SUPPORT_TICKET", "TAXI_NEEDS_HELP", "READY_NO_TAXI", "REFUND_DISPUTED", "REFUND_POOL_DUE" -> Tab.HELP
     else -> null
 }
 
 /** Which part of the Yordam tab an attention item belongs to: 0 = murojaatlar, 1 = taksi, 2 = qaytarish. */
 private fun helpSectionFor(kind: String): Int = when (kind) {
     "TAXI_NEEDS_HELP", "READY_NO_TAXI" -> 1
-    "REFUND_DISPUTED" -> 2
+    "REFUND_DISPUTED", "REFUND_POOL_DUE" -> 2
     else -> 0
 }
 

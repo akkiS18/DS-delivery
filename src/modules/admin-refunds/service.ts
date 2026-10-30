@@ -1,8 +1,10 @@
 import { db } from '../../lib/db.js';
+import { isPlatformHeld } from '../refunds/workflow.js';
 
 /**
  * DS Admin app, A4c: refunds. DS Delivery never moves money: the restaurant refunds from its own account and the platform only records who said what.
- * The administrator's one action is the bot's "Izoh bilan tasdiqlash" (adminConfirmRefund): after checking independently, with a written note.
+ * The administrator confirms with a written note (adminConfirmRefund) and, when the customer paid onto the PLATFORM card (the platform holds the money),
+ * also sends the refund himself and types the bank reference (adminMarkRefundSent): the restaurant never had that money.
  */
 export const OPEN_STATUSES = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'] as const;
 const RECENT_DAYS = 14;
@@ -19,18 +21,24 @@ export interface RefundRow {
   reason: string | null; paidSom: number; approvedSom: number | null; requestedAt: string; lastAt: string;
   /** The administrator may confirm it (the customer is the normal confirmer; an administrator steps in after checking independently). */
   canConfirm: boolean;
+  /** The customer paid onto a platform card: the money is the platform's, so the administrator (not the restaurant) refunds it. */
+  byPlatform: boolean;
+  /** The administrator should now send the refund from the platform card and type the bank reference (approved, or disputed after a first send). */
+  canSend: boolean;
 }
 
 const rowSelect = {
   id: true, number: true, status: true, kind: true, reasonCode: true, paidAmountTiyin: true, approvedAmountTiyin: true,
   requestedAt: true, decidedAt: true, sentAt: true, disputedAt: true, confirmedAt: true,
   order: { select: { code: true, restaurant: { select: { name: true } } } },
+  payment: { select: { method: true, card: { select: { restaurantId: true } } } },
 } as const;
 
 type RowSource = {
   id: string; number: number; status: string; kind: string; reasonCode: string; paidAmountTiyin: bigint; approvedAmountTiyin: bigint | null;
   requestedAt: Date; decidedAt: Date | null; sentAt: Date | null; disputedAt: Date | null; confirmedAt: Date | null;
   order: { code: string; restaurant: { name: string } };
+  payment: { method: string; card: { restaurantId: string | null } | null };
 };
 
 const som = (tiyin: bigint): number => Number(tiyin / 100n);
@@ -43,6 +51,7 @@ export function toRow(r: RowSource): RefundRow {
     id: r.id, number: r.number, orderCode: r.order.code, restaurantName: r.order.restaurant.name, status: r.status, kind: r.kind,
     reason: reasonLabel(r.reasonCode), paidSom: som(r.paidAmountTiyin), approvedSom: r.approvedAmountTiyin === null ? null : som(r.approvedAmountTiyin),
     requestedAt: r.requestedAt.toISOString(), lastAt: last.toISOString(), canConfirm: r.status === 'SENT' || r.status === 'DISPUTED',
+    byPlatform: isPlatformHeld(r.payment), canSend: isPlatformHeld(r.payment) && (r.status === 'APPROVED' || r.status === 'DISPUTED'),
   };
 }
 

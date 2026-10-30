@@ -14,14 +14,22 @@ export const OPEN_REFUND: readonly RefundStatus[] = ['REQUESTED', 'APPROVED', 'S
 const TRANSITIONS: ReadonlyArray<readonly [RefundStatus, RefundStatus, readonly RefundActor[]]> = [
   ['REQUESTED', 'APPROVED', ['RESTAURANT_STAFF']],
   ['REQUESTED', 'REJECTED', ['RESTAURANT_STAFF']],
-  ['APPROVED', 'SENT', ['RESTAURANT_STAFF']],
+  ['APPROVED', 'SENT', ['RESTAURANT_STAFF', 'ADMIN']], // ADMIN only when the platform holds the money (platform card): enforced in the service
   ['SENT', 'CONFIRMED', ['CUSTOMER', 'ADMIN']],
   ['SENT', 'DISPUTED', ['CUSTOMER']],
-  ['DISPUTED', 'SENT', ['RESTAURANT_STAFF']],
+  ['DISPUTED', 'SENT', ['RESTAURANT_STAFF', 'ADMIN']],
   ['DISPUTED', 'CONFIRMED', ['CUSTOMER', 'ADMIN']],
 ];
 export function canRefundTransition(from: RefundStatus, to: RefundStatus, actor: RefundActor): boolean {
   return TRANSITIONS.some(([f, t, who]) => f === from && t === to && who.includes(actor));
+}
+
+/**
+ * Owner decision 2026-10-30: when the customer paid onto a PLATFORM card (Card.restaurantId null, the pool), the platform holds the money, so the
+ * administrator refunds it from that card and the restaurant cannot (it never had the money). The restaurant still decides whether to cancel.
+ */
+export function isPlatformHeld(payment: { method: string; card: { restaurantId: string | null } | null } | null | undefined): boolean {
+  return !!payment && payment.method === 'CARD' && payment.card !== null && payment.card.restaurantId === null;
 }
 
 export type CancelPlan =

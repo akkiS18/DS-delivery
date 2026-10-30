@@ -6,7 +6,7 @@ import {
   adminConfirmRefund, cancelUnpaidOrder, customerAnswerRefund, decideRefund, requestCancellation,
   type StepResult,
 } from '../modules/refunds/service.js';
-import { CUSTOMER_REASONS, REJECT_REASONS, RESTAURANT_REASONS } from '../modules/refunds/workflow.js';
+import { CUSTOMER_REASONS, REJECT_REASONS, RESTAURANT_REASONS, isPlatformHeld } from '../modules/refunds/workflow.js';
 import { RESTAURANT_TELEGRAM_DISABLED_MESSAGE, restaurantTelegramEnabled } from '../lib/features.js';
 
 const fmt = new Intl.NumberFormat('uz-UZ');
@@ -181,10 +181,15 @@ export async function deliverRefundNotices<C extends Context>(bot: Telegraf<C>):
       { status: 'SENT', customerSentNotifiedAt: null }, { status: 'DISPUTED', disputeNotifiedAt: null },
     ] },
     orderBy: { requestedAt: 'asc' }, take: 30,
-    include: { order: { select: { code: true, customer: { select: { telegramUserId: true } }, restaurant: { select: { name: true, staffTelegramUserId: true } } } } },
+    include: {
+      order: { select: { code: true, customer: { select: { telegramUserId: true } }, restaurant: { select: { name: true, staffTelegramUserId: true } } } },
+      payment: { select: { method: true, card: { select: { restaurantId: true } } } },
+    },
   });
   for (const r of rows) {
     const head = `#${r.number} • buyurtma #${r.order.code}`;
+    const byPlatform = isPlatformHeld(r.payment); // the customer paid onto the platform card: DS Delivery itself sends the refund
+    const sender = byPlatform ? 'DS Delivery' : r.order.restaurant.name;
     const amount = som(r.approvedAmountTiyin ?? r.paidAmountTiyin);
     if (restaurantTelegramEnabled() && r.status === 'REQUESTED' && !r.staffNotifiedAt) {
       await send(`staff:${r.id}`, r.order.restaurant.staffTelegramUserId,
@@ -195,20 +200,20 @@ export async function deliverRefundNotices<C extends Context>(bot: Telegraf<C>):
     if (['REQUESTED', 'APPROVED'].includes(r.status) && !r.adminNotifiedAt && admins.length && due(`admin:${r.id}`)) {
       const key = `admin:${r.id}`;
       try {
-        for (const a of admins) await bot.telegram.sendMessage(a, `ℹ️ ${r.order.restaurant.name}: qaytarish ${head}, ${som(r.paidAmountTiyin)}, ${r.status} (${r.kind}). Pulni restoran qaytaradi; platforma pul ushlamaydi.`);
+        for (const a of admins) await bot.telegram.sendMessage(a, `ℹ️ ${r.order.restaurant.name}: qaytarish ${head}, ${som(r.paidAmountTiyin)}, ${r.status} (${r.kind}). ${byPlatform ? 'Pul platforma kartasida: qaytarishni siz yuborasiz (DS Admin > Yordam > Qaytarish).' : 'Pulni restoran qaytaradi; platforma pul ushlamaydi.'}`);
         await db.refundRequest.updateMany({ where: { id: r.id, adminNotifiedAt: null }, data: { adminNotifiedAt: new Date() } });
         backoff.delete(key);
       } catch (err) { failed(key); console.error('[REFUND ADMIN NOTICE]', err instanceof Error ? err.message : 'Unknown error'); }
     }
     if (['APPROVED', 'REJECTED'].includes(r.status) && !r.customerDecisionNotifiedAt) {
       await send(`cdec:${r.id}`, r.order.customer.telegramUserId, r.status === 'APPROVED'
-        ? `✅ ${head}: buyurtma bekor qilindi. Qaytariladigan summa: ${amount}. Pulni restoran o‘z hisobidan qaytaradi; qaytarilgach sizdan tasdiq so‘raladi. Muddat va’da qilinmagan.`
+        ? `✅ ${head}: buyurtma bekor qilindi. Qaytariladigan summa: ${amount}. ${byPlatform ? 'Pulni DS Delivery qaytaradi' : 'Pulni restoran o‘z hisobidan qaytaradi'}; qaytarilgach sizdan tasdiq so‘raladi. Muddat va’da qilinmagan.`
         : `🚫 ${head}: restoran bekor qilish so‘rovini rad etdi (${REASON_LABEL[r.rejectReason ?? ''] ?? r.rejectReason}). Buyurtma davom etadi. Savol bo‘lsa /support.`,
         undefined, () => db.refundRequest.updateMany({ where: { id: r.id, customerDecisionNotifiedAt: null }, data: { customerDecisionNotifiedAt: new Date() } }), true);
     }
     if (r.status === 'SENT' && !r.customerSentNotifiedAt) {
       await send(`csent:${r.id}`, r.order.customer.telegramUserId,
-        `💸 ${head}: ${r.order.restaurant.name} ${amount} qaytarganini bildirdi (chek rasmi ilovada ko‘rinadi). Pul hisobingizga keldimi?`,
+        `💸 ${head}: ${sender} ${amount} qaytarganini bildirdi${byPlatform ? '' : ' (chek rasmi ilovada ko‘rinadi)'}. Pul hisobingizga keldimi?`,
         Markup.inlineKeyboard([[Markup.button.callback('✅ Ha, keldi', `refund:got:${r.id}`), Markup.button.callback('❌ Kelmadi', `refund:miss:${r.id}`)]]),
         () => db.refundRequest.updateMany({ where: { id: r.id, customerSentNotifiedAt: null }, data: { customerSentNotifiedAt: new Date() } }), true);
     }

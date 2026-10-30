@@ -46,6 +46,9 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     }
     "ORDER_INVALID" -> "Bu buyurtma raqami shu mijozniki emas yoki noto‘g‘ri yozilgan."
     "ALREADY_STRUCK" -> "Bu buyurtma uchun strike allaqachon berilgan."
+    "REFERENCE_INVALID" -> "Bank ma’lumoti noto‘g‘ri (4–64 belgi, raqam bo‘lsin)."
+    "REFERENCE_USED" -> "Bu bank ma’lumoti boshqa qaytarishga yozilgan. Har o‘tkazma bitta qaytarishni isbotlaydi."
+    "NOT_POOL" -> "Bu pul restoranda: qaytarishni restoran yuboradi, siz emas."
     "NOTHING_TO_PAY" -> "Bu kun uchun berilishi kerak summa yo‘q."
     "ALREADY_PAID" -> "Bu kun uchun o‘tkazma allaqachon belgilangan. Ekranni yangilang."
     "FUTURE_DAY" -> "Kelajak kuni uchun belgilab bo‘lmaydi."

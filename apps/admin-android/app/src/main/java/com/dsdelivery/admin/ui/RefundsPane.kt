@@ -39,10 +39,10 @@ import com.dsdelivery.admin.data.RefundRowDto
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private fun statusText(status: String): String = when (status) {
+private fun statusText(status: String, byPlatform: Boolean = false): String = when (status) {
     "REQUESTED" -> "restoran javobi kutilmoqda"
-    "APPROVED" -> "restoran pulni qaytarishi kerak"
-    "SENT" -> "restoran yubordi — mijoz tasdig‘i kutilmoqda"
+    "APPROVED" -> if (byPlatform) "pul platforma kartasida — SIZ qaytarasiz" else "restoran pulni qaytarishi kerak"
+    "SENT" -> if (byPlatform) "siz yubordingiz — mijoz tasdig‘i kutilmoqda" else "restoran yubordi — mijoz tasdig‘i kutilmoqda"
     "DISPUTED" -> "mijoz: «pul KELMADI»"
     "CONFIRMED" -> "yopilgan (pul kelgani tasdiqlangan)"
     "REJECTED" -> "restoran rad etdi"
@@ -136,7 +136,7 @@ private fun RefundsHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
 private fun RefundCard(r: RefundRowDto, onOpen: (String) -> Unit) {
     Card(Modifier.clickable { onOpen(r.id) }) {
         Text("#${r.orderCode} • ${r.restaurantName}", style = MaterialTheme.typography.titleMedium)
-        Text(statusText(r.status), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = statusColor(r.status))
+        Text(statusText(r.status, r.byPlatform), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = if (r.canSend) UrgentColor else statusColor(r.status))
         Text(amountLine(r), style = MaterialTheme.typography.bodyMedium)
         if (r.reason != null) Text("Sabab: ${r.reason}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stampOf(r.lastAt), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -154,6 +154,7 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
     var loading by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var confirming by remember { mutableStateOf(false) }
+    var sending by remember { mutableStateOf(false) }
 
     suspend fun load() {
         if (loading) return
@@ -192,7 +193,7 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                     Card {
                         Text("💸 Qaytarish #${d.number} • buyurtma #${d.orderCode}", style = MaterialTheme.typography.titleMedium)
                         Text(d.restaurantName, style = MaterialTheme.typography.bodyLarge)
-                        Text(statusText(d.status), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = statusColor(d.status))
+                        Text(statusText(d.status, d.byPlatform), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (d.canSend) UrgentColor else statusColor(d.status))
                         Text("To‘langan: ${somText(d.paidSom)}", style = MaterialTheme.typography.bodyMedium)
                         if (d.approvedSom != null) Text("Qaytariladi: ${somText(d.approvedSom)}", style = MaterialTheme.typography.bodyMedium)
                         if (d.reason != null) Text("Sabab: ${d.reason}", style = MaterialTheme.typography.bodyMedium)
@@ -213,6 +214,18 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                         }
                     }
                 }
+                if (d.canSend) item {
+                    Card {
+                        Text("Pul platforma kartasida", style = MaterialTheme.typography.titleMedium, color = UrgentColor)
+                        Text(
+                            "Mijoz restoranga emas, platforma kartasiga to‘lagan, shuning uchun qaytarishni SIZ yuborasiz: mijoz bilan bog‘lanib karta raqamini so‘rang, " +
+                                "${somText(d.approvedSom ?: d.paidSom)} ni platforma kartasidan o‘tkazing, so‘ng bank ma’lumotini (kvitansiya raqami) yozing. " +
+                                "Ilova pul o‘tkazmaydi.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        PrimaryButton(if (d.status == "DISPUTED") "💸 Qayta yubordim" else "💸 Qaytardim", enabled = !busy) { sending = true }
+                    }
+                }
                 item {
                     if (d.canConfirm) {
                         Card {
@@ -224,7 +237,7 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                         }
                     } else if (d.status == "CONFIRMED" || d.status == "REJECTED") {
                         Text("Bu so‘rov yopilgan.", style = MaterialTheme.typography.bodyLarge, color = OkColor)
-                    } else {
+                    } else if (!d.canSend) {
                         Text("Restoran hali pulni yubormagan — administrator tasdiqlay olmaydi.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -237,6 +250,19 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
         }
     }
 
+    if (sending) SendRefundDialog(
+        amountSom = detail?.let { it.approvedSom ?: it.paidSom } ?: 0, busy = busy, onDismiss = { sending = false },
+        onSubmit = { reference ->
+            busy = true
+            scope.launch {
+                val res = unwrap(app.repository.sentRefund(id, reference), onMessage)
+                busy = false
+                sending = false
+                if (res != null) onMessage("✅ Qaytarish belgilandi. Mijozdan tasdiq so‘raladi.")
+                load()
+            }
+        },
+    )
     if (confirming) NoteDialog(
         title = "Qaytarishni tasdiqlash",
         hint = "Nima tekshirilganini yozing: restoran hisobi ko‘chirmasi, mijoz bilan telefon orqali gaplashuv va hokazo.",
@@ -251,5 +277,26 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                 load() // a refusal (CHANGED) also means someone else moved it on: show the current state
             }
         },
+    )
+}
+/** The administrator's record of a refund he sent from the platform card: only the bank reference is typed (the database needs a proof for "sent"). */
+@Composable
+private fun SendRefundDialog(amountSom: Long, busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
+    var reference by remember { mutableStateOf("") }
+    val ok = reference.trim().length in 4..64 && reference.any { it.isDigit() }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Qaytarishni belgilash") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${somText(amountSom)} ni mijozga bankdan o‘zingiz o‘tkazib bo‘lgach bosing. Bank ma’lumoti (kvitansiya yoki tranzaksiya raqami) shart; bitta o‘tkazma faqat bitta qaytarishga yoziladi.", style = MaterialTheme.typography.bodyLarge)
+                androidx.compose.material3.OutlinedTextField(
+                    value = reference, onValueChange = { if (it.length <= 64) reference = it }, label = { Text("Bank ma’lumoti") },
+                    singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onSubmit(reference) }) { Text("Ha, o‘tkazdim") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
     )
 }

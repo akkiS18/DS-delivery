@@ -463,6 +463,7 @@ export async function performOrderAction(
   } catch (err) {
     const code = err instanceof Error ? err.message : '';
     if (code === 'RUXSAT_YOQ') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+    if (code === 'POOL_ADMIN_QAYTARADI') return stale('REFUND_BY_PLATFORM'); // the platform holds this money: the administrator sends the refund
     if (BAD_INPUT.has(code)) return { ok: false, httpStatus: 400, error: code };
     if (action === 'VERIFY_PAYMENT' && EVIDENCE_INVALID.has(code)) return stale('PAYMENT_EVIDENCE_INVALID');
     if (WRONG_STATE.has(code) || EVIDENCE_INVALID.has(code)) return stale('INVALID_STATE');

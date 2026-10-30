@@ -70,6 +70,7 @@ interface AdminApi {
     @GET("api/v1/admin/refunds") suspend fun refunds(): Response<RefundsResponse>
     @GET("api/v1/admin/refunds/{id}") suspend fun refund(@Path("id") id: String): Response<RefundDetailDto>
     @POST("api/v1/admin/refunds/{id}/confirm") suspend fun confirmRefund(@Path("id") id: String, @Body body: ConfirmRefundRequest): Response<OkResponse>
+    @POST("api/v1/admin/refunds/{id}/sent") suspend fun sentRefund(@Path("id") id: String, @Body body: SentRefundRequest): Response<OkResponse>
     @GET("api/v1/admin/payouts") suspend fun payouts(@Query("days") days: Int): Response<PayoutsResponse>
     @GET("api/v1/admin/payouts/{date}/{restaurantId}") suspend fun payoutDay(@Path("date") date: String, @Path("restaurantId") restaurantId: String): Response<PayoutDetailDto>
     @POST("api/v1/admin/payouts/{date}/{restaurantId}/paid") suspend fun markPaid(@Path("date") date: String, @Path("restaurantId") restaurantId: String, @Body body: PaidRequest): Response<PaidResponse>
@@ -213,6 +214,7 @@ class Repository(private val session: SessionStore) {
     suspend fun removeTaxiCompany(id: String, expected: String): ApiResult<RemoveResponse> = call { api.removeTaxiCompany(id, RemoveRequest(expected)) }
     suspend fun refunds(): ApiResult<RefundsResponse> = call { api.refunds() }
     suspend fun refund(id: String): ApiResult<RefundDetailDto> = call { api.refund(id) }
+    suspend fun sentRefund(id: String, bankReference: String): ApiResult<OkResponse> = call { api.sentRefund(id, SentRefundRequest(bankReference.trim())) }
     suspend fun confirmRefund(id: String, note: String): ApiResult<OkResponse> = call { api.confirmRefund(id, ConfirmRefundRequest(note.trim())) }
     suspend fun payouts(days: Int = 7): ApiResult<PayoutsResponse> = call { api.payouts(days) }
     suspend fun payoutDay(date: String, restaurantId: String): ApiResult<PayoutDetailDto> = call { api.payoutDay(date, restaurantId) }
