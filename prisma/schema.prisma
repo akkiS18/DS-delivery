@@ -39,6 +39,7 @@ model Restaurant {
   sessions            RestaurantSession[]
   commissionEntries   CommissionEntry[]
   commissionSettlements CommissionSettlement[]
+  payoutMarks         PayoutMark[]
   ratings             OrderRating[]
   image               RestaurantImage?
   // Company dispatch pickup site
@@ -1049,4 +1050,23 @@ model CustomerStrike {
   revokeNote String?
 
   @@index([customerId, revokedAt])
+}
+
+/// Owner's own record that he transferred a restaurant's daily payout (admin app, "To'lov hisoboti"). The platform never moves money: this only
+/// remembers WHAT was paid for which Tashkent day so it is not paid twice. One live mark per restaurant and day (partial unique index in the
+/// migration SQL); "unmark" sets revokedAt, the row stays.
+model PayoutMark {
+  id           String     @id @default(cuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  day          String
+  amountSom    Int
+  markedBy     String
+  note         String?
+  createdAt    DateTime   @default(now()) @db.Timestamptz(3)
+  revokedAt    DateTime?  @db.Timestamptz(3)
+  revokedBy    String?
+  revokeNote   String?
+
+  @@index([restaurantId, day])
 }

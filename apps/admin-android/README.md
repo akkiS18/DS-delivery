@@ -54,7 +54,7 @@ Botdagi administrator imkoniyatlarining hammasi endi ilovada ham bor. Sozlamalar
 ## Pul > To'lov hisoboti (A5a)
 Platforma kartasiga (pool) to'langan restoranlar uchun kunlik hisob: **beriladi = yig'ilgan − komissiya − restoran yuborgan qaytarishlar**. Faqat YETKAZILGAN buyurtmalar (kun — Toshkent vaqti bilan yetkazilgan sana),
 taksi haqi kirmaydi. Hozir yetkazilmagan (yo'ldagi) buyurtmalar alohida ko'rinadi. Restoran qatorini bossangiz — shu kunning buyurtmalari va qaytarishlari. Ochiq murojaati bor buyurtmalar belgilanadi.
-Hisobot faqat KO'RSATADI: DS pul o'tkazmaydi, summani bankda o'zingiz o'tkazasiz ("o'tkazdim" belgisi hali yo'q). Platforma kartasiga tushgan buyurtmalarning komissiyasi shu hisobda ushlanadi, shuning uchun
+Hisobot faqat KO'RSATADI: DS pul o'tkazmaydi, summani bankda o'zingiz o'tkazasiz. Restoran kuni ichida **«💸 O'tkazdim»** tugmasi bor: bankda o'tkazib bo'lgach bosasiz (ixtiyoriy izoh bilan) — ilova faqat belgilab qo'yadi, bir kun va restoran uchun bitta belgi (ikki telefondan bosilsa ham bitta), ekrandagi summa o'zgargan bo'lsa (masalan keyin qaytarish yuborilgan) belgi yozilmaydi va yangi summa ko'rsatiladi. Belgidan keyin summa o'zgarsa ro'yxatda ⚠️ «farqni tekshiring» chiqadi (o'tkazilgan summa saqlanadi). Adashib bosilsa «Belgini bekor qilish» (yozma izoh bilan; yozuv tarixda qoladi, qayta belgilash mumkin). Platforma kartasiga tushgan buyurtmalarning komissiyasi shu hisobda ushlanadi, shuning uchun
 haftalik komissiya hisobiga (`Boshqaruv > Komissiya`) endi kirmaydi (ikki marta to'latmaslik uchun); naqd va restoran o'z kartasiga olgan buyurtmalar avvalgidek.
 
 ## Backend

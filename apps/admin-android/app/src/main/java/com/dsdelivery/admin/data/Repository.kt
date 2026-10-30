@@ -72,6 +72,8 @@ interface AdminApi {
     @POST("api/v1/admin/refunds/{id}/confirm") suspend fun confirmRefund(@Path("id") id: String, @Body body: ConfirmRefundRequest): Response<OkResponse>
     @GET("api/v1/admin/payouts") suspend fun payouts(@Query("days") days: Int): Response<PayoutsResponse>
     @GET("api/v1/admin/payouts/{date}/{restaurantId}") suspend fun payoutDay(@Path("date") date: String, @Path("restaurantId") restaurantId: String): Response<PayoutDetailDto>
+    @POST("api/v1/admin/payouts/{date}/{restaurantId}/paid") suspend fun markPaid(@Path("date") date: String, @Path("restaurantId") restaurantId: String, @Body body: PaidRequest): Response<PaidResponse>
+    @POST("api/v1/admin/payouts/{date}/{restaurantId}/unpaid") suspend fun unmarkPaid(@Path("date") date: String, @Path("restaurantId") restaurantId: String, @Body body: NoteRequest): Response<OkResponse>
     @GET("api/v1/admin/customers") suspend fun customers(@Query("q") q: String?): Response<CustomersResponse>
     @GET("api/v1/admin/customers/{id}") suspend fun customer(@Path("id") id: String): Response<CustomerDetailDto>
     @POST("api/v1/admin/customers/{id}/strikes") suspend fun addStrike(@Path("id") id: String, @Body body: StrikeRequest): Response<StandingResponse>
@@ -214,6 +216,9 @@ class Repository(private val session: SessionStore) {
     suspend fun confirmRefund(id: String, note: String): ApiResult<OkResponse> = call { api.confirmRefund(id, ConfirmRefundRequest(note.trim())) }
     suspend fun payouts(days: Int = 7): ApiResult<PayoutsResponse> = call { api.payouts(days) }
     suspend fun payoutDay(date: String, restaurantId: String): ApiResult<PayoutDetailDto> = call { api.payoutDay(date, restaurantId) }
+    suspend fun markPaid(date: String, restaurantId: String, expectedSom: Long, note: String): ApiResult<PaidResponse> =
+        call { api.markPaid(date, restaurantId, PaidRequest(expectedSom, note.trim().ifEmpty { null })) }
+    suspend fun unmarkPaid(date: String, restaurantId: String, note: String): ApiResult<OkResponse> = call { api.unmarkPaid(date, restaurantId, NoteRequest(note.trim())) }
     suspend fun customers(q: String?): ApiResult<CustomersResponse> = call { api.customers(q?.trim()?.ifEmpty { null }) }
     suspend fun customer(id: String): ApiResult<CustomerDetailDto> = call { api.customer(id) }
     suspend fun addStrike(id: String, note: String, orderCode: String? = null): ApiResult<StandingResponse> =

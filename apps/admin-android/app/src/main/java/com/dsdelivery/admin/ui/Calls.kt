@@ -16,7 +16,8 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     "NOT_FOUND" -> "Topilmadi. Ro‘yxatni yangilang."
     "BLOCKED" -> "Yoqib bo‘lmadi: " + f.blockers.orEmpty().joinToString(" ") { "• $it" }
     "CHANGED" ->
-        if (f.count == null && f.amountSom == null) "Holat o‘zgargan. Hech narsa qilinmadi. Ro‘yxatni yangilab, qayta tekshiring."
+        if (f.count == null && f.amountSom != null) "Summa o‘zgargan (hozir ${somText(f.amountSom)}). Hech narsa belgilanmadi. Ekranni yangilab, qayta tekshiring."
+        else if (f.count == null && f.amountSom == null) "Holat o‘zgargan. Hech narsa qilinmadi. Ro‘yxatni yangilab, qayta tekshiring."
         else "Ma’lumot o‘zgargan (hozir ${f.count ?: 0} ta, ${somText(f.amountSom ?: 0)}). Hech narsa yozilmadi. Ro‘yxatni yangilab, qayta tekshiring."
     "ALREADY_CLAIMED" -> "Bu murojaatni allaqachon ${f.detail ?: "boshqa administrator"} oldi."
     "ALREADY_RESOLVED" -> "Murojaat allaqachon hal qilingan."
@@ -45,6 +46,9 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     }
     "ORDER_INVALID" -> "Bu buyurtma raqami shu mijozniki emas yoki noto‘g‘ri yozilgan."
     "ALREADY_STRUCK" -> "Bu buyurtma uchun strike allaqachon berilgan."
+    "NOTHING_TO_PAY" -> "Bu kun uchun berilishi kerak summa yo‘q."
+    "ALREADY_PAID" -> "Bu kun uchun o‘tkazma allaqachon belgilangan. Ekranni yangilang."
+    "FUTURE_DAY" -> "Kelajak kuni uchun belgilab bo‘lmaydi."
     "NOTHING_DUE" -> "To‘lanishi kerak komissiya qolmagan."
     "PERCENT_INVALID" -> "Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
     else -> if (f.code in 500..599) "Server xatosi. Birozdan keyin qayta urinib ko‘ring." else "Bajarilmadi."

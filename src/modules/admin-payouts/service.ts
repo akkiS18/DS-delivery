@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { isPaymentCleared } from '../payment/status.js';
+import { isSupportAdmin } from '../support/service.js';
 
 /**
  * DS Admin app, A5a: the daily payout report. READ ONLY: the platform never moves money; this is the number the administrator transfers by hand.
@@ -40,7 +41,10 @@ export interface RestaurantDay {
   payableSom: number;
   /** Delivered orders of this day that have an unresolved support ticket: still counted, but worth a look before paying. */
   withOpenTicket: number;
+  /** The administrator's own mark "I transferred it" (null = not marked). If `payableSom` is no longer `paid.amountSom`, the day changed after the transfer. */
+  paid: PaidMark | null;
 }
+export interface PaidMark { amountSom: number; at: string }
 export interface PayoutDay { date: string; restaurants: RestaurantDay[]; totalPayableSom: number }
 export interface InProgress { restaurantId: string; name: string; orders: number; amountSom: number }
 export interface PayoutReport { days: PayoutDay[]; inProgress: InProgress[]; generatedAt: string }
@@ -53,7 +57,7 @@ export async function payoutReport(days = 7, now = new Date()): Promise<PayoutRe
   const from = new Date(today.getTime() - (count - 1) * DAY_MS);
   const to = new Date(today.getTime() + DAY_MS);
 
-  const [events, refunds, active] = await Promise.all([
+  const [events, refunds, active, marks] = await Promise.all([
     db.orderEvent.findMany({
       where: { toStatus: 'COMPLETED', createdAt: { gte: from, lt: to }, order: { status: 'COMPLETED', paymentIsTest: false, payment: { is: PLATFORM_COLLECTED } } },
       orderBy: { createdAt: 'asc' },
@@ -79,13 +83,15 @@ export async function payoutReport(days = 7, now = new Date()): Promise<PayoutRe
       where: { status: { in: [...IN_PROGRESS] }, paymentIsTest: false, payment: { is: { ...PLATFORM_COLLECTED, status: 'CONFIRMED_MANUAL' } } },
       select: { restaurantId: true, restaurant: { select: { name: true } }, payment: { select: { amountTiyin: true } } },
     }),
+    db.payoutMark.findMany({ where: { revokedAt: null, day: { gte: dateKey(from), lte: dateKey(now) } }, select: { restaurantId: true, day: true, amountSom: true, createdAt: true } }),
   ]);
+  const markOf = new Map(marks.map(m => [`${m.day}|${m.restaurantId}`, { amountSom: m.amountSom, at: m.createdAt.toISOString() }]));
 
   const byDay = new Map<string, Map<string, RestaurantDay>>();
   const slot = (key: string, restaurantId: string, name: string): RestaurantDay => {
     const day = byDay.get(key) ?? new Map<string, RestaurantDay>();
     byDay.set(key, day);
-    const row = day.get(restaurantId) ?? { restaurantId, name, orders: 0, collectedSom: 0, commissionSom: 0, refundsSom: 0, payableSom: 0, withOpenTicket: 0 };
+    const row = day.get(restaurantId) ?? { restaurantId, name, orders: 0, collectedSom: 0, commissionSom: 0, refundsSom: 0, payableSom: 0, withOpenTicket: 0, paid: null };
     day.set(restaurantId, row);
     return row;
   };
@@ -111,7 +117,7 @@ export async function payoutReport(days = 7, now = new Date()): Promise<PayoutRe
   for (let i = 0; i < count; i++) {
     const key = dateKey(new Date(today.getTime() - i * DAY_MS));
     const restaurants = [...(byDay.get(key)?.values() ?? [])]
-      .map(r => ({ ...r, payableSom: r.collectedSom - r.commissionSom - r.refundsSom }))
+      .map(r => ({ ...r, payableSom: r.collectedSom - r.commissionSom - r.refundsSom, paid: markOf.get(`${key}|${r.restaurantId}`) ?? null }))
       .sort((a, b) => a.name.localeCompare(b.name));
     outDays.push({ date: key, restaurants, totalPayableSom: restaurants.reduce((s, r) => s + r.payableSom, 0) });
   }
@@ -128,6 +134,7 @@ export async function payoutReport(days = 7, now = new Date()): Promise<PayoutRe
 
 export interface DayDetail {
   date: string; restaurantId: string; name: string;
+  collectedSom: number; commissionSom: number; refundsSom: number; payableSom: number; paid: PaidMark | null;
   orders: Array<{ code: string; at: string; collectedSom: number; commissionSom: number; openTicket: boolean }>;
   refunds: Array<{ number: number; orderCode: string; at: string; amountSom: number; status: string }>;
 }
@@ -175,5 +182,65 @@ export async function payoutDayDetail(date: string, restaurantId: string): Promi
     .map(f => ({ number: f.number, orderCode: f.order.code, at: f.sentAt!.toISOString(), amountSom: som(f.approvedAmountTiyin ?? f.paidAmountTiyin), status: f.status }));
   if (!orders.length && !refundLines.length) return null;
   const name = events[0]?.order.restaurant.name ?? refunds[0]!.order.restaurant.name;
-  return { date, restaurantId, name, orders, refunds: refundLines };
+  const collectedSom = orders.reduce((s, o) => s + o.collectedSom, 0);
+  const commissionSom = orders.reduce((s, o) => s + o.commissionSom, 0);
+  const refundsSom = refundLines.reduce((s, f) => s + f.amountSom, 0);
+  const mark = await db.payoutMark.findFirst({ where: { restaurantId, day: date, revokedAt: null }, select: { amountSom: true, createdAt: true } });
+  return {
+    date, restaurantId, name, collectedSom, commissionSom, refundsSom, payableSom: collectedSom - commissionSom - refundsSom,
+    paid: mark ? { amountSom: mark.amountSom, at: mark.createdAt.toISOString() } : null, orders, refunds: refundLines,
+  };
+}
+
+// ---- "I transferred it" ----
+export const NOTE_MAX = 300;
+export const UNDO_NOTE_MIN = 10;
+
+export type MarkResult =
+  | { result: 'MARKED'; amountSom: number }
+  | { result: 'CHANGED'; payableSom: number }
+  | { result: 'NOTHING_DUE' }
+  | { result: 'ALREADY_PAID' }
+  | { result: 'FUTURE_DAY' }
+  | { result: 'NOT_FOUND' };
+
+/**
+ * Remembers that the administrator transferred a restaurant's payout for a day. The amount on his screen (`expectedSom`) must still be the amount
+ * due now, otherwise nothing is written (a refund or a late delivery moved it): he looks again. One live mark per restaurant and day (database
+ * index), so a double tap or two phones mark it once. Nothing moves money.
+ */
+export async function markPayoutPaid(input: { adminId: string; date: string; restaurantId: string; expectedSom: number; note?: string }, now = new Date()): Promise<MarkResult> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  const note = (input.note ?? '').trim();
+  if (note.length > NOTE_MAX) throw new Error('ADMIN_IZOH_NOTOGRI');
+  if (input.date > dateKey(now)) return { result: 'FUTURE_DAY' };
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7041, hashtext(${input.restaurantId + '|' + input.date}))`;
+    if (await tx.payoutMark.findFirst({ where: { restaurantId: input.restaurantId, day: input.date, revokedAt: null }, select: { id: true } })) return { result: 'ALREADY_PAID' } as const;
+    const d = await payoutDayDetail(input.date, input.restaurantId);
+    if (!d) return { result: 'NOT_FOUND' } as const;
+    if (d.payableSom <= 0) return { result: 'NOTHING_DUE' } as const;
+    if (d.payableSom !== input.expectedSom) return { result: 'CHANGED', payableSom: d.payableSom } as const;
+    await tx.payoutMark.create({ data: { restaurantId: input.restaurantId, day: input.date, amountSom: d.payableSom, markedBy: input.adminId, note: note || null } });
+    await tx.adminAuditEvent.create({ data: { actorId: input.adminId, action: 'PAYOUT_MARKED', targetType: 'Restaurant', targetId: input.restaurantId, details: { day: input.date, amountSom: d.payableSom } } });
+    return { result: 'MARKED', amountSom: d.payableSom } as const;
+  });
+}
+
+export type UnmarkResult = { result: 'UNMARKED' } | { result: 'NOT_PAID' };
+
+/** Takes a mistaken mark back. The row stays (revokedAt), with who and why; a written reason of 10-300 characters is required. */
+export async function unmarkPayoutPaid(input: { adminId: string; date: string; restaurantId: string; note: string }): Promise<UnmarkResult> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  const note = input.note.trim();
+  if (note.length < UNDO_NOTE_MIN || note.length > NOTE_MAX) throw new Error('ADMIN_IZOH_NOTOGRI');
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7041, hashtext(${input.restaurantId + '|' + input.date}))`;
+    const done = await tx.payoutMark.updateMany({
+      where: { restaurantId: input.restaurantId, day: input.date, revokedAt: null }, data: { revokedAt: new Date(), revokedBy: input.adminId, revokeNote: note },
+    });
+    if (done.count !== 1) return { result: 'NOT_PAID' } as const;
+    await tx.adminAuditEvent.create({ data: { actorId: input.adminId, action: 'PAYOUT_UNMARKED', targetType: 'Restaurant', targetId: input.restaurantId, details: { day: input.date, note } } });
+    return { result: 'UNMARKED' } as const;
+  });
 }

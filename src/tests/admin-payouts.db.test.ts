@@ -19,6 +19,7 @@ const adminId = `9${randomInt(100_000_000, 999_999_999)}${randomInt(100, 999)}`;
 const token = randomBytes(32).toString('base64url');
 const auth = { authorization: `Bearer ${token}` };
 const api = (url: string, headers: Record<string, string> = auth) => app.inject({ method: 'GET', url: `/api/v1/admin${url}`, headers });
+const post = (url: string, payload: unknown, headers: Record<string, string> = auth) => app.inject({ method: 'POST', url: `/api/v1/admin${url}`, headers, payload: payload as object });
 
 const saved = { ...process.env };
 const ids = { pool: '', own: '', customer: '', platformCard: '', ownCard: '' };
@@ -84,6 +85,7 @@ after(async () => {
     await tx.commissionEvent.deleteMany({ where: { entry: { restaurantId: { in: rids } } } });
     await tx.commissionEntry.deleteMany({ where: { restaurantId: { in: rids } } });
   });
+  await db.payoutMark.deleteMany({ where: { restaurantId: { in: rids } } });
   await db.refundRequest.deleteMany({ where: { orderId: { in: orders } } });
   await db.supportTicket.deleteMany({ where: { orderId: { in: orders } } });
   await db.payment.deleteMany({ where: { orderId: { in: orders } } });
@@ -138,7 +140,7 @@ test('the report: delivered pool orders minus commission minus sent refunds, per
   assert.equal(report.days[0]!.date, dateKey(NOW));
   const today = report.days[0]!.restaurants.find(r => r.restaurantId === ids.pool)!;
   assert.deepEqual({ ...today, restaurantId: undefined, name: undefined }, {
-    restaurantId: undefined, name: undefined, orders: 2, collectedSom: 70_000, commissionSom: 10_000, refundsSom: 10_000, payableSom: 50_000, withOpenTicket: 1,
+    restaurantId: undefined, name: undefined, orders: 2, collectedSom: 70_000, commissionSom: 10_000, refundsSom: 10_000, payableSom: 50_000, withOpenTicket: 1, paid: null,
   });
   assert.ok(!report.days[0]!.restaurants.some(r => r.restaurantId === ids.own), 'a restaurant that holds its own money is not in the payout');
   const yesterday = report.days[1]!.restaurants.find(r => r.restaurantId === ids.pool)!;
@@ -169,6 +171,67 @@ test('the refund of a cancelled order is not the restaurant\'s cost and is not d
   await sentRefund(cancelled.id, 15_000, NOW);
   const today = ((await api('/payouts?days=1')).json() as { days: Array<{ restaurants: Array<{ restaurantId: string; refundsSom: number }> }> }).days[0]!.restaurants.find(r => r.restaurantId === ids.pool)!;
   assert.equal(today.refundsSom, 10_000, 'only the refund of the delivered order counts');
+});
+
+type Row = { restaurantId: string; payableSom: number; paid: { amountSom: number } | null };
+const todayRow = async () => ((await api('/payouts?days=1')).json() as { days: Array<{ restaurants: Row[] }> }).days[0]!.restaurants.find(r => r.restaurantId === ids.pool)!;
+
+test('"o\'tkazdim": the amount on the screen must still be the amount due; one live mark per restaurant and day, even from two phones', async () => {
+  const day = dateKey(NOW);
+  const url = `/payouts/${day}/${ids.pool}/paid`;
+  assert.equal((await post(url, { expectedSom: 50_000 }, {})).statusCode, 401);
+  assert.equal((await post(url, { expectedSom: 50_000, extra: 1 })).statusCode, 400, 'strict body');
+  assert.equal((await post(url, { expectedSom: 0 })).statusCode, 400);
+  assert.equal((await post(url, { expectedSom: 50_000, note: 'x'.repeat(301) })).statusCode, 400);
+
+  // a stale screen (a refund or a late delivery moved the amount): nothing is written, the new amount is returned
+  const stale = await post(url, { expectedSom: 45_000 });
+  assert.equal(stale.statusCode, 409);
+  assert.deepEqual(stale.json(), { error: 'CHANGED', amountSom: 50_000 });
+  assert.equal(await db.payoutMark.count({ where: { restaurantId: ids.pool } }), 0);
+
+  // two phones tap at once: exactly one mark
+  const both = await Promise.all([post(url, { expectedSom: 50_000, note: 'Click orqali o\'tkazildi' }), post(url, { expectedSom: 50_000 })]);
+  assert.deepEqual(both.map(r => r.statusCode).sort(), [200, 409]);
+  assert.equal(both.find(r => r.statusCode === 409)!.json().error, 'ALREADY_PAID');
+  assert.equal(await db.payoutMark.count({ where: { restaurantId: ids.pool, day, revokedAt: null } }), 1);
+  assert.equal((await todayRow()).paid?.amountSom, 50_000);
+  assert.equal(((await api(`/payouts/${day}/${ids.pool}`)).json() as { paid: { amountSom: number } | null }).paid?.amountSom, 50_000);
+  assert.equal(await db.adminAuditEvent.count({ where: { actorId: adminId, action: 'PAYOUT_MARKED', targetId: ids.pool } }), 1);
+});
+
+test('after the mark, a new refund moves the amount: the report shows both numbers so the difference is visible', async () => {
+  const first = await db.order.findFirstOrThrow({ where: { restaurantId: ids.pool, status: 'COMPLETED', totalSom: 30_000 } });
+  await sentRefund(first.id, 5_000, NOW);
+  const row = await todayRow();
+  assert.equal(row.payableSom, 45_000);
+  assert.equal(row.paid?.amountSom, 50_000, 'the mark keeps what was actually transferred');
+});
+
+test('taking the mark back needs a written reason and keeps the row; then it can be marked again', async () => {
+  const day = dateKey(NOW);
+  const undo = `/payouts/${day}/${ids.pool}/unpaid`;
+  assert.equal((await post(undo, { note: 'qisqa' })).statusCode, 400);
+  assert.equal((await post(undo, {}, {})).statusCode, 401);
+  assert.equal((await post(undo, { note: 'Adashib bosildi, hali o\'tkazmadim' })).statusCode, 200);
+  assert.equal((await post(undo, { note: 'Yana bekor qilish urinishi' })).statusCode, 409, 'nothing left to undo');
+  const rows = await db.payoutMark.findMany({ where: { restaurantId: ids.pool, day } });
+  assert.equal(rows.length, 1);
+  assert.ok(rows[0]!.revokedAt && rows[0]!.revokedBy === adminId && rows[0]!.revokeNote);
+  assert.equal((await todayRow()).paid, null);
+  assert.equal(await db.adminAuditEvent.count({ where: { actorId: adminId, action: 'PAYOUT_UNMARKED', targetId: ids.pool } }), 1);
+  // the amount now due is 45 000 and can be marked again (a new row, the old one stays as history)
+  assert.equal((await post(`/payouts/${day}/${ids.pool}/paid`, { expectedSom: 45_000 })).statusCode, 200);
+  assert.equal(await db.payoutMark.count({ where: { restaurantId: ids.pool, day } }), 2);
+});
+
+test('marking refuses a day with nothing due, a future day and an unknown restaurant', async () => {
+  const day = dateKey(NOW);
+  assert.equal((await post(`/payouts/${day}/${ids.own}/paid`, { expectedSom: 5_000 })).statusCode, 404, 'own-card restaurant has no pool money');
+  assert.equal((await post(`/payouts/${day}/nope-${tag}/paid`, { expectedSom: 5_000 })).statusCode, 404);
+  const future = dateKey(new Date(Date.now() + 3 * 86_400_000));
+  assert.equal((await post(`/payouts/${future}/${ids.pool}/paid`, { expectedSom: 1_000 })).statusCode, 400);
+  assert.equal((await post(`/payouts/2026-13-45/${ids.pool}/paid`, { expectedSom: 1_000 })).statusCode, 400);
 });
 
 test('the weekly commission statement skips platform-collected orders, so nothing is billed twice; own-card and cash orders stay', async () => {

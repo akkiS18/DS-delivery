@@ -405,7 +405,12 @@ data class PayoutRestaurantDto(
     @SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String, @SerializedName("orders") val orders: Int,
     @SerializedName("collectedSom") val collectedSom: Long, @SerializedName("commissionSom") val commissionSom: Long, @SerializedName("refundsSom") val refundsSom: Long,
     @SerializedName("payableSom") val payableSom: Long, @SerializedName("withOpenTicket") val withOpenTicket: Int = 0,
+    @SerializedName("paid") val paid: PaidDto? = null,
 )
+/** The administrator's own mark "I transferred it" (the app never moves money). */
+data class PaidDto(@SerializedName("amountSom") val amountSom: Long, @SerializedName("at") val at: String)
+data class PaidResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("amountSom") val amountSom: Long = 0)
+data class PaidRequest(@SerializedName("expectedSom") val expectedSom: Long, @SerializedName("note") val note: String? = null)
 data class PayoutDayDto(@SerializedName("date") val date: String, @SerializedName("restaurants") val restaurants: List<PayoutRestaurantDto>, @SerializedName("totalPayableSom") val totalPayableSom: Long)
 data class InProgressDto(@SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String, @SerializedName("orders") val orders: Int, @SerializedName("amountSom") val amountSom: Long)
 data class PayoutsResponse(@SerializedName("days") val days: List<PayoutDayDto>, @SerializedName("inProgress") val inProgress: List<InProgressDto>, @SerializedName("generatedAt") val generatedAt: String)
@@ -420,6 +425,9 @@ data class PayoutRefundDto(
 data class PayoutDetailDto(
     @SerializedName("date") val date: String, @SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String,
     @SerializedName("orders") val orders: List<PayoutOrderDto>, @SerializedName("refunds") val refunds: List<PayoutRefundDto>,
+    @SerializedName("collectedSom") val collectedSom: Long = 0, @SerializedName("commissionSom") val commissionSom: Long = 0,
+    @SerializedName("refundsSom") val refundsSom: Long = 0, @SerializedName("payableSom") val payableSom: Long = 0,
+    @SerializedName("paid") val paid: PaidDto? = null,
 )
 
 /** A5b: customers with strikes or blocks. 1 active strike = no cash, 5 = blocked; an administrator can also block by hand. */
