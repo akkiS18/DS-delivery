@@ -110,7 +110,8 @@ test('finalize: critical first, then the longest waiting; ack silences until it 
   const items = [raw('CARD_PENDING', 'CARD_PENDING:c1', 900), raw('READY_NO_TAXI', 'READY_NO_TAXI:a', 100), raw('ORDER_UNSEEN', 'ORDER_UNSEEN:b', 50), raw('ORDER_UNSEEN', 'ORDER_UNSEEN:a', 500)];
   const loud = finalize(items, new Map(), false, NOW);
   assert.deepEqual(loud.map(i => i.key), ['ORDER_UNSEEN:a', 'ORDER_UNSEEN:b', 'READY_NO_TAXI:a', 'CARD_PENDING:c1']);
-  assert.ok(loud.every(i => i.alarm));
+  assert.deepEqual(loud.filter(i => i.alarm).map(i => i.key), ['ORDER_UNSEEN:a', 'ORDER_UNSEEN:b', 'READY_NO_TAXI:a'], 'a card approval waiting is a notification, not a ring');
+  assert.equal(loud[3]!.notify, true);
   assert.equal(loud[0]!.ageSeconds, 500);
 
   const acks = new Map([['ORDER_UNSEEN:a', new Date(NOW.getTime() + 600_000)], ['ORDER_UNSEEN:b', new Date(NOW.getTime() - 1)]]);
@@ -136,7 +137,27 @@ test('pool card turnover: nothing below 70%, a silent heads-up from 70%, a ringi
 
   const final = finalize(items, new Map(), false, NOW);
   assert.equal(final.find(i => i.kind === 'CARD_TURN_MID')!.alarm, false, '70% is listed but never rings');
-  assert.equal(final.find(i => i.kind === 'CARD_TURN_HIGH')!.alarm, true, '90% rings softly (not critical)');
+  assert.equal(final.find(i => i.kind === 'CARD_TURN_MID')!.notify, false, '70% is not even announced');
+  assert.equal(final.find(i => i.kind === 'CARD_TURN_HIGH')!.alarm, false, '90% never rings any more: an ordinary notification');
+  assert.equal(final.find(i => i.kind === 'CARD_TURN_HIGH')!.notify, true);
   assert.equal(final.find(i => i.kind === 'CARD_TURN_HIGH')!.severity, 'HIGH');
-  assert.equal(finalize(items, new Map(), true, NOW).find(i => i.kind === 'CARD_TURN_HIGH')!.alarm, false, 'quiet hours mute the 90% warning');
+});
+
+test('only what must be solved on the spot rings; suspicious money, disputes, tickets, cards and late deliveries are one-time notifications', () => {
+  const kinds = ['ORDER_UNSEEN', 'CASH_UNACCEPTED', 'PAYMENT_UNVERIFIED', 'TAXI_NEEDS_HELP', 'GMAIL_DOWN', 'RESTAURANT_OFFLINE', 'READY_NO_TAXI',
+    'MONEY_REVIEW', 'REFUND_DISPUTED', 'SUPPORT_TICKET', 'NOT_DELIVERED', 'CARD_PENDING', 'CARD_TURN_HIGH', 'CARD_TURN_MID'] as const;
+  const raw = kinds.map(kind => ({ key: `${kind}:x`, kind, title: 't', detail: 'd', restaurant: null, orderCode: null, since: null }));
+  const out = finalize(raw, new Map(), false, NOW);
+  const ring = out.filter(i => i.alarm).map(i => i.kind).sort();
+  assert.deepEqual(ring, ['CASH_UNACCEPTED', 'GMAIL_DOWN', 'ORDER_UNSEEN', 'PAYMENT_UNVERIFIED', 'READY_NO_TAXI', 'RESTAURANT_OFFLINE', 'TAXI_NEEDS_HELP']);
+  assert.deepEqual(out.filter(i => i.notify).map(i => i.kind).sort(), ['CARD_PENDING', 'CARD_TURN_HIGH', 'MONEY_REVIEW', 'NOT_DELIVERED', 'REFUND_DISPUTED', 'SUPPORT_TICKET']);
+  assert.ok(out.every(i => !(i.alarm && i.notify)), 'an item either rings or notifies, never both');
+  assert.equal(out.find(i => i.kind === 'CARD_TURN_MID')!.notify, false, 'the 70% heads-up is only listed');
+  // an acknowledged item (the administrator said "I called") neither rings nor notifies
+  const acked = finalize(raw, new Map([['MONEY_REVIEW:x', new Date(NOW.getTime() + 60_000)], ['ORDER_UNSEEN:x', new Date(NOW.getTime() + 60_000)]]), false, NOW);
+  assert.equal(acked.find(i => i.kind === 'MONEY_REVIEW')!.notify, false);
+  assert.equal(acked.find(i => i.kind === 'ORDER_UNSEEN')!.alarm, false);
+  // quiet hours: only CRITICAL ringing kinds still ring; the two HIGH ones (restaurant offline, ready without taxi) go quiet
+  const night = finalize(raw, new Map(), true, NOW);
+  assert.deepEqual(night.filter(i => i.alarm).map(i => i.kind).sort(), ['CASH_UNACCEPTED', 'GMAIL_DOWN', 'ORDER_UNSEEN', 'PAYMENT_UNVERIFIED', 'TAXI_NEEDS_HELP']);
 });

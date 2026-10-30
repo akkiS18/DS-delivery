@@ -9,7 +9,10 @@ Botdagi administrator imkoniyatlarining hammasi endi ilovada ham bor. Sozlamalar
 - **Diqqat ro'yxati** (server hisoblaydi, `GET /api/v1/admin/attention`): ko'rilmagan buyurtma, naqd buyurtma qabul qilinmadi, to'lov tasdiqlanmadi,
   taksi yordam so'radi, tayyor lekin taksi yo'q, yetkazilmadi, restoran ilovasi o'chiq, pul tekshiruvi, karta kutmoqda, murojaat, Gmail ishlamayapti.
   Ilova har 5 soniyada (signal chalayotganda 3 soniyada) so'raydi.
-- **Signal**: shoshilinch (CRITICAL) holat — mashina gudogi, har ~2,6 soniyada; boshqalari — yumshoq qo'sh "pip". "Budilnik" ovozida (jim rejim o'chirmaydi),
+- **Signal (egasi qarori 2026-10-30)**: jiringlaydigani FAQAT joyida hal qilinishi shart bo'lganlar — ko'rilmagan to'langan buyurtma, qabul qilinmagan naqd buyurtma,
+  tasdiqlanmagan to'lov, taksi muammosi, Gmail ishlamayapti (shoshilinch: mashina gudogi, har ~2,6 soniyada) hamda "tayyor, taksi yo'q" va "restoran ilovasi o'chiq" (yumshoq qo'sh "pip", jim soatda jim).
+  Qolgan hamma narsa — shubhali pul, "pul kelmadi" nizosi, mijoz murojaati, yetkazilmadi, karta tasdig'i, karta aylanmasi 90% — jiringlamaydi: ro'yxatda turadi va BIR MARTA oddiy
+  bildirishnoma (telefonning o'z ovozi) keladi; hal bo'lsa yoki "jim" bosilsa bildirishnoma o'chadi; jim soatda ovozsiz keladi. "Budilnik" ovozida (jim rejim o'chirmaydi),
   ekran o'chiq/ilova yopiq bo'lsa ham (foreground service + wake lock). Telefon qayta yoqilganda o'zi ishga tushadi.
 - **Tugmalar**: "📞 Qo'ng'iroq" (restoranga dialer ochadi va kartani 15 daqiqaga jim qiladi), "Jim: 15 daq / 1 soat" (serverda saqlanadi — boshqa telefonda ham jim),
   "Ovozni o'chirish" (faqat shu telefonda 30 soniya, keyin yana chaladi).

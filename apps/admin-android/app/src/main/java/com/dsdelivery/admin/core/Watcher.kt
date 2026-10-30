@@ -44,6 +44,7 @@ class Watcher(
     private val onSignedOut: () -> Unit,
 ) {
     private val tracker = AttentionTracker()
+    private val notices = NoticeTracker()
     private val _state = MutableStateFlow(WatchState())
     val state: StateFlow<WatchState> = _state.asStateFlow()
 
@@ -69,6 +70,7 @@ class Watcher(
         job = null
         alarm.setLevel(AlarmLevel.NONE)
         notifier.alert(emptyList(), false)
+        notifier.notices(emptyList(), notices.update(emptyList()).gone, false, 0)
         failures = 0
         latest = emptyList()
         _state.value = WatchState()
@@ -128,12 +130,15 @@ class Watcher(
         alarm.setLevel(level)
         if (onDuty) notifier.alert(waiting, level != AlarmLevel.NONE) else notifier.alert(emptyList(), false)
         if (onDuty) notifier.updateDuty(dutyText(latest.size, waiting.size))
+        // Items that never ring: one ordinary notification each (silent in quiet hours), withdrawn when solved or when off duty.
+        val upd = notices.update(if (onDuty) latest.filter { it.notify } else emptyList())
+        notifier.notices(upd.fresh, upd.gone, _state.value.quietActive, notices.openCount())
         _state.update { it.copy(ringing = level != AlarmLevel.NONE, waiting = waiting.map { w -> w.key }.toSet()) }
     }
 
     private fun dutyText(open: Int, ringing: Int): String = when {
         ringing > 0 -> "$ringing ta holat diqqat talab qiladi"
-        open > 0 -> "$open ta ochiq holat (jim)"
+        open > 0 -> "$open ta ochiq holat (jiringlamaydi)"
         else -> "Hammasi joyida"
     }
 

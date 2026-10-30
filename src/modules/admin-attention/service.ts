@@ -23,8 +23,17 @@ const SEVERITY: Record<AttentionKind, Severity> = {
   NOT_DELIVERED: 'MEDIUM', CARD_PENDING: 'MEDIUM', SUPPORT_TICKET: 'MEDIUM',
   CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH', REFUND_DISPUTED: 'HIGH',
 };
-/** Listed but never rung: a heads-up, not something to wake anybody for. */
+/** Listed but never rung and never announced: a heads-up, not something to wake anybody for. */
 const SILENT_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>(['CARD_TURN_MID']);
+/**
+ * Owner decision 2026-10-30: only what MUST be solved on the spot rings (somebody is waiting right now: a paid order nobody saw, cash nobody accepted,
+ * a payment nobody confirmed, a taxi in trouble, a ready order without a taxi, a restaurant app that went dark with orders waiting, and Gmail down
+ * because then no card payment is recognised). Everything else (suspicious money, disputes, tickets, cards, late deliveries) is a one-time ordinary
+ * notification: it stays in the list, it never rings, so the administrator does not have to watch the app all day.
+ */
+const RING_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>([
+  'ORDER_UNSEEN', 'CASH_UNACCEPTED', 'PAYMENT_UNVERIFIED', 'TAXI_NEEDS_HELP', 'GMAIL_DOWN', 'RESTAURANT_OFFLINE', 'READY_NO_TAXI',
+]);
 const RANK: Record<Severity, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2 };
 
 /** Kinds the Telegram copy announces: the others already reach the administrator through their own Telegram alerts. */
@@ -52,8 +61,10 @@ export interface AttentionItem {
   /** The administrator said "called": quiet until snoozeUntil. */
   acked: boolean;
   snoozeUntil: string | null;
-  /** The app rings for this item (not acked, and not a quiet-hours item below CRITICAL). */
+  /** The app rings for this item (a RING kind, not acked, and not a quiet-hours item below CRITICAL). */
   alarm: boolean;
+  /** The app shows an ordinary one-time notification for this item (not a RING kind, not acked, not a silent kind). */
+  notify: boolean;
 }
 
 function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min: number, max: number): number {
@@ -231,7 +242,9 @@ export function finalize(raw: RawItem[], acks: ReadonlyMap<string, Date>, quiet:
     return {
       key: r.key, kind: r.kind, severity, title: r.title, detail: r.detail, restaurant: r.restaurant, orderCode: r.orderCode,
       since: r.since ? r.since.toISOString() : null, ageSeconds: r.since ? ageSec(r.since, now) : null,
-      acked, snoozeUntil: acked ? snooze!.toISOString() : null, alarm: !acked && !SILENT_KINDS.has(r.kind) && (severity === 'CRITICAL' || !quiet),
+      acked, snoozeUntil: acked ? snooze!.toISOString() : null,
+      alarm: !acked && RING_KINDS.has(r.kind) && (severity === 'CRITICAL' || !quiet),
+      notify: !acked && !RING_KINDS.has(r.kind) && !SILENT_KINDS.has(r.kind),
     };
   }).sort((a, b) => RANK[a.severity] - RANK[b.severity] || (b.ageSeconds ?? -1) - (a.ageSeconds ?? -1) || a.key.localeCompare(b.key));
 }

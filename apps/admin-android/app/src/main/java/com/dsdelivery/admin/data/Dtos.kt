@@ -45,6 +45,8 @@ data class AttentionItem(
     @SerializedName("acked") val acked: Boolean,
     @SerializedName("snoozeUntil") val snoozeUntil: String?,
     @SerializedName("alarm") val alarm: Boolean,
+    /** An ordinary one-time notification (suspicious money, disputes, tickets...): listed and announced once, never rings. */
+    @SerializedName("notify") val notify: Boolean = false,
 )
 
 data class QuietHours(
