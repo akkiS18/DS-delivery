@@ -422,6 +422,39 @@ data class PayoutDetailDto(
     @SerializedName("orders") val orders: List<PayoutOrderDto>, @SerializedName("refunds") val refunds: List<PayoutRefundDto>,
 )
 
+/** A5b: customers with strikes or blocks. 1 active strike = no cash, 5 = blocked; an administrator can also block by hand. */
+data class StandingDto(
+    @SerializedName("strikes") val strikes: Int, @SerializedName("cashAllowed") val cashAllowed: Boolean,
+    @SerializedName("blocked") val blocked: Boolean, @SerializedName("manuallyBlocked") val manuallyBlocked: Boolean,
+)
+data class CustomerRowDto(
+    @SerializedName("id") val id: String, @SerializedName("name") val name: String? = null, @SerializedName("phone") val phone: String? = null,
+    @SerializedName("telegramUserId") val telegramUserId: String? = null, @SerializedName("strikes") val strikes: Int,
+    @SerializedName("cashAllowed") val cashAllowed: Boolean, @SerializedName("blocked") val blocked: Boolean,
+    @SerializedName("manuallyBlocked") val manuallyBlocked: Boolean, @SerializedName("lastStrikeAt") val lastStrikeAt: String? = null,
+)
+data class CustomersResponse(@SerializedName("customers") val customers: List<CustomerRowDto>)
+data class StrikeLineDto(
+    @SerializedName("id") val id: String, @SerializedName("source") val source: String, @SerializedName("reportedBy") val reportedBy: String,
+    @SerializedName("note") val note: String, @SerializedName("createdAt") val createdAt: String, @SerializedName("orderCode") val orderCode: String? = null,
+    @SerializedName("revokedAt") val revokedAt: String? = null, @SerializedName("revokedBy") val revokedBy: String? = null,
+    @SerializedName("revokeNote") val revokeNote: String? = null,
+)
+data class RecentOrderDto(
+    @SerializedName("code") val code: String, @SerializedName("status") val status: String, @SerializedName("totalSom") val totalSom: Long,
+    @SerializedName("at") val at: String, @SerializedName("payment") val payment: String? = null,
+)
+data class CustomerDetailDto(
+    @SerializedName("id") val id: String, @SerializedName("name") val name: String? = null, @SerializedName("phone") val phone: String? = null,
+    @SerializedName("telegramUserId") val telegramUserId: String? = null, @SerializedName("strikes") val strikes: Int,
+    @SerializedName("cashAllowed") val cashAllowed: Boolean, @SerializedName("blocked") val blocked: Boolean,
+    @SerializedName("manuallyBlocked") val manuallyBlocked: Boolean, @SerializedName("lastStrikeAt") val lastStrikeAt: String? = null,
+    @SerializedName("blockNote") val blockNote: String? = null, @SerializedName("blockedAt") val blockedAt: String? = null,
+    @SerializedName("strikeLines") val strikeLines: List<StrikeLineDto> = emptyList(), @SerializedName("recentOrders") val recentOrders: List<RecentOrderDto> = emptyList(),
+)
+data class NoteRequest(@SerializedName("note") val note: String)
+data class StandingResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("standing") val standing: StandingDto)
+
 data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
 data class StatementDto(
     @SerializedName("restaurantId") val restaurantId: String,

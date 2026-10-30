@@ -38,6 +38,9 @@ Botdagi administrator imkoniyatlarining hammasi endi ilovada ham bor. Sozlamalar
 - **Qaytarish** (A4c): ochiq qaytarish so'rovlari (restoran javobi kutilmoqda / pulni qaytarishi kerak / yubordi / mijoz "pul KELMADI" dedi) va oxirgi 14 kundagi yopilganlar. Ichida: summa, sabab,
   tarix va restoran/mijozga qo'ng'iroq tugmalari. "Izoh bilan tasdiqlash" faqat restoran pulni yuborgan (yoki mijoz e'tiroz bildirgan) so'rovlarda, 10–300 belgilik izoh bilan. DS pul o'tkazmaydi.
   "Mijoz pul KELMADI dedi" holati "Diqqat"da alohida (muhim) karta bo'lib chiqadi va tasdiqlangach yo'qoladi.
+- **Mijozlar** (A5b): strike yoki bloki bor mijozlar, telefon / Telegram ID / ism bo'yicha qidiruv. Qoida (egasi 2026-10-30): **1 ta faol strike — naqd to'lov yopiladi** (karta ochiq), **5 ta strike yoki administrator bloki — buyurtma berolmaydi**.
+  Administrator: strike berish, strikeni bekor qilish (o'chirilmaydi, «bekor qilingan» bo'lib qoladi), qo'lda bloklash / blokdan chiqarish. Har bir amal 10–300 belgilik izoh bilan, auditga yoziladi va admin chatiga xabar ketadi.
+  Mijozning Telegram akkaunti bo'yicha ishlaydi; Android qurilma ID bo'yicha bloklash hali yo'q. «Mijoz olmadi» tugmasi restoran/taksi ilovalarida hali yo'q (restoran va taksi ilovalarini qayta yig'ish hamda buyurtma holati qoidalari kelishilgach qo'shiladi).
 
 ## Boshqaruv (A3a)
 - **Restoranlar** (`/restaurants`): faol/to'xtatilgan, kartalar soni; o'chirish ikki bosqichli, restoran ilovasidan chiqarib yuboriladi.
