@@ -1,6 +1,6 @@
 # Admin ilovasi (DS Admin): reja
 
-Holat: **reja tasdiqlandi** (2026-10-30): kirish Telegram kodi + PIN; jim soatlar bor; pishirish vaqti qoidasi olib tashlandi; rollar kerak emas (bitta admin). Holat 2026-10-30: A0–A5b yozilgan (A0–A4 serveri productionda; Android ilova hali yig'ilmagan va sinalmagan; A5c «Mijoz olmadi» tugmasi va A6 egasining qarorlarini kutadi). Egasining qarori: botdagi barcha admin imkoniyatlari ilovaga ko'chadi, osilib qolgan buyurtmalar **ovoz bilan** keladi. UI ikkinchi darajali, asosiysi qulaylik va ishonchlilik.
+Holat: **reja tasdiqlandi** (2026-10-30): kirish Telegram kodi + PIN; jim soatlar bor; pishirish vaqti qoidasi olib tashlandi; rollar kerak emas (bitta admin). Holat 2026-10-30: A0–A5b yozilgan va A0–A5b serveri productionda; undan keyin lokal (hali productionda emas): buyurtma raqami bilan strike, to'lov hisobida «o'tkazdim» belgisi, restoran moliya ekranidagi komissiya tuzatishi. Android ilova kompilyatsiyadan va birlik testlardan o'tdi, lekin telefonda sinalmagan; A5c «Mijoz olmadi» tugmasi BEKOR (egasi qarori: restoran/taksi adminga telefon qiladi); A6 egasining qarorlarini kutadi. Egasining qarori: botdagi barcha admin imkoniyatlari ilovaga ko'chadi, osilib qolgan buyurtmalar **ovoz bilan** keladi. UI ikkinchi darajali, asosiysi qulaylik va ishonchlilik.
 (Oldingi qaror "admin Telegramda qoladi, admin APK yo'q" 2026-10-22 dan eskirgan: bu reja uni almashtiradi.)
 
 ## 1. Maqsadlar va tamoyillar
