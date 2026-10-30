@@ -18,12 +18,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.PI
+import kotlin.math.exp
 import kotlin.math.sin
+import kotlin.math.tanh
 
 /**
- * The kitchen bell: a LOUD, piercing two-tone "bi-bi-bi" (like a fast-food order buzzer) that repeats until the order is answered. A kitchen is
- * noisy, so it is built to cut through: full-scale square-wave beeps at 2.4 / 3.2 kHz, the range a phone speaker plays loudest and where kitchen
- * noise is weakest. Generated here (no audio file), played on the ALARM stream (silent mode does not mute it), and the alarm volume is raised to
+ * The kitchen alarm: a pleasant two-note chime followed by the phone's voice saying "Yangi buyurtma" (see [OrderVoice]), repeated until the
+ * order is answered. Owner request 2026-10-30: the earlier piercing square-wave beeps were unpleasant and did not sound like "a new order". The
+ * chime is generated here (no audio file), everything plays on the ALARM stream (silent mode does not mute it), and the alarm volume is raised to
  * the maximum whenever it rings. Safe to call from any thread.
  */
 class AlarmPlayer(private val context: Context) {
@@ -33,6 +35,7 @@ class AlarmPlayer(private val context: Context) {
     private var loop: Job? = null
     private var track: AudioTrack? = null
     private var focus: AudioFocusRequest? = null
+    private val voice = OrderVoice(context)
 
     @Volatile private var wanted = false
 
@@ -47,7 +50,7 @@ class AlarmPlayer(private val context: Context) {
     /** One bell, for the "Ovozni sinash" button. */
     fun beepOnce() {
         raiseToMaxVolume()
-        scope.launch { playBell() }
+        scope.launch { playBell(); voice.say() }
     }
 
     /** A noisy kitchen needs every bit of the phone's volume: the alarm stream goes to the maximum while the bell rings (and for the test button). */
@@ -69,8 +72,9 @@ class AlarmPlayer(private val context: Context) {
             requestFocus()
             while (isActive && wanted) {
                 raiseToMaxVolume() // somebody may have turned it down again since the last ring
-                playBell()
                 vibrate()
+                playBell()
+                voice.say()
                 delay(REPEAT_MS)
             }
         }
@@ -81,6 +85,7 @@ class AlarmPlayer(private val context: Context) {
         loop?.cancel()
         loop = null
         releaseTrack()
+        voice.stop()
         abandonFocus()
         vibrator()?.cancel()
     }
@@ -89,11 +94,11 @@ class AlarmPlayer(private val context: Context) {
         val t = buildTrack() ?: return
         synchronized(this) { releaseTrack(); track = t }
         runCatching { t.play() }
-        delay(BELL_MS.toLong())
+        delay(CHIME_MS.toLong())
     }
 
     private fun buildTrack(): AudioTrack? = runCatching {
-        val pcm = bellPcm()
+        val pcm = chimePcm()
         val attrs = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_ALARM)
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
@@ -135,30 +140,34 @@ class AlarmPlayer(private val context: Context) {
 
     companion object {
         private const val SAMPLE_RATE = 44_100
-        /** Short pause between rings: the order must not be missed, so the bell stays insistent until it is answered. */
-        const val REPEAT_MS = 800L
-        /** Two bursts of six beeps (see [bellPcm]) = about 2.5 s of sound. */
-        private const val BELL_MS = 2_550
+        /** Pause after the voice before the next round: the order must not be missed, so it stays insistent until it is answered. */
+        const val REPEAT_MS = 1_200L
+        /** Length of [chimePcm] in milliseconds. */
+        private const val CHIME_MS = 1_150
 
         /**
-         * Six beeps alternating 2.4 kHz / 3.2 kHz (130 ms each, 70 ms apart), a short pause, and the six again. Square waves at full scale carry about
-         * twice the power of a sine of the same height; the 3 ms ramps only stop the click. The player sets the phone's ALARM volume to the maximum,
-         * so after that the phone's speaker is the limit.
+         * A two-note "ding-dong" (B5 then E6, a rising fourth) of bell-like tones: a fundamental plus its 2nd and 3rd partials, a soft 8 ms attack
+         * and a smooth decay, so it is clear and friendly rather than sharp. A little soft saturation raises the average loudness without any
+         * harsh edge. The voice follows it; the player sets the phone's ALARM volume to the maximum, so the phone's speaker is the limit.
          */
-        internal fun bellPcm(): ShortArray {
-            fun beep(hz: Double, ms: Int): FloatArray {
+        internal fun chimePcm(): ShortArray {
+            fun note(hz: Double, ms: Int, tauMs: Double): FloatArray {
                 val n = SAMPLE_RATE * ms / 1000
-                val ramp = SAMPLE_RATE * 0.003
+                val attack = SAMPLE_RATE * 0.008
                 return FloatArray(n) { i ->
-                    val square = if (sin(2 * PI * hz * i / SAMPLE_RATE) >= 0.0) 1.0 else -1.0
-                    (square * minOf(1.0, i / ramp, (n - i) / ramp)).toFloat()
+                    val t = i.toDouble() / SAMPLE_RATE
+                    val tone = sin(2 * PI * hz * t) + 0.45 * sin(2 * PI * 2 * hz * t) + 0.18 * sin(2 * PI * 3 * hz * t)
+                    val env = minOf(1.0, i / attack) * exp(-t * 1000.0 / tauMs) * minOf(1.0, (n - i) / (SAMPLE_RATE * 0.03))
+                    (tone * env / 1.63).toFloat()
                 }
             }
-            val gap = FloatArray(SAMPLE_RATE * 70 / 1000)
-            var burst = FloatArray(0)
-            for (k in 0 until 6) burst += beep(if (k % 2 == 0) 2400.0 else 3200.0, 130) + gap
-            val all = burst + FloatArray(SAMPLE_RATE * 150 / 1000) + burst
-            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.98f * Short.MAX_VALUE).toInt().toShort() }
+            val total = SAMPLE_RATE * CHIME_MS / 1000
+            val mix = FloatArray(total)
+            fun add(from: FloatArray, at: Int) { for (i in from.indices) if (at + i < total) mix[at + i] += from[i] }
+            add(note(987.77, 650, 260.0), 0)
+            add(note(1318.51, 800, 330.0), SAMPLE_RATE * 300 / 1000)
+            val drive = 1.7
+            return ShortArray(total) { (tanh(mix[it] * drive) / tanh(drive) * 0.97 * Short.MAX_VALUE).toInt().toShort() }
         }
     }
 }
