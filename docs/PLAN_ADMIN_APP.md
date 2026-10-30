@@ -1,6 +1,6 @@
 # Admin ilovasi (DS Admin): reja
 
-Holat: **reja tasdiqlandi** (2026-10-30): kirish Telegram kodi + PIN; jim soatlar bor; pishirish vaqti qoidasi olib tashlandi; rollar kerak emas (bitta admin). Kod hali yozilmagan. Egasining qarori: botdagi barcha admin imkoniyatlari ilovaga ko'chadi, osilib qolgan buyurtmalar **ovoz bilan** keladi. UI ikkinchi darajali, asosiysi qulaylik va ishonchlilik.
+Holat: **reja tasdiqlandi** (2026-10-30): kirish Telegram kodi + PIN; jim soatlar bor; pishirish vaqti qoidasi olib tashlandi; rollar kerak emas (bitta admin). Holat 2026-10-30: A0–A5b yozilgan (A0–A4 serveri productionda; Android ilova hali yig'ilmagan va sinalmagan; A5c «Mijoz olmadi» tugmasi va A6 egasining qarorlarini kutadi). Egasining qarori: botdagi barcha admin imkoniyatlari ilovaga ko'chadi, osilib qolgan buyurtmalar **ovoz bilan** keladi. UI ikkinchi darajali, asosiysi qulaylik va ishonchlilik.
 (Oldingi qaror "admin Telegramda qoladi, admin APK yo'q" 2026-10-22 dan eskirgan: bu reja uni almashtiradi.)
 
 ## 1. Maqsadlar va tamoyillar
