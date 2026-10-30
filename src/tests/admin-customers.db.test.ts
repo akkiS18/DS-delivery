@@ -178,3 +178,26 @@ test('the list shows customers with a strike or block; search finds by Telegram 
   }
   assert.deepEqual(((await api('GET', '/customers?q=x')).json() as { customers: unknown[] }).customers, [], 'too short to search');
 });
+
+test('a phone call about an order: search finds the customer by order code, and the strike is tied to that order once', async () => {
+  const mine = await db.order.findFirstOrThrow({ where: { customerId: ids.customer, restaurantId: ids.restaurant }, orderBy: { createdAt: 'desc' }, select: { code: true } });
+  const theirs = await db.order.findFirstOrThrow({ where: { customerId: ids.other, restaurantId: ids.restaurant }, orderBy: { createdAt: 'desc' }, select: { code: true } });
+  for (const q of [mine.code, `#${mine.code.toLowerCase()}`]) {
+    const found = (await api('GET', `/customers?q=${encodeURIComponent(q)}`)).json() as { customers: Array<{ id: string }> };
+    assert.deepEqual(found.customers.map(c => c.id), [ids.customer], `found by order code ${q}`);
+  }
+  const before = (await standing()).strikes;
+  const wrong = await api('POST', `/customers/${ids.customer}/strikes`, { note: NOTE, orderCode: theirs.code });
+  assert.equal(wrong.statusCode, 400, 'another customer\'s order cannot be used');
+  assert.equal(wrong.json().error, 'ORDER_INVALID');
+  assert.equal((await api('POST', `/customers/${ids.customer}/strikes`, { note: NOTE, orderCode: 'ZZZZZ' })).statusCode, 400);
+  assert.equal((await standing()).strikes, before, 'refusals change nothing');
+  const ok = await api('POST', `/customers/${ids.customer}/strikes`, { note: NOTE, orderCode: mine.code });
+  assert.equal(ok.statusCode, 201, ok.body);
+  const again = await api('POST', `/customers/${ids.customer}/strikes`, { note: NOTE, orderCode: `#${mine.code}` });
+  assert.equal(again.statusCode, 409, 'the same order cannot be struck twice');
+  assert.equal(again.json().error, 'ALREADY_STRUCK');
+  assert.equal((await standing()).strikes, before + 1);
+  const lines = ((await api('GET', `/customers/${ids.customer}`)).json() as { strikeLines: Array<{ orderCode: string | null }> }).strikeLines;
+  assert.ok(lines.some(l => l.orderCode === mine.code), 'the strike shows its order');
+});

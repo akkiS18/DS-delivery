@@ -63,25 +63,41 @@ const lockCustomer = (tx: Prisma.TransactionClient, customerId: string) =>
 export type AddStrikeResult =
   | { result: 'ADDED'; strikeId: string; standing: Standing }
   | { result: 'ALREADY_RECORDED'; strikeId: string; standing: Standing }
+  /** The order code is not an order of this customer (or of a record merged into it). */
+  | { result: 'ORDER_NOT_FOUND' }
   | { result: 'NOT_FOUND' };
+
+/** "k7p3x", "#K7P3X" -> "K7P3X" when it looks like a public order code (5 characters, consonants and digits), otherwise null. */
+export function orderCodeOf(raw: string): string | null {
+  const code = raw.trim().replace(/^#/, '').toUpperCase();
+  return /^[BCDFGHJKMNPQRSTVWXYZ2-9]{5}$/.test(code) ? code : null;
+}
 
 /**
  * Records a strike. `orderId` makes it idempotent per (order, source): the restaurant button tapped twice, or a retry, gives the first strike back.
  * The administrator form passes no order.
  */
-export async function recordStrike(input: { customerId: string; orderId?: string; source: 'ADMIN' | 'RESTAURANT' | 'TAXI'; reportedBy: string; note: string }): Promise<AddStrikeResult> {
+export async function recordStrike(input: { customerId: string; orderId?: string; orderCode?: string; source: 'ADMIN' | 'RESTAURANT' | 'TAXI'; reportedBy: string; note: string }): Promise<AddStrikeResult> {
   const note = cleanNote(input.note);
   if (input.source === 'ADMIN') requireAdmin(input.reportedBy);
   return db.$transaction(async tx => {
     await lockCustomer(tx, input.customerId);
     const customer = await tx.customer.findUnique({ where: { id: input.customerId }, select: { id: true } });
     if (!customer) return { result: 'NOT_FOUND' } as const;
-    if (input.orderId) {
-      const prior = await tx.customerStrike.findFirst({ where: { orderId: input.orderId, source: input.source }, select: { id: true } });
+    let orderId = input.orderId ?? null;
+    if (input.orderCode) {
+      // The administrator names the order the customer did not receive; it must be this customer's (one person = the record and what merged into it).
+      const code = orderCodeOf(input.orderCode);
+      const order = code ? await tx.order.findFirst({ where: { code, customerId: { in: await familyIds(tx, input.customerId) } }, select: { id: true } }) : null;
+      if (!order) return { result: 'ORDER_NOT_FOUND' } as const;
+      orderId = order.id;
+    }
+    if (orderId) {
+      const prior = await tx.customerStrike.findFirst({ where: { orderId, source: input.source }, select: { id: true } });
       if (prior) return { result: 'ALREADY_RECORDED', strikeId: prior.id, standing: await standingOfCustomer(tx, input.customerId) } as const;
     }
     const strike = await tx.customerStrike.create({
-      data: { customerId: input.customerId, orderId: input.orderId ?? null, source: input.source, reportedBy: input.reportedBy, note },
+      data: { customerId: input.customerId, orderId, source: input.source, reportedBy: input.reportedBy, note },
       select: { id: true },
     });
     if (input.source === 'ADMIN') {
@@ -154,6 +170,8 @@ export async function listCustomers(query: string | undefined): Promise<Customer
   }
   const digits = q.replace(/\D/g, '');
   const or: Prisma.CustomerWhereInput[] = [];
+  const code = orderCodeOf(q); // a restaurant or taxi operator phones in with an order number: find whose order it is
+  if (code) or.push({ orders: { some: { code } } });
   if (/^\d{5,}$/.test(q)) or.push({ telegramUserId: q });
   if (digits.length >= 5) or.push({ phone: { contains: digits } });
   if (q.length >= 2 && !/^[+\d\s-]+$/.test(q)) or.push({ displayName: { contains: q, mode: 'insensitive' } });

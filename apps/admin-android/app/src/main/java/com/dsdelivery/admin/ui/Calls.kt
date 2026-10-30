@@ -43,6 +43,8 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
         "OPEN_DISPATCHES" -> "taksi buyurtmasi tugamagan (${f.count ?: "?"} ta)."
         else -> "tugallanmagan ish bor."
     }
+    "ORDER_INVALID" -> "Bu buyurtma raqami shu mijozniki emas yoki noto‘g‘ri yozilgan."
+    "ALREADY_STRUCK" -> "Bu buyurtma uchun strike allaqachon berilgan."
     "NOTHING_DUE" -> "To‘lanishi kerak komissiya qolmagan."
     "PERCENT_INVALID" -> "Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
     else -> if (f.code in 500..599) "Server xatosi. Birozdan keyin qayta urinib ko‘ring." else "Bajarilmadi."

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -114,7 +115,7 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = typed, onValueChange = { if (it.length <= 80) typed = it }, singleLine = true, modifier = Modifier.weight(1f),
-                        label = { Text("Telefon, Telegram ID yoki ism") },
+                        label = { Text("Telefon, Telegram ID, ism yoki buyurtma raqami") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { applied = typed.trim() }),
                     )
@@ -147,6 +148,41 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
             }
         }
     }
+}
+
+private const val NOTE_MIN = 10
+private const val NOTE_MAX = 300
+
+/**
+ * A strike for an order the customer did not receive: the administrator was phoned by the restaurant or the taxi service. The order code is
+ * optional but recommended (the same order cannot be struck twice); the customer's latest orders are offered as one-tap choices.
+ */
+@Composable
+private fun StrikeDialog(orders: List<String>, busy: Boolean, onDismiss: () -> Unit, onSubmit: (note: String, orderCode: String?) -> Unit) {
+    var note by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text("Strike berish") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Qaysi buyurtmani mijoz olmadi va kim xabar berdi? Strike mijozning naqd to‘lovini yopadi (5 ta bo‘lsa — butunlay blok).", style = MaterialTheme.typography.bodyMedium)
+                OutlinedTextField(
+                    value = code, onValueChange = { if (it.length <= 12) code = it.uppercase() }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Buyurtma raqami (tavsiya etiladi)") },
+                    supportingText = { Text(if (orders.isEmpty()) "Masalan: K7P3X" else "Oxirgi buyurtmalar: " + orders.take(4).joinToString(", ")) },
+                )
+                OutlinedTextField(
+                    value = note, onValueChange = { if (it.length <= NOTE_MAX) note = it }, label = { Text("Izoh (kamida $NOTE_MIN belgi)") },
+                    supportingText = { Text("${note.trim().length}/$NOTE_MAX") }, minLines = 2, modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = !busy && note.trim().length in NOTE_MIN..NOTE_MAX, onClick = { onSubmit(note, code.trim().ifEmpty { null }) }) { Text("Strike berish") }
+        },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+    )
 }
 
 private sealed interface CustomerAction {
@@ -246,7 +282,23 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
         }
     }
 
-    pending?.let { p ->
+    if (pending == CustomerAction.Strike) {
+        StrikeDialog(
+            orders = detail?.recentOrders?.map { it.code }.orEmpty(), busy = busy, onDismiss = { pending = null },
+            onSubmit = { note, orderCode ->
+                busy = true
+                scope.launch {
+                    val res = unwrap(app.repository.addStrike(id, note, orderCode), onMessage)
+                    busy = false
+                    pending = null
+                    if (res != null) onMessage("✅ Saqlandi.")
+                    load()
+                }
+            },
+        )
+    }
+
+    pending?.takeIf { it != CustomerAction.Strike }?.let { p ->
         NoteDialog(
             title = when (p) { CustomerAction.Strike -> "Strike berish"; CustomerAction.Block -> "Mijozni bloklash"; CustomerAction.Unblock -> "Blokdan chiqarish"; is CustomerAction.Revoke -> "Strikeni bekor qilish" },
             hint = when (p) {

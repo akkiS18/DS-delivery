@@ -74,7 +74,7 @@ interface AdminApi {
     @GET("api/v1/admin/payouts/{date}/{restaurantId}") suspend fun payoutDay(@Path("date") date: String, @Path("restaurantId") restaurantId: String): Response<PayoutDetailDto>
     @GET("api/v1/admin/customers") suspend fun customers(@Query("q") q: String?): Response<CustomersResponse>
     @GET("api/v1/admin/customers/{id}") suspend fun customer(@Path("id") id: String): Response<CustomerDetailDto>
-    @POST("api/v1/admin/customers/{id}/strikes") suspend fun addStrike(@Path("id") id: String, @Body body: NoteRequest): Response<StandingResponse>
+    @POST("api/v1/admin/customers/{id}/strikes") suspend fun addStrike(@Path("id") id: String, @Body body: StrikeRequest): Response<StandingResponse>
     @POST("api/v1/admin/customers/{id}/strikes/{strikeId}/revoke") suspend fun revokeStrike(@Path("id") id: String, @Path("strikeId") strikeId: String, @Body body: NoteRequest): Response<StandingResponse>
     @POST("api/v1/admin/customers/{id}/block") suspend fun blockCustomer(@Path("id") id: String, @Body body: NoteRequest): Response<StandingResponse>
     @POST("api/v1/admin/customers/{id}/unblock") suspend fun unblockCustomer(@Path("id") id: String, @Body body: NoteRequest): Response<StandingResponse>
@@ -216,7 +216,8 @@ class Repository(private val session: SessionStore) {
     suspend fun payoutDay(date: String, restaurantId: String): ApiResult<PayoutDetailDto> = call { api.payoutDay(date, restaurantId) }
     suspend fun customers(q: String?): ApiResult<CustomersResponse> = call { api.customers(q?.trim()?.ifEmpty { null }) }
     suspend fun customer(id: String): ApiResult<CustomerDetailDto> = call { api.customer(id) }
-    suspend fun addStrike(id: String, note: String): ApiResult<StandingResponse> = call { api.addStrike(id, NoteRequest(note.trim())) }
+    suspend fun addStrike(id: String, note: String, orderCode: String? = null): ApiResult<StandingResponse> =
+        call { api.addStrike(id, StrikeRequest(note.trim(), orderCode?.trim()?.ifEmpty { null })) }
     suspend fun revokeStrike(id: String, strikeId: String, note: String): ApiResult<StandingResponse> = call { api.revokeStrike(id, strikeId, NoteRequest(note.trim())) }
     suspend fun blockCustomer(id: String, note: String): ApiResult<StandingResponse> = call { api.blockCustomer(id, NoteRequest(note.trim())) }
     suspend fun unblockCustomer(id: String, note: String): ApiResult<StandingResponse> = call { api.unblockCustomer(id, NoteRequest(note.trim())) }

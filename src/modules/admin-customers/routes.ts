@@ -9,6 +9,7 @@ const idParams = z.object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/) }).str
 const strikeParams = z.object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/), strikeId: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/) }).strict();
 const searchQuery = z.object({ q: z.string().max(80).optional() }).strict();
 const noteSchema = z.object({ note: z.string().max(1000) }).strict();
+const strikeSchema = z.object({ note: z.string().max(1000), orderCode: z.string().max(20).optional() }).strict();
 
 const NOTE_INVALID = { error: 'NOTE_INVALID', message: 'Izoh 10–300 belgi bo‘lsin.' };
 
@@ -46,10 +47,12 @@ export async function adminCustomersRoutes(app: FastifyInstance): Promise<void> 
   app.post('/customers/:id/strikes', async (request, reply) => {
     const s = await requireAdminSession(request);
     const { id } = idParams.parse(request.params);
-    const body = noteSchema.parse(request.body);
+    const body = strikeSchema.parse(request.body);
     return guard(reply, async () => {
-      const r = await recordStrike({ customerId: id, source: 'ADMIN', reportedBy: s.telegramUserId, note: body.note });
+      const r = await recordStrike({ customerId: id, source: 'ADMIN', reportedBy: s.telegramUserId, note: body.note, orderCode: body.orderCode?.trim() || undefined });
       if (r.result === 'NOT_FOUND') return reply.code(404).send({ error: 'NOT_FOUND' });
+      if (r.result === 'ORDER_NOT_FOUND') return reply.code(400).send({ error: 'ORDER_INVALID', message: 'Bu buyurtma shu mijozniki emas yoki raqami noto‘g‘ri.' });
+      if (r.result === 'ALREADY_RECORDED') return reply.code(409).send({ error: 'ALREADY_STRUCK', message: 'Bu buyurtma uchun strike allaqachon berilgan.' });
       await notifyAdmins(`⚠️ Mijozga strike berildi (hozir ${r.standing.strikes} ta${r.standing.blocked ? ', BLOKLANDI' : r.standing.cashAllowed ? '' : ', naqd o‘chdi'}) — DS Admin ilovasi.`);
       return reply.code(201).send({ ok: true, strikeId: r.strikeId, standing: r.standing });
     });

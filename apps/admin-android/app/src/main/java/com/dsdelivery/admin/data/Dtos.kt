@@ -453,6 +453,8 @@ data class CustomerDetailDto(
     @SerializedName("strikeLines") val strikeLines: List<StrikeLineDto> = emptyList(), @SerializedName("recentOrders") val recentOrders: List<RecentOrderDto> = emptyList(),
 )
 data class NoteRequest(@SerializedName("note") val note: String)
+/** A strike may name the order the customer did not receive (the public order code); the server checks it is this customer's. */
+data class StrikeRequest(@SerializedName("note") val note: String, @SerializedName("orderCode") val orderCode: String? = null)
 data class StandingResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("standing") val standing: StandingDto)
 
 data class CountSumDto(@SerializedName("count") val count: Int, @SerializedName("amountSom") val amountSom: Long)
