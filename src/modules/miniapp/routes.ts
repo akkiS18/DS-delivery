@@ -16,6 +16,7 @@ import { addAppCustomerMessage } from '../support/conversation.js';
 import { createAppTicket } from '../support/service.js';
 import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
 import { readRestaurantImage } from '../restaurant/image.js';
+import { sendImage } from '../images/serve.js';
 import { readCategoryImage, readProductImage } from '../restaurant-catalog/images.js';
 import { ReservationError, customerReservationView, listCustomerReservations, loadCustomerReservation, placeReservation, reservationSchema } from '../reservations/service.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
@@ -222,25 +223,19 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   app.get<{ Params: { id: string } }>('/restaurants/:id/image', { config: { public: true } }, async (request, reply) => {
     const img = await readRestaurantImage(idParam.parse(request.params.id));
     if (!img) throw httpError(404, 'NOT_FOUND');
-    if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
-    return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)
-      .header('Cache-Control', 'public, max-age=2592000, immutable').send(img.data);
+    return sendImage(request, reply, img);
   });
   // A dish photo. Public for the same reason as the restaurant's: an <img> cannot send the auth header, and the URL carries ?v=<version>.
   app.get<{ Params: { id: string } }>('/products/:id/image', { config: { public: true } }, async (request, reply) => {
     const img = await readProductImage(idParam.parse(request.params.id));
     if (!img) throw httpError(404, 'NOT_FOUND');
-    if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
-    return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)
-      .header('Cache-Control', 'public, max-age=2592000, immutable').send(img.data);
+    return sendImage(request, reply, img);
   });
   // A category photo (the customer menu opens on a grid of categories). Public for the same reason as the dish photo.
   app.get<{ Params: { id: string } }>('/categories/:id/image', { config: { public: true } }, async (request, reply) => {
     const img = await readCategoryImage(idParam.parse(request.params.id));
     if (!img) throw httpError(404, 'NOT_FOUND');
-    if (request.headers['if-none-match'] === `"${img.sha256}"`) return reply.code(304).send();
-    return reply.header('Content-Type', img.mime).header('X-Content-Type-Options', 'nosniff').header('ETag', `"${img.sha256}"`)
-      .header('Cache-Control', 'public, max-age=2592000, immutable').send(img.data);
+    return sendImage(request, reply, img);
   });
   app.get<{ Params: { id: string } }>('/restaurants/:id/menu', async request => {
     const menu = await restaurantMenu(idParam.parse(request.params.id));

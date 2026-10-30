@@ -101,7 +101,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
         return (
           <div key={p.id} className={`card product ${p.isAvailable ? '' : 'muted'}`}>
             {p.imageUrl
-              ? <img className="img" src={mediaUrl(p.imageUrl) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              ? <img className="img" src={mediaUrl(p.imageUrl, 320) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               : <div className="img" aria-hidden><Icon as={UtensilsCrossed} size={30} /></div>}
             <div className="grow stack" style={{ gap: 4 }}>
               <div className="bold">{p.name}</div>

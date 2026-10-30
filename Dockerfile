@@ -39,6 +39,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates tini && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+# sharp (smaller photo copies) ships a prebuilt libvips as an optional package: this fails the image build, not the running server, if the Linux binary is missing.
+RUN node -e "const s = require('sharp'); s({ create: { width: 8, height: 8, channels: 3, background: '#fff' } }).jpeg().toBuffer().then(b => console.log('sharp works, jpeg bytes', b.length))"
 # The generated client + engine binary (npm ci --ignore-scripts did not generate it).
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 # npm installs the optional peers of @prisma/client (the Prisma CLI, typescript) even with --omit=dev. They are not needed to run the generated client

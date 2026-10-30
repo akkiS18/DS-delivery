@@ -45,6 +45,7 @@
     "test:acceptance": "node --import tsx --test src/modules/restaurant/acceptance.test.ts",
     "restaurant:create": "node --env-file=.env --import tsx src/tools/create-restaurant.ts",
     "restaurant:password": "node --env-file=.env --import tsx src/tools/set-restaurant-password.ts",
+    "test:images": "node --import tsx --test src/modules/images/variants.test.ts",
     "test:refunds": "node --import tsx --test src/modules/refunds/refund.test.ts src/modules/refunds/receipts.test.ts",
     "test:refunds:db": "node --env-file=.env --import tsx --test src/tests/refunds.db.test.ts",
     "test:finance": "node --import tsx --test src/modules/commission/commission.test.ts",
@@ -91,6 +92,7 @@
   "dependencies": {
     "@prisma/client": "6.18.0",
     "fastify": "^5.3.0",
+    "sharp": "^0.35.5",
     "telegraf": "^4.16.3",
     "telegram": "2.26.22",
     "zod": "^3.24.2"

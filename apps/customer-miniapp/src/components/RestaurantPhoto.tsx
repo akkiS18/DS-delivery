@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { apiOrigin } from '../lib/platform';
+import { apiOrigin, sizedUrl } from '../lib/platform';
 import { initials, nameHue } from '../lib/rating';
 
 /** The restaurant's photo, or (no photo / it failed to load) a coloured tile with its initials, so a card never looks broken. */
-export function RestaurantPhoto({ name, url, className = '' }: { name: string; url: string | null | undefined; className?: string }) {
+export function RestaurantPhoto({ name, url, className = '', width = 640 }: { name: string; url: string | null | undefined; className?: string; width?: number }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     const hue = nameHue(name);
@@ -13,5 +13,5 @@ export function RestaurantPhoto({ name, url, className = '' }: { name: string; u
       </div>
     );
   }
-  return <img className={`rphoto-img ${className}`} src={`${apiOrigin()}${url}`} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+  return <img className={`rphoto-img ${className}`} src={`${apiOrigin()}${sizedUrl(url, width)}`} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} />;
 }

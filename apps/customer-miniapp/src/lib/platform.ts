@@ -13,9 +13,18 @@ import { Capacitor } from '@capacitor/core';
 export const isAndroidApp: boolean = (typeof __DS_TARGET__ !== 'undefined' && __DS_TARGET__ === 'android') && Capacitor.isNativePlatform();
 
 /** A picture URL from the API. The restaurant's own uploads are relative (/api/v1/miniapp/...): in the APK they must go to the server, not to the app's local origin. */
-export function mediaUrl(url: string | null | undefined): string | null {
+export function mediaUrl(url: string | null | undefined, width?: number): string | null {
   if (!url) return null;
-  return url.startsWith('/') ? `${apiOrigin()}${url}` : url;
+  return url.startsWith('/') ? `${apiOrigin()}${sizedUrl(url, width)}` : url;
+}
+
+/**
+ * The restaurant's own uploads (/api/v1/miniapp/.../image?v=N) can be asked for a smaller copy with `&w=<pixels>`; the server picks the nearest
+ * allowed width (160/320/640/1024) and falls back to the original if a copy would not be smaller. A list card needs a few dozen KB, not the original.
+ */
+export function sizedUrl(url: string, width?: number): string {
+  if (!width || !url.startsWith('/api/v1/miniapp/') || !url.includes('/image')) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}w=${width}`;
 }
 
 /** Absolute API origin for the APK (set at build time, no trailing slash). The web build keeps same-origin relative URLs. */
