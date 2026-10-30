@@ -5,6 +5,7 @@ import {
   COMMISSION_RULE_CODE, DELIVERY_CONFIRMATION_IMPLEMENTED, REPORT_TZ_OFFSET, commissionFlatSom, isRefundUnresolved,
   parseReportRange, refundAmountTiyin, refundStage, summarizeRefunds, tiyinToSom, type RefundTotals,
 } from '../commission/rules.js';
+import { NOT_PLATFORM_COLLECTED, PLATFORM_COLLECTED } from '../commission/settlement.js';
 
 export class FinanceError extends Error {
   constructor(readonly statusCode: number, code: string) { super(code); }
@@ -34,7 +35,7 @@ export interface PageQuery { limit: number; cursor?: string }
 export async function financeSummary(restaurantId: string, q: { from?: string; to?: string }) {
   const { from, to } = range(q);
   const orderWhere: Prisma.OrderWhereInput = { restaurantId, paymentIsTest: false, createdAt: { gte: from, lt: to } };
-  const [orderGroups, payGroups, refundRows, openRefunds, accruedPeriod, outstanding, missing, withRefund] = await Promise.all([
+  const [orderGroups, payGroups, refundRows, openRefunds, accruedPeriod, outstanding, missing, withRefund, netted] = await Promise.all([
     db.order.groupBy({ by: ['status'], where: orderWhere, _count: { _all: true }, _sum: { totalSom: true } }),
     db.payment.groupBy({ by: ['status'], where: { isTest: false, order: { is: orderWhere } }, _count: { _all: true }, _sum: { amountTiyin: true } }),
     db.refundRequest.findMany({
@@ -46,9 +47,11 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
       select: { status: true, confirmedByType: true, paidAmountTiyin: true, approvedAmountTiyin: true },
     }),
     db.commissionEntry.aggregate({ where: { restaurantId, accruedAt: { gte: from, lt: to } }, _count: { _all: true }, _sum: { amountSom: true } }),
-    db.commissionEntry.aggregate({ where: { restaurantId }, _count: { _all: true }, _sum: { amountSom: true } }),
+    // What the restaurant itself still owes: orders paid onto the platform's card are netted by the platform in the daily payout, never billed to the restaurant.
+    db.commissionEntry.aggregate({ where: { restaurantId, ...NOT_PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
     db.order.count({ where: { restaurantId, paymentIsTest: false, status: 'COMPLETED', commission: null, payment: { is: { status: { in: ['CONFIRMED_MANUAL', 'CASH_ACCEPTED'] }, isTest: false } } } }),
     db.commissionEntry.count({ where: { restaurantId, order: { refundRequests: { some: { status: { not: 'REJECTED' } } } } } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
   ]);
 
   const orders = { completed: { count: 0, totalSom: 0 }, cancelled: { count: 0, totalSom: 0 }, inProgress: { count: 0, totalSom: 0 } };
@@ -98,6 +101,8 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
       accruedInPeriod: { count: accruedPeriod._count._all, som: accruedPeriod._sum.amountSom ?? 0 },
       // All-time, not limited to the period. Nothing is collected automatically and settlements are not recorded yet.
       outstandingLiability: { count: outstanding._count._all, som: outstanding._sum.amountSom ?? 0 },
+      // All-time commission on orders the platform collected: already deducted from the restaurant's payout, so it is not in outstandingLiability.
+      nettedByPlatform: { count: netted._count._all, som: netted._sum.amountSom ?? 0 },
       settlementTracking: 'NOT_IMPLEMENTED',
     },
     unresolved: {
@@ -151,18 +156,19 @@ export async function financeOrders(restaurantId: string, q: { from?: string; to
 export async function financeCommissions(restaurantId: string, q: { from?: string; to?: string } & PageQuery) {
   const { from, to } = range(q);
   const where: Prisma.CommissionEntryWhereInput = { restaurantId, accruedAt: { gte: from, lt: to } };
-  const [rows, periodTotal, outstanding] = await Promise.all([
+  const [rows, periodTotal, outstanding, netted] = await Promise.all([
     db.commissionEntry.findMany({
       where: { ...where, ...(q.cursor ? beforeCursor('accruedAt', q.cursor) : {}) },
       orderBy: [{ accruedAt: 'desc' }, { id: 'desc' }], take: q.limit + 1,
       select: {
-        id: true, amountSom: true, orderTotalSom: true, ruleCode: true, accruedAt: true, order: {
+        id: true, amountSom: true, orderTotalSom: true, ruleCode: true, accruedAt: true, payment: { select: { method: true, card: { select: { restaurantId: true } } } }, order: {
           select: { code: true, refundRequests: { orderBy: { requestedAt: 'desc' }, take: 1, select: { status: true, confirmedByType: true } } },
         },
       },
     }),
     db.commissionEntry.aggregate({ where, _count: { _all: true }, _sum: { amountSom: true } }),
-    db.commissionEntry.aggregate({ where: { restaurantId }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, ...NOT_PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
   ]);
   const page = rows.slice(0, q.limit);
   return {
@@ -172,6 +178,8 @@ export async function financeCommissions(restaurantId: string, q: { from?: strin
       return {
         orderCode: e.order.code, orderTotalSom: e.orderTotalSom, amountSom: e.amountSom, ruleCode: e.ruleCode,
         accruedAt: iso(e.accruedAt),
+        // The platform collected this order's money and deducts the commission from the restaurant's payout: nothing for the restaurant to pay.
+        nettedByPlatform: e.payment?.method === 'CARD' && e.payment.card?.restaurantId === null,
         // No automatic reversal: an order with a refund after accrual is only flagged for a human/policy decision.
         refund: refund ? { stage: refundStage(refund.status, refund.confirmedByType) } : null,
         needsPolicyReview: !!refund && refund.status !== 'REJECTED',
@@ -180,6 +188,7 @@ export async function financeCommissions(restaurantId: string, q: { from?: strin
     nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.accruedAt, page[page.length - 1]!.id) : null,
     totalInPeriod: { count: periodTotal._count._all, som: periodTotal._sum.amountSom ?? 0 },
     outstandingLiability: { count: outstanding._count._all, som: outstanding._sum.amountSom ?? 0 },
+    nettedByPlatform: { count: netted._count._all, som: netted._sum.amountSom ?? 0 },
     settlementTracking: 'NOT_IMPLEMENTED',
   };
 }

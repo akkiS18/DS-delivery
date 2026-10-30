@@ -7,9 +7,8 @@ import { isSupportAdmin } from '../support/service.js';
  * daily payout report (admin-payouts). Billing it again in the weekly statement would charge the restaurant twice. Cash and own-card orders
  * (the restaurant holds the money) stay in the weekly statement exactly as before.
  */
-export const NOT_PLATFORM_COLLECTED: Prisma.CommissionEntryWhereInput = {
-  NOT: { payment: { is: { method: 'CARD', card: { is: { restaurantId: null } } } } },
-};
+export const PLATFORM_COLLECTED: Prisma.CommissionEntryWhereInput = { payment: { is: { method: 'CARD', card: { is: { restaurantId: null } } } } };
+export const NOT_PLATFORM_COLLECTED: Prisma.CommissionEntryWhereInput = { NOT: PLATFORM_COLLECTED };
 
 /**
  * Stage 8C: weekly commission settlement (docs/ROADMAP.html: week = Monday 00:00 to the next Monday 00:00, Asia/Tashkent; an open support

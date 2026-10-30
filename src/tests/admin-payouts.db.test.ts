@@ -8,6 +8,7 @@ import { hashToken } from '../modules/admin-auth/service.js';
 import { accrueCommissionTx } from '../modules/commission/ledger.js';
 import { commissionStatements, settleRestaurant } from '../modules/commission/settlement.js';
 import { dateKey, dayStart } from '../modules/admin-payouts/service.js';
+import { financeCommissions, financeSummary } from '../modules/restaurant-finance/service.js';
 
 // DS Admin A5a (daily payout report). Needs a *_test database (the repo's DB guard). Orders are built directly (no Telegram, no money).
 // Every row it makes is removed again; the audit table is append-only (rows stay under a unique actor id).
@@ -245,4 +246,18 @@ test('the weekly commission statement skips platform-collected orders, so nothin
   const r = await settleRestaurant({ restaurantId: ids.pool, adminId, expectedCount: 1, expectedSom: 5_000, note: 'Naqd buyurtma komissiyasi bankda tekshirildi' }, later);
   assert.equal(r.result, 'SETTLED');
   assert.equal(await db.commissionEntry.count({ where: { restaurantId: ids.pool, settlement: null } }), 3, 'the three platform-collected entries stay unsettled (netted in the payout)');
+});
+
+test('the restaurant\'s own finance screen: commission the platform netted is not "unpaid"; own-card and cash commission still is', async () => {
+  const pool = await financeSummary(ids.pool, {});
+  assert.equal(pool.commission.accruedInPeriod.count, 4, 'every accrual is still listed');
+  assert.deepEqual(pool.commission.outstandingLiability, { count: 1, som: 5_000 }, 'only the cash order\'s commission is owed by the restaurant');
+  assert.deepEqual(pool.commission.nettedByPlatform, { count: 3, som: 15_000 });
+  const list = await financeCommissions(ids.pool, { limit: 20 });
+  assert.equal(list.items.filter(i => i.nettedByPlatform).length, 3);
+  assert.deepEqual(list.outstandingLiability, { count: 1, som: 5_000 });
+  assert.deepEqual(list.nettedByPlatform, { count: 3, som: 15_000 });
+  const own = await financeSummary(ids.own, {});
+  assert.deepEqual(own.commission.outstandingLiability, { count: 1, som: 5_000 }, 'a restaurant that holds its own money is unchanged');
+  assert.deepEqual(own.commission.nettedByPlatform, { count: 0, som: 0 });
 });
