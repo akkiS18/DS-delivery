@@ -21,9 +21,9 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * The alarm: a short car-horn "pip-piiip" that repeats every couple of seconds until the request is answered.
- * The sound is generated here (no audio file) and played on the ALARM volume, so the phone's ringer/media volume and silent mode do not
- * mute it. Safe to call from any thread.
+ * The alarm: a LOUD, piercing "bi-bi-bi" that repeats until the request is answered. A dispatch office is noisy, so it is built to cut through:
+ * full-scale square-wave beeps at 2.0 / 2.8 kHz (the range a phone speaker plays loudest). Generated here (no audio file), played on the
+ * ALARM stream (silent mode does not mute it), and the alarm volume is raised to the maximum whenever it rings. Safe to call from any thread.
  */
 class AlarmPlayer(private val context: Context) {
 
@@ -46,7 +46,14 @@ class AlarmPlayer(private val context: Context) {
 
     /** One horn, for the "Ovozni sinash" button. */
     fun beepOnce() {
+        raiseToMaxVolume()
         scope.launch { playHorn() }
+    }
+
+    /** The alarm stream goes to the maximum while the alarm rings (and for the test button): a quiet alarm is a missed request. */
+    private fun raiseToMaxVolume() {
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+        if (audio.getStreamVolume(AudioManager.STREAM_ALARM) < max) runCatching { audio.setStreamVolume(AudioManager.STREAM_ALARM, max, 0) }
     }
 
     /** Alarm volume 0..1 (0 = muted: the operator would not hear a thing). */
@@ -66,6 +73,7 @@ class AlarmPlayer(private val context: Context) {
         loop = scope.launch {
             requestFocus()
             while (isActive && wanted) {
+                raiseToMaxVolume() // somebody may have turned it down again since the last ring
                 playHorn()
                 vibrate()
                 delay(REPEAT_MS)
@@ -128,30 +136,35 @@ class AlarmPlayer(private val context: Context) {
     private fun vibrate() {
         val v = vibrator() ?: return
         if (!v.hasVibrator()) return
-        runCatching { v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 180, 90, 380), -1)) }
+        runCatching { v.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 120, 300, 120, 300), -1)) }
     }
 
     companion object {
-        private const val SAMPLE_RATE = 22_050
-        const val REPEAT_MS = 2_600L
-        /** Two short blasts: ~0.2 s, a tiny gap, ~0.45 s. */
-        private const val HORN_MS = 900
+        private const val SAMPLE_RATE = 44_100
+        /** Short pause between rings: a request must not be missed, so the alarm stays insistent until it is answered. */
+        const val REPEAT_MS = 800L
+        /** Two bursts of five beeps (see [hornPcm]) = about 2.2 s of sound. */
+        private const val HORN_MS = 2_200
 
-        /** Two detuned tones (like a two-note car horn) with a hard attack and a short release, so it is loud and unmistakable. */
+        /**
+         * Five beeps alternating 2.0 kHz / 2.8 kHz (130 ms each, 70 ms apart), a short pause, and the five again. Square waves at full scale carry
+         * about twice the power of a sine of the same height; the 3 ms ramps only stop the click. The player sets the phone's ALARM volume to the
+         * maximum, so after that the phone's speaker is the limit.
+         */
         internal fun hornPcm(): ShortArray {
-            fun blast(ms: Int): FloatArray {
+            fun beep(hz: Double, ms: Int): FloatArray {
                 val n = SAMPLE_RATE * ms / 1000
+                val ramp = SAMPLE_RATE * 0.003
                 return FloatArray(n) { i ->
-                    val t = i.toDouble() / SAMPLE_RATE
-                    val tone = sin(2 * PI * 420 * t) + sin(2 * PI * 520 * t) + 0.35 * sin(2 * PI * 840 * t)
-                    val attack = minOf(1.0, i / (SAMPLE_RATE * 0.004))
-                    val release = minOf(1.0, (n - i) / (SAMPLE_RATE * 0.03))
-                    (tone / 2.35 * attack * release).toFloat()
+                    val square = if (sin(2 * PI * hz * i / SAMPLE_RATE) >= 0.0) 1.0 else -1.0
+                    (square * minOf(1.0, i / ramp, (n - i) / ramp)).toFloat()
                 }
             }
-            val gap = FloatArray(SAMPLE_RATE * 90 / 1000)
-            val all = blast(200) + gap + blast(450)
-            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.95f * Short.MAX_VALUE).toInt().toShort() }
+            val gap = FloatArray(SAMPLE_RATE * 70 / 1000)
+            var burst = FloatArray(0)
+            for (k in 0 until 5) burst += beep(if (k % 2 == 0) 2000.0 else 2800.0, 130) + gap
+            val all = burst + FloatArray(SAMPLE_RATE * 150 / 1000) + burst
+            return ShortArray(all.size) { (all[it].coerceIn(-1f, 1f) * 0.98f * Short.MAX_VALUE).toInt().toShort() }
         }
     }
 }
