@@ -149,6 +149,14 @@ export function paymentInstructionsOf(pay: { status: string; expiresAt: Date | n
   };
 }
 
+/** LINE_5000 = charged 5 000 on top of the items; LINE_FREE_5000 = the same line shown crossed out and not charged. */
+export function platformLineOf(ruleCode: string | null, serviceFeeSom: number | null): { chargedSom: number; waivedSom: number } | null {
+  const m = ruleCode ? /^LINE(_FREE)?_(\d{4,5})$/.exec(ruleCode) : null;
+  if (!m) return null;
+  const som = Number(m[2]);
+  return m[1] ? { chargedSom: 0, waivedSom: som } : { chargedSom: serviceFeeSom ?? som, waivedSom: 0 };
+}
+
 export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const pay = o.payment;
   const taxi = o.taxiDispatches[0];
@@ -158,11 +166,14 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const refund = o.refundRequests[0] ?? null;
   const openRefund = refund !== null && OPEN_REFUND.includes(refund.status);
   const cash = pay?.method === 'CASH';
-  // Cash: the customer can withdraw while the restaurant has not accepted; afterwards only the restaurant cancels (nothing was paid, so there is no refund to request).
+  // The restaurant's one-tap "Qabul qildim" (prepChosenMinutes) is its acceptance of a paid card order; for cash it is the cash accept.
+  // Owner decision 2026-10-31: the customer can cancel only until the restaurant accepted; afterwards a serious reason is a phone call (no button).
+  const accepted = cash ? pay?.status === 'CASH_ACCEPTED' : o.prepChosenMinutes !== null;
+  const awaitingRestaurant = !cash && ['PAYMENT_CONFIRMED', 'PREPARING'].includes(o.status) && !accepted;
   const cancel: 'UNPAID' | 'REFUND_REQUEST' | null = openRefund ? null
     : o.status === 'PAYMENT_PENDING' ? 'UNPAID'
     : cash ? null
-    : ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(o.status) ? 'REFUND_REQUEST' : null;
+    : !accepted && ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(o.status) ? 'REFUND_REQUEST' : null;
 
   // Rating the food: offered on the delivered order's card for 24 h after the delivery (nothing is asked at "Ha, oldim").
   const rate = ratingWindow({ stage, deliveredAt, receivedAt: o.customerReceivedAt, completedAt: o.updatedAt }, now);
@@ -178,6 +189,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     items: o.items,
     // Food and delivery are separate. Delivery is priced by the taxi service; the platform never states an amount.
     foodTotalSom: o.totalSom,
+    /** The separate "Platforma xizmati" line (LINE fee mode): what was charged on top of the items, or what was crossed out as a discount. null for every other order. */
+    platformLine: platformLineOf(o.feeRuleCode ?? null, o.serviceFeeSom ?? null),
     delivery: { feeSom: null, note: 'TAXI_TARIFF' as const },
     address: o.addressText, phone: o.phoneSnapshot,
     isTest: o.paymentIsTest,
@@ -203,6 +216,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     // When the payment was confirmed: the app uses it to announce "to‘lov qabul qilindi" once, right after it happens.
     paidAt: o.paymentVerifiedAt?.toISOString() ?? null,
     cancel: { allowed: cancel !== null, kind: cancel },
+    /** Paid, but the restaurant has not tapped "Qabul qildim" yet: the screen says so and the customer can still cancel. */
+    awaitingRestaurant,
+    restaurantAccepted: accepted,
     refund: refund ? { status: refund.status, hasReceipt: refund.receiptKey !== null } : null,
     rating: o.rating ? { stars: o.rating.stars, reasons: o.rating.reasons, note: o.rating.note } : null,
     canRate: rate.canRate,

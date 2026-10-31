@@ -1,7 +1,7 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
-import { cashEnabled, cashMaxOrderSom, setCashEnabled } from '../modules/payment/method.js';
+import { cashEnabled, loadCashMaxOrderSom, setCashEnabled } from '../modules/payment/method.js';
 import { loadTaxiMode, setTaxiMode, type TaxiDispatchMode } from '../modules/taxi/mode.js';
 import { loadFeeConfig, setFeeMode } from '../modules/pricing/config.js';
 import { type FeeConfig, type FeeMode } from '../modules/pricing/fee.js';
@@ -33,7 +33,7 @@ export async function renderPayments(): Promise<{ text: string; keyboard: Return
 }
 
 const FEE_LABEL: Record<FeeMode, string> = {
-  FLAT: 'Tekis 5 000 (restorandan)', PERCENT: 'Foiz', TIERED: 'Pog‘onali (50 000 gacha 10%, keyin 3%)',
+  FLAT: 'Tekis 5 000 (restorandan)', PERCENT: 'Foiz', TIERED: 'Pog‘onali (50 000 gacha 10%, keyin 3%)', LINE: 'Alohida qator (mijozdan)',
 };
 export async function renderFee(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
   const c: FeeConfig = await loadFeeConfig();
@@ -59,7 +59,7 @@ export async function renderCash(): Promise<{ text: string; keyboard: ReturnType
     '💵 <b>Naqd to‘lov</b>',
     on ? '🟢 <b>YOQILGAN</b>: mijoz naqd to‘lashni tanlay oladi.' : '🔴 <b>O‘CHIRILGAN</b>: yangi naqd buyurtma olinmaydi.',
     '',
-    `Naqd buyurtmani restoran qabul qiladi, taksi operatori summani ko‘radi va pulli haydovchi yuboradi. Eng ko‘p summa: ${cashMaxOrderSom().toLocaleString('en-US').replace(/,/g, ' ')} so‘m.`,
+    `Naqd buyurtmani restoran qabul qiladi, taksi operatori summani ko‘radi va pulli haydovchi yuboradi. Eng ko‘p summa: ${(await loadCashMaxOrderSom()).toLocaleString('en-US').replace(/,/g, ' ')} so‘m.`,
     'O‘chirsangiz ham, allaqachon berilgan naqd buyurtmalar davom etadi.',
   ].join('\n');
   return { text, keyboard: Markup.inlineKeyboard([[on ? Markup.button.callback('⛔ O‘chirish', 'cash:set:0') : Markup.button.callback('▶️ Yoqish', 'cash:set:1')]]) };

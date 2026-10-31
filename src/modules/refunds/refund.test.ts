@@ -33,7 +33,10 @@ test('cancellation plan: waiting, unpaid, refund and denied paths', () => {
   assert.deepEqual(cancellationPlan('PAYMENT_PENDING', 'CUSTOMER'), { kind: 'UNPAID' });
   for (const s of ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING']) {
     assert.deepEqual(cancellationPlan(s, 'CUSTOMER'), { kind: 'REFUND', viaRequest: true }, s);
+    // owner decision 2026-10-31: once the restaurant accepted, the customer has no cancel path at all (the restaurant still can)
+    assert.deepEqual(cancellationPlan(s, 'CUSTOMER', true), { kind: 'DENIED', reason: 'ACCEPTED' }, s);
   }
+  assert.deepEqual(cancellationPlan('PREPARING', 'RESTAURANT_STAFF', true), { kind: 'REFUND', viaRequest: false });
   for (const s of ['READY', 'CANCELLATION_REQUESTED', 'CANCELLED', 'COMPLETED', 'DELIVERY_ASSUMED', 'PAYMENT_EXPIRED', 'FAILED', 'RESTAURANT_REJECTED']) {
     assert.equal(cancellationPlan(s, 'CUSTOMER').kind, 'DENIED', s);
   }

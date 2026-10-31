@@ -50,7 +50,7 @@ before(async () => {
   await db.$connect();
   const [{ name }] = await db.$queryRaw<{ name: string }[]>`select current_database() as name`;
   assert.match(name, /test/i, `refusing to run against database "${name}"`);
-  restaurantId = (await db.restaurant.create({ data: { slug: `sd-${nonce}`, name: `SD ${nonce}`, pickupAddress: 'P' } })).id;
+  restaurantId = (await db.restaurant.create({ data: { slug: `sd-${nonce}`, name: `SD ${nonce}`, pickupAddress: 'P', walkingDeliveryEnabled: true } })).id;
   otherRestaurantId = (await db.restaurant.create({ data: { slug: `sd2-${nonce}`, name: `SD2 ${nonce}`, pickupAddress: 'P' } })).id;
   taxiId = (await db.taxiCompany.create({ data: { name: `SD Taxi ${randomUUID()}`, operatorTelegramUserId: operatorTg, isActive: true } })).id;
   for (;;) { last4 = String(randomInt(1000, 10000)); if (!(await db.card.findUnique({ where: { last4 } }))) break; }

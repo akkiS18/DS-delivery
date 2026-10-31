@@ -15,6 +15,8 @@ model Restaurant {
   isPaused            Boolean               @default(false)
   /// Paid on the platform's own card pool (Card.restaurantId = null) instead of cards of its own (owner decision 2026-10-30).
   collectsToPlatform  Boolean               @default(false)
+  /// "Yaqin, piyoda mumkin" is offered to customers only where this is on (owner decision 2026-10-31: Sifat Food only).
+  walkingDeliveryEnabled Boolean            @default(false)
   defaultPrepMinutes  Int                   @default(25)
   /// Table reservations (off until the restaurant switches them on): the deposit is paid to the restaurant's card.
   reservationsEnabled   Boolean             @default(false)

@@ -97,3 +97,22 @@ test('progress stations and the public config', () => {
   assert.equal(feeRuleCode(TIERED), 'TIERED_50000_1000_300');
   assert.equal(feeRuleCode(fx.percent), 'PERCENT_800');
 });
+
+test('LINE: dish prices stay the menu prices, the platform line is added to the total; waived = nothing added; the public config carries the line', () => {
+  const line = { ...DEFAULT_FEE_CONFIG, mode: 'LINE' as const, lineSom: 5000, lineWaived: false };
+  const r = priceBasket([{ baseUnitSom: 12_345, quantity: 3 }, { baseUnitSom: 999, quantity: 1 }], line);
+  assert.deepEqual(r.lines.map(l => l.unitSom), [12_345, 999]);
+  assert.equal(r.baseTotalSom, 38_034);
+  assert.equal(r.totalSom, 43_034);
+  assert.equal(r.feeSom, 5000);
+  assert.equal(feeRuleCode(line), 'LINE_5000');
+  assert.deepEqual([publicPricing(line).lineSom, publicPricing(line).lineWaived], [5000, false]);
+
+  const waived = { ...line, lineWaived: true };
+  const w = priceBasket([{ baseUnitSom: 12_345, quantity: 3 }], waived);
+  assert.equal(w.totalSom, 37_035);
+  assert.equal(w.feeSom, 0);
+  assert.equal(feeRuleCode(waived), 'LINE_FREE_5000');
+  assert.equal(publicPricing(waived).lineWaived, true);
+  assert.equal('lineSom' in publicPricing(DEFAULT_FEE_CONFIG), false, 'other modes publish no line');
+});

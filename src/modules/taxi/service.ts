@@ -175,6 +175,40 @@ export async function respondToTaxi(input: {
   });
 }
 
+/** Owner decision 2026-10-31: a driver was sent and the operator never pressed "Yetkazildi": after this many minutes the order closes by itself. 0 = off. */
+export function autoDeliverMinutes(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.TAXI_AUTO_DELIVER_MINUTES?.trim();
+  if (raw === undefined || raw === '') return 20;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 && n <= 600 ? n : 20;
+}
+
+/**
+ * Sweep: closes orders whose driver was sent (dispatch ASSIGNED, order READY) more than `autoDeliverMinutes()` ago. Each order goes through the same
+ * completeDelivery transaction as a human confirmation (same checks, commission once), written as DELIVERY_AUTO_ASSUMED so it is never mistaken for a
+ * confirmed delivery. A refusal (refund open, cancellation, payment not cleared) leaves the order untouched for the admin's "not delivered" alert.
+ */
+export async function autoCompleteDeliveries(opts: { now?: Date; limit?: number; onlyOrderId?: string } = {}): Promise<string[]> {
+  const minutes = autoDeliverMinutes();
+  if (minutes <= 0) return [];
+  const cutoff = new Date((opts.now ?? new Date()).getTime() - minutes * 60_000);
+  const due = await db.taxiDispatch.findMany({
+    where: { status: 'ASSIGNED', dispatchedAt: { lte: cutoff }, order: { status: 'READY', createdViaBot: true, ...(opts.onlyOrderId ? { id: opts.onlyOrderId } : {}) } },
+    orderBy: { dispatchedAt: 'asc' }, take: opts.limit ?? 25, select: { id: true },
+  });
+  const done: string[] = [];
+  for (const d of due) {
+    try {
+      const r = await completeDelivery({ actorTelegramId: 'SYSTEM:auto-delivery', dispatchId: d.id, auto: { afterMinutes: minutes } });
+      if (r.changed) done.push(d.id);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      if (!['TAKSI_SOROVI_ESKIRGAN', 'BUYURTMA_BEKOR_QILINGAN', 'QAYTARISH_JARAYONIDA', 'TOLOV_TASDIQLANMAGAN', 'BUYURTMA_HALI_TAYYOR_EMAS'].includes(code)) console.error('[AUTO DELIVERY]', d.id, code);
+    }
+  }
+  return done;
+}
+
 export type DeliveryResult =
   | { changed: true; orderNumber: number; orderCode: string; commission: AccrueResult }
   | { changed: false; orderNumber: number; orderCode: string; reason: 'ALREADY_DELIVERED' };
@@ -187,7 +221,7 @@ export type DeliveryResult =
  * Errors: TAKSI_SOROVI_TOPILMADI, TAKSI_OPERATOR_RUXSAT_YOQ (also for another company's operator),
  * TAKSI_HALI_YUBORILMAGAN, BUYURTMA_HALI_TAYYOR_EMAS, BUYURTMA_BEKOR_QILINGAN, QAYTARISH_JARAYONIDA, TOLOV_TASDIQLANMAGAN.
  */
-export async function completeDelivery(input: { actorTelegramId: string; actorCompanyId?: string; dispatchId: string }): Promise<DeliveryResult> {
+export async function completeDelivery(input: { actorTelegramId: string; actorCompanyId?: string; dispatchId: string; auto?: { afterMinutes: number } }): Promise<DeliveryResult> {
   return db.$transaction(async tx => {
     const candidate = await tx.taxiDispatch.findUnique({ where: { id: input.dispatchId }, select: { orderId: true } });
     if (!candidate) throw new Error('TAKSI_SOROVI_TOPILMADI');
@@ -199,8 +233,10 @@ export async function completeDelivery(input: { actorTelegramId: string; actorCo
         order: { include: { payment: { select: { status: true, isTest: true } }, refundRequests: { select: { status: true } } } },
       },
     });
-    if (!dispatch || !isCompanyActor(dispatch, input)) throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
+    // The automatic path (owner decision 2026-10-31) is the system acting after the driver was sent; it needs no operator identity, only the elapsed time re-checked here.
+    if (!dispatch || (input.auto ? false : !isCompanyActor(dispatch, input))) throw new Error('TAKSI_OPERATOR_RUXSAT_YOQ');
     const order = dispatch.order;
+    if (input.auto && dispatch.status === 'ASSIGNED' && !(dispatch.dispatchedAt && dispatch.dispatchedAt.getTime() <= Date.now() - input.auto.afterMinutes * 60_000)) throw new Error('TAKSI_SOROVI_ESKIRGAN');
     if (dispatch.status === 'DELIVERED') return { changed: false, orderNumber: order.number, orderCode: order.code, reason: 'ALREADY_DELIVERED' };
     if (dispatch.status !== 'ASSIGNED') throw new Error('TAKSI_HALI_YUBORILMAGAN');
     if (['CANCELLATION_REQUESTED', 'CANCELLED', 'CUSTOMER_CANCELLED'].includes(order.status)) throw new Error('BUYURTMA_BEKOR_QILINGAN');
@@ -215,10 +251,12 @@ export async function completeDelivery(input: { actorTelegramId: string; actorCo
     const done = await tx.order.updateMany({ where: { id: order.id, status: 'READY' }, data: { status: 'COMPLETED' } });
     if (moved.count !== 1 || done.count !== 1) throw new Error('TAKSI_SOROVI_ESKIRGAN');
     await tx.orderEvent.create({ data: {
-      orderId: order.id, actorTelegramId: input.actorTelegramId, actorType: 'TAXI_OPERATOR', action: 'DELIVERY_CONFIRMED',
+      orderId: order.id, actorTelegramId: input.actorTelegramId, actorType: input.auto ? 'SYSTEM' : 'TAXI_OPERATOR',
+      // An ASSUMED delivery is labelled as such in the audit trail: nobody confirmed it, the driver was sent and the operator stayed silent.
+      action: input.auto ? 'DELIVERY_AUTO_ASSUMED' : 'DELIVERY_CONFIRMED',
       fromStatus: 'READY', toStatus: 'COMPLETED',
       details: { companyId: dispatch.taxiCompanyId, companyName: dispatch.taxiCompany.name, dispatchId: dispatch.id, attemptNo: dispatch.attemptNo,
-        confirmedAt: now.toISOString(), mock: order.paymentIsTest },
+        confirmedAt: now.toISOString(), mock: order.paymentIsTest, ...(input.auto ? { assumed: true, afterMinutes: input.auto.afterMinutes, dispatchedAt: dispatch.dispatchedAt?.toISOString() ?? null } : {}) },
     } });
     const commission = await accrueCommissionTx(tx, order.id, { id: 'delivery-confirmation', type: 'SYSTEM' });
     return { changed: true, orderNumber: order.number, orderCode: order.code, commission };

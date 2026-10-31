@@ -400,6 +400,8 @@ export async function performOrderAction(
       if (r.result === 'EXPIRED') return stale('TIMED_OUT');
       if (r.result === 'STALE') return stale();
       autoStart = await autoStartPreparing({ actorRestaurantId: restaurantId }, orderId);
+      // The accept tap IS the kitchen's acknowledgement: no second "Qabul qildim" for a cash order (it also stops the bell).
+      if (autoStart.started) await setPrepTime(restaurantId, orderId, undefined).catch(() => undefined);
     } else if (action === 'REJECT' && cash) {
       if ((await rejectCashOrder({ ...actor, reason: args.reason as (typeof REJECT_REASONS)[number] })).result !== 'DONE') return stale();
     } else if (action === 'CANCEL_ORDER' && cash) {

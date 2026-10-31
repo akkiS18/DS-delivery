@@ -125,7 +125,7 @@ test('cash: switch off and on, a second tap changes nothing, each change is audi
 test('fee: modes, percent range and precision, unchanged is a no-op', async () => {
   const pct = await api('PUT', '/settings/fee', { mode: 'PERCENT', percent: 8 });
   assert.equal(pct.json().result, 'CHANGED');
-  assert.deepEqual(pct.json().settings.fee, { mode: 'PERCENT', percentBp: 800 });
+  assert.deepEqual([pct.json().settings.fee.mode, pct.json().settings.fee.percentBp], ['PERCENT', 800]);
   assert.equal((await api('PUT', '/settings/fee', { mode: 'PERCENT', percent: 8 })).json().result, 'UNCHANGED');
   assert.equal((await api('PUT', '/settings/fee', { mode: 'PERCENT', percent: 7.25 })).json().settings.fee.percentBp, 725);
   for (const bad of [{ mode: 'PERCENT', percent: 0.5 }, { mode: 'PERCENT', percent: 26 }, { mode: 'PERCENT', percent: 8.123 }, { mode: 'BOGUS' }, { mode: 'PERCENT', percent: '8' }]) {
@@ -201,4 +201,24 @@ test('commission: statement lists the running week, settling needs a real note a
   assert.equal(await db.commissionSettlement.count({ where: { restaurantId: ids.restaurant } }), 0, 'nothing was recorded');
   assert.equal((await api('POST', `/commission/${ids.restaurant}/settle`, { expectedCount: 0, expectedSom: 1, note: 'x'.repeat(20) })).statusCode, 400);
   assert.equal((await api('POST', `/commission/${ids.restaurant}/settle`, { expectedCount: 1, expectedSom: 1, note: 'x'.repeat(20), extra: 1 })).statusCode, 400);
+});
+
+test('fee LINE and the cash cap: set from the admin app, validated, and shown in the settings snapshot', async () => {
+  const before = (await settings()).cash.maxOrderSom;
+  const line = await api('PUT', '/settings/fee', { mode: 'LINE', lineSom: 5000, lineWaived: true });
+  assert.equal(line.statusCode, 200);
+  assert.deepEqual(line.json().settings.fee, { mode: 'LINE', percentBp: line.json().settings.fee.percentBp, lineSom: 5000, lineWaived: true });
+  for (const bad of [{ mode: 'LINE', lineSom: 10 }, { mode: 'LINE', lineSom: 60000 }, { mode: 'LINE', lineSom: 5000.5 }, { mode: 'LINE', lineWaived: 'yes' }]) {
+    assert.equal((await api('PUT', '/settings/fee', bad)).statusCode, 400, JSON.stringify(bad));
+  }
+  const cash = await api('PUT', '/settings/cash-max', { maxOrderSom: 450_000 });
+  assert.equal(cash.statusCode, 200);
+  assert.equal(cash.json().settings.cash.maxOrderSom, 450_000);
+  assert.equal((await settings()).cash.maxOrderSom, 450_000);
+  for (const bad of [{ maxOrderSom: 5 }, { maxOrderSom: 1e12 }, { maxOrderSom: '500000' }, { maxOrderSom: 500_000, extra: 1 }, {}]) {
+    assert.equal((await api('PUT', '/settings/cash-max', bad)).statusCode, 400, JSON.stringify(bad));
+  }
+  assert.equal((await settings()).cash.maxOrderSom, 450_000, 'refused calls change nothing');
+  await api('PUT', '/settings/cash-max', { maxOrderSom: before });
+  await api('PUT', '/settings/fee', { mode: 'FLAT', lineWaived: false });
 });

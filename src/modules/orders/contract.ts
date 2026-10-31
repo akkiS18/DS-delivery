@@ -56,7 +56,7 @@ export const checkoutRequestSchema = z.object({
 export const customerCancelRequestSchema = z.object({ reasonCode: z.enum(CUSTOMER_REASONS).optional() }).strict();
 
 export type QuoteResponse =
-  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing; paymentOptions: PaymentOptions; estimatedPrepMinutes: number }
+  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing; paymentOptions: PaymentOptions; estimatedPrepMinutes: number; walkingAvailable: boolean }
   | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing };
 
 /** Price/availability preview without creating anything. Same validation the order creation runs. */
@@ -65,7 +65,7 @@ export async function quoteCheckout(input: z.infer<typeof quoteRequestSchema>, o
   const pricing = publicPricing(await loadFeeConfig(db)); // lets the app show the same prices locally while the customer edits the cart
   return r.ok
     ? { ok: true, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, pricing,
-      paymentOptions: await paymentOptions({ restaurantId: input.restaurantId, totalSom: r.totalSom, isTest: opts.isTest ?? false }), estimatedPrepMinutes: r.restaurant.defaultPrepMinutes }
+      paymentOptions: await paymentOptions({ restaurantId: input.restaurantId, totalSom: r.totalSom, isTest: opts.isTest ?? false }), estimatedPrepMinutes: r.restaurant.defaultPrepMinutes, walkingAvailable: r.restaurant.walkingDeliveryEnabled }
     : { ok: false, issues: r.issues, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, pricing };
 }
 

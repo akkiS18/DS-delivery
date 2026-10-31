@@ -39,12 +39,14 @@ export type CancelPlan =
   | { kind: 'DENIED'; reason: string };
 
 const WAITING = ['WAITING_RESTAURANT', 'WAITING_CUSTOMER_CONSENT'];
-/** Which cancellation path an order state allows. Customers may start a refund request while the restaurant has not
- *  finished cooking. Once the restaurant pressed "ready" nobody can cancel (Stage 9): the food exists and a driver is being arranged. */
-export function cancellationPlan(orderStatus: string, initiator: 'CUSTOMER' | 'RESTAURANT_STAFF'): CancelPlan {
+/** Which cancellation path an order state allows. Owner decision 2026-10-31: a customer may cancel only until the restaurant has ACCEPTED the order
+ *  (the one-tap "Qabul qildim", Order.prepChosenMinutes set; for cash the restaurant's accept); after that a serious reason is a phone call to the
+ *  restaurant, which can still cancel from its own app. Once the restaurant pressed "ready" nobody can cancel (Stage 9): the food exists and a driver is being arranged. */
+export function cancellationPlan(orderStatus: string, initiator: 'CUSTOMER' | 'RESTAURANT_STAFF', accepted = false): CancelPlan {
   if (WAITING.includes(orderStatus)) return initiator === 'CUSTOMER' ? { kind: 'WAITING' } : { kind: 'DENIED', reason: 'USE_REJECT' };
   if (orderStatus === 'PAYMENT_PENDING') return initiator === 'CUSTOMER' ? { kind: 'UNPAID' } : { kind: 'DENIED', reason: 'NOT_PAID' };
   if (initiator === 'CUSTOMER') {
+    if (accepted) return { kind: 'DENIED', reason: 'ACCEPTED' };
     return ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'].includes(orderStatus)
       ? { kind: 'REFUND', viaRequest: true } : { kind: 'DENIED', reason: 'INVALID_STATE' };
   }

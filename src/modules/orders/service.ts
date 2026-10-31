@@ -6,7 +6,7 @@ import { eligibleCompanyWhere } from '../taxi/assignment.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.js';
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
-import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, cashMaxOrderSom } from '../payment/method.js';
+import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, loadCashMaxOrderSom } from '../payment/method.js';
 import { usableCardCount } from '../payment/pool.js';
 import { orderVerdict } from '../customer-strikes/service.js';
 import { loadFeeConfig } from '../pricing/config.js';
@@ -96,11 +96,11 @@ async function guestCustomer(tx: Prisma.TransactionClient, customerId: string, d
 export async function validateCheckout(tx: Tx, input: {
   restaurantId: string; items: Array<{ productId: string; quantity: number }>;
   expectedTotalSom?: number | undefined; expectedUnitPrices?: Record<string, number> | undefined;
-}): Promise<{ ok: true; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee; restaurant: { defaultPrepMinutes: number; pickupAddress: string | null } }
+}): Promise<{ ok: true; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee; restaurant: { defaultPrepMinutes: number; pickupAddress: string | null; walkingDeliveryEnabled: boolean } }
   | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee }> {
   const amounts = new Map<string, number>();
   for (const i of input.items) amounts.set(i.productId, (amounts.get(i.productId) ?? 0) + i.quantity);
-  const restaurant = await tx.restaurant.findUnique({ where: { id: input.restaurantId }, select: { isActive: true, isPaused: true, defaultPrepMinutes: true, pickupAddress: true, workingHours: true, timezone: true } });
+  const restaurant = await tx.restaurant.findUnique({ where: { id: input.restaurantId }, select: { isActive: true, isPaused: true, defaultPrepMinutes: true, pickupAddress: true, workingHours: true, timezone: true, walkingDeliveryEnabled: true } });
   if (!restaurant?.isActive || restaurant.isPaused) return { ok: false, issues: [{ kind: 'RESTAURANT_UNAVAILABLE' }], lines: [], totalSom: 0, fee: NO_FEE };
   // Stage 7A: new checkouts respect the configured working hours, in the restaurant's own time zone.
   const hours = openState(restaurant);
@@ -227,9 +227,12 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       if (data.paymentMode === 'REAL' && realPaymentsGateActive() && !(await realPaymentsOpen(tx))) throw new CheckoutError('TOLOV_YOPIQ', 409);
       const checked = await validateCheckout(tx, data);
       if (!checked.ok) throw checkoutErrorFor(checked.issues, checked.lines, checked.totalSom, checked.fee.pricing);
+      // Walking delivery exists only at restaurants that switched it on; the app does not offer it elsewhere, so a request for it is refused rather than silently turned into a taxi.
+      if (data.deliveryPreference === 'WALK_OK' && !checked.restaurant.walkingDeliveryEnabled) throw new CheckoutError('PIYODA_YETKAZISH_MAVJUD_EMAS', 409);
       if (isCash) {
         if (!(await cashEnabled(tx))) throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409);
-        if (checked.totalSom > cashMaxOrderSom()) throw new CheckoutError('NAQD_SUMMA_JUDA_KATTA', 409, { maxSom: cashMaxOrderSom() });
+        const cashMax = await loadCashMaxOrderSom(tx);
+        if (checked.totalSom > cashMax) throw new CheckoutError('NAQD_SUMMA_JUDA_KATTA', 409, { maxSom: cashMax });
       }
       // New flow only: the order is payable immediately, so a REAL order must already be dispatchable. (The legacy accept-first flow
       // keeps its old behaviour: the restaurant sets the pickup address before accepting.)

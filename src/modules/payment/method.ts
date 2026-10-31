@@ -34,10 +34,37 @@ export async function setCashEnabled(input: { adminId: string; enabled: boolean 
   });
 }
 
-/** Largest food total (so‘m) accepted in cash: a fake order costs the restaurant and the driver real money. */
+export const CASH_MAX_KEY = 'cash_max_order_som';
+export const CASH_MAX_MIN_SOM = 10_000;
+export const CASH_MAX_MAX_SOM = 100_000_000;
+const validCashMax = (n: number): boolean => Number.isInteger(n) && n >= CASH_MAX_MIN_SOM && n <= CASH_MAX_MAX_SOM;
+
+/** The built-in largest food total (so‘m) accepted in cash (owner decision 2026-10-31: 500 000; CASH_MAX_ORDER_SOM overrides it). The administrator's own value, if set, wins: see loadCashMaxOrderSom. */
 export function cashMaxOrderSom(env: NodeJS.ProcessEnv = process.env): number {
   const n = Number(env.CASH_MAX_ORDER_SOM);
-  return Number.isInteger(n) && n >= 10_000 && n <= 100_000_000 ? n : 1_000_000;
+  return validCashMax(n) ? n : 500_000;
+}
+
+/** Largest food total (so‘m) accepted in cash: a fake order costs the restaurant and the driver real money. Set by the administrator in the app (PlatformSetting), else the built-in default. */
+export async function loadCashMaxOrderSom(tx: Tx = db, env: NodeJS.ProcessEnv = process.env): Promise<number> {
+  const row = await tx.platformSetting.findUnique({ where: { key: CASH_MAX_KEY }, select: { value: true } });
+  const n = row ? Number(row.value) : NaN;
+  return validCashMax(n) ? n : cashMaxOrderSom(env);
+}
+
+export async function setCashMaxOrderSom(input: { adminId: string; maxOrderSom: number }): Promise<'CHANGED' | 'UNCHANGED'> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  if (!validCashMax(input.maxOrderSom)) throw new Error('NAQD_CHEGARA_NOTOGRI');
+  return db.$transaction(async tx => {
+    const before = await loadCashMaxOrderSom(tx);
+    if (before === input.maxOrderSom) return 'UNCHANGED' as const;
+    const value = String(input.maxOrderSom);
+    await tx.platformSetting.upsert({ where: { key: CASH_MAX_KEY }, create: { key: CASH_MAX_KEY, value, updatedBy: input.adminId }, update: { value, updatedBy: input.adminId } });
+    await tx.adminAuditEvent.create({ data: {
+      actorId: input.adminId, action: 'CASH_MAX_CHANGED', targetType: 'PlatformSetting', targetId: CASH_MAX_KEY, details: { previous: before, next: input.maxOrderSom },
+    } });
+    return 'CHANGED' as const;
+  });
 }
 /** How long a cash order waits for the restaurant to accept it before it expires. */
 export function cashAcceptWindowMs(env: NodeJS.ProcessEnv = process.env): number {

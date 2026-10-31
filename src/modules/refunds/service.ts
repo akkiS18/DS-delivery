@@ -100,7 +100,7 @@ export async function requestCancellation(input: {
       if (status === null) return { result: 'NOT_FOUND' };
       const open = await tx.refundRequest.findFirst({ where: { orderId: order.id, status: { in: ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'] } }, select: { number: true } });
       if (open) return { result: 'ALREADY_REQUESTED', number: open.number };
-      const plan = cancellationPlan(status, input.actorType);
+      const plan = cancellationPlan(status, input.actorType, order.prepChosenMinutes !== null);
       if (plan.kind === 'UNPAID') return { result: 'USE_UNPAID_CANCEL' };
       if (plan.kind === 'WAITING') return { result: 'USE_WAITING_CANCEL' };
       if (plan.kind === 'DENIED') return { result: 'NOT_ALLOWED', status };

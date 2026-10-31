@@ -1,5 +1,5 @@
 import { db } from '../../lib/db.js';
-import { cashEnabled, cashMaxOrderSom } from './method.js';
+import { cashEnabled, loadCashMaxOrderSom } from './method.js';
 import { cardOwnerOf, cardTurnoverSom, paymentsOfOwner, poolCapSom, withinCap } from './pool.js';
 
 /**
@@ -31,7 +31,7 @@ export async function paymentOptions(input: { restaurantId: string; totalSom: nu
   ]);
   const blocked = new Set([...cooling.map(c => c.cardId), ...taken.map(t => t.cardId).filter((id): id is string => id !== null)]);
   const free = cards.filter(c => !blocked.has(c.id)).length;
-  const maxSom = cashMaxOrderSom();
+  const maxSom = await loadCashMaxOrderSom(db);
   return {
     card: { state: cards.length === 0 ? 'NONE' : free > queued ? 'FREE' : 'BUSY' },
     cash: !enabled ? { available: false, reason: 'OFF' } : input.totalSom > maxSom ? { available: false, reason: 'TOO_LARGE', maxSom } : { available: true, maxSom },

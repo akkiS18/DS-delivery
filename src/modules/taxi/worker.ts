@@ -5,6 +5,7 @@ import { isDelivered, notificationKey, sendOnce } from '../../lib/notify-once.js
 import { restaurantTelegramEnabled, taxiTelegramEnabled } from '../../lib/features.js';
 import { needsCancellationAcknowledgement } from './workflow.js';
 import { escalateSilentDispatch } from './recovery.js';
+import { autoCompleteDeliveries } from './service.js';
 import { supportAdminIds } from '../support/service.js';
 
 const responseSeconds = Number(process.env.TAXI_OPERATOR_RESPONSE_SECONDS ?? 180);
@@ -287,6 +288,7 @@ async function notifyOutcomes(bot: Bot, onlyOrderId?: string, operatorBot: Bot =
 export async function runTaxiDispatchCycle(bot: Bot, onlyOrderId?: string, operatorBot: Bot = bot): Promise<void> {
   await dispatchDue(operatorBot, onlyOrderId);
   await enforceTimeout(operatorBot, onlyOrderId);
+  await autoCompleteDeliveries({ ...(onlyOrderId ? { onlyOrderId } : {}) }); // owner decision 2026-10-31: no "Yetkazildi" within 20 min of "Taksi yuborildi" = delivered (audited as assumed)
   await notifyOutcomes(bot, onlyOrderId, operatorBot);
 }
 

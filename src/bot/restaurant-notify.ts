@@ -63,14 +63,16 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
           await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
           continue;
         }
+        // Owner decision 2026-10-31: "being cooked" is told only after the restaurant accepted the order (its one-tap "Qabul qildim"). Not settled, so it goes out then.
+        if (order.status === 'PREPARING' && order.prepChosenMinutes === null) continue;
         if (customerChat && ['CUSTOMER_CANCELLED', 'RESTAURANT_REJECTED', 'RESTAURANT_EXPIRED', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY'].includes(order.status) && order.customerLastNotifiedStatus !== order.status) {
           const messages: Record<string, string> = {
             CUSTOMER_CANCELLED: `❌ #${order.code}: buyurtma bekor qilindi. Pul yubormang.`,
             RESTAURANT_REJECTED: `🚫 #${order.code}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.code}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
             // Cash: nothing was paid yet, the restaurant only accepted the order; the customer pays the driver.
-            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. Pulni haydovchiga naqd to‘laysiz.` : `✅ #${order.code}: to‘lov qabul qilindi.`,
-            PREPARING: `👨‍🍳 #${order.code}: buyurtmangiz tayyorlanmoqda.`,
+            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. Pulni haydovchiga naqd to‘laysiz.` : `✅ #${order.code}: to‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz.`,
+            PREPARING: `👨‍🍳 #${order.code}: restoran buyurtmani qabul qildi, tayyorlanmoqda.`,
           };
           // Walking delivery has no taxi "on the way" news, so the customer is told here that the restaurant brings it itself.
           if (order.status === 'READY' && order.deliveryMode === 'SELF') messages.READY = `🚶 #${order.code}: buyurtmangiz tayyor, restoran uni o‘zi olib boradi.`;

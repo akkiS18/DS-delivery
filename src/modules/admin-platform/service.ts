@@ -1,5 +1,5 @@
 import { loadFeeConfig } from '../pricing/config.js';
-import { cashEnabled, cashMaxOrderSom } from '../payment/method.js';
+import { cashEnabled, loadCashMaxOrderSom } from '../payment/method.js';
 import { paymentsPanel, type PaymentsPanel } from '../platform/settings.js';
 import { loadTaxiMode, type TaxiDispatchMode } from '../taxi/mode.js';
 import { REASON_LABEL, platformRatingsOverview, rankingEnabled, type PlatformRatingsOverview } from '../ratings/service.js';
@@ -14,16 +14,16 @@ import { sendToAdmin } from '../admin-auth/messenger.js';
 export interface SettingsSnapshot {
   payments: PaymentsPanel;
   cash: { enabled: boolean; maxOrderSom: number };
-  fee: { mode: FeeMode; percentBp: number };
+  fee: { mode: FeeMode; percentBp: number; lineSom: number; lineWaived: boolean };
   taxiMode: TaxiDispatchMode;
   ranking: { enabled: boolean };
 }
 
 export async function settingsSnapshot(env: NodeJS.ProcessEnv = process.env): Promise<SettingsSnapshot> {
-  const [payments, cash, fee, taxiMode, ranking] = await Promise.all([paymentsPanel(env), cashEnabled(), loadFeeConfig(), loadTaxiMode(), rankingEnabled()]);
+  const [payments, cash, cashMax, fee, taxiMode, ranking] = await Promise.all([paymentsPanel(env), cashEnabled(), loadCashMaxOrderSom(undefined, env), loadFeeConfig(), loadTaxiMode(), rankingEnabled()]);
   return {
-    payments, cash: { enabled: cash, maxOrderSom: cashMaxOrderSom(env) },
-    fee: { mode: fee.mode, percentBp: fee.percentBp }, taxiMode, ranking: { enabled: ranking },
+    payments, cash: { enabled: cash, maxOrderSom: cashMax },
+    fee: { mode: fee.mode, percentBp: fee.percentBp, lineSom: fee.lineSom, lineWaived: fee.lineWaived }, taxiMode, ranking: { enabled: ranking },
   };
 }
 
