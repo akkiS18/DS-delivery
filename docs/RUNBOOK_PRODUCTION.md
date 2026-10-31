@@ -64,7 +64,7 @@ Operations that must exist before any rehearsal:
 ```
 # cron (deploy user), staggered:  */2 * * * * DS_ENV=production .../watchdog.sh     15 3 * * * DS_ENV=production .../backup-db.sh && DS_ENV=production .../backup-offsite.sh
 # hourly safety copy (owner 2026-10-31; newest 48 kept, never touches the nightly / pre-migrate sets; no off-server copy, that stays nightly):
-#   45 * * * * DS_ENV=production /opt/ds-staging/current/deploy/bin/backup-db.sh hourly
+#   45 * * * * DS_ENV=production /opt/ds-prod/current/deploy/bin/backup-db.sh hourly (installed in /etc/cron.d/ds-prod on 2026-10-31)
 # workstation: deploy/staging/bin/register-backup-task.ps1 -Environment production      (daily PC copy of the dump + receipts)
 # UptimeRobot: a second monitor on https://<production-domain>/health/live
 # one-time on the host: sudo apt-get install -y age rclone ; set BACKUP_AGE_RECIPIENT / OFFSITE_RCLONE_REMOTE with set-secret.sh ; create /opt/ds-prod/config/rclone.conf (mode 600)
