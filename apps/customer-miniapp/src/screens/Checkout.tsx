@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleCheck, MapPin, ShoppingBasket } from 'lucide-react';
 import { DeliveryNotice } from '../components/DeliveryNotice';
+import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
 import { Button, ChoiceSummary, Empty, Icon, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartCount, cartView } from '../lib/cart';
@@ -38,6 +39,8 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [phoneInput, setPhoneInput] = useState('');
   const [editPhone, setEditPhone] = useState(false);
   const [walk, setWalk] = useState(false);
+  // Walking is offered only by a restaurant that allows it (the server says so in the quote); everywhere else the option is not shown.
+  const [walkingAvailable, setWalkingAvailable] = useState(false);
   // Chosen options are shown as one line each; the full list opens only when the customer taps "O‘zgartirish".
   const [addrOpen, setAddrOpen] = useState(false);
   const [deliveryOpen, setDeliveryOpen] = useState(false);
@@ -71,7 +74,12 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     if (!cart.restaurantId || cart.lines.length === 0) return;
     const ac = new AbortController();
     api.quote(cart.restaurantId, cart.lines.map(l => ({ productId: l.productId, quantity: l.quantity })), ac.signal)
-      .then(q => setPayOptions(q.ok ? q.paymentOptions ?? null : null), () => { /* no advice: card only */ });
+      .then(q => {
+        setPayOptions(q.ok ? q.paymentOptions ?? null : null);
+        const can = q.ok && q.walkingAvailable === true;
+        setWalkingAvailable(can);
+        if (!can) setWalk(false);
+      }, () => { /* no advice: card only, no walking */ });
     return () => ac.abort();
   }, [cart.restaurantId, itemsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const method = effectiveMethod(chosen, payOptions);
@@ -211,7 +219,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         {!deliveryExpanded ? (
           <ChoiceSummary
             title="Yetkazish"
-            value={walk ? 'Piyoda (restoran hal qiladi)' : 'Taksi bilan'}
+            value={walk && walkingAvailable ? 'Piyoda (restoran hal qiladi)' : 'Taksi bilan'}
             sub={`${walk ? 'Zaxira: ' : ''}${taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi xizmati'} • narxni taksi xizmati belgilaydi`}
             onChange={() => setDeliveryOpen(true)} />
         ) : (<>
@@ -222,6 +230,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
             <div className="sub small">Taksi buyurtmani manzilingizgacha olib boradi</div>
           </div>
         </label>
+        {walkingAvailable && (
         <label className="card row" style={{ border: walk ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
           <input type="radio" name="deliverymode" checked={walk} onChange={() => setWalk(true)} style={{ width: 22, height: 22 }} />
           <div className="grow">
@@ -229,6 +238,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
             <div className="sub small">Yakuniy qarorni restoran qiladi. Rozi bo‘lsa, taksi chaqirilmaydi va yetkazish uchun haq to‘lamaysiz. Rozi bo‘lmasa, taksi chaqiriladi.</div>
           </div>
         </label>
+        )}
         <h3 style={{ fontSize: 15 }}>{walk ? 'Zaxira taksi xizmati' : 'Yetkazib beruvchi taksi'}</h3>
         {taxiOptions === null && !taxiFailed && <Spinner />}
         {taxiFailed && <div className="banner warn" role="alert">Taksi xizmatlari ro‘yxatini yuklab bo‘lmadi. <Button small variant="secondary" onClick={loadTaxis}>Qayta urinish</Button></div>}
@@ -277,8 +287,10 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         <div className="sub small">{cart.restaurantName} • {cartCount(cart)} ta</div>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         <div className="divider" />
-        <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(total)}</span></div>
-        <div className="row between sub small"><span>Yetkazish ({walk ? 'piyoda yoki ' : ''}{taxiOptions?.find(t => t.id === taxiId)?.name ?? 'taksi'})</span><span>{walk ? 'restoran hal qiladi' : 'alohida, taksi tarifi bo‘yicha'}</span></div>
+        <div className="row between"><span className="bold">Taomlar</span><span className="bold mono">{som(view.dishesSom)}</span></div>
+        <PlatformLine pricing={view.pricing} />
+        {view.pricing.mode === 'LINE' && <div className="row between"><span className="bold">Jami (taksidan tashqari)</span><span className="bold mono">{som(total)}</span></div>}
+        <TaxiFareBox walk={walk && walkingAvailable} taxiName={taxiOptions?.find(t => t.id === taxiId)?.name ?? null} />
         <DeliveryNotice />
         <p className="sub small">{method === 'CASH' ? 'Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.' : 'Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.'}</p>
       </section>

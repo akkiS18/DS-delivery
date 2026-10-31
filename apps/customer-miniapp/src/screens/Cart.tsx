@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { ShoppingBasket } from 'lucide-react';
 import { DeliveryNotice } from '../components/DeliveryNotice';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
+import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
 import { Button, Empty, Icon, Qty, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { cartBase, cartView } from '../lib/cart';
 import { describeCheckoutError } from '../lib/checkoutErrors';
+import { lineCharge } from '../lib/fee';
 import { opensText, som } from '../lib/format';
 import type { Route } from '../lib/router';
 import type { CheckoutIssue, QuoteResponse } from '../lib/types';
@@ -80,13 +82,14 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         </div>
       ))}
       <div className="card stack">
-        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>
+        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(quote.pricing ?? view.pricing) : view.dishesSom)}</span></div>
         {view.savedSom > 0 && <div className="row between saved"><span>Tejadingiz</span><span className="mono">−{som(view.savedSom)}</span></div>}
+        <PlatformLine pricing={quote?.ok ? quote.pricing ?? view.pricing : view.pricing} />
         <FeeProgress base={cartBase(cart)} pricing={view.pricing} />
-        {view.pricing.mode !== 'FLAT' && <p className="sub small">Narxlarga xizmat haqi kiritilgan.</p>}
-        <div className="row between sub small"><span>Yetkazish</span><span>taksi tarifi bo‘yicha</span></div>
-        <p className="sub small">Yetkazish narxini taksi xizmati belgilaydi va alohida to‘lanadi. Platforma uni oldindan hisoblamaydi.</p>
+        {view.pricing.mode !== 'FLAT' && view.pricing.mode !== 'LINE' && <p className="sub small">Narxlarga xizmat haqi kiritilgan.</p>}
+        {view.pricing.mode === 'LINE' && <div className="row between bold"><span>Jami (taksidan tashqari)</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>}
       </div>
+      <TaxiFareBox />
       <DeliveryNotice />
       {unavailable.size > 0 && (
         <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>Mavjud bo‘lmaganlarni olib tashlash</Button>

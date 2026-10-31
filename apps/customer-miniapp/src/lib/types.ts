@@ -31,7 +31,7 @@ export interface Product {
 }
 
 /** The platform service fee model (src/modules/pricing/fee.ts). Dish prices shown to the customer already contain it; `Product.priceSom` is the restaurant's own price. */
-export interface PublicPricing { mode: 'FLAT' | 'PERCENT' | 'TIERED'; percentBp: number; kneeSom: number; lowBp: number; highBp: number; milestonesSom: number[] }
+export interface PublicPricing { mode: 'FLAT' | 'PERCENT' | 'TIERED' | 'LINE'; percentBp: number; kneeSom: number; lowBp: number; highBp: number; milestonesSom: number[]; lineSom?: number; lineWaived?: boolean }
 
 export interface MenuResponse { restaurant: Restaurant; categories: Category[]; products: Product[]; pricing?: PublicPricing }
 
@@ -74,7 +74,7 @@ export interface PaymentOptions {
 export type PaymentMethod = 'CARD' | 'CASH';
 
 export type QuoteResponse =
-  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; paymentOptions?: PaymentOptions; estimatedPrepMinutes: number }
+  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; paymentOptions?: PaymentOptions; estimatedPrepMinutes: number; walkingAvailable?: boolean }
   | { ok: false; issues: CheckoutIssue[]; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing };
 
 export type CustomerStage =
@@ -141,6 +141,8 @@ export interface OrderView {
   restaurantPhone?: string | null;
   items: Array<{ name: string; unitSom: number; quantity: number; subtotalSom: number }>;
   foodTotalSom: number;
+  /** The separate platform line: charged on top of the items, or shown crossed out (waived). Absent/null for other fee modes and older backends. */
+  platformLine?: { chargedSom: number; waivedSom: number } | null;
   delivery: { feeSom: null; note: 'TAXI_TARIFF' };
   address: string;
   phone: string | null;
@@ -167,6 +169,9 @@ export interface OrderView {
   /** When the payment was accepted (null until then): used to announce the acceptance once. */
   paidAt?: string | null;
   cancel: { allowed: boolean; kind: 'UNPAID' | 'REFUND_REQUEST' | null };
+  /** Paid by card but the restaurant has not tapped "Qabul qildim" yet (cancellation is still open); absent from an older backend. */
+  awaitingRestaurant?: boolean;
+  restaurantAccepted?: boolean;
   refund: { status: string; hasReceipt: boolean } | null;
   /** The customer's own rating of the food, and whether it can still be given or changed (24 h after delivery). */
   rating?: { stars: number; reasons: string[]; note: string | null } | null;

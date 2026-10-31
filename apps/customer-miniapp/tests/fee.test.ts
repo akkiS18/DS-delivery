@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cartBase, cartReducer, cartTotal, cartView, emptyCart, loadCart, saveCart, STORAGE_KEY } from '../src/lib/cart';
-import { atBestPrice, FLAT_PRICING, feeProgress, isPricing, priceLines, referenceUnitPrice, unitPrice } from '../src/lib/fee';
+import { atBestPrice, FLAT_PRICING, feeProgress, isPricing, lineCharge, lineShown, priceLines, referenceUnitPrice, unitPrice } from '../src/lib/fee';
 import type { CartState, PublicPricing } from '../src/lib/types';
 import fixtures from './fee-fixtures.json';
 
@@ -93,5 +93,30 @@ describe('cart with the service fee', () => {
   it('a repeated identical pricing does not change the state object (no render loop)', () => {
     const s = cartReducer(emptyCart(), { type: 'pricing', pricing: TIERED });
     expect(cartReducer(s, { type: 'pricing', pricing: { ...TIERED } })).toBe(s);
+  });
+});
+
+describe('LINE mode: a separate platform line (same maths as the server)', () => {
+  const LINE: PublicPricing = { ...FLAT_PRICING, mode: 'LINE', lineSom: 5000, lineWaived: false };
+  it('keeps the menu prices and adds the line to the total', () => {
+    const r = priceLines([{ priceSom: 12_345, quantity: 3 }, { priceSom: 999, quantity: 1 }], LINE);
+    expect(r.lines.map(l => l.unitSom)).toEqual([12_345, 999]);
+    expect([r.baseTotalSom, r.dishesSom, r.totalSom]).toEqual([38_034, 38_034, 43_034]);
+    expect(r.savedSom).toBe(0);
+  });
+  it('waived: shown crossed out but nothing is added', () => {
+    const waived = { ...LINE, lineWaived: true };
+    expect(priceLines([{ priceSom: 12_345, quantity: 3 }], waived).totalSom).toBe(37_035);
+    expect(lineShown(waived)).toEqual({ somShown: 5000, waived: true });
+    expect(lineShown(LINE)).toEqual({ somShown: 5000, waived: false });
+    expect(lineShown(FLAT_PRICING)).toBeNull();
+    expect(lineCharge(waived)).toBe(0);
+    expect(lineCharge(LINE)).toBe(5000);
+  });
+  it('an empty basket costs nothing; stored pricing is validated', () => {
+    expect(priceLines([], LINE).totalSom).toBe(0);
+    expect(isPricing(LINE)).toBe(true);
+    expect(isPricing({ ...LINE, lineSom: -1 })).toBe(false);
+    expect(isPricing({ ...LINE, lineWaived: 'yes' })).toBe(false);
   });
 });

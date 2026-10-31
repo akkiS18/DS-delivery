@@ -4,6 +4,7 @@ import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
 import { PaidDialog } from '../components/PaidDialog';
 import { PayWarning } from '../components/PayWarning';
+import { PlatformLineRow, TaxiFareBox } from '../components/PriceLines';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
@@ -136,6 +137,10 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
           </div>
         )}
         {o.receivedAt && <p className="sub center">Qabul qilganingiz uchun rahmat!</p>}
+        {o.awaitingRestaurant && o.cancel.allowed && <div className="banner notice" role="status">To‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz. Qabul qilgunicha buyurtmani bekor qilishingiz mumkin.</div>}
+        {o.restaurantAccepted && !o.cancel.allowed && !isTerminal(o.stage) && o.stage !== 'PAYMENT_PENDING' && (
+          <div className="banner notice" role="note">Restoran buyurtmani qabul qildi — endi uni ilovadan bekor qilib bo‘lmaydi. Jiddiy sabab bo‘lsa, restoranga qo‘ng‘iroq qiling{o.restaurantPhone ? <>: <a href={`tel:${o.restaurantPhone}`}>{o.restaurantPhone}</a></> : ''}.</div>
+        )}
         {o.stage === 'SELF_DELIVERY' && <div className="banner notice">Restoran buyurtmani o‘zi olib boradi. Taksi chaqirilmaydi, yetkazish uchun alohida haq to‘lamaysiz.</div>}
         {o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage) && (
           <div className="banner notice">Siz “uyim yaqin, piyoda olib borsa bo‘ladi” deb belgilagansiz. Yakuniy qarorni restoran qiladi: rozi bo‘lmasa, taksi chaqiriladi.</div>
@@ -216,10 +221,12 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
         <h2 style={{ fontSize: 17 }}>Buyurtma tarkibi</h2>
         {o.items.map((it, i) => <div key={i} className="row between small"><span className="grow">{it.quantity} × {it.name}</span><span className="mono">{som(it.subtotalSom)}</span></div>)}
         <div className="divider" />
-        <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
-        {o.deliveryMode === 'SELF'
-          ? <div className="row between sub small"><span>Yetkazish</span><span>restoran o‘zi, haqsiz</span></div>
-          : <div className="row between sub small"><span>Yetkazish{o.taxiCompanyName ? ` (${o.taxiCompanyName})` : ''}</span><span>{o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage) ? 'restoran piyoda yoki taksi (alohida)' : 'taksi tarifi bo‘yicha, alohida'}</span></div>}
+        {o.platformLine ? (<>
+          <div className="row between"><span className="bold">Taomlar</span><span className="bold mono">{som(o.foodTotalSom - o.platformLine.chargedSom)}</span></div>
+          <PlatformLineRow chargedSom={o.platformLine.chargedSom} waivedSom={o.platformLine.waivedSom} />
+          <div className="row between"><span className="bold">Jami (taksidan tashqari)</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
+        </>) : <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>}
+        <TaxiFareBox selfDelivered={o.deliveryMode === 'SELF'} walk={o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage)} taxiName={o.taxiCompanyName ?? null} />
         <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={MapPin} size={16} className="shrink" /><span className="grow">{o.address}</span></div>
       </div>
 

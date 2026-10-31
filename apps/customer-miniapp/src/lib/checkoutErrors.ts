@@ -48,6 +48,8 @@ export function describeCheckoutError(e: unknown): Described {
       return { kind: 'CLOSED', retryable: false, message: 'Buyurtma qabul qilish hozircha yopiq. Keyinroq urinib ko‘ring; pul olinmadi.' };
     case 'KOP_TOLANMAGAN_BUYURTMA':
       return { kind: 'LIMIT', retryable: false, message: 'To‘lanmagan buyurtmangiz bor. Avval uni to‘lang yoki bekor qiling, keyin yangisini bering.' };
+    case 'PIYODA_YETKAZISH_MAVJUD_EMAS':
+      return { kind: 'OTHER', retryable: false, message: 'Bu restoran piyoda yetkazmaydi. Taksi bilan yetkazishni tanlang; buyurtma yaratilmadi va pul olinmadi.' };
     case 'NAQD_TOLOV_YOPIQ':
       return { kind: 'CASH', retryable: false, message: 'Naqd to‘lov hozircha o‘chirilgan. Karta orqali to‘lang.' };
     case 'NAQD_SUMMA_JUDA_KATTA':

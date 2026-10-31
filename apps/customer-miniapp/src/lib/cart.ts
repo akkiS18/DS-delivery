@@ -56,11 +56,11 @@ export function cartReducer(state: CartState, action: CartAction): CartState {
 
 export const cartCount = (c: CartState): number => c.lines.reduce((n, l) => n + l.quantity, 0);
 /** What the customer sees and pays for this cart: every line at its current price (service fee included), the total, and how much the basket saved. */
-export interface CartView { lines: Array<CartLine & PricedLine>; baseTotalSom: number; totalSom: number; savedSom: number; pricing: PublicPricing }
+export interface CartView { lines: Array<CartLine & PricedLine>; baseTotalSom: number; dishesSom: number; totalSom: number; savedSom: number; pricing: PublicPricing }
 export function cartView(c: CartState): CartView {
   const pricing = c.pricing ?? FLAT_PRICING;
   const r = priceLines(c.lines, pricing);
-  return { lines: c.lines.map((l, i) => ({ ...l, ...r.lines[i]! })), baseTotalSom: r.baseTotalSom, totalSom: r.totalSom, savedSom: r.savedSom, pricing };
+  return { lines: c.lines.map((l, i) => ({ ...l, ...r.lines[i]! })), baseTotalSom: r.baseTotalSom, dishesSom: r.dishesSom, totalSom: r.totalSom, savedSom: r.savedSom, pricing };
 }
 export const cartTotal = (c: CartState): number => cartView(c).totalSom;
 /** The restaurant's own prices added up (drives the progress bar). */
