@@ -25,7 +25,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
       {data && data.restaurants.length === 0 && (
         <Empty icon={<Icon as={Search} size={44} />} title={q ? 'Hech narsa topilmadi' : 'Hozircha restoranlar yo‘q'} hint={q ? 'Boshqa nom bilan qidirib ko‘ring.' : 'Keyinroq qaytib keling.'} />
       )}
-      {data?.restaurants.map(r => (
+      {data && data.restaurants.length > 0 && <div className="rgrid">{data.restaurants.map(r => (
         <div key={r.id} className={`card tap rcard ${r.isOpen ? '' : 'closed'}`} role="button" tabIndex={0} aria-label={`${r.name}, ${r.isOpen ? 'ochiq' : 'yopiq'}`}
           onClick={() => go({ name: 'menu', id: r.id })} onKeyDown={e => { if (e.key === 'Enter') go({ name: 'menu', id: r.id }); }}>
           <div className="rphoto">
@@ -40,7 +40,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
             </div>
           </div>
         </div>
-      ))}
+      ))}</div>}
     </div>
   );
 }
