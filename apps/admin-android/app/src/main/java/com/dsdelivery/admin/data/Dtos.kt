@@ -214,7 +214,13 @@ data class PaymentsPanelDto(
     @SerializedName("blockers") val blockers: List<String>,
 )
 data class CashDto(@SerializedName("enabled") val enabled: Boolean, @SerializedName("maxOrderSom") val maxOrderSom: Long)
-data class FeeDto(@SerializedName("mode") val mode: String, @SerializedName("percentBp") val percentBp: Int)
+data class FeeDto(
+    @SerializedName("mode") val mode: String,
+    @SerializedName("percentBp") val percentBp: Int,
+    /** The separate platform line (mode LINE). Gson skips Kotlin defaults, so an older server's missing fields arrive as 0 / false: the screen treats 0 as 5 000. */
+    @SerializedName("lineSom") val lineSom: Long = 5000,
+    @SerializedName("lineWaived") val lineWaived: Boolean = false,
+)
 data class RankingDto(@SerializedName("enabled") val enabled: Boolean)
 
 data class SettingsDto(
@@ -230,7 +236,13 @@ data class SettingsChangeResponse(@SerializedName("ok") val ok: Boolean, @Serial
 
 data class OpenRequest(@SerializedName("open") val open: Boolean)
 data class EnabledRequest(@SerializedName("enabled") val enabled: Boolean)
-data class FeeRequest(@SerializedName("mode") val mode: String, @SerializedName("percent") val percent: Double? = null)
+data class FeeRequest(
+    @SerializedName("mode") val mode: String,
+    @SerializedName("percent") val percent: Double? = null,
+    @SerializedName("lineSom") val lineSom: Int? = null,
+    @SerializedName("lineWaived") val lineWaived: Boolean? = null,
+)
+data class CashMaxRequest(@SerializedName("maxOrderSom") val maxOrderSom: Long)
 data class ModeRequest(@SerializedName("mode") val mode: String)
 data class ActiveRequest(@SerializedName("active") val active: Boolean)
 

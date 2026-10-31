@@ -43,6 +43,7 @@ private val FEE_MODES = listOf(
     "FLAT" to "Tekis 5 000 (restorandan)",
     "PERCENT" to "Foiz",
     "TIERED" to "Pog‘onali (50 000 gacha 10%, keyin 3%)",
+    "LINE" to "Alohida qator: «Platforma xizmati» (mijozdan)",
 )
 
 private enum class Pending { PAYMENTS_OPEN, PAYMENTS_CLOSE, CASH_ON, CASH_OFF }
@@ -119,7 +120,8 @@ fun PlatformPane(onMessage: (String) -> Unit) {
                         )
                     }
                 }
-                item { FeeCard(s, saving) { mode, percent -> change({ app.repository.setFee(mode, percent) }) { r -> if (r.result == "CHANGED") "Xizmat haqi rejimi saqlandi." else "O‘zgarmadi." } } }
+                item { CashMaxCard(s, saving) { som -> change({ app.repository.setCashMax(som) }) { r -> if (r.result == "CHANGED") "Naqd chegarasi saqlandi." else "O‘zgarmadi." } } }
+                item { FeeCard(s, saving) { mode, percent, line, waived -> change({ app.repository.setFee(mode, percent, line, waived) }) { r -> if (r.result == "CHANGED") "Xizmat haqi saqlandi." else "O‘zgarmadi." } } }
                 item {
                     Card {
                         Text("🚕 Taksi qachon chaqiriladi", style = MaterialTheme.typography.titleMedium)
@@ -195,12 +197,18 @@ private fun PaymentsCard(s: SettingsDto, saving: Boolean, onToggle: () -> Unit) 
 }
 
 @Composable
-private fun FeeCard(s: SettingsDto, saving: Boolean, onSave: (mode: String, percent: Double?) -> Unit) {
+private fun FeeCard(s: SettingsDto, saving: Boolean, onSave: (mode: String, percent: Double?, lineSom: Int?, lineWaived: Boolean?) -> Unit) {
     var mode by remember(s.fee) { mutableStateOf(s.fee.mode) }
+    val currentLine = if (s.fee.lineSom > 0) s.fee.lineSom else 5000L
+    var lineText by remember(s.fee) { mutableStateOf(currentLine.toString()) }
+    var waived by remember(s.fee) { mutableStateOf(s.fee.lineWaived) }
+    val line = lineText.filter { it.isDigit() }.toLongOrNull()
+    val lineOk = mode != "LINE" || (line != null && line in 1000L..50_000L)
     var percentText by remember(s.fee) { mutableStateOf(trimPercent(s.fee.percentBp / 100.0)) }
     val percent = percentText.replace(',', '.').toDoubleOrNull()
     val percentOk = mode != "PERCENT" || (percent != null && percent in 1.0..25.0 && Math.round(percent * 100) / 100.0 == percent)
-    val unchanged = mode == s.fee.mode && (mode != "PERCENT" || percent == s.fee.percentBp / 100.0)
+    val unchanged = mode == s.fee.mode && (mode != "PERCENT" || percent == s.fee.percentBp / 100.0) &&
+        (mode != "LINE" || (line == currentLine && waived == s.fee.lineWaived))
     Card {
         Text("🧾 Xizmat haqi", style = MaterialTheme.typography.titleMedium)
         FEE_MODES.forEach { (code, label) ->
@@ -216,11 +224,50 @@ private fun FeeCard(s: SettingsDto, saving: Boolean, onSave: (mode: String, perc
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
             )
         }
+        if (mode == "LINE") {
+            OutlinedTextField(
+                value = lineText, onValueChange = { if (it.length <= 6) lineText = it },
+                label = { Text("Platforma xizmati, so‘m (1 000–50 000)") }, singleLine = true, isError = !lineOk,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Chegirma (xizmat haqini bekor qilish)", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        if (waived) "Yoqilgan: mijoz summani ustidan chizilgan holda ko‘radi, to‘lamaydi." else "O‘chirilgan: mijoz summani to‘laydi.",
+                        style = MaterialTheme.typography.bodyMedium, color = if (waived) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = waived, enabled = !saving, onCheckedChange = { waived = it })
+            }
+        }
         Text(
-            "Tekis: mijoz restoran narxini to‘laydi, platforma 5 000 ni restorandan oladi. Foiz / pog‘onali: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi. Rejim faqat YANGI buyurtmalarga ta’sir qiladi.",
+            "Tekis: mijoz restoran narxini to‘laydi, platforma 5 000 ni restorandan oladi. Foiz / pog‘onali: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi. Alohida qator: taom narxlari o‘zgarmaydi, mijozga «Platforma xizmati» alohida satrda ko‘rsatiladi (chegirma yoqilsa — ustidan chizilgan, 0 so‘m). Rejim faqat YANGI buyurtmalarga ta’sir qiladi.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PrimaryButton("Saqlash", enabled = !saving && percentOk && !unchanged) { onSave(mode, if (mode == "PERCENT") percent else null) }
+        PrimaryButton("Saqlash", enabled = !saving && percentOk && lineOk && !unchanged) {
+            onSave(mode, if (mode == "PERCENT") percent else null, if (mode == "LINE") line?.toInt() else null, if (mode == "LINE") waived else null)
+        }
+    }
+}
+
+@Composable
+private fun CashMaxCard(s: SettingsDto, saving: Boolean, onSave: (Long) -> Unit) {
+    var text by remember(s.cash.maxOrderSom) { mutableStateOf(s.cash.maxOrderSom.toString()) }
+    val som = text.filter { it.isDigit() }.toLongOrNull()
+    val ok = som != null && som in 10_000L..100_000_000L
+    Card {
+        Text("💵 Naqd buyurtmaning eng katta summasi", style = MaterialTheme.typography.titleMedium)
+        OutlinedTextField(
+            value = text, onValueChange = { if (it.length <= 9) text = it },
+            label = { Text("So‘m (10 000 dan 100 000 000 gacha)") }, singleLine = true, isError = !ok,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "Bundan katta buyurtmani mijoz naqd to‘lay olmaydi (faqat karta). Faqat YANGI buyurtmalarga ta’sir qiladi. Hozir: ${somText(s.cash.maxOrderSom)}.",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        PrimaryButton("Saqlash", enabled = !saving && ok && som != s.cash.maxOrderSom) { onSave(som!!) }
     }
 }
 

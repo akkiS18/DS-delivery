@@ -609,7 +609,7 @@ private fun AcknowledgeCard(busy: Boolean, onConfirm: () -> Unit) {
         colors = CardDefaults.cardColors(containerColor = WarningOrange.copy(alpha = 0.10f))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("To‘lov qabul qilindi. Buyurtmani tayyorlashni boshlang.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("To‘lov qabul qilindi. Buyurtmani qabul qiling — shundan keyin mijoz uni bekor qila olmaydi. Tayyorlashni boshlang.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = onConfirm,

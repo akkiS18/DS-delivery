@@ -40,6 +40,7 @@ interface AdminApi {
     @GET("api/v1/admin/settings") suspend fun settings(): Response<SettingsDto>
     @PUT("api/v1/admin/settings/payments") suspend fun setPayments(@Body body: OpenRequest): Response<SettingsChangeResponse>
     @PUT("api/v1/admin/settings/cash") suspend fun setCash(@Body body: EnabledRequest): Response<SettingsChangeResponse>
+    @PUT("api/v1/admin/settings/cash-max") suspend fun setCashMax(@Body body: CashMaxRequest): Response<SettingsChangeResponse>
     @PUT("api/v1/admin/settings/fee") suspend fun setFee(@Body body: FeeRequest): Response<SettingsChangeResponse>
     @PUT("api/v1/admin/settings/taxi-mode") suspend fun setTaxiMode(@Body body: ModeRequest): Response<SettingsChangeResponse>
     @PUT("api/v1/admin/settings/ranking") suspend fun setRanking(@Body body: EnabledRequest): Response<SettingsChangeResponse>
@@ -181,7 +182,9 @@ class Repository(private val session: SessionStore) {
     suspend fun settings(): ApiResult<SettingsDto> = call { api.settings() }
     suspend fun setPayments(open: Boolean): ApiResult<SettingsChangeResponse> = call { api.setPayments(OpenRequest(open)) }
     suspend fun setCash(enabled: Boolean): ApiResult<SettingsChangeResponse> = call { api.setCash(EnabledRequest(enabled)) }
-    suspend fun setFee(mode: String, percent: Double?): ApiResult<SettingsChangeResponse> = call { api.setFee(FeeRequest(mode, percent)) }
+    suspend fun setFee(mode: String, percent: Double?, lineSom: Int? = null, lineWaived: Boolean? = null): ApiResult<SettingsChangeResponse> =
+        call { api.setFee(FeeRequest(mode, percent, lineSom, lineWaived)) }
+    suspend fun setCashMax(maxOrderSom: Long): ApiResult<SettingsChangeResponse> = call { api.setCashMax(CashMaxRequest(maxOrderSom)) }
     suspend fun setTaxiMode(mode: String): ApiResult<SettingsChangeResponse> = call { api.setTaxiMode(ModeRequest(mode)) }
     suspend fun setRanking(enabled: Boolean): ApiResult<SettingsChangeResponse> = call { api.setRanking(EnabledRequest(enabled)) }
     suspend fun ratings(): ApiResult<RatingsDto> = call { api.ratings() }

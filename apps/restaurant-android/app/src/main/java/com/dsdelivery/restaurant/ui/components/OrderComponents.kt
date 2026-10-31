@@ -350,7 +350,7 @@ fun OrderCard(
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(shape = RoundedCornerShape(10.dp), color = WarningOrange.copy(alpha = 0.10f)) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("To‘lov qabul qilindi. Buyurtmani tayyorlashni boshlang.", style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
+                            Text("To‘lov qabul qilindi. Buyurtmani qabul qiling — shundan keyin mijoz uni bekor qila olmaydi. Tayyorlashni boshlang.", style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = onAcknowledge,
