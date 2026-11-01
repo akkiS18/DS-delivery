@@ -7,10 +7,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -84,6 +86,16 @@ interface AdminApi {
     @POST("api/v1/admin/customers/{id}/unblock") suspend fun unblockCustomer(@Path("id") id: String, @Body body: NoteRequest): Response<StandingResponse>
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
+
+    @GET("api/v1/admin/promo") suspend fun promo(): Response<PromoOverviewDto>
+    @POST("api/v1/admin/promo/promotions") suspend fun createPromotion(@Body body: CreatePromoRequest): Response<CreatedResponse>
+    @PUT("api/v1/admin/promo/promotions/{id}") suspend fun updatePromotion(@Path("id") id: String, @Body body: PatchPromoRequest): Response<OkResponse>
+    @DELETE("api/v1/admin/promo/promotions/{id}") suspend fun deletePromotion(@Path("id") id: String): Response<OkResponse>
+    @POST("api/v1/admin/promo/banners") suspend fun createSlide(@Body body: CreateSlideRequest): Response<CreatedResponse>
+    @PUT("api/v1/admin/promo/banners/{id}") suspend fun updateSlide(@Path("id") id: String, @Body body: PatchSlideRequest): Response<OkResponse>
+    @DELETE("api/v1/admin/promo/banners/{id}") suspend fun deleteSlide(@Path("id") id: String): Response<OkResponse>
+    @PUT("api/v1/admin/promo/banners/{id}/image") suspend fun setSlideImage(@Path("id") id: String, @Body body: RequestBody): Response<ImageResponse>
+    @GET("api/v1/admin/promo/banners/{id}/image") suspend fun slideImage(@Path("id") id: String): Response<ResponseBody>
 }
 
 sealed interface ApiResult<out T> {
@@ -233,4 +245,24 @@ class Repository(private val session: SessionStore) {
     suspend fun unblockCustomer(id: String, note: String): ApiResult<StandingResponse> = call { api.unblockCustomer(id, NoteRequest(note.trim())) }
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
+
+    suspend fun promo(): ApiResult<PromoOverviewDto> = call { api.promo() }
+    suspend fun createPromotion(restaurantId: String, title: String): ApiResult<CreatedResponse> = call { api.createPromotion(CreatePromoRequest(restaurantId, title.trim())) }
+    suspend fun setPromotionActive(id: String, active: Boolean): ApiResult<OkResponse> = call { api.updatePromotion(id, PatchPromoRequest(isActive = active)) }
+    suspend fun setPromotionDishes(id: String, productIds: List<String>): ApiResult<OkResponse> = call { api.updatePromotion(id, PatchPromoRequest(productIds = productIds)) }
+    /** 0 removes the cap. */
+    suspend fun setPromotionCap(id: String, cap: Int): ApiResult<OkResponse> = call { api.updatePromotion(id, PatchPromoRequest(maxFreePerOrder = cap)) }
+    suspend fun deletePromotion(id: String): ApiResult<OkResponse> = call { api.deletePromotion(id) }
+    suspend fun createSlide(title: String, restaurantId: String?, promotionId: String?): ApiResult<CreatedResponse> =
+        call { api.createSlide(CreateSlideRequest(title.trim(), restaurantId, promotionId)) }
+    suspend fun setSlideActive(id: String, active: Boolean): ApiResult<OkResponse> = call { api.updateSlide(id, PatchSlideRequest(isActive = active)) }
+    suspend fun setSlidePosition(id: String, position: Int): ApiResult<OkResponse> = call { api.updateSlide(id, PatchSlideRequest(position = position)) }
+    suspend fun deleteSlide(id: String): ApiResult<OkResponse> = call { api.deleteSlide(id) }
+    /** [jpeg] is already shrunk by ImagePrep (<= 900 KB); the server decides the type from the bytes. */
+    suspend fun setSlideImage(id: String, jpeg: ByteArray): ApiResult<ImageResponse> = call { api.setSlideImage(id, jpeg.toRequestBody("image/jpeg".toMediaType())) }
+    /** The slide's picture for the administrator's own preview; null when it cannot be read. Blocking body read: runs on the caller's dispatcher. */
+    suspend fun slideImage(id: String): ByteArray? = when (val r = call { api.slideImage(id) }) {
+        is ApiResult.Ok -> try { r.data.bytes() } catch (e: IOException) { null }
+        else -> null
+    }
 }

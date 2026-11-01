@@ -53,7 +53,11 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     "ALREADY_PAID" -> "Bu kun uchun o‘tkazma allaqachon belgilangan. Ekranni yangilang."
     "FUTURE_DAY" -> "Kelajak kuni uchun belgilab bo‘lmaydi."
     "NOTHING_DUE" -> "To‘lanishi kerak komissiya qolmagan."
-    "PERCENT_INVALID" -> "Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
+    "DISH_INVALID" -> "Tanlangan taom shu restoranda topilmadi. Ekranni yangilang."
+    "PROMO_NO_DISHES" -> "Avval aksiya taomlarini tanlang."
+    "NUMBER_INVALID" -> "Son 1 dan 100 gacha bo‘lsin."
+    "BANNER_NO_IMAGE" -> "Avval slaydga rasm qo‘ying."
+    "PERCENT_INVALID" ->"Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
     else -> if (f.code in 500..599) "Server xatosi. Birozdan keyin qayta urinib ko‘ring." else "Bajarilmadi."
 }
 

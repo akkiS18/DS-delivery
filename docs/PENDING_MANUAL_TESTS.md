@@ -156,3 +156,10 @@ Code, unit tests (rules, cart) and DB tests (`src/tests/packaging-promo.db.test.
 2. Sifat Food: `/aksiya` (admin bot) shows the promotion "Lavash" (OFF). `/aksiya taomlar KOD LAVASH KATTA; LAVASH O'RTACHA` then `/aksiya on KOD` → "Chegirmalar" is the FIRST group of Sifat's menu (orange card), the dishes carry a "1+1" badge, 2 of them in the cart show "1 ta bepul", the platform line is crossed out ("Chegirma") and the total is lower by the cheaper dish.
 3. Home: the slide "Lavash 1+1" appears above the search only while the promotion is ON; tapping it opens Sifat's "Chegirmalar"; with 2+ slides they move by themselves and by swipe.
 4. An old customer APK (without these changes) sees the price differ ("narx o'zgardi"): the customer APK must be rebuilt.
+
+### J2. Aksiya in the admin app, Sifat photos, burger order (2026-11-02, not yet tried on a phone)
+Server routes and rules ran in DB tests (`src/tests/promo-admin.db.test.ts`); the Kotlin screen `PromoPane.kt` was written but NOT compiled and never run, the Mini App menu order was not looked at on a device.
+1. Admin app > Boshqaruv > "Aksiya": the "Lavash" promotion is ON with LAVASH KATTA, O'RTACHA, KICHKINA (TANDIR LAVASH and DONAR are not in it). Switching it off/on asks first; "Taomlarni tanlash" saves the chosen dishes; "Limit" 0 removes the cap.
+2. Same screen, "Yangi slayd": title + target, then the phone's picture picker; the new slide starts OFF, cannot be switched on without a picture, shows a preview, moves with the arrows, and appears in the customer home carousel only while live. Deleting a promotion switches its slides off.
+3. Sifat Food menu photos: tandir lavash x3, lavash x3, donar x3, xaggi, gamburger + dobbl burger, chez burger + dobbl chez burger (same picture), turk kebab x2, hod dog x4. Burger order: GAMBURGER, DOBBL BURGER, CHEZ BURGER, DOBBL CHEZ BURGER (not alphabetical).
+4. 1+1: a mixed pair (e.g. KATTA + KICHKINA) frees the cheaper; a lavash with a tandir lavash or a donar does not pair.

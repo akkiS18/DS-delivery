@@ -418,6 +418,64 @@ data class SentRefundRequest(@SerializedName("bankReference") val bankReference:
 data class ConfirmRefundRequest(@SerializedName("note") val note: String)
 data class OkResponse(@SerializedName("ok") val ok: Boolean)
 
+/** "Aksiya": 1+1 promotions and the home-screen slides (news and offers). */
+data class PromoOverviewDto(
+    @SerializedName("promotions") val promotions: List<PromoDto>,
+    @SerializedName("banners") val banners: List<SlideDto>,
+    @SerializedName("restaurants") val restaurants: List<RestaurantRefDto>,
+)
+data class RestaurantRefDto(@SerializedName("id") val id: String, @SerializedName("name") val name: String)
+data class DishDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("priceSom") val priceSom: Int,
+    @SerializedName("category") val category: String?,
+    @SerializedName("isAvailable") val isAvailable: Boolean,
+)
+data class PromoDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("title") val title: String,
+    @SerializedName("isActive") val isActive: Boolean,
+    @SerializedName("maxFreePerOrder") val maxFreePerOrder: Int?,
+    @SerializedName("restaurantId") val restaurantId: String,
+    @SerializedName("restaurantName") val restaurantName: String,
+    @SerializedName("productIds") val productIds: List<String>,
+    /** The restaurant's dishes to pick from. */
+    @SerializedName("dishes") val dishes: List<DishDto>,
+)
+data class SlideDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("title") val title: String,
+    @SerializedName("position") val position: Int,
+    @SerializedName("isActive") val isActive: Boolean,
+    @SerializedName("restaurantId") val restaurantId: String?,
+    @SerializedName("restaurantName") val restaurantName: String?,
+    @SerializedName("promotionId") val promotionId: String?,
+    @SerializedName("promotionTitle") val promotionTitle: String?,
+    @SerializedName("hasImage") val hasImage: Boolean,
+    @SerializedName("imageVersion") val imageVersion: Int?,
+    /** Customers see it right now. */
+    @SerializedName("live") val live: Boolean,
+)
+data class CreatePromoRequest(@SerializedName("restaurantId") val restaurantId: String, @SerializedName("title") val title: String)
+/** Only the fields that are set are sent (Gson skips nulls). maxFreePerOrder 0 removes the cap. */
+data class PatchPromoRequest(
+    @SerializedName("isActive") val isActive: Boolean? = null,
+    @SerializedName("maxFreePerOrder") val maxFreePerOrder: Int? = null,
+    @SerializedName("productIds") val productIds: List<String>? = null,
+)
+data class CreateSlideRequest(
+    @SerializedName("title") val title: String,
+    @SerializedName("restaurantId") val restaurantId: String? = null,
+    @SerializedName("promotionId") val promotionId: String? = null,
+)
+data class PatchSlideRequest(
+    @SerializedName("title") val title: String? = null,
+    @SerializedName("isActive") val isActive: Boolean? = null,
+    @SerializedName("position") val position: Int? = null,
+)
+data class CreatedResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("id") val id: String)
+
 /** A5a: the daily payout report (read only). payableSom = collected - commission - refunds; it can be negative. */
 data class PayoutRestaurantDto(
     @SerializedName("restaurantId") val restaurantId: String, @SerializedName("name") val name: String, @SerializedName("orders") val orders: Int,

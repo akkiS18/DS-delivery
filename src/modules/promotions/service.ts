@@ -51,7 +51,7 @@ export async function setBannerImage(bannerId: string, bytes: Buffer): Promise<n
 }
 
 // ------------------------------------------------------------------------------------------------ administrator tools (Telegram /aksiya)
-const needAdmin = (adminId: string): void => { if (!isSupportAdmin(adminId)) throw new Error('ADMIN_RUXSAT_YOQ'); };
+export const needAdmin = (adminId: string): void => { if (!isSupportAdmin(adminId)) throw new Error('ADMIN_RUXSAT_YOQ'); };
 /** Short, typeable reference of a promotion: the last 6 characters of its id. */
 export const promoRef = (id: string): string => id.slice(-6);
 
@@ -75,7 +75,7 @@ async function promoByRef(ref: string) {
   return rows[0]!;
 }
 
-async function audit(adminId: string, action: string, id: string, details: Record<string, unknown>): Promise<void> {
+export async function audit(adminId: string, action: string, id: string, details: Record<string, unknown>): Promise<void> {
   await db.adminAuditEvent.create({ data: { actorId: adminId, action, targetType: 'Promotion', targetId: id, details: details as never } });
 }
 

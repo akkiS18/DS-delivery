@@ -14,9 +14,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 
-private val SECTIONS = listOf("Restoranlar", "Komissiya", "Platforma")
+private val SECTIONS = listOf("Restoranlar", "Komissiya", "Platforma", "Aksiya")
 
-/** "Boshqaruv": what the Telegram commands /restaurants, /commission, /payments, /cash, /fee, /taxi and /ratings did. */
+/** "Boshqaruv": what the Telegram commands /restaurants, /commission, /payments, /cash, /fee, /taxi, /ratings and /aksiya did. */
 @Composable
 fun ManageTab(onMessage: (String) -> Unit) {
     var section by rememberSaveable { mutableIntStateOf(0) }
@@ -29,7 +29,8 @@ fun ManageTab(onMessage: (String) -> Unit) {
         when (section) {
             0 -> RestaurantsPane(onMessage)
             1 -> CommissionPane(onMessage)
-            else -> PlatformPane(onMessage)
+            2 -> PlatformPane(onMessage)
+            else -> PromoPane(onMessage)
         }
     }
 }

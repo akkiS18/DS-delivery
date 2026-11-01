@@ -87,6 +87,8 @@ model Product {
   packagedDishes     Product[]   @relation("DishPackaging")
   /// A packaging product: never listed on the customer menu on its own, only added next to its dish. Still editable (price) in the restaurant app.
   isPackaging  Boolean     @default(false)
+  /// Order on the customer menu inside a category (small first); equal positions fall back to the name. Set by an administrator; 0 = no preference.
+  position     Int         @default(0)
   promotionProducts PromotionProduct[]
 
   @@index([restaurantId, isAvailable])

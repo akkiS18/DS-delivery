@@ -49,7 +49,7 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const [categories, products] = await Promise.all([
     db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true, image: { select: { version: true } } } }),
     db.product.findMany({
-      where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ name: 'asc' }],
+      where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ position: 'asc' }, { name: 'asc' }],
       select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true, isPackaging: true, packagingProductId: true, image: { select: { version: true } } },
     }),
   ]);
