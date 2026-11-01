@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { CalendarClock, ChevronLeft, ChevronRight, Star, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Gift, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
@@ -16,6 +16,8 @@ import { useApp, useLoad } from '../state';
 
 /** The group of dishes that has no category (shown as its own card in the grid). */
 export const OTHER_CATEGORY = 'other';
+/** The virtual first group of a restaurant that has a 1+1 offer on (owner decision 2026-11-01): the offer's dishes, whatever category they sit in. */
+export const PROMO_CATEGORY = 'promo';
 
 export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route) => void }) {
   const { cart, dispatch, toast } = useApp();
@@ -23,6 +25,16 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
 
   // The fee model is part of the menu: keep the cart pricing in step with what the server uses now.
   useEffect(() => { if (data?.pricing) dispatch({ type: 'pricing', pricing: data.pricing }); }, [data?.pricing, dispatch]);
+  // ...and so are the restaurant's 1+1 offers and the packaging of each dish (the cart shows them as lines of their own).
+  useEffect(() => {
+    if (!data || cart.restaurantId !== data.restaurant.id) return;
+    dispatch({
+      type: 'catalog', restaurantId: data.restaurant.id,
+      promos: (data.promotions ?? []).map(p => ({ id: p.id, maxFreePerOrder: p.maxFreePerOrder, productIds: p.productIds })),
+      packaging: Object.fromEntries(data.products.map(p => [p.id, p.packaging ?? null])),
+    });
+  }, [data, cart.restaurantId, dispatch]);
+  const promoIds = useMemo(() => new Set((data?.promotions ?? []).flatMap(p => p.productIds)), [data]);
 
   // The menu opens on the categories (a grid with the restaurant's photos); a tap opens that category's dishes. The category is part of the route, so
   // the back button returns to the grid. Without categories (or with a single group) the dishes are shown directly.
@@ -31,17 +43,20 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
     const named = (data?.categories ?? []).map(c => ({ id: c.id, name: c.name, imageUrl: c.imageUrl ?? null, count: products.filter(p => p.categoryId === c.id).length })).filter(g => g.count > 0);
     const known = new Set((data?.categories ?? []).map(c => c.id));
     const loose = products.filter(p => !p.categoryId || !known.has(p.categoryId)).length;
-    return loose > 0 ? [...named, { id: OTHER_CATEGORY, name: named.length ? 'Boshqa taomlar' : 'Taomlar', imageUrl: null, count: loose }] : named;
-  }, [data]);
+    const all = loose > 0 ? [...named, { id: OTHER_CATEGORY, name: named.length ? 'Boshqa taomlar' : 'Taomlar', imageUrl: null, count: loose }] : named;
+    const offered = products.filter(p => promoIds.has(p.id)).length;
+    return offered > 0 ? [{ id: PROMO_CATEGORY, name: 'Chegirmalar', imageUrl: null, count: offered }, ...all] : all;
+  }, [data, promoIds]);
   const showGrid = groups.length > 1;
   const active = showGrid ? groups.find(g => g.id === cat) ?? null : null;
   const visible = useMemo(() => {
     const products = data?.products ?? [];
     if (!showGrid) return products;
     if (!active) return [];
+    if (active.id === PROMO_CATEGORY) return products.filter(p => promoIds.has(p.id));
     const known = new Set((data?.categories ?? []).map(c => c.id));
     return active.id === OTHER_CATEGORY ? products.filter(p => !p.categoryId || !known.has(p.categoryId)) : products.filter(p => p.categoryId === active.id);
-  }, [data, showGrid, active]);
+  }, [data, showGrid, active, promoIds]);
 
   if (loading && !data) return <div className="page"><Skeletons n={5} /></div>;
   if (error || !data) return <div className="page"><ErrorBox error={error} onRetry={reload} /></div>;
@@ -53,7 +68,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       const ok = await confirmDialog('Savatda boshqa restorandan mahsulotlar bor. Savatni tozalab, bu restorandan boshlaymizmi?');
       if (!ok) return;
     }
-    dispatch({ type: 'add', restaurantId: r.id, restaurantName: r.name, product: { id: p.id, name: p.name, priceSom: p.priceSom } });
+    dispatch({ type: 'add', restaurantId: r.id, restaurantName: r.name, product: { id: p.id, name: p.name, priceSom: p.priceSom, packaging: p.packaging ?? null } });
   };
   const inThisCart = cart.restaurantId === r.id;
   const pricing = data.pricing ?? cart.pricing ?? FLAT_PRICING;
@@ -78,8 +93,10 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       {showGrid && !active && (
         <div className="cat-grid" role="list" aria-label="Toifalar">
           {groups.map(g => (
-            <button key={g.id} role="listitem" className="cat-card" onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
-              <RestaurantPhoto name={g.name} url={g.imageUrl} />
+            <button key={g.id} role="listitem" className={`cat-card ${g.id === PROMO_CATEGORY ? 'promo' : ''}`} onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
+              {g.id === PROMO_CATEGORY
+                ? <span className="promo-art" aria-hidden><Icon as={Gift} size={34} /><b>1+1</b></span>
+                : <RestaurantPhoto name={g.name} url={g.imageUrl} />}
               <span className="cat-label"><span className="cat-name">{g.name}</span><span className="cat-count">{g.count} ta taom</span></span>
             </button>
           ))}
@@ -104,8 +121,9 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
               ? <img className="img" src={mediaUrl(p.imageUrl, 320) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               : <div className="img" aria-hidden><Icon as={UtensilsCrossed} size={30} /></div>}
             <div className="grow stack" style={{ gap: 4 }}>
-              <div className="bold">{p.name}</div>
+              <div className="bold">{p.name}{promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}</div>
               {p.description && <div className="desc">{p.description}</div>}
+              {p.packaging && <div className="sub small">+ {p.packaging.name.toLowerCase()} {som(p.packaging.priceSom)} (har bir dona uchun)</div>}
               <div className="row between" style={{ marginTop: 'auto' }}>
                 <PriceTag unitSom={unit} referenceSom={Math.max(first, unit)} />
                 {!p.isAvailable ? <span className="badge closed">Mavjud emas</span>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Search, Star } from 'lucide-react';
+import { BannerCarousel } from '../components/BannerCarousel';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
@@ -19,6 +20,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
 
   return (
     <div className="page">
+      <BannerCarousel go={go} />
       <input className="input" type="search" inputMode="search" placeholder="Restoran qidirish" value={text} onChange={e => setText(e.target.value)} aria-label="Restoran qidirish" />
       {loading && !data && <Skeletons />}
       {error && <ErrorBox error={error} onRetry={reload} />}

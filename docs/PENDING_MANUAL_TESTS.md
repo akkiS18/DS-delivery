@@ -149,3 +149,10 @@ Admin commands work only for the support admins (SUPPORT_ADMIN_1/2 in the stagin
 
 ## G. Already verified (do not repeat)
 Server side, on staging, over HTTPS: guest/Telegram auth paths, MOCK checkout, backend restart mid-order with checkout replay, database outage during checkout (no ghost order, recovery without restart), SIGTERM, reboot, rollback, backups + disposable restore drill (35 tables identical, 20 migrations) and receipt archive integrity, receipt upload/download chain (`smoke-staging-receipt.mjs`, `smoke-staging-resilience.mjs`), edge allowlist and forged headers, watchdog alert/recovery, Telegram linking, Mini App served by the backend, taxi chain to DELIVERED, restaurant APK login and polling (2026-10-22).
+
+## J. Soboy idishi, 1+1 aksiya, bosh sahifa slaydi (2026-11-01, not yet tried on a phone)
+Code, unit tests (rules, cart) and DB tests (`src/tests/packaging-promo.db.test.ts`) ran; the screens were never looked at on a device.
+1. Bobosher Osh / Xusniddin osh: the menu shows "Osh" with "+ soboy idishi 5 000 / 3 000"; adding 2 Osh gives a "Soboy idishi" line (2 ×) in the cart and at checkout; the total is dishes + boxes; the order screen and the restaurant app show the box line.
+2. Sifat Food: `/aksiya` (admin bot) shows the promotion "Lavash" (OFF). `/aksiya taomlar KOD LAVASH KATTA; LAVASH O'RTACHA` then `/aksiya on KOD` → "Chegirmalar" is the FIRST group of Sifat's menu (orange card), the dishes carry a "1+1" badge, 2 of them in the cart show "1 ta bepul", the platform line is crossed out ("Chegirma") and the total is lower by the cheaper dish.
+3. Home: the slide "Lavash 1+1" appears above the search only while the promotion is ON; tapping it opens Sifat's "Chegirmalar"; with 2+ slides they move by themselves and by swipe.
+4. An old customer APK (without these changes) sees the price differ ("narx o'zgardi"): the customer APK must be rebuilt.

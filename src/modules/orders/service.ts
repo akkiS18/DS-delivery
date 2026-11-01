@@ -11,6 +11,7 @@ import { usableCardCount } from '../payment/pool.js';
 import { orderVerdict } from '../customer-strikes/service.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
+import { freeUnits, packagingUnits, type PromoDef } from '../promotions/rules.js';
 
 export const orderSchema = z.object({
   restaurantId: z.string().min(1),
@@ -62,10 +63,13 @@ export class CheckoutError extends Error {
   constructor(code: string, readonly statusCode: number, readonly details?: unknown) { super(code); }
 }
 
-/** unitSom/subtotalSom are what the CUSTOMER pays (service fee included when one applies); baseUnitSom is the restaurant's own menu price. */
-export type CheckoutLine = { productId: string; name: string; unitSom: number; baseUnitSom: number; quantity: number; subtotalSom: number };
-/** The platform's share baked into the prices; ruleCode null = legacy flat commission (nothing was added to the customer's price). */
-export type CheckoutFee = { baseTotalSom: number; feeSom: number; ruleCode: string | null; pricing?: PublicPricing };
+/**
+ * unitSom/subtotalSom are what the CUSTOMER pays (service fee included when one applies); baseUnitSom is the restaurant's own menu price.
+ * free = the free unit(s) of a 1+1 promotion (priced 0, same productId as the paid line); packaging = the dish's packaging line the server added.
+ */
+export type CheckoutLine = { productId: string; name: string; unitSom: number; baseUnitSom: number; quantity: number; subtotalSom: number; free?: boolean; packaging?: boolean };
+/** The platform's share baked into the prices; ruleCode null = legacy flat commission (nothing was added to the customer's price). promoDiscountSom = menu value of the free units. */
+export type CheckoutFee = { baseTotalSom: number; feeSom: number; ruleCode: string | null; pricing?: PublicPricing; promoDiscountSom?: number };
 export type CheckoutIssue =
   | { kind: 'RESTAURANT_UNAVAILABLE' }
   | { kind: 'RESTAURANT_CLOSED'; opensNext: { dayOffset: number; dayOfWeek: number; time: string } | null }
@@ -109,14 +113,39 @@ export async function validateCheckout(tx: Tx, input: {
   const found = new Map(products.map(p => [p.id, p]));
   const issues: CheckoutIssue[] = [];
   for (const id of amounts.keys()) if (!found.has(id)) issues.push({ kind: 'PRODUCT_UNAVAILABLE', productId: id });
+  // Packaging ("soboy idishi") is never ordered on its own: whatever the client sent for it is ignored and the server adds one unit per unit of each dish that has packaging.
+  // A packaging product that is switched off or archived is simply not added (the dish can still be ordered).
+  const dishes = products.filter(p => !p.isPackaging);
+  // A basket of nothing but packaging is not an order.
+  if (dishes.length === 0 && issues.length === 0) for (const id of amounts.keys()) issues.push({ kind: 'PRODUCT_UNAVAILABLE', productId: id });
+  const packNeeded = packagingUnits(dishes.map(p => ({ quantity: amounts.get(p.id)!, packagingProductId: p.packagingProductId })));
+  const packRows = packNeeded.size
+    ? await tx.product.findMany({ where: { id: { in: [...packNeeded.keys()] }, restaurantId: input.restaurantId, isAvailable: true, archivedAt: null, isPackaging: true } })
+    : [];
+  // 1+1: the cheaper unit of every pair of a promotion's products is free (a line priced 0 next to the paid one). The restaurant bears it.
+  const promos = await loadActivePromotions(tx, input.restaurantId);
+  const free = promos.length ? freeUnits(dishes.map(p => ({ productId: p.id, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! })), promos) : new Map<string, number>();
+  const freeCount = [...free.values()].reduce((s, n) => s + n, 0);
   // The platform fee is part of the price the customer pays: computed here from the restaurant's own prices and the current fee mode, never from the client.
-  const cfg = await loadFeeConfig(tx);
-  const priced = priceBasket(products.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! })), cfg);
-  const lines: CheckoutLine[] = priced.lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, baseUnitSom: l.baseUnitSom, quantity: l.quantity, subtotalSom: l.subtotalSom }));
+  const cfgNow = await loadFeeConfig(tx);
+  // An order with a free unit carries no platform line: it is shown crossed out as a discount (owner decision 2026-11-01).
+  const cfg = freeCount > 0 && cfgNow.mode === 'LINE' && !cfgNow.lineWaived ? { ...cfgNow, lineWaived: true } : cfgNow;
+  const paid = [
+    ...dishes.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! - (free.get(p.id) ?? 0), packaging: false })).filter(l => l.quantity > 0),
+    ...packRows.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: packNeeded.get(p.id)!, packaging: true })),
+  ];
+  const priced = priceBasket(paid, cfg);
+  const lines: CheckoutLine[] = priced.lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, baseUnitSom: l.baseUnitSom, quantity: l.quantity, subtotalSom: l.subtotalSom, ...(l.packaging ? { packaging: true } : {}) }));
+  let promoDiscountSom = 0;
+  for (const p of dishes) {
+    const n = free.get(p.id) ?? 0;
+    if (n > 0) { lines.push({ productId: p.id, name: `${p.name} (1+1, bepul)`, unitSom: 0, baseUnitSom: 0, quantity: n, subtotalSom: 0, free: true }); promoDiscountSom += n * p.priceSom; }
+  }
   const totalSom = priced.totalSom;
-  const fee: CheckoutFee = { baseTotalSom: priced.baseTotalSom, feeSom: priced.feeSom, ruleCode: feeRuleCode(cfg), pricing: publicPricing(cfg) };
+  const fee: CheckoutFee = { baseTotalSom: priced.baseTotalSom, feeSom: priced.feeSom, ruleCode: feeRuleCode(cfg), pricing: publicPricing(cfgNow), promoDiscountSom };
   if (!Number.isSafeInteger(totalSom) || totalSom > 100_000_000) issues.push({ kind: 'TOTAL_TOO_LARGE' });
   for (const l of lines) {
+    if (l.free || l.packaging) continue; // the app does not send prices for these: it derives them from the dish
     const expected = input.expectedUnitPrices?.[l.productId];
     if (expected !== undefined && expected !== l.unitSom) {
       issues.push({ kind: 'PRICE_CHANGED', productId: l.productId, name: l.name, expectedUnitSom: expected, currentUnitSom: l.unitSom });
@@ -126,6 +155,12 @@ export async function validateCheckout(tx: Tx, input: {
     issues.push({ kind: 'TOTAL_CHANGED', expectedTotalSom: input.expectedTotalSom, currentTotalSom: totalSom });
   }
   return issues.length ? { ok: false, issues, lines, totalSom, fee } : { ok: true, lines, totalSom, fee, restaurant };
+}
+
+/** The restaurant's switched-on promotions with the products they cover. */
+async function loadActivePromotions(tx: Tx, restaurantId: string): Promise<PromoDef[]> {
+  const rows = await tx.promotion.findMany({ where: { restaurantId, isActive: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], select: { id: true, maxFreePerOrder: true, products: { select: { productId: true } } } });
+  return rows.map(r => ({ id: r.id, maxFreePerOrder: r.maxFreePerOrder, productIds: r.products.map(p => p.productId) }));
 }
 
 /** Maps validation issues onto the error codes the existing callers and the HTTP handler already understand. */
@@ -291,6 +326,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
           totalSom, status: waiting ? 'WAITING_RESTAURANT' : 'PAYMENT_PENDING',
           // A fee order keeps the restaurant's own prices next to what the customer pays, and the platform's frozen share (the commission later).
           ...(fee.ruleCode ? { baseTotalSom: fee.baseTotalSom, serviceFeeSom: fee.feeSom, feeRuleCode: fee.ruleCode } : {}),
+          ...(fee.promoDiscountSom ? { promoDiscountSom: fee.promoDiscountSom } : {}),
           items: { create: lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, quantity: l.quantity, subtotalSom: l.subtotalSom, ...(fee.ruleCode ? { baseUnitSom: l.baseUnitSom } : {}) })) },
           paymentIsTest: data.paymentMode === 'MOCK', restaurantDeadlineAt: deadline,
           // The preparation time the customer is told at checkout; cooking later reuses exactly this value.

@@ -2,7 +2,7 @@ import { ApiError } from './apiError';
 import { apiOrigin, isAndroidApp } from './platform';
 import { dropGuestToken, getGuestToken } from './session';
 import { getInitData } from './telegram';
-import type { Address, AppConfig, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, ReservationView, Restaurant, TaxiOption, TicketSummary, TicketThread } from './types';
+import type { Address, AppConfig, Banner, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, ReservationView, Restaurant, TaxiOption, TicketSummary, TicketThread } from './types';
 
 export { ApiError };
 
@@ -97,6 +97,7 @@ export const api = {
   deleteAddress: (id: string) => request<void>(`/me/addresses/${id}`, { method: 'DELETE' }),
   setDefaultAddress: (id: string) => request<Address>(`/me/addresses/${id}/default`, { method: 'POST' }),
   restaurants: (q: string, signal?: AbortSignal) => request<{ restaurants: Restaurant[] }>(`/restaurants${q ? `?q=${encodeURIComponent(q)}` : ''}`, { signal }),
+  banners: (signal?: AbortSignal) => request<{ banners: Banner[] }>('/banners', { signal }),
   menu: (id: string, signal?: AbortSignal) => request<MenuResponse>(`/restaurants/${encodeURIComponent(id)}/menu`, { signal }),
   quote: (restaurantId: string, items: Array<{ productId: string; quantity: number }>, signal?: AbortSignal) =>
     request<QuoteResponse>('/quote', { method: 'POST', body: { restaurantId, items }, signal }),

@@ -44,6 +44,8 @@ model Restaurant {
   payoutMarks         PayoutMark[]
   ratings             OrderRating[]
   image               RestaurantImage?
+  promotions          Promotion[]
+  banners             Banner[]
   // Company dispatch pickup site
 }
 
@@ -79,6 +81,13 @@ model Product {
   updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
   orderItems   OrderItem[]
   image        ProductImage?
+  /// Packaging that goes with this dish ("soboy idishi"): the server adds one packaging unit per dish unit at checkout (owner decision 2026-11-01).
+  packagingProductId String?
+  packagingProduct   Product?    @relation("DishPackaging", fields: [packagingProductId], references: [id], onDelete: SetNull)
+  packagedDishes     Product[]   @relation("DishPackaging")
+  /// A packaging product: never listed on the customer menu on its own, only added next to its dish. Still editable (price) in the restaurant app.
+  isPackaging  Boolean     @default(false)
+  promotionProducts PromotionProduct[]
 
   @@index([restaurantId, isAvailable])
 }
@@ -316,6 +325,8 @@ model Order {
   baseTotalSom               Int?
   serviceFeeSom              Int?
   feeRuleCode                String?
+  /// Menu value of the free units given by a promotion (1+1); 0 = none. The free units are order lines priced 0.
+  promoDiscountSom           Int                  @default(0)
   createdAt                  DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt                  DateTime             @updatedAt @db.Timestamptz(3)
   items                      OrderItem[]
@@ -1071,4 +1082,62 @@ model PayoutMark {
   revokeNote   String?
 
   @@index([restaurantId, day])
+}
+
+/// A "1+1" offer of one restaurant (owner decision 2026-11-01): of every two units of its products the cheaper one is free, paid by the restaurant.
+/// Off until an administrator switches it on (isActive); it never has an end date, an optional cap per order may be set.
+model Promotion {
+  id              String             @id @default(cuid())
+  restaurantId    String
+  restaurant      Restaurant         @relation(fields: [restaurantId], references: [id])
+  title           String
+  kind            String             @default("BUY1_GET1")
+  isActive        Boolean            @default(false)
+  maxFreePerOrder Int?
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(3)
+  products        PromotionProduct[]
+  banners         Banner[]
+
+  @@index([restaurantId, isActive])
+}
+
+model PromotionProduct {
+  promotionId String
+  promotion   Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([promotionId, productId])
+  @@index([productId])
+}
+
+/// A slide in the Mini App's home carousel (news / offers). Tapping it opens the restaurant (and, for a promotion, its "Chegirmalar" group).
+/// Shown only while isActive, inside startsAt..endsAt when set, and (when linked to a promotion) while that promotion is on.
+model Banner {
+  id           String       @id @default(cuid())
+  title        String
+  position     Int          @default(0)
+  isActive     Boolean      @default(true)
+  startsAt     DateTime?    @db.Timestamptz(3)
+  endsAt       DateTime?    @db.Timestamptz(3)
+  restaurantId String?
+  restaurant   Restaurant?  @relation(fields: [restaurantId], references: [id])
+  promotionId  String?
+  promotion    Promotion?   @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+  image        BannerImage?
+
+  @@index([isActive, position])
+}
+
+model BannerImage {
+  bannerId  String   @id
+  banner    Banner   @relation(fields: [bannerId], references: [id], onDelete: Cascade)
+  mime      String
+  data      Bytes
+  sha256    String
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }

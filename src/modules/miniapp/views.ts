@@ -50,9 +50,15 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
     db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true, image: { select: { version: true } } } }),
     db.product.findMany({
       where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ name: 'asc' }],
-      select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true, image: { select: { version: true } } },
+      select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true, isPackaging: true, packagingProductId: true, image: { select: { version: true } } },
     }),
   ]);
+  // Packaging ("soboy idishi") is not a menu item: each dish that has it says so, and the server adds one per unit at checkout.
+  const packaging = new Map(products.filter(p => p.isPackaging && p.isAvailable).map(p => [p.id, { id: p.id, name: p.name, priceSom: p.priceSom }]));
+  const promotions = await db.promotion.findMany({
+    where: { restaurantId: r.id, isActive: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    select: { id: true, title: true, kind: true, maxFreePerOrder: true, products: { select: { productId: true } } },
+  });
   const hours = openState(r, now);
   const isOpen = !r.isPaused && hours.open;
   return {
@@ -60,7 +66,12 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
       // Table reservations: present only while the restaurant takes them (the deposit is what the customer pays to the restaurant's card).
       reservation: r.reservationsEnabled ? { depositSom: r.reservationDepositSom } : null },
     categories: categories.map(({ image, ...c }) => ({ ...c, imageUrl: image ? `/api/v1/miniapp/categories/${c.id}/image?v=${image.version}` : null })),
-    products: products.map(({ image, ...p }) => (image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p)),
+    products: products.filter(p => !p.isPackaging).map(({ image, isPackaging, packagingProductId, ...p }) => ({
+      ...(image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p),
+      packaging: packagingProductId ? packaging.get(packagingProductId) ?? null : null,
+    })),
+    // 1+1 offers that are on now: of every two units of these products the cheaper is free (the app mirrors it; the server decides at checkout).
+    promotions: promotions.map(x => ({ id: x.id, title: x.title, kind: x.kind, maxFreePerOrder: x.maxFreePerOrder, productIds: x.products.map(pp => pp.productId) })),
     // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
     // `priceSom` stays the restaurant's own menu price.
     pricing: publicPricing(await loadFeeConfig()),
@@ -191,6 +202,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     foodTotalSom: o.totalSom,
     /** The separate "Platforma xizmati" line (LINE fee mode): what was charged on top of the items, or what was crossed out as a discount. null for every other order. */
     platformLine: platformLineOf(o.feeRuleCode ?? null, o.serviceFeeSom ?? null),
+    /** Menu value of the free units given by a 1+1 promotion (the lines priced 0 above); 0 = none. */
+    promoDiscountSom: o.promoDiscountSom,
     delivery: { feeSom: null, note: 'TAXI_TARIFF' as const },
     address: o.addressText, phone: o.phoneSnapshot,
     isTest: o.paymentIsTest,

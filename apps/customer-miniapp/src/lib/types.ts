@@ -28,12 +28,20 @@ export interface Product {
   isAvailable: boolean;
   categoryId: string | null;
   imageUrl: string | null;
+  /** Packaging that goes with the dish ("soboy idishi"): the server adds one per unit; the app shows it as its own cart line. Absent from an older backend. */
+  packaging?: { id: string; name: string; priceSom: number } | null;
 }
+
+/** A 1+1 offer that is on now (the cheaper of every two units of these products is free). */
+export interface Promotion { id: string; title: string; kind: 'BUY1_GET1'; maxFreePerOrder: number | null; productIds: string[] }
+
+/** A slide of the home carousel. `target` null = not clickable; promo = open that restaurant's "Chegirmalar" group. */
+export interface Banner { id: string; title: string; imageUrl: string; target: { restaurantId: string; promo: boolean } | null }
 
 /** The platform service fee model (src/modules/pricing/fee.ts). Dish prices shown to the customer already contain it; `Product.priceSom` is the restaurant's own price. */
 export interface PublicPricing { mode: 'FLAT' | 'PERCENT' | 'TIERED' | 'LINE'; percentBp: number; kneeSom: number; lowBp: number; highBp: number; milestonesSom: number[]; lineSom?: number; lineWaived?: boolean }
 
-export interface MenuResponse { restaurant: Restaurant; categories: Category[]; products: Product[]; pricing?: PublicPricing }
+export interface MenuResponse { restaurant: Restaurant; categories: Category[]; products: Product[]; pricing?: PublicPricing; promotions?: Promotion[] }
 
 export interface Address {
   id: string;
@@ -58,7 +66,7 @@ export interface Profile {
 export interface AppConfig { paymentMode: 'MOCK' | 'REAL'; mockPaymentAvailable: boolean; currency: string }
 
 /** unitSom / subtotalSom are what the customer pays; baseUnitSom is the restaurant's own price (absent from an older backend: then they are the same). */
-export interface QuoteLine { productId: string; name: string; unitSom: number; baseUnitSom?: number; quantity: number; subtotalSom: number }
+export interface QuoteLine { productId: string; name: string; unitSom: number; baseUnitSom?: number; quantity: number; subtotalSom: number; free?: boolean; packaging?: boolean }
 export type CheckoutIssue =
   | { kind: 'RESTAURANT_UNAVAILABLE' }
   | { kind: 'RESTAURANT_CLOSED'; opensNext: OpensNext | null }
@@ -143,6 +151,8 @@ export interface OrderView {
   foodTotalSom: number;
   /** The separate platform line: charged on top of the items, or shown crossed out (waived). Absent/null for other fee modes and older backends. */
   platformLine?: { chargedSom: number; waivedSom: number } | null;
+  /** Menu value of the free units of a 1+1 promotion (those lines are priced 0); absent/0 = none. */
+  promoDiscountSom?: number;
   delivery: { feeSom: null; note: 'TAXI_TARIFF' };
   address: string;
   phone: string | null;
@@ -203,8 +213,8 @@ export interface OrderSummary {
 }
 
 /** `priceSom` is the restaurant's own menu price; the customer-facing price comes from pricing (lib/fee.ts). */
-export interface CartLine { productId: string; name: string; priceSom: number; quantity: number }
-export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[]; pricing?: PublicPricing }
+export interface CartLine { productId: string; name: string; priceSom: number; quantity: number; packaging?: { id: string; name: string; priceSom: number } | null }
+export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[]; pricing?: PublicPricing; /** 1+1 offers of the cart's restaurant (from its menu). */ promos?: Array<{ id: string; maxFreePerOrder: number | null; productIds: string[] }> }
 
 /** Support chat (the customer's side; the admins answer in Telegram). `lastFrom` tells whose message is newest. */
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';

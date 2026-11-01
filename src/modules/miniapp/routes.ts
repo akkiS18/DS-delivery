@@ -17,6 +17,7 @@ import { createAppTicket } from '../support/service.js';
 import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
 import { readRestaurantImage } from '../restaurant/image.js';
 import { sendImage } from '../images/serve.js';
+import { publicBanners, readBannerImage } from '../promotions/service.js';
 import { readCategoryImage, readProductImage } from '../restaurant-catalog/images.js';
 import { ReservationError, customerReservationView, listCustomerReservations, loadCustomerReservation, placeReservation, reservationSchema } from '../reservations/service.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
@@ -234,6 +235,13 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   // A category photo (the customer menu opens on a grid of categories). Public for the same reason as the dish photo.
   app.get<{ Params: { id: string } }>('/categories/:id/image', { config: { public: true } }, async (request, reply) => {
     const img = await readCategoryImage(idParam.parse(request.params.id));
+    if (!img) throw httpError(404, 'NOT_FOUND');
+    return sendImage(request, reply, img);
+  });
+  // The home carousel (news and offers). The picture route is public for the same reason as the other photos.
+  app.get('/banners', async () => ({ banners: await publicBanners() }));
+  app.get<{ Params: { id: string } }>('/banners/:id/image', { config: { public: true } }, async (request, reply) => {
+    const img = await readBannerImage(idParam.parse(request.params.id));
     if (!img) throw httpError(404, 'NOT_FOUND');
     return sendImage(request, reply, img);
   });

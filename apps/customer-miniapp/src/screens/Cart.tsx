@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ShoppingBasket } from 'lucide-react';
+import { Gift, ShoppingBasket } from 'lucide-react';
 import { DeliveryNotice } from '../components/DeliveryNotice';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
@@ -33,7 +33,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
           if (q.pricing) dispatch({ type: 'pricing', pricing: q.pricing });
           // adopt the restaurant prices the server has now (the customer-facing price follows from them), and tell the customer what moved
           const baseOf = (sl: { unitSom: number; baseUnitSom?: number }) => sl.baseUnitSom ?? sl.unitSom;
-          const moved = q.lines.filter(sl => { const l = cart.lines.find(x => x.productId === sl.productId); return l && l.priceSom !== baseOf(sl); });
+          const moved = q.lines.filter(sl => !sl.free && !sl.packaging).filter(sl => { const l = cart.lines.find(x => x.productId === sl.productId); return l && l.priceSom !== baseOf(sl); });
           if (moved.length) {
             dispatch({ type: 'reprice', lines: moved.map(m => ({ productId: m.productId, unitSom: baseOf(m) })) });
             setRepriced(moved.map(m => m.name));
@@ -74,6 +74,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
             </div>
             <div className="bold mono">{som(l.subtotalSom)}</div>
           </div>
+          {l.freeQty > 0 && <div className="row between free-row"><span className="row" style={{ gap: 6 }}><Icon as={Gift} size={16} />{l.freeQty} ta bepul (1+1 aksiya)</span><span className="mono"><span className="strike">{som(l.freeQty * l.priceSom)}</span> <b>0</b></span></div>}
           <div className="row between" style={{ marginTop: 10 }}>
             <Qty value={l.quantity} onInc={() => dispatch({ type: 'inc', productId: l.productId })} onDec={() => dispatch({ type: 'dec', productId: l.productId })} />
             <Button small variant="ghost" onClick={() => dispatch({ type: 'remove', productId: l.productId })} aria-label={`${l.name} ni olib tashlash`}>Olib tashlash</Button>
@@ -81,10 +82,22 @@ export function Cart({ go }: { go: (r: Route) => void }) {
           {unavailable.has(l.productId) && <div className="err">Bu mahsulot mavjud emas — olib tashlang.</div>}
         </div>
       ))}
+      {view.extras.map(x => (
+        <div key={x.productId} className="card">
+          <div className="row between">
+            <div className="grow">
+              <div className="bold">{x.name}</div>
+              <div className="sub small">{som(x.unitSom)} • har bir taom uchun avtomatik</div>
+            </div>
+            <div className="bold mono">{x.quantity} × = {som(x.subtotalSom)}</div>
+          </div>
+        </div>
+      ))}
       <div className="card stack">
-        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(quote.pricing ?? view.pricing) : view.dishesSom)}</span></div>
+        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(view.pricing) : view.dishesSom)}</span></div>
         {view.savedSom > 0 && <div className="row between saved"><span>Tejadingiz</span><span className="mono">−{som(view.savedSom)}</span></div>}
-        <PlatformLine pricing={quote?.ok ? quote.pricing ?? view.pricing : view.pricing} />
+        {view.promoSavedSom > 0 && <div className="row between saved"><span>Aksiya (1+1)</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
+        <PlatformLine pricing={view.pricing} />
         <FeeProgress base={cartBase(cart)} pricing={view.pricing} />
         {view.pricing.mode !== 'FLAT' && view.pricing.mode !== 'LINE' && <p className="sub small">Narxlarga xizmat haqi kiritilgan.</p>}
         {view.pricing.mode === 'LINE' && <div className="row between bold"><span>Jami (taksidan tashqari)</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>}

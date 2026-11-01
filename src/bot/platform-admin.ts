@@ -10,6 +10,7 @@ import { planRestaurantRemoval, planTaxiRemoval, removeRestaurant, removeTaxiCom
 import { createTaxiCompanyByAdmin, resetTaxiAccessByAdmin } from '../modules/taxi-app/provision.js';
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin } from '../modules/restaurant/provision.js';
 import { IMAGE_MAX_BYTES, setRestaurantImage } from '../modules/restaurant/image.js';
+import { listPromotionsForAdmin, setPromotionActive, setPromotionCap, setPromotionProducts } from '../modules/promotions/service.js';
 import { platformRatingsOverview, REASON_LABEL, setRankingEnabled, type RatingReason } from '../modules/ratings/service.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -150,6 +151,46 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     }
     const v = await renderFee();
     await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  // 1+1 promotions (owner decision 2026-11-01): /aksiya lists them; on/off switch one; taomlar sets its dishes; limit caps the free units of one order.
+  bot.command('aksiya', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const words = argsOf(ctx).split(/\s+/);
+    const [sub, ref] = words;
+    const tail = words.slice(2).join(' ');
+    try {
+      if (sub === 'on' || sub === 'off') {
+        const r = await setPromotionActive(adminId, ref ?? '', sub === 'on');
+        await ctx.reply(`${r.isActive ? '🟢 Yoqildi' : '⚪ O‘chirildi'}: <b>${escapeHtml(r.title)}</b>`, { parse_mode: 'HTML' });
+      } else if (sub === 'taomlar') {
+        const r = await setPromotionProducts(adminId, ref ?? '', tail.split(/[;\n]/));
+        await ctx.reply(`✅ <b>${escapeHtml(r.title)}</b> taomlari:\n${r.products.map(n => `• ${escapeHtml(n)}`).join('\n')}`, { parse_mode: 'HTML' });
+      } else if (sub === 'limit') {
+        const r = await setPromotionCap(adminId, ref ?? '', Number(words[2]));
+        await ctx.reply(`✅ <b>${escapeHtml(r.title)}</b>: ${r.cap === null ? 'bitta buyurtmada bepul donalar cheklanmagan' : `bitta buyurtmada eng ko‘pi bilan ${r.cap} ta bepul`}`, { parse_mode: 'HTML' });
+      }
+    } catch (e) {
+      const m = e as Error & { missing?: string[] };
+      const text = m.message === 'AKSIYA_TOPILMADI' ? 'Aksiya topilmadi. Kodni /aksiya ro‘yxatidan oling.'
+        : m.message === 'AKSIYADA_TAOM_YOQ' ? 'Avval taomlarni belgilang: <code>/aksiya taomlar KOD Taom 1; Taom 2</code>'
+        : m.message === 'TAOM_TOPILMADI' ? `Bu taomlar menyuda topilmadi: ${(m.missing ?? []).map(escapeHtml).join(', ')}. Nomni menyudagidek yozing.`
+        : m.message === 'TAOM_NOMLARI_NOTOGRI' ? 'Taom nomlarini «;» bilan ajratib yozing.'
+        : m.message === 'SON_NOTOGRI' ? 'Son 0 dan 100 gacha (0 = cheklovsiz).'
+        : 'Bajarilmadi.';
+      await ctx.reply(text, { parse_mode: 'HTML' });
+      return;
+    }
+    const list = await listPromotionsForAdmin(adminId);
+    await ctx.reply(list.length === 0 ? 'Aksiyalar yo‘q.' : [
+      '🎁 <b>Aksiyalar (1+1)</b>',
+      ...list.map(p => `\n${p.isActive ? '🟢' : '⚪'} <b>${escapeHtml(p.title)}</b> — ${escapeHtml(p.restaurant)}\nKod: <code>${p.ref}</code>${p.maxFreePerOrder ? ` • limit: ${p.maxFreePerOrder} ta/buyurtma` : ''}${p.bannerOn ? ' • slayd bor' : ''}\nTaomlar: ${p.products.length ? p.products.map(escapeHtml).join(', ') : '— belgilanmagan'}`),
+      '',
+      '<code>/aksiya on KOD</code> • <code>/aksiya off KOD</code>',
+      '<code>/aksiya taomlar KOD Taom 1; Taom 2</code>',
+      '<code>/aksiya limit KOD 4</code> (0 = cheklovsiz)',
+    ].join('\n'), { parse_mode: 'HTML' });
   });
 
   bot.command('taxi', async ctx => {

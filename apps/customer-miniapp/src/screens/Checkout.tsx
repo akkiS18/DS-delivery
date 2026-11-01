@@ -156,7 +156,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       haptic.error();
       const d = describeCheckoutError(e);
       if (d.kind === 'PRICE' && d.pricing) dispatch({ type: 'pricing', pricing: d.pricing });
-      if (d.kind === 'PRICE' && d.currentLines) dispatch({ type: 'reprice', lines: d.currentLines.map(l => ({ productId: l.productId, unitSom: l.baseUnitSom ?? l.unitSom })) });
+      if (d.kind === 'PRICE' && d.currentLines) dispatch({ type: 'reprice', lines: d.currentLines.filter(l => !l.free && !l.packaging).map(l => ({ productId: l.productId, unitSom: l.baseUnitSom ?? l.unitSom })) });
       if (d.kind === 'UNAVAILABLE' && d.unavailableIds?.length) dispatch({ type: 'drop', productIds: d.unavailableIds });
       if (d.kind === 'NO_TAXI') { setTaxiId(null); loadTaxis(); } // the chosen service went away: show the current list
       setProblem(d);
@@ -285,7 +285,9 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       <section className="card stack" aria-label="Buyurtma xulosasi">
         <h2 style={{ fontSize: 17 }}>Buyurtma</h2>
         <div className="sub small">{cart.restaurantName} • {cartCount(cart)} ta</div>
-        {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
+        {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}{l.freeQty > 0 ? ` (${l.freeQty} ta bepul)` : ''}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
+        {view.extras.map(x => <div key={x.productId} className="row between small"><span className="grow">{x.quantity} × {x.name}</span><span className="mono">{som(x.subtotalSom)}</span></div>)}
+        {view.promoSavedSom > 0 && <div className="row between small saved"><span>Aksiya (1+1)</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
         <div className="divider" />
         <div className="row between"><span className="bold">Taomlar</span><span className="bold mono">{som(view.dishesSom)}</span></div>
         <PlatformLine pricing={view.pricing} />

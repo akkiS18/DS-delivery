@@ -220,6 +220,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
       <div className="card stack">
         <h2 style={{ fontSize: 17 }}>Buyurtma tarkibi</h2>
         {o.items.map((it, i) => <div key={i} className="row between small"><span className="grow">{it.quantity} × {it.name}</span><span className="mono">{som(it.subtotalSom)}</span></div>)}
+        {(o.promoDiscountSom ?? 0) > 0 && <div className="row between small saved"><span>Aksiya (1+1)</span><span className="mono">−{som(o.promoDiscountSom!)}</span></div>}
         <div className="divider" />
         {o.platformLine ? (<>
           <div className="row between"><span className="bold">Taomlar</span><span className="bold mono">{som(o.foodTotalSom - o.platformLine.chargedSom)}</span></div>

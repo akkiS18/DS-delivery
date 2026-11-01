@@ -1,0 +1,12 @@
+[
+  { "name": "single unit pays", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 1 }], "free": {} },
+  { "name": "two of one product: one free", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 2 }], "free": { "a": 1 } },
+  { "name": "three of one product: still one free", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 3 }], "free": { "a": 1 } },
+  { "name": "four of one product: two free", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 4 }], "free": { "a": 2 } },
+  { "name": "mixed pair: the cheaper is free", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a", "b"] }], "lines": [{ "productId": "a", "baseUnitSom": 43000, "quantity": 1 }, { "productId": "b", "baseUnitSom": 33000, "quantity": 1 }], "free": { "b": 1 } },
+  { "name": "four mixed: pairs of dearest, then the rest", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a", "b", "c"] }], "lines": [{ "productId": "a", "baseUnitSom": 43000, "quantity": 1 }, { "productId": "b", "baseUnitSom": 33000, "quantity": 1 }, { "productId": "c", "baseUnitSom": 28000, "quantity": 2 }], "free": { "b": 1, "c": 1 } },
+  { "name": "products outside the promotion never become free", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 1 }, { "productId": "x", "baseUnitSom": 10000, "quantity": 5 }], "free": {} },
+  { "name": "cap per order", "promos": [{ "id": "p", "maxFreePerOrder": 1, "productIds": ["a"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 6 }], "free": { "a": 1 } },
+  { "name": "a unit is given away by one promotion only", "promos": [{ "id": "p", "maxFreePerOrder": null, "productIds": ["a"] }, { "id": "q", "maxFreePerOrder": null, "productIds": ["a", "b"] }], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 2 }, { "productId": "b", "baseUnitSom": 20000, "quantity": 1 }], "free": { "a": 1 } },
+  { "name": "no promotions", "promos": [], "lines": [{ "productId": "a", "baseUnitSom": 30000, "quantity": 4 }], "free": {} }
+]
