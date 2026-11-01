@@ -8,7 +8,9 @@ import { db } from '../lib/db.js';
  *  - Sifat Food dish photos: the owner's pictures for tandir lavash, lavash, donar, xaggi, gamburger (also for dobbl burger), turk kebab and hod dog;
  *    DOBBL CHEZ BURGER gets the same picture as CHEZ BURGER.
  *  - Burger order on the menu: GAMBURGER, DOBBL BURGER, CHEZ BURGER, DOBBL CHEZ BURGER (not alphabetical).
- *  - The promotion "Lavash" (1+1) gets the three ordinary LAVASH dishes (not the tandir ones, not donar) and is switched ON - only while it has no dishes yet.
+ *  - The 1+1 promotion is its OWN dish "LAVASH O'RTACHA 1+1" (owner, 2026-11-02: the promo lavash and the ordinary o'rtacha lavash are different dishes).
+ *    It is created as a copy of LAVASH O'RTACHA (same price, category, description, lavash photo); the ordinary lavash dishes stay out of the promotion.
+ *    The promotion "Lavash" gets only that dish and is switched ON - only while it has no dishes yet.
  * Run on the server:  docker exec ds-prod-backend-1 node dist/src/tools/seed-sifat-photos-2026-11-02.js --apply
  */
 const APPLY = process.argv.includes('--apply');
@@ -16,10 +18,13 @@ const ACTOR = 'owner-menu-photos-20261102';
 const ASSETS = resolve(process.cwd(), 'prisma/seed-assets/sifat');
 const log = (msg: string): void => console.log(`${APPLY ? '[APPLY]' : '[PLAN] '} ${msg}`);
 
+const PROMO_DISH = "LAVASH O'RTACHA 1+1";
+const PROMO_BASE = "LAVASH O'RTACHA";
+
 /** photo file -> dish names (exact, as on the menu) */
 const PHOTOS: Array<{ file: string; names: string[] }> = [
   { file: 'tandir-lavash.jpg', names: ['TANDIR LAVASH KATTA', 'TANDIR LAVASH KICHKINA', 'TANDIR LAVASH O\'RTACHA'] },
-  { file: 'lavash.jpg', names: ['LAVASH KATTA', 'LAVASH KICHKINA', 'LAVASH O\'RTACHA'] },
+  { file: 'lavash.jpg', names: ['LAVASH KATTA', 'LAVASH KICHKINA', PROMO_BASE, PROMO_DISH] },
   { file: 'donar.jpg', names: ['DONAR KATTA', 'DONAR KICHKINA', 'DONAR O\'RTACHA'] },
   { file: 'xaggi.jpg', names: ['XAGGI'] },
   { file: 'gamburger.jpg', names: ['GAMBURGER', 'DOBBL BURGER'] },
@@ -27,13 +32,27 @@ const PHOTOS: Array<{ file: string; names: string[] }> = [
   { file: 'hod-dog.jpg', names: ['HOD DOG KATTA', 'HOD DOG KATTA SUPPER', 'HOD DOG KICHKINA', 'HOD DOG O\'RTACHA'] },
 ];
 const BURGER_ORDER = ['GAMBURGER', 'DOBBL BURGER', 'CHEZ BURGER', 'DOBBL CHEZ BURGER'];
-const PROMO_DISHES = ['LAVASH KATTA', 'LAVASH O\'RTACHA', 'LAVASH KICHKINA'];
 
 try {
   const r = await db.restaurant.findUnique({ where: { slug: 'sifat-food' }, select: { id: true } });
   if (!r) throw new Error('sifat-food not found');
   const dishes = await db.product.findMany({ where: { restaurantId: r.id, archivedAt: null }, select: { id: true, name: true, imageUrl: true, image: { select: { version: true, mime: true, data: true, sha256: true } } } });
   const byName = new Map(dishes.map(d => [d.name, d]));
+
+  // The promotion's own dish (a copy of the ordinary o'rtacha lavash, created once; its price is then the restaurant's to change).
+  if (byName.has(PROMO_DISH)) log(`${PROMO_DISH}: exists, kept`);
+  else {
+    const base = await db.product.findFirst({ where: { restaurantId: r.id, name: PROMO_BASE, archivedAt: null }, select: { priceSom: true, categoryId: true, description: true } });
+    if (!base) log(`${PROMO_BASE} not found: the promotion dish cannot be created`);
+    else {
+      log(`${PROMO_DISH}: create, ${base.priceSom} so'm, same category as ${PROMO_BASE}`);
+      if (APPLY) {
+        const p = await db.product.create({ data: { restaurantId: r.id, name: PROMO_DISH, priceSom: base.priceSom, categoryId: base.categoryId, description: base.description } });
+        await db.catalogEvent.create({ data: { restaurantId: r.id, entity: 'PRODUCT', entityId: p.id, action: 'PRODUCT_CREATED', actorSessionId: ACTOR, after: { name: p.name, priceSom: p.priceSom } } });
+        byName.set(PROMO_DISH, { id: p.id, name: p.name, imageUrl: null, image: null });
+      }
+    }
+  }
   const done = async (productId: string): Promise<boolean> => (await db.catalogEvent.count({ where: { restaurantId: r.id, entity: 'PRODUCT', entityId: productId, actorSessionId: ACTOR, action: 'PRODUCT_IMAGE_SET' } })) > 0;
   const setImage = async (productId: string, name: string, img: { mime: string; data: Uint8Array<ArrayBuffer>; sha256: string }, source: string) => {
     const version = (byName.get(name)?.image?.version ?? 0) + 1;
@@ -81,13 +100,13 @@ try {
   if (!promo) log('promotion "Lavash" not found: skipped');
   else if (promo.products.length > 0) log('promotion "Lavash" already has dishes: kept as it is');
   else {
-    const ids = PROMO_DISHES.map(n => byName.get(n)?.id).filter((x): x is string => !!x);
-    log(`promotion "Lavash": dishes = ${PROMO_DISHES.join(', ')}; switched ON`);
-    if (APPLY && ids.length === PROMO_DISHES.length) {
-      await db.promotionProduct.createMany({ data: ids.map(productId => ({ promotionId: promo.id, productId })) });
+    log(`promotion "Lavash": dish = ${PROMO_DISH}; switched ON`);
+    const id = byName.get(PROMO_DISH)?.id;
+    if (APPLY && id) {
+      await db.promotionProduct.create({ data: { promotionId: promo.id, productId: id } });
       await db.promotion.update({ where: { id: promo.id }, data: { isActive: true } });
-      await db.adminAuditEvent.create({ data: { actorId: ACTOR, action: 'PROMOTION_ON', targetType: 'Promotion', targetId: promo.id, details: { dishes: PROMO_DISHES } } });
-    } else if (APPLY) log('some lavash dishes are missing: promotion NOT switched on');
+      await db.adminAuditEvent.create({ data: { actorId: ACTOR, action: 'PROMOTION_ON', targetType: 'Promotion', targetId: promo.id, details: { dishes: [PROMO_DISH] } } });
+    } else if (APPLY) log('the promotion dish is missing: promotion NOT switched on');
   }
   if (!APPLY) console.log('Nothing written. Add --apply to write.');
 } catch (err) {
