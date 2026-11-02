@@ -7,7 +7,9 @@ import com.dsdelivery.restaurant.data.model.Resource
 import com.dsdelivery.restaurant.data.notify.AppForeground
 import com.dsdelivery.restaurant.data.repository.RestaurantRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -66,7 +68,9 @@ class OrdersViewModel(
 
     /** @return false when polling must stop (expired session: the app navigates to login by itself). */
     private suspend fun pollOnce(): Boolean {
-        when (val result = repository.getOrders("toCook", null)) {
+        val result = repository.getOrders("toCook", null)
+        currentCoroutineContext().ensureActive() // a cancelled request is not an error
+        when (result) {
             is Resource.Success -> {
                 val page = result.data
                 val fresh = if (baselineDone) page.orders.filter { it.id !in knownIncoming } else emptyList()
@@ -108,7 +112,11 @@ class OrdersViewModel(
                 }
             }
 
-            when (val result = repository.getOrders(_uiState.value.selectedFilter.apiValue, null)) {
+            val result = repository.getOrders(_uiState.value.selectedFilter.apiValue, null)
+            // A newer load (the first poll starts right after init) cancels this one; the repository turns that cancellation into
+            // Resource.Error, which used to flash "Xatolik yuz berdi" until the newer load finished. Cancelled = not an error.
+            ensureActive()
+            when (result) {
                 is Resource.Success -> {
                     val page = result.data
                     _uiState.update {

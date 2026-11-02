@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -101,9 +102,16 @@ fun RestaurantNavGraph(
         }
     }
 
+    // A saved session opens the orders screen at once (no login/"Yuklanmoqda" screen in between). The server still checks it:
+    // a 401 on the first call clears the session and the effect above sends the user to login.
+    val startRoute = remember {
+        (app.repository.sessionState.value as? SessionState.LoggedIn)?.restaurant?.slug
+            ?.let { Screen.Main.createRoute(it) } ?: Screen.Login.route
+    }
+
     NavHost(
         navController = navController,
-        startDestination = Screen.Login.route,
+        startDestination = startRoute,
         modifier = modifier
     ) {
         composable(Screen.Login.route) {

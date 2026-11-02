@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark phones: the window behind the first frame matches DSRestaurantTheme's dark background (no light flash on start). -->
+    <style name="Theme.DSRestaurant" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/primary</item>
+        <item name="android:windowBackground">#FF111D1E</item>
+    </style>
+</resources>
