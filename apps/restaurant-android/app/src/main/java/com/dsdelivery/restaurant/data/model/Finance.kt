@@ -34,8 +34,31 @@ data class FinanceCountSom(val count: Int = 0, val som: Long = 0L)
 
 data class FinanceRefundAmount(val count: Int = 0, val amountSom: Long = 0L)
 
+/**
+ * What the platform owes the restaurant for money customers paid onto the PLATFORM's cards (period figures follow the selected filter; the unpaid
+ * balance looks back [unpaidWindowDays] days and ignores the filter). Backend values only.
+ */
+data class FinancePayout(
+    val collectsToPlatform: Boolean = false,
+    val shown: Boolean = false,
+    val orders: Int = 0,
+    val collectedSom: Long = 0L,
+    val commissionSom: Long = 0L,
+    val refundsSom: Long = 0L,
+    val payableSom: Long = 0L,
+    val paidInPeriodSom: Long = 0L,
+    val unpaidDays: Int = 0,
+    val unpaidSom: Long = 0L,
+    val unpaidOldestDay: String? = null,
+    val unpaidWindowDays: Int = 31,
+    val inProgressOrders: Int = 0,
+    val inProgressSom: Long = 0L
+)
+
 /** Mirrors GET /api/v1/restaurant/finance/summary (Stage 6B). Every amount is a backend value. */
 data class FinanceSummary(
+    /** Null when an older server does not send it. */
+    val payout: FinancePayout? = null,
     val deliveryConfirmationImplemented: Boolean = false,
     val ordersCompleted: FinanceCountSom = FinanceCountSom(),
     val ordersCancelled: FinanceCountSom = FinanceCountSom(),

@@ -8,7 +8,7 @@ import { hashToken } from '../modules/admin-auth/service.js';
 import { accrueCommissionTx } from '../modules/commission/ledger.js';
 import { commissionStatements, settleRestaurant } from '../modules/commission/settlement.js';
 import { dateKey, dayStart } from '../modules/admin-payouts/service.js';
-import { financeCommissions, financeSummary } from '../modules/restaurant-finance/service.js';
+import { financeCommissions, financeSummary, payoutSummary } from '../modules/restaurant-finance/service.js';
 
 // DS Admin A5a (daily payout report). Needs a *_test database (the repo's DB guard). Orders are built directly (no Telegram, no money).
 // Every row it makes is removed again; the audit table is append-only (rows stay under a unique actor id).
@@ -149,6 +149,32 @@ test('the report: delivered pool orders minus commission minus sent refunds, per
   assert.equal(yesterday.payableSom, 15_000);
   assert.deepEqual(report.inProgress.find(p => p.restaurantId === ids.pool), { restaurantId: ids.pool, name: `Pool ${tag}`, orders: 1, amountSom: 25_000 });
   assert.ok(report.days[0]!.totalPayableSom >= 50_000);
+});
+
+test('the restaurant app sees what the platform owes it (same numbers as the report); a restaurant on its own card owes nothing', async () => {
+  const from = dayStart(dateKey(NOW));
+  const to = new Date(from.getTime() + 86_400_000);
+  const p = await payoutSummary(ids.pool, from, to, NOW);
+  assert.equal(p.collectsToPlatform, true);
+  assert.equal(p.shown, true);
+  assert.deepEqual(p.period, { orders: 2, collectedSom: 70_000, commissionSom: 10_000, refundsSom: 10_000, payableSom: 50_000 });
+  assert.equal(p.paidInPeriodSom, 0);
+  // today 50 000 + yesterday 15 000, nothing marked as transferred yet
+  assert.deepEqual(p.unpaid, { days: 2, payableSom: 65_000, oldestDay: dateKey(YESTERDAY), windowDays: 31 });
+  assert.deepEqual(p.inProgress, { orders: 1, amountSom: 25_000 });
+  // a period that holds only yesterday leaves today out of the period figures, but the unpaid balance stays whole
+  const y = await payoutSummary(ids.pool, new Date(from.getTime() - 86_400_000), from, NOW);
+  assert.deepEqual(y.period, { orders: 1, collectedSom: 20_000, commissionSom: 5_000, refundsSom: 0, payableSom: 15_000 });
+  assert.equal(y.unpaid.payableSom, 65_000);
+  // own card + cash only: nothing to show, nothing owed
+  const own = await payoutSummary(ids.own, from, to, NOW);
+  assert.equal(own.collectsToPlatform, false);
+  assert.equal(own.shown, false);
+  assert.equal(own.unpaid.payableSom, 0);
+  assert.equal(own.period.payableSom, 0);
+  // it is part of the finance summary the app loads, scoped to the session's restaurant
+  const s = await financeSummary(ids.pool, {});
+  assert.equal(s.payout.unpaid.payableSom, 65_000);
 });
 
 test('detail lists the orders and refunds behind a restaurant day; an empty day is 404', async () => {

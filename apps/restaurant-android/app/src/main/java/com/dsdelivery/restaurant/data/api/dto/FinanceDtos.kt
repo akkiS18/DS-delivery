@@ -1,6 +1,7 @@
 package com.dsdelivery.restaurant.data.api.dto
 
 import com.dsdelivery.restaurant.data.model.FinanceCountSom
+import com.dsdelivery.restaurant.data.model.FinancePayout
 import com.dsdelivery.restaurant.data.model.FinanceRefundAmount
 import com.dsdelivery.restaurant.data.model.FinanceSummary
 import com.google.gson.annotations.SerializedName
@@ -66,7 +67,38 @@ data class FinanceUnresolvedDto(
     @SerializedName("commissionedOrdersWithRefund") val commissionedOrdersWithRefund: Int? = null
 )
 
+data class FinancePayoutPeriodDto(
+    @SerializedName("orders") val orders: Int? = null,
+    @SerializedName("collectedSom") val collectedSom: Long? = null,
+    @SerializedName("commissionSom") val commissionSom: Long? = null,
+    @SerializedName("refundsSom") val refundsSom: Long? = null,
+    @SerializedName("payableSom") val payableSom: Long? = null
+)
+
+data class FinancePayoutUnpaidDto(
+    @SerializedName("days") val days: Int? = null,
+    @SerializedName("payableSom") val payableSom: Long? = null,
+    @SerializedName("oldestDay") val oldestDay: String? = null,
+    @SerializedName("windowDays") val windowDays: Int? = null
+)
+
+data class FinancePayoutInProgressDto(
+    @SerializedName("orders") val orders: Int? = null,
+    @SerializedName("amountSom") val amountSom: Long? = null
+)
+
+// What the platform owes the restaurant for money collected on the platform's own cards.
+data class FinancePayoutDto(
+    @SerializedName("collectsToPlatform") val collectsToPlatform: Boolean? = null,
+    @SerializedName("shown") val shown: Boolean? = null,
+    @SerializedName("period") val period: FinancePayoutPeriodDto? = null,
+    @SerializedName("paidInPeriodSom") val paidInPeriodSom: Long? = null,
+    @SerializedName("unpaid") val unpaid: FinancePayoutUnpaidDto? = null,
+    @SerializedName("inProgress") val inProgress: FinancePayoutInProgressDto? = null
+)
+
 data class FinanceSummaryDto(
+    @SerializedName("payout") val payout: FinancePayoutDto? = null,
     @SerializedName("currency") val currency: String? = null,
     @SerializedName("deliveryConfirmation") val deliveryConfirmation: String? = null,
     @SerializedName("orders") val orders: FinanceOrdersDto? = null,
@@ -86,9 +118,27 @@ private fun FinanceRefundAmountDto?.toRefundAmount() = FinanceRefundAmount(
     amountSom = this?.amountSom ?: 0L
 )
 
+private fun FinancePayoutDto.toPayout(): FinancePayout = FinancePayout(
+    collectsToPlatform = collectsToPlatform == true,
+    shown = shown == true,
+    orders = period?.orders ?: 0,
+    collectedSom = period?.collectedSom ?: 0L,
+    commissionSom = period?.commissionSom ?: 0L,
+    refundsSom = period?.refundsSom ?: 0L,
+    payableSom = period?.payableSom ?: 0L,
+    paidInPeriodSom = paidInPeriodSom ?: 0L,
+    unpaidDays = unpaid?.days ?: 0,
+    unpaidSom = unpaid?.payableSom ?: 0L,
+    unpaidOldestDay = unpaid?.oldestDay,
+    unpaidWindowDays = unpaid?.windowDays ?: 31,
+    inProgressOrders = inProgress?.orders ?: 0,
+    inProgressSom = inProgress?.amountSom ?: 0L
+)
+
 fun FinanceSummaryDto.toDomain(): FinanceSummary {
     val period = refunds?.period
     return FinanceSummary(
+        payout = payout?.toPayout(),
         deliveryConfirmationImplemented =
             deliveryConfirmation != null && deliveryConfirmation != "NOT_IMPLEMENTED",
         ordersCompleted = orders?.completed.toCountSom(),

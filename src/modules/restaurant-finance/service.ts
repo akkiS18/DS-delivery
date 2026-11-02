@@ -6,6 +6,7 @@ import {
   parseReportRange, refundAmountTiyin, refundStage, summarizeRefunds, tiyinToSom, type RefundTotals,
 } from '../commission/rules.js';
 import { NOT_PLATFORM_COLLECTED, PLATFORM_COLLECTED } from '../commission/settlement.js';
+import { dateKey, payoutReport } from '../admin-payouts/service.js';
 
 export class FinanceError extends Error {
   constructor(readonly statusCode: number, code: string) { super(code); }
@@ -32,10 +33,52 @@ const safeFlat = (): number | null => { try { return commissionFlatSom(); } catc
 
 export interface PageQuery { limit: number; cursor?: string }
 
+/** Days the unpaid balance looks back (the payout report's longest window). */
+const PAYOUT_WINDOW_DAYS = 31;
+
+/**
+ * What the PLATFORM owes this restaurant: money customers paid onto the platform's own cards for orders delivered, minus the platform's fee and
+ * refunds the restaurant sent, per Tashkent day (admin-payouts, the same numbers the administrator transfers by hand). `unpaid` = days with
+ * something payable that the administrator has not marked as transferred. Restaurants on their own cards get zeros and `collectsToPlatform: false`.
+ */
+export async function payoutSummary(restaurantId: string, from: Date, to: Date, now = new Date()) {
+  const [restaurant, report] = await Promise.all([
+    db.restaurant.findUnique({ where: { id: restaurantId }, select: { collectsToPlatform: true } }),
+    payoutReport(PAYOUT_WINDOW_DAYS, now, restaurantId),
+  ]);
+  const first = dateKey(from);
+  const last = dateKey(new Date(to.getTime() - 1));
+  const period = { orders: 0, collectedSom: 0, commissionSom: 0, refundsSom: 0, payableSom: 0 };
+  let paidSom = 0;
+  const unpaid = { days: 0, payableSom: 0, oldestDay: null as string | null };
+  for (const day of report.days) {
+    const row = day.restaurants.find(r => r.restaurantId === restaurantId);
+    if (!row) continue;
+    if (day.date >= first && day.date <= last) {
+      period.orders += row.orders; period.collectedSom += row.collectedSom; period.commissionSom += row.commissionSom;
+      period.refundsSom += row.refundsSom; period.payableSom += row.payableSom;
+      if (row.paid) paidSom += row.paid.amountSom;
+    }
+    if (!row.paid && row.payableSom > 0) {
+      unpaid.days += 1; unpaid.payableSom += row.payableSom;
+      if (unpaid.oldestDay === null || day.date < unpaid.oldestDay) unpaid.oldestDay = day.date;
+    }
+  }
+  const inProgress = report.inProgress.find(p => p.restaurantId === restaurantId);
+  const active = !!restaurant?.collectsToPlatform || period.orders > 0 || unpaid.days > 0 || !!inProgress;
+  return {
+    collectsToPlatform: !!restaurant?.collectsToPlatform,
+    shown: active,
+    period, paidInPeriodSom: paidSom,
+    unpaid: { ...unpaid, windowDays: PAYOUT_WINDOW_DAYS },
+    inProgress: { orders: inProgress?.orders ?? 0, amountSom: inProgress?.amountSom ?? 0 },
+  };
+}
+
 export async function financeSummary(restaurantId: string, q: { from?: string; to?: string }) {
   const { from, to } = range(q);
   const orderWhere: Prisma.OrderWhereInput = { restaurantId, paymentIsTest: false, createdAt: { gte: from, lt: to } };
-  const [orderGroups, payGroups, refundRows, openRefunds, accruedPeriod, outstanding, missing, withRefund, netted] = await Promise.all([
+  const [orderGroups, payGroups, refundRows, openRefunds, accruedPeriod, outstanding, missing, withRefund, netted, payout] = await Promise.all([
     db.order.groupBy({ by: ['status'], where: orderWhere, _count: { _all: true }, _sum: { totalSom: true } }),
     db.payment.groupBy({ by: ['status'], where: { isTest: false, order: { is: orderWhere } }, _count: { _all: true }, _sum: { amountTiyin: true } }),
     db.refundRequest.findMany({
@@ -52,6 +95,7 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
     db.order.count({ where: { restaurantId, paymentIsTest: false, status: 'COMPLETED', commission: null, payment: { is: { status: { in: ['CONFIRMED_MANUAL', 'CASH_ACCEPTED'] }, isTest: false } } } }),
     db.commissionEntry.count({ where: { restaurantId, order: { refundRequests: { some: { status: { not: 'REJECTED' } } } } } }),
     db.commissionEntry.aggregate({ where: { restaurantId, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
+    payoutSummary(restaurantId, from, to),
   ]);
 
   const orders = { completed: { count: 0, totalSom: 0 }, cancelled: { count: 0, totalSom: 0 }, inProgress: { count: 0, totalSom: 0 } };
@@ -105,6 +149,7 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
       nettedByPlatform: { count: netted._count._all, som: netted._sum.amountSom ?? 0 },
       settlementTracking: 'NOT_IMPLEMENTED',
     },
+    payout, // what the platform owes the restaurant for money it collected on its own cards (read-only; the administrator transfers it by hand)
     unresolved: {
       refundsOpen: openNow.unresolved.count,
       refundsDisputed: openNow.DISPUTED.count,

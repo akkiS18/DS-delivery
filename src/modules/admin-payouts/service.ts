@@ -51,15 +51,17 @@ export interface PayoutReport { days: PayoutDay[]; inProgress: InProgress[]; gen
 
 const som = (tiyin: bigint): number => Number(tiyin / 100n);
 
-export async function payoutReport(days = 7, now = new Date()): Promise<PayoutReport> {
+/** `restaurantId` narrows every query to one restaurant (the restaurant app's own payout view); without it the report covers all restaurants. */
+export async function payoutReport(days = 7, now = new Date(), restaurantId?: string): Promise<PayoutReport> {
   const count = Math.min(Math.max(Math.trunc(days) || 1, 1), MAX_DAYS);
   const today = dayStart(dateKey(now));
   const from = new Date(today.getTime() - (count - 1) * DAY_MS);
   const to = new Date(today.getTime() + DAY_MS);
+  const only = restaurantId ? { restaurantId } : {};
 
   const [events, refunds, active, marks] = await Promise.all([
     db.orderEvent.findMany({
-      where: { toStatus: 'COMPLETED', createdAt: { gte: from, lt: to }, order: { status: 'COMPLETED', paymentIsTest: false, payment: { is: PLATFORM_COLLECTED } } },
+      where: { toStatus: 'COMPLETED', createdAt: { gte: from, lt: to }, order: { ...only, status: 'COMPLETED', paymentIsTest: false, payment: { is: PLATFORM_COLLECTED } } },
       orderBy: { createdAt: 'asc' },
       select: {
         orderId: true, createdAt: true,
@@ -75,15 +77,15 @@ export async function payoutReport(days = 7, now = new Date()): Promise<PayoutRe
     db.refundRequest.findMany({
       where: {
         status: { in: ['SENT', 'DISPUTED', 'CONFIRMED'] }, sentAt: { gte: from, lt: to },
-        order: { status: 'COMPLETED', paymentIsTest: false, payment: { is: PLATFORM_COLLECTED } },
+        order: { ...only, status: 'COMPLETED', paymentIsTest: false, payment: { is: PLATFORM_COLLECTED } },
       },
       select: { sentAt: true, approvedAmountTiyin: true, paidAmountTiyin: true, order: { select: { restaurantId: true, restaurant: { select: { name: true } } } } },
     }),
     db.order.findMany({
-      where: { status: { in: [...IN_PROGRESS] }, paymentIsTest: false, payment: { is: { ...PLATFORM_COLLECTED, status: 'CONFIRMED_MANUAL' } } },
+      where: { ...only, status: { in: [...IN_PROGRESS] }, paymentIsTest: false, payment: { is: { ...PLATFORM_COLLECTED, status: 'CONFIRMED_MANUAL' } } },
       select: { restaurantId: true, restaurant: { select: { name: true } }, payment: { select: { amountTiyin: true } } },
     }),
-    db.payoutMark.findMany({ where: { revokedAt: null, day: { gte: dateKey(from), lte: dateKey(now) } }, select: { restaurantId: true, day: true, amountSom: true, createdAt: true } }),
+    db.payoutMark.findMany({ where: { ...only, revokedAt: null, day: { gte: dateKey(from), lte: dateKey(now) } }, select: { restaurantId: true, day: true, amountSom: true, createdAt: true } }),
   ]);
   const markOf = new Map(marks.map(m => [`${m.day}|${m.restaurantId}`, { amountSom: m.amountSom, at: m.createdAt.toISOString() }]));
 

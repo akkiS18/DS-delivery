@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dsdelivery.restaurant.data.model.FinanceCountSom
 import com.dsdelivery.restaurant.data.model.FinanceDateFilter
+import com.dsdelivery.restaurant.data.model.FinancePayout
 import com.dsdelivery.restaurant.data.model.FinanceRefundAmount
 import com.dsdelivery.restaurant.data.model.FinanceSummary
 import com.dsdelivery.restaurant.ui.components.PullRefresh
@@ -161,6 +162,9 @@ fun FinanceContent(
 
 @Composable
 private fun FinanceSummaryCards(summary: FinanceSummary) {
+    // Money the platform collected on its own cards and still has to pay out to the restaurant
+    summary.payout?.takeIf { it.shown }?.let { PayoutCard(it) }
+
     // Money actually received
     FinanceCard(title = "Tushum", icon = Icons.Default.AccountBalance) {
         Text(
@@ -194,7 +198,12 @@ private fun FinanceSummaryCards(summary: FinanceSummary) {
             value = if (flat != null) FinanceSummary.formatSom(flat) else "—"
         )
         CountSomRow("Shu davrda", summary.commissionAccruedInPeriod)
-        CountSomRow("To‘lanmagan", summary.commissionOutstanding)
+        CountSomRow("Platformaga to‘lanmagan", summary.commissionOutstanding)
+        Text(
+            text = "Naqd va o‘z kartangizga tushgan buyurtmalar uchun. Bizning kartaga tushganlari yuqoridagi hisobdan o‘zi ayriladi.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         if (summary.completedOrdersWithoutCommission > 0) {
             Text(
                 text = "${summary.completedOrdersWithoutCommission} ta buyurtmaga xizmat haqi yozilmagan.",
@@ -224,6 +233,66 @@ private fun FinanceSummaryCards(summary: FinanceSummary) {
         RefundRow("Rad etilgan", summary.refundsRejected)
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
         RefundRow("Hozir ochiq", summary.refundsOpenNow, if (summary.refundsOpenNow.count > 0) WarningOrange else null)
+    }
+}
+
+/** "Platformadan olasiz": the figures the administrator pays out by hand, so the restaurant sees the same number he will transfer. */
+@Composable
+private fun PayoutCard(payout: FinancePayout) {
+    FinanceCard(title = "Platformadan olasiz", icon = Icons.Default.AccountBalance) {
+        Text(
+            text = FinanceSummary.formatSom(payout.unpaidSom),
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+            color = if (payout.unpaidSom > 0) BrandPrimary else MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = if (payout.unpaidSom > 0) {
+                "Hozir bizdan olishingiz kerak (${payout.unpaidDays} kunlik, oxirgi ${payout.unpaidWindowDays} kun ichida)"
+            } else {
+                "Hozircha to‘lanmagan qarz yo‘q"
+            },
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (payout.unpaidOldestDay != null && payout.unpaidSom > 0) {
+            Text(
+                text = "Eng eski kun: ${payout.unpaidOldestDay}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+        Text(
+            text = "Tanlangan davr (yetkazilgan kun bo‘yicha)",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        LabeledValue("Bizning kartaga tushgan (${payout.orders} ta buyurtma)", FinanceSummary.formatSom(payout.collectedSom))
+        LabeledValue("Platforma xizmati", "− ${FinanceSummary.formatSom(payout.commissionSom)}")
+        if (payout.refundsSom > 0) {
+            LabeledValue("Qaytarilgan pul", "− ${FinanceSummary.formatSom(payout.refundsSom)}", WarningOrange)
+        }
+        LabeledValue("Shu davr uchun olasiz", FinanceSummary.formatSom(payout.payableSom), BrandPrimary)
+        if (payout.paidInPeriodSom > 0) {
+            LabeledValue("Shundan to‘lab berilgan", FinanceSummary.formatSom(payout.paidInPeriodSom), SuccessGreen)
+        }
+        if (payout.inProgressOrders > 0) {
+            LabeledValue(
+                "Yetkazilmagan buyurtmalar (${payout.inProgressOrders} ta)",
+                FinanceSummary.formatSom(payout.inProgressSom)
+            )
+            Text(
+                text = "Bular yetkazilgach hisobga qo‘shiladi.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(
+            text = "Hisob: bizning kartaga tushgan summa − platforma xizmati − qaytarilgan pul. Taksi haqini mijoz alohida to‘laydi. Pulni administrator qo‘lda o‘tkazadi.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

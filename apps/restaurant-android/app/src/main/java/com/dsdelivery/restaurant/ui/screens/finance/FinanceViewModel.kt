@@ -6,6 +6,7 @@ import com.dsdelivery.restaurant.data.model.FinanceDateFilter
 import com.dsdelivery.restaurant.data.model.Resource
 import com.dsdelivery.restaurant.data.repository.RestaurantRepository
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,7 +41,10 @@ class FinanceViewModel(
 
         loadJob = viewModelScope.launch {
             // Only backend data is ever shown. On failure there are no numbers, just the error.
-            when (val result = repository.getFinanceSummary(filter)) {
+            val result = repository.getFinanceSummary(filter)
+            // The repository turns a cancellation into Resource.Error; a superseded request must not flash an error over the newer one.
+            ensureActive()
+            when (result) {
                 is Resource.Success -> {
                     _uiState.update {
                         it.copy(isLoading = false, summary = result.data, errorMessage = null)
