@@ -175,6 +175,13 @@ test('the restaurant app sees what the platform owes it (same numbers as the rep
   // it is part of the finance summary the app loads, scoped to the session's restaurant
   const s = await financeSummary(ids.pool, {});
   assert.equal(s.payout.unpaid.payableSom, 65_000);
+  // "received" no longer includes money that sits on the platform's cards: 40 + 30 + 20 + 25 thousand are the platform's, nothing is the restaurant's own
+  assert.deepEqual(s.payments.verifiedReceived, { count: 0, som: 0 });
+  assert.deepEqual(s.payments.verifiedOnPlatformCard, { count: 4, som: 115_000 });
+  // a restaurant on its own card keeps its money as "received"
+  const so = await financeSummary(ids.own, {});
+  assert.deepEqual(so.payments.verifiedReceived, { count: 1, som: 50_000 });
+  assert.deepEqual(so.payments.verifiedOnPlatformCard, { count: 0, som: 0 });
 });
 
 test('detail lists the orders and refunds behind a restaurant day; an empty day is 404', async () => {

@@ -78,9 +78,11 @@ export async function payoutSummary(restaurantId: string, from: Date, to: Date, 
 export async function financeSummary(restaurantId: string, q: { from?: string; to?: string }) {
   const { from, to } = range(q);
   const orderWhere: Prisma.OrderWhereInput = { restaurantId, paymentIsTest: false, createdAt: { gte: from, lt: to } };
-  const [orderGroups, payGroups, refundRows, openRefunds, accruedPeriod, outstanding, missing, withRefund, netted, payout] = await Promise.all([
+  const [orderGroups, payGroups, platformPayGroups, refundRows, openRefunds, accruedPeriod, outstanding, missing, withRefund, netted, payout] = await Promise.all([
     db.order.groupBy({ by: ['status'], where: orderWhere, _count: { _all: true }, _sum: { totalSom: true } }),
     db.payment.groupBy({ by: ['status'], where: { isTest: false, order: { is: orderWhere } }, _count: { _all: true }, _sum: { amountTiyin: true } }),
+    // Paid onto the PLATFORM's own cards: the money is with the platform until the daily payout, so it is not "received" by the restaurant.
+    db.payment.groupBy({ by: ['status'], where: { isTest: false, method: 'CARD', card: { is: { restaurantId: null } }, order: { is: orderWhere } }, _count: { _all: true }, _sum: { amountTiyin: true } }),
     db.refundRequest.findMany({
       where: { order: { restaurantId, paymentIsTest: false }, requestedAt: { gte: from, lt: to } },
       select: { status: true, confirmedByType: true, paidAmountTiyin: true, approvedAmountTiyin: true },
@@ -103,11 +105,15 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
     const b = orders[bucketOf(g.status)];
     b.count += g._count._all; b.totalSom += g._sum.totalSom ?? 0;
   }
-  const pay = (statuses: string[]) => {
+  const sumOf = (groups: typeof payGroups, statuses: string[]) => {
     let count = 0; let tiyin = 0n;
-    for (const g of payGroups) if (statuses.includes(g.status)) { count += g._count._all; tiyin += g._sum.amountTiyin ?? 0n; }
-    return { count, som: tiyinToSom(tiyin) };
+    for (const g of groups) if (statuses.includes(g.status)) { count += g._count._all; tiyin += g._sum.amountTiyin ?? 0n; }
+    return { count, tiyin };
   };
+  const pay = (statuses: string[]) => { const s = sumOf(payGroups, statuses); return { count: s.count, som: tiyinToSom(s.tiyin) }; };
+  // verified money split by who holds it: the platform's cards vs the restaurant's own cards
+  const verifiedAll = sumOf(payGroups, ['CONFIRMED_MANUAL']);
+  const verifiedPlatform = sumOf(platformPayGroups, ['CONFIRMED_MANUAL']);
   const periodRefunds = summarizeRefunds(refundRows);
   const openNow = summarizeRefunds(openRefunds);
 
@@ -118,7 +124,9 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
     orders, // created in the period; only `completed` (genuinely delivered) can ever earn commission
     payments: {
       // Only a payment the restaurant itself verified counts as money received. Matched-by-mail and awaiting payments never do.
-      verifiedReceived: pay(['CONFIRMED_MANUAL']),
+      // `verifiedReceived` = verified onto the restaurant's OWN cards (money it holds); `verifiedOnPlatformCard` = verified onto the platform's cards (paid out by the platform).
+      verifiedReceived: { count: verifiedAll.count - verifiedPlatform.count, som: tiyinToSom(verifiedAll.tiyin - verifiedPlatform.tiyin) },
+      verifiedOnPlatformCard: { count: verifiedPlatform.count, som: tiyinToSom(verifiedPlatform.tiyin) },
       pendingUnverified: pay(['MATCHED_UNVERIFIED']),
       awaitingPayment: pay(['QUEUED', 'AWAITING']),
     },

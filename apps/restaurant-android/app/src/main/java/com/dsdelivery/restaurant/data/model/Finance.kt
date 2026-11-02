@@ -63,7 +63,10 @@ data class FinanceSummary(
     val ordersCompleted: FinanceCountSom = FinanceCountSom(),
     val ordersCancelled: FinanceCountSom = FinanceCountSom(),
     val ordersInProgress: FinanceCountSom = FinanceCountSom(),
+    /** Verified onto the restaurant's OWN cards (money it holds). */
     val verifiedReceived: FinanceCountSom = FinanceCountSom(),
+    /** Verified onto the PLATFORM's cards (the platform pays it out; see [FinancePayout]). */
+    val verifiedOnPlatformCard: FinanceCountSom = FinanceCountSom(),
     val pendingUnverified: FinanceCountSom = FinanceCountSom(),
     val awaitingPayment: FinanceCountSom = FinanceCountSom(),
     val refundsRequested: FinanceRefundAmount = FinanceRefundAmount(),

@@ -29,6 +29,7 @@ data class FinanceOrdersDto(
 
 data class FinancePaymentsDto(
     @SerializedName("verifiedReceived") val verifiedReceived: FinanceCountSomDto? = null,
+    @SerializedName("verifiedOnPlatformCard") val verifiedOnPlatformCard: FinanceCountSomDto? = null,
     @SerializedName("pendingUnverified") val pendingUnverified: FinanceCountSomDto? = null,
     @SerializedName("awaitingPayment") val awaitingPayment: FinanceCountSomDto? = null
 )
@@ -145,6 +146,7 @@ fun FinanceSummaryDto.toDomain(): FinanceSummary {
         ordersCancelled = orders?.cancelled.toCountSom(),
         ordersInProgress = orders?.inProgress.toCountSom(),
         verifiedReceived = payments?.verifiedReceived.toCountSom(),
+        verifiedOnPlatformCard = payments?.verifiedOnPlatformCard.toCountSom(),
         pendingUnverified = payments?.pendingUnverified.toCountSom(),
         awaitingPayment = payments?.awaitingPayment.toCountSom(),
         refundsRequested = period?.requested.toRefundAmount(),

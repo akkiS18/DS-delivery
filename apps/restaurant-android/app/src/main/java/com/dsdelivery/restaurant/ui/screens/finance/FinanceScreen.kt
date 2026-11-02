@@ -173,10 +173,18 @@ private fun FinanceSummaryCards(summary: FinanceSummary) {
             color = BrandPrimary
         )
         Text(
-            text = "${summary.verifiedReceived.count} ta to‘lov",
+            text = "O‘z kartangizga tushgan: ${summary.verifiedReceived.count} ta to‘lov",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (summary.verifiedOnPlatformCard.count > 0) {
+            CountSomRow("Bizning kartaga tushgan", summary.verifiedOnPlatformCard)
+            Text(
+                text = "Bu pul bizda turadi, “Platformadan olasiz” kartasida hisoblanadi.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Spacer(modifier = Modifier.height(10.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
         CountSomRow("Tasdiqlanmoqda", summary.pendingUnverified, WarningOrange)
@@ -192,11 +200,7 @@ private fun FinanceSummaryCards(summary: FinanceSummary) {
 
     // Platform fee (flat per delivered order, amounts straight from the backend)
     FinanceCard(title = "Xizmat haqi", icon = Icons.Default.CreditCard) {
-        val flat = summary.commissionFlatSom
-        LabeledValue(
-            label = "Har bir yetkazilgan buyurtma",
-            value = if (flat != null) FinanceSummary.formatSom(flat) else "—"
-        )
+        // No "per order" amount here: the fee differs by the mode the platform runs (flat, percent, tiers, separate line), so only real totals are shown.
         CountSomRow("Shu davrda", summary.commissionAccruedInPeriod)
         CountSomRow("Platformaga to‘lanmagan", summary.commissionOutstanding)
         Text(
