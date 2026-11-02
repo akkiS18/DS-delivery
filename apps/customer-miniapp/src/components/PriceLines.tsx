@@ -3,6 +3,7 @@ import { lineShown } from '../lib/fee';
 import { som } from '../lib/format';
 import type { PublicPricing } from '../lib/types';
 import { Icon } from './ui';
+import { t } from '../i18n';
 
 const strike = { textDecoration: 'line-through' } as const;
 
@@ -21,9 +22,9 @@ export function PlatformLineRow({ chargedSom, waivedSom }: { chargedSom: number;
   if (chargedSom <= 0 && waivedSom <= 0) return null;
   return (
     <div className="row between">
-      <span>Platforma xizmati</span>
+      <span>{t('Platforma xizmati')}</span>
       {waivedSom > 0
-        ? <span><span className="mono sub" style={strike}>{som(waivedSom)}</span> <span className="saved">Chegirma</span></span>
+        ? <span><span className="mono sub" style={strike}>{som(waivedSom)}</span> <span className="saved">{t('Chegirma')}</span></span>
         : <span className="bold mono">{som(chargedSom)}</span>}
     </div>
   );
@@ -38,7 +39,7 @@ export function TaxiFareBox({ walk = false, taxiName, selfDelivered = false }: {
     return (
       <div className="banner notice" role="note">
         <Icon as={Truck} size={22} />
-        <div><strong>Yetkazish: restoran o‘zi olib boradi — haq yo‘q.</strong></div>
+        <div><strong>{t('Yetkazish: restoran o‘zi olib boradi — haq yo‘q.')}</strong></div>
       </div>
     );
   }
@@ -46,10 +47,10 @@ export function TaxiFareBox({ walk = false, taxiName, selfDelivered = false }: {
     <div className="banner warn notice" role="note">
       <Icon as={Truck} size={22} />
       <div>
-        <strong>Taksi haqi alohida — taom narxiga kirmaydi.</strong>
+        <strong>{t('Taksi haqi alohida — taom narxiga kirmaydi.')}</strong>
         <div>
-          {walk ? 'Restoran piyoda olib borishga rozi bo‘lsa, taksi haqi to‘lanmaydi. Rozi bo‘lmasa, ' : ''}
-          Yetkazish narxini {taxiName ? `«${taxiName}»` : 'taksi xizmati'} belgilaydi va u alohida to‘lanadi — platforma bu summani oldindan hisoblamaydi.
+          {walk ? `${t('Restoran piyoda olib borishga rozi bo‘lsa, taksi haqi to‘lanmaydi. Rozi bo‘lmasa,')} ` : ''}
+          {t('Yetkazish narxini {who} belgilaydi va u alohida to‘lanadi — platforma bu summani oldindan hisoblamaydi.', { who: taxiName ? `«${taxiName}»` : t('taksi xizmati') })}
         </div>
       </div>
     </div>

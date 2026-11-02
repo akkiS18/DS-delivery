@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { isTerminal } from './order';
 import type { CustomerStage } from './types';
 
@@ -25,4 +26,4 @@ export function groupOrders<T extends { id: string; stage: CustomerStage; create
 }
 
 /** The one action each active card offers. */
-export const nextAction = (s: CustomerStage, method?: 'CARD' | 'CASH'): string => (s === 'PAYMENT_PENDING' ? (method === 'CASH' ? 'Kutilmoqda' : 'To‘lash') : s === 'NEEDS_HELP' ? 'Batafsil' : 'Kuzatish');
+export const nextAction = (s: CustomerStage, method?: 'CARD' | 'CASH'): string => (s === 'PAYMENT_PENDING' ? (method === 'CASH' ? t('Kutilmoqda') : t('To‘lash')) : s === 'NEEDS_HELP' ? t('Batafsil') : t('Kuzatish'));

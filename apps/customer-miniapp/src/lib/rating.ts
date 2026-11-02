@@ -1,13 +1,14 @@
+import { T } from '../i18n';
 import type { Restaurant } from './types';
 
-/** Quick reasons offered for 1-3 stars (the codes are the server's RATING_REASONS). */
+/** Quick reasons offered for 1-3 stars (the codes are the server's RATING_REASONS). Labels are shown through t(label). */
 export const RATING_REASONS = [
-  { code: 'COLD', label: 'Sovuq edi' },
-  { code: 'TASTELESS', label: 'Mazasiz' },
-  { code: 'WRONG_ITEM', label: 'Noto‘g‘ri taom' },
-  { code: 'PACKAGING', label: 'Qadoq' },
-  { code: 'LATE_COOKING', label: 'Kech tayyorlandi' },
-  { code: 'OTHER', label: 'Boshqa' },
+  { code: 'COLD', label: T('Sovuq edi') },
+  { code: 'TASTELESS', label: T('Mazasiz') },
+  { code: 'WRONG_ITEM', label: T('Noto‘g‘ri taom') },
+  { code: 'PACKAGING', label: T('Qadoq') },
+  { code: 'LATE_COOKING', label: T('Kech tayyorlandi') },
+  { code: 'OTHER', label: T('Boshqa') },
 ] as const;
 export type ReasonCode = (typeof RATING_REASONS)[number]['code'];
 export const NOTE_MAX = 200;

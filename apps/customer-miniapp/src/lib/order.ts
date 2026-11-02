@@ -1,3 +1,4 @@
+import { t, T } from '../i18n';
 import type { CustomerStage, OrderView } from './types';
 
 /**
@@ -20,20 +21,21 @@ export function paymentRemainingSeconds(expiresAtIso: string | null | undefined,
 export const windowMinutes = (windowSeconds: number | null | undefined, fallback = 10): number =>
   windowSeconds && windowSeconds > 0 ? Math.max(1, Math.ceil(windowSeconds / 60)) : fallback;
 
+/** Shown through t(STAGE_LABEL[stage]). */
 export const STAGE_LABEL: Record<CustomerStage, string> = {
-  PAYMENT_PENDING: 'To‘lov kutilmoqda',
-  PAYMENT_CHECKING: 'To‘lov tekshirilmoqda',
-  PREPARING: 'Tayyorlanmoqda',
-  READY: 'Taom tayyor',
-  SELF_DELIVERY: 'Restoran olib bormoqda',
-  TAXI_REQUESTED: 'Taksi so‘ralgan',
-  TAXI_ACCEPTED: 'Taksi operatori qabul qildi',
-  TAXI_SENT: 'Taksi yo‘lga chiqdi',
-  DELIVERED: 'Yetkazildi',
-  CANCELLATION_REQUESTED: 'Bekor qilish so‘rovi yuborildi',
-  CANCELLED: 'Bekor qilingan',
-  EXPIRED: 'Muddati tugagan',
-  NEEDS_HELP: 'Yordam kerak',
+  PAYMENT_PENDING: T('To‘lov kutilmoqda'),
+  PAYMENT_CHECKING: T('To‘lov tekshirilmoqda'),
+  PREPARING: T('Tayyorlanmoqda'),
+  READY: T('Taom tayyor'),
+  SELF_DELIVERY: T('Restoran olib bormoqda'),
+  TAXI_REQUESTED: T('Taksi so‘ralgan'),
+  TAXI_ACCEPTED: T('Taksi operatori qabul qildi'),
+  TAXI_SENT: T('Taksi yo‘lga chiqdi'),
+  DELIVERED: T('Yetkazildi'),
+  CANCELLATION_REQUESTED: T('Bekor qilish so‘rovi yuborildi'),
+  CANCELLED: T('Bekor qilingan'),
+  EXPIRED: T('Muddati tugagan'),
+  NEEDS_HELP: T('Yordam kerak'),
 };
 
 export const isTerminal = (s: CustomerStage): boolean => s === 'DELIVERED' || s === 'CANCELLED' || s === 'EXPIRED';
@@ -70,10 +72,10 @@ const ORDER: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARIN
 export function timeline(o: Pick<OrderView, 'stage'> & { deliveryMode?: 'TAXI' | 'SELF' }): Step[] {
   const stage = o.stage;
   if (stage === 'CANCELLED' || stage === 'EXPIRED') {
-    return [{ key: 'placed', label: 'Buyurtma berildi', state: 'done' }, { key: 'end', label: STAGE_LABEL[stage], state: 'bad' }];
+    return [{ key: 'placed', label: t('Buyurtma berildi'), state: 'done' }, { key: 'end', label: t(STAGE_LABEL[stage]), state: 'bad' }];
   }
   if (stage === 'CANCELLATION_REQUESTED') {
-    return [{ key: 'placed', label: 'Buyurtma berildi', state: 'done' }, { key: 'end', label: STAGE_LABEL[stage], state: 'current', note: 'Pulni qaytarish restoran qaroriga bog‘liq.' }];
+    return [{ key: 'placed', label: t('Buyurtma berildi'), state: 'done' }, { key: 'end', label: t(STAGE_LABEL[stage]), state: 'current', note: t('Pulni qaytarish restoran qaroriga bog‘liq.') }];
   }
   const at = stage === 'NEEDS_HELP' ? ORDER.indexOf('TAXI_REQUESTED') : ORDER.indexOf(stage);
   const step = (key: CustomerStage, label: string): Step => {
@@ -82,19 +84,19 @@ export function timeline(o: Pick<OrderView, 'stage'> & { deliveryMode?: 'TAXI' |
     return { key, label, state };
   };
   const steps: Step[] = [
-    { key: 'placed', label: 'Buyurtma berildi', state: 'done' },
-    step('PAYMENT_PENDING', 'To‘lov'),
-    step('PAYMENT_CHECKING', 'To‘lov tasdiqlanishi'),
-    step('PREPARING', 'Tayyorlanmoqda'),
-    step('READY', 'Taom tayyor'),
+    { key: 'placed', label: t('Buyurtma berildi'), state: 'done' },
+    step('PAYMENT_PENDING', t('To‘lov')),
+    step('PAYMENT_CHECKING', t('To‘lov tasdiqlanishi')),
+    step('PREPARING', t('Tayyorlanmoqda')),
+    step('READY', t('Taom tayyor')),
     ...(o.deliveryMode === 'SELF' || stage === 'SELF_DELIVERY'
-      ? [step('SELF_DELIVERY', 'Restoran olib bormoqda')]
-      : [step('TAXI_REQUESTED', 'Taksi so‘raldi'), step('TAXI_ACCEPTED', 'Operator qabul qildi'), step('TAXI_SENT', 'Taksi yo‘lda')]),
-    step('DELIVERED', 'Yetkazildi'),
+      ? [step('SELF_DELIVERY', t('Restoran olib bormoqda'))]
+      : [step('TAXI_REQUESTED', t('Taksi so‘raldi')), step('TAXI_ACCEPTED', t('Operator qabul qildi')), step('TAXI_SENT', t('Taksi yo‘lda'))]),
+    step('DELIVERED', t('Yetkazildi')),
   ];
   if (stage === 'NEEDS_HELP') {
     const i = steps.findIndex(s => s.key === 'TAXI_REQUESTED');
-    steps[i] = { ...steps[i]!, state: 'bad', note: 'Taksi topishda yordam kerak. Biz hal qilamiz; buyurtma bekor bo‘lmaydi.' };
+    steps[i] = { ...steps[i]!, state: 'bad', note: t('Taksi topishda yordam kerak. Biz hal qilamiz; buyurtma bekor bo‘lmaydi.') };
     for (let j = i + 1; j < steps.length; j++) steps[j] = { ...steps[j]!, state: 'todo' };
   }
   return steps;
@@ -121,8 +123,8 @@ export function heroSteps(stage: CustomerStage): HeroStep[] | null {
   if (done === undefined) return null;
   const state = (i: number): HeroStep['state'] => (i < done ? 'done' : i === done ? 'current' : 'todo');
   return [
-    { key: 'PAY', label: 'To‘lov', state: state(0) },
-    { key: 'COOK', label: done > 1 ? 'Tayyor' : 'Tayyorlanmoqda', state: state(1) },
-    { key: 'ROAD', label: done > 2 ? 'Yetkazildi' : 'Yetkazilmoqda', state: state(2) },
+    { key: 'PAY', label: t('To‘lov'), state: state(0) },
+    { key: 'COOK', label: done > 1 ? t('Tayyor') : t('Tayyorlanmoqda'), state: state(1) },
+    { key: 'ROAD', label: done > 2 ? t('Yetkazildi') : t('Yetkazilmoqda'), state: state(2) },
   ];
 }

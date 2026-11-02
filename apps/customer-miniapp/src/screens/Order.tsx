@@ -15,6 +15,8 @@ import { confirmDialog, haptic } from '../lib/telegram';
 import type { Route } from '../lib/router';
 import type { CustomerStage, OrderView } from '../lib/types';
 import { useApp, useNow } from '../state';
+import { t } from '../i18n';
+import { rich } from '../i18n/rich';
 
 export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) {
   const { config, toast } = useApp();
@@ -45,9 +47,9 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
     if (!stage) return;
     const every = pollIntervalMs(stage);
     if (every === null) return;
-    let t: number | undefined;
-    const start = () => { stop(); t = window.setInterval(() => void refresh(), every); };
-    const stop = () => { if (t !== undefined) window.clearInterval(t); t = undefined; };
+    let timer: number | undefined;
+    const start = () => { stop(); timer = window.setInterval(() => void refresh(), every); };
+    const stop = () => { if (timer !== undefined) window.clearInterval(timer); timer = undefined; };
     const vis = () => { if (document.hidden) stop(); else { void refresh(); start(); } };
     document.addEventListener('visibilitychange', vis);
     if (!document.hidden) start();
@@ -87,13 +89,13 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
     if (busy) return;
     setBusy('pay');
     try { adopt((await api.mockPay(o.id)).order); haptic.success(); }
-    catch (e) { haptic.error(); toast(e instanceof ApiError && e.status === 429 ? 'Biroz kuting va qayta urinib ko‘ring' : 'To‘lovni qayd etib bo‘lmadi'); }
+    catch (e) { haptic.error(); toast(e instanceof ApiError && e.status === 429 ? t('Biroz kuting va qayta urinib ko‘ring') : t('To‘lovni qayd etib bo‘lmadi')); }
     finally { setBusy(null); }
   };
   const payCash = async () => {
     if (busy) return;
     setBusy('pay');
-    try { adopt((await api.payCash(o.id)).order); haptic.success(); toast('Naqd to‘lov: restoran tasdiqlashini kuting'); }
+    try { adopt((await api.payCash(o.id)).order); haptic.success(); toast(t('Naqd to‘lov: restoran tasdiqlashini kuting')); }
     catch (e) { haptic.error(); toast(describeCheckoutError(e).message); void refresh(); }
     finally { setBusy(null); }
   };
@@ -101,19 +103,19 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
     if (busy) return;
     setBusy('received');
     try { adopt((await api.confirmReceived(o.id)).order); haptic.success(); }
-    catch { haptic.error(); toast('Saqlab bo‘lmadi. Qayta urinib ko‘ring'); }
+    catch { haptic.error(); toast(t('Saqlab bo‘lmadi. Qayta urinib ko‘ring')); }
     finally { setBusy(null); }
   };
   const cancel = async () => {
     setConfirmCancel(false);
     if (busy) return;
     setBusy('cancel');
-    try { adopt((await api.cancelOrder(o.id, 'CHANGED_MIND')).order); toast(o.cancel.kind === 'UNPAID' ? 'Buyurtma bekor qilindi' : 'So‘rov yuborildi'); }
-    catch { haptic.error(); toast('Bekor qilib bo‘lmadi'); }
+    try { adopt((await api.cancelOrder(o.id, 'CHANGED_MIND')).order); toast(o.cancel.kind === 'UNPAID' ? t('Buyurtma bekor qilindi') : t('So‘rov yuborildi')); }
+    catch { haptic.error(); toast(t('Bekor qilib bo‘lmadi')); }
     finally { setBusy(null); }
   };
   const copy = async (text: string) => {
-    try { await navigator.clipboard.writeText(text.replace(/\D/g, '')); toast('Nusxalandi'); } catch { toast('Nusxalab bo‘lmadi'); }
+    try { await navigator.clipboard.writeText(text.replace(/\D/g, '')); toast(t('Nusxalandi')); } catch { toast(t('Nusxalab bo‘lmadi')); }
   };
 
   return (
@@ -121,7 +123,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
       {paidNotice && <PaidDialog cash={cash} onClose={() => setPaidNotice(false)} />}
       <div className="row between">
         <div>
-          <h1 className="page-title">Buyurtma #{o.code}</h1>
+          <h1 className="page-title">{t('Buyurtma #{code}', { code: o.code })}</h1>
           <p className="sub">{o.restaurantName} • {clock(o.createdAt)}</p>
         </div>
         {o.isTest && <span className="badge test">TEST</span>}
@@ -129,76 +131,76 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
 
       <div className="card stack">
         <StatusHero stage={o.stage} cash={cash} />
-        {o.stage === 'DELIVERED' && <p className="sub center">{o.deliveredAt ? `${clock(o.deliveredAt)} • ` : ''}Yoqimli ishtaha!</p>}
+        {o.stage === 'DELIVERED' && <p className="sub center">{o.deliveredAt ? `${clock(o.deliveredAt)} • ` : ''}{t('Yoqimli ishtaha!')}</p>}
         {o.canConfirmReceived && !o.receivedAt && (
           <div className="stack">
-            <div className="bold center">Buyurtmani oldingizmi?</div>
-            <Button loading={busy === 'received'} onClick={() => void received()}>Ha, oldim</Button>
+            <div className="bold center">{t('Buyurtmani oldingizmi?')}</div>
+            <Button loading={busy === 'received'} onClick={() => void received()}>{t('Ha, oldim')}</Button>
           </div>
         )}
-        {o.receivedAt && <p className="sub center">Qabul qilganingiz uchun rahmat!</p>}
-        {o.awaitingRestaurant && o.cancel.allowed && <div className="banner notice" role="status">To‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz. Qabul qilgunicha buyurtmani bekor qilishingiz mumkin.</div>}
+        {o.receivedAt && <p className="sub center">{t('Qabul qilganingiz uchun rahmat!')}</p>}
+        {o.awaitingRestaurant && o.cancel.allowed && <div className="banner notice" role="status">{t('To‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz. Qabul qilgunicha buyurtmani bekor qilishingiz mumkin.')}</div>}
         {o.restaurantAccepted && !o.cancel.allowed && !isTerminal(o.stage) && o.stage !== 'PAYMENT_PENDING' && (
-          <div className="banner notice" role="note">Restoran buyurtmani qabul qildi — endi uni ilovadan bekor qilib bo‘lmaydi. Jiddiy sabab bo‘lsa, restoranga qo‘ng‘iroq qiling{o.restaurantPhone ? <>: <a href={`tel:${o.restaurantPhone}`}>{o.restaurantPhone}</a></> : ''}.</div>
+          <div className="banner notice" role="note">{rich('Restoran buyurtmani qabul qildi — endi uni ilovadan bekor qilib bo‘lmaydi. Jiddiy sabab bo‘lsa, restoranga qo‘ng‘iroq qiling{phone}.', { phone: o.restaurantPhone ? <>: <a href={`tel:${o.restaurantPhone}`}>{o.restaurantPhone}</a></> : '' })}</div>
         )}
-        {o.stage === 'SELF_DELIVERY' && <div className="banner notice">Restoran buyurtmani o‘zi olib boradi. Taksi chaqirilmaydi, yetkazish uchun alohida haq to‘lamaysiz.</div>}
+        {o.stage === 'SELF_DELIVERY' && <div className="banner notice">{t('Restoran buyurtmani o‘zi olib boradi. Taksi chaqirilmaydi, yetkazish uchun alohida haq to‘lamaysiz.')}</div>}
         {o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage) && (
-          <div className="banner notice">Siz “uyim yaqin, piyoda olib borsa bo‘ladi” deb belgilagansiz. Yakuniy qarorni restoran qiladi: rozi bo‘lmasa, taksi chaqiriladi.</div>
+          <div className="banner notice">{t('Siz “uyim yaqin, piyoda olib borsa bo‘ladi” deb belgilagansiz. Yakuniy qarorni restoran qiladi: rozi bo‘lmasa, taksi chaqiriladi.')}</div>
         )}
-        {o.stage === 'NEEDS_HELP' && <div className="banner warn">Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.</div>}
-        {o.stage === 'EXPIRED' && <div className="banner bad">{cash ? 'Restoran buyurtmani vaqtida tasdiqlamadi.' : 'To‘lov muddati tugadi.'} Yangi buyurtma bering.</div>}
+        {o.stage === 'NEEDS_HELP' && <div className="banner warn">{t('Yetkazishni tashkil qilishda yordam kerak. Jamoamiz hal qilmoqda — buyurtmangiz bekor bo‘lmaydi.')}</div>}
+        {o.stage === 'EXPIRED' && <div className="banner bad">{cash ? t('Restoran buyurtmani vaqtida tasdiqlamadi.') : t('To‘lov muddati tugadi.')} {t('Yangi buyurtma bering.')}</div>}
         {trouble && (
           <div className="banner warn stack" role="alert">
             <div>{trouble}</div>
-            <Button onClick={writeAbout}>Muammo haqida yozish</Button>
+            <Button onClick={writeAbout}>{t('Muammo haqida yozish')}</Button>
           </div>
         )}
-        {o.refund && <div className="banner">Pulni qaytarish holati: <strong>{o.refund.status}</strong></div>}
+        {o.refund && <div className="banner">{rich('Pulni qaytarish holati: {status}', { status: <strong>{o.refund.status}</strong> })}</div>}
         {o.refund?.hasReceipt && (
           <div className="stack">
             {receipt
               ? (
                 <>
-                  <img alt="Restoran yuborgan bank cheki" src={`data:${receipt.mime};base64,${receipt.dataBase64}`} style={{ maxWidth: '100%', borderRadius: 12 }} />
-                  <Button small variant="secondary" onClick={() => setReceipt(null)}>Chekni yopish</Button>
+                  <img alt={t('Restoran yuborgan bank cheki')} src={`data:${receipt.mime};base64,${receipt.dataBase64}`} style={{ maxWidth: '100%', borderRadius: 12 }} />
+                  <Button small variant="secondary" onClick={() => setReceipt(null)}>{t('Chekni yopish')}</Button>
                 </>
               )
               : (
                 <Button small variant="secondary" loading={receiptBusy} onClick={() => {
                   setReceiptBusy(true);
-                  api.refundReceipt(id).then(r => setReceipt(r), () => toast('Chek rasmini yuklab bo‘lmadi. Keyinroq urinib ko‘ring.')).finally(() => { if (alive.current) setReceiptBusy(false); });
-                }}>Qaytarish chekini ko‘rish</Button>
+                  api.refundReceipt(id).then(r => setReceipt(r), () => toast(t('Chek rasmini yuklab bo‘lmadi. Keyinroq urinib ko‘ring.'))).finally(() => { if (alive.current) setReceiptBusy(false); });
+                }}>{t('Qaytarish chekini ko‘rish')}</Button>
               )}
           </div>
         )}
       </div>
 
       {awaiting && pay && cash && (
-        <div className="card stack" aria-label="Naqd to‘lov">
-          <h2 style={{ fontSize: 17 }}>Naqd to‘lov</h2>
-          <div className="row between"><span>Haydovchiga beriladigan summa</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.cash?.dueSom ?? pay.amountSom)}</span></div>
-          <div className="banner" role="status"><strong>Restoran buyurtmani tasdiqlashini kutyapmiz.</strong><br />Tasdiqlangach taom tayyorlanadi{pay.cash?.acceptBy ? `. Javob muddati: ${clock(pay.cash.acceptBy)} gacha` : ''}. Karta yoki o‘tkazma kerak emas.</div>
+        <div className="card stack" aria-label={t('Naqd to‘lov')}>
+          <h2 style={{ fontSize: 17 }}>{t('Naqd to‘lov')}</h2>
+          <div className="row between"><span>{t('Haydovchiga beriladigan summa')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.cash?.dueSom ?? pay.amountSom)}</span></div>
+          <div className="banner" role="status"><strong>{t('Restoran buyurtmani tasdiqlashini kutyapmiz.')}</strong><br />{pay.cash?.acceptBy ? t('Tasdiqlangach taom tayyorlanadi. Javob muddati: {time} gacha. Karta yoki o‘tkazma kerak emas.', { time: clock(pay.cash.acceptBy) }) : t('Tasdiqlangach taom tayyorlanadi. Karta yoki o‘tkazma kerak emas.')}</div>
         </div>
       )}
       {!awaiting && cash && pay?.cash && !isTerminal(o.stage) && (
-        <div className="card stack" aria-label="Naqd to‘lov">
-          <div className="row between"><span className="bold">Naqd to‘lov</span><span className="bold mono">{som(pay.cash.dueSom)}</span></div>
-          <p className="sub small">Taom narxini yetkazib berilganda haydovchiga bering. Yetkazish haqi taksi tarifi bo‘yicha alohida.</p>
+        <div className="card stack" aria-label={t('Naqd to‘lov')}>
+          <div className="row between"><span className="bold">{t('Naqd to‘lov')}</span><span className="bold mono">{som(pay.cash.dueSom)}</span></div>
+          <p className="sub small">{t('Taom narxini yetkazib berilganda haydovchiga bering. Yetkazish haqi taksi tarifi bo‘yicha alohida.')}</p>
         </div>
       )}
 
       {awaiting && pay && !cash && (
-        <div className="card stack" aria-label="To‘lov">
-          <h2 style={{ fontSize: 17 }}>To‘lov</h2>
-          <div className="row between"><span>To‘lov summasi</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.amountSom)}</span></div>
+        <div className="card stack" aria-label={t('To‘lov')}>
+          <h2 style={{ fontSize: 17 }}>{t('To‘lov')}</h2>
+          <div className="row between"><span>{t('To‘lov summasi')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.amountSom)}</span></div>
           {pay.queued && (
-            <div className="banner warn">To‘lov rekvizitlari hozir band. Birozdan keyin avtomatik ko‘rinadi.
-              <div style={{ marginTop: 8 }}><Button small variant="secondary" loading={busy === 'pay'} onClick={() => void payCash()}>Naqd to‘lash</Button></div>
+            <div className="banner warn">{t('To‘lov rekvizitlari hozir band. Birozdan keyin avtomatik ko‘rinadi.')}
+              <div style={{ marginTop: 8 }}><Button small variant="secondary" loading={busy === 'pay'} onClick={() => void payCash()}>{t('Naqd to‘lash')}</Button></div>
             </div>
           )}
           {ins && pay.mode === 'REAL' && (
             ins.recipientUnavailable || !ins.cardNumber
-              ? <div className="banner bad" role="alert"><strong>To‘lov qabul qiluvchi hozircha sozlanmagan.</strong><br />Hozir pul o‘tkazmang. Restoran bilan bog‘laning yoki keyinroq qaytib keling.</div>
+              ? <div className="banner bad" role="alert"><strong>{t('To‘lov qabul qiluvchi hozircha sozlanmagan.')}</strong><br />{t('Hozir pul o‘tkazmang. Restoran bilan bog‘laning yoki keyinroq qaytib keling.')}</div>
               : (
                 <div className="stack">
                   <PayWarning amountSom={pay.amountSom} windowMinutes={windowMinutes(ins.windowSeconds)} remaining={payLeft} total={ins.windowSeconds ?? null} contactPhone={o.restaurantPhone} />
@@ -206,47 +208,47 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
                 </div>
               )
           )}
-          {ins && ins.expiresAt && payLeft === null && <p className="sub small">To‘lov muddati: {clock(ins.expiresAt)} gacha.</p>}
+          {ins && ins.expiresAt && payLeft === null && <p className="sub small">{t('To‘lov muddati: {time} gacha.', { time: clock(ins.expiresAt) })}</p>}
           {pay.mode === 'MOCK' && config?.mockPaymentAvailable && (
             <>
-              <div className="banner">Sinov rejimi: haqiqiy pul olinmaydi.</div>
-              <Button loading={busy === 'pay'} onClick={() => void mockPay()}>Sinov to‘lovini bajarish</Button>
+              <div className="banner">{t('Sinov rejimi: haqiqiy pul olinmaydi.')}</div>
+              <Button loading={busy === 'pay'} onClick={() => void mockPay()}>{t('Sinov to‘lovini bajarish')}</Button>
             </>
           )}
-          {o.stage === 'PAYMENT_PENDING' && pay.mode === 'REAL' && <p className="sub small">O‘tkazgandan so‘ng bu sahifada qoling — holat o‘zi yangilanadi.</p>}
+          {o.stage === 'PAYMENT_PENDING' && pay.mode === 'REAL' && <p className="sub small">{t('O‘tkazgandan so‘ng bu sahifada qoling — holat o‘zi yangilanadi.')}</p>}
         </div>
       )}
 
       <div className="card stack">
-        <h2 style={{ fontSize: 17 }}>Buyurtma tarkibi</h2>
+        <h2 style={{ fontSize: 17 }}>{t('Buyurtma tarkibi')}</h2>
         {o.items.map((it, i) => <div key={i} className="row between small"><span className="grow">{it.quantity} × {it.name}</span><span className="mono">{som(it.subtotalSom)}</span></div>)}
-        {(o.promoDiscountSom ?? 0) > 0 && <div className="row between small saved"><span>Aksiya (1+1)</span><span className="mono">−{som(o.promoDiscountSom!)}</span></div>}
+        {(o.promoDiscountSom ?? 0) > 0 && <div className="row between small saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(o.promoDiscountSom!)}</span></div>}
         <div className="divider" />
         {o.platformLine ? (<>
-          <div className="row between"><span className="bold">Taomlar</span><span className="bold mono">{som(o.foodTotalSom - o.platformLine.chargedSom)}</span></div>
+          <div className="row between"><span className="bold">{t('Taomlar')}</span><span className="bold mono">{som(o.foodTotalSom - o.platformLine.chargedSom)}</span></div>
           <PlatformLineRow chargedSom={o.platformLine.chargedSom} waivedSom={o.platformLine.waivedSom} />
-          <div className="row between"><span className="bold">Jami (taksidan tashqari)</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
-        </>) : <div className="row between"><span className="bold">Taomlar jami</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>}
+          <div className="row between"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
+        </>) : <div className="row between"><span className="bold">{t('Taomlar jami')}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>}
         <TaxiFareBox selfDelivered={o.deliveryMode === 'SELF'} walk={o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage)} taxiName={o.taxiCompanyName ?? null} />
         <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={MapPin} size={16} className="shrink" /><span className="grow">{o.address}</span></div>
       </div>
 
       {o.cancel.allowed && !isTerminal(o.stage) && (
         <Button variant="danger" loading={busy === 'cancel'} onClick={() => setConfirmCancel(true)}>
-          {o.cancel.kind === 'UNPAID' ? 'Buyurtmani bekor qilish' : 'Bekor qilish so‘rovi'}
+          {o.cancel.kind === 'UNPAID' ? t('Buyurtmani bekor qilish') : t('Bekor qilish so‘rovi')}
         </Button>
       )}
-      {!trouble && <Button variant="ghost" onClick={writeAbout}>Muammo bormi? Yozing</Button>}
-      {error && <div className="banner warn">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
+      {!trouble && <Button variant="ghost" onClick={writeAbout}>{t('Muammo bormi? Yozing')}</Button>}
+      {error && <div className="banner warn">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
 
       {confirmCancel && (
-        <Sheet title="Bekor qilishni tasdiqlang" onClose={() => setConfirmCancel(false)}>
+        <Sheet title={t('Bekor qilishni tasdiqlang')} onClose={() => setConfirmCancel(false)}>
           <p className="sub" style={{ marginBottom: 12 }}>{o.cancel.kind === 'REFUND_REQUEST'
-            ? 'To‘lov qilingan. Bekor qilish so‘rovi restoranga yuboriladi; pul qaytarilishi restoran qaroriga bog‘liq.'
-            : 'Buyurtma bekor qilinadi. Pul o‘tkazgan bo‘lsangiz, bekor qilmang.'}</p>
+            ? t('To‘lov qilingan. Bekor qilish so‘rovi restoranga yuboriladi; pul qaytarilishi restoran qaroriga bog‘liq.')
+            : t('Buyurtma bekor qilinadi. Pul o‘tkazgan bo‘lsangiz, bekor qilmang.')}</p>
           <div className="stack">
-            <Button variant="danger" onClick={() => void cancel()}>Ha, bekor qilish</Button>
-            <Button variant="secondary" onClick={() => setConfirmCancel(false)}>Yo‘q</Button>
+            <Button variant="danger" onClick={() => void cancel()}>{t('Ha, bekor qilish')}</Button>
+            <Button variant="secondary" onClick={() => setConfirmCancel(false)}>{t('Yo‘q')}</Button>
           </div>
         </Sheet>
       )}

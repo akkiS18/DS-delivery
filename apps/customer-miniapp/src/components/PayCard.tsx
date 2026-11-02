@@ -1,4 +1,5 @@
 import { Button } from './ui';
+import { t } from '../i18n';
 
 /** "8600123456781234" -> "8600 1234 5678 1234" */
 export const groupCard = (n: string): string => n.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
@@ -11,12 +12,12 @@ export function PayCard({ number, holder, onCopy }: { number: string; holder: st
   const digits = number.replace(/\D/g, '');
   return (
     <div className="stack">
-      <div className="paycard" role="group" aria-label="To‘lov kartasi">
-        <div className="paycard-top" aria-hidden><span className="paycard-chip" /><span className="paycard-brand">KARTA</span></div>
-        <button type="button" className="paycard-number" onClick={() => onCopy(digits)} aria-label="Karta raqamini nusxalash">{groupCard(digits)}</button>
-        <div className="paycard-holder"><span className="paycard-cap">KARTA EGASI</span><span className="paycard-name">{holder}</span></div>
+      <div className="paycard" role="group" aria-label={t('To‘lov kartasi')}>
+        <div className="paycard-top" aria-hidden><span className="paycard-chip" /><span className="paycard-brand">{t('KARTA')}</span></div>
+        <button type="button" className="paycard-number" onClick={() => onCopy(digits)} aria-label={t('Karta raqamini nusxalash')}>{groupCard(digits)}</button>
+        <div className="paycard-holder"><span className="paycard-cap">{t('KARTA EGASI')}</span><span className="paycard-name">{holder}</span></div>
       </div>
-      <Button variant="secondary" onClick={() => onCopy(digits)}>Karta raqamini nusxalash</Button>
+      <Button variant="secondary" onClick={() => onCopy(digits)}>{t('Karta raqamini nusxalash')}</Button>
     </div>
   );
 }

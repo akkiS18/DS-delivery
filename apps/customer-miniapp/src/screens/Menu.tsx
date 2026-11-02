@@ -13,6 +13,7 @@ import type { Route } from '../lib/router';
 import { confirmDialog } from '../lib/telegram';
 import type { Product } from '../lib/types';
 import { useApp, useLoad } from '../state';
+import { t } from '../i18n';
 
 /** The group of dishes that has no category (shown as its own card in the grid). */
 export const OTHER_CATEGORY = 'other';
@@ -43,9 +44,9 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
     const named = (data?.categories ?? []).map(c => ({ id: c.id, name: c.name, imageUrl: c.imageUrl ?? null, count: products.filter(p => p.categoryId === c.id).length })).filter(g => g.count > 0);
     const known = new Set((data?.categories ?? []).map(c => c.id));
     const loose = products.filter(p => !p.categoryId || !known.has(p.categoryId)).length;
-    const all = loose > 0 ? [...named, { id: OTHER_CATEGORY, name: named.length ? 'Boshqa taomlar' : 'Taomlar', imageUrl: null, count: loose }] : named;
+    const all = loose > 0 ? [...named, { id: OTHER_CATEGORY, name: named.length ? t('Boshqa taomlar') : t('Taomlar'), imageUrl: null, count: loose }] : named;
     const offered = products.filter(p => promoIds.has(p.id)).length;
-    return offered > 0 ? [{ id: PROMO_CATEGORY, name: 'Chegirmalar', imageUrl: null, count: offered }, ...all] : all;
+    return offered > 0 ? [{ id: PROMO_CATEGORY, name: t('Chegirmalar'), imageUrl: null, count: offered }, ...all] : all;
   }, [data, promoIds]);
   const showGrid = groups.length > 1;
   const active = showGrid ? groups.find(g => g.id === cat) ?? null : null;
@@ -65,7 +66,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
   const add = async (p: Product) => {
     if (!r.isOpen || !p.isAvailable) return;
     if (cart.restaurantId && cart.restaurantId !== r.id && cart.lines.length > 0) {
-      const ok = await confirmDialog('Savatda boshqa restorandan mahsulotlar bor. Savatni tozalab, bu restorandan boshlaymizmi?');
+      const ok = await confirmDialog(t('Savatda boshqa restorandan mahsulotlar bor. Savatni tozalab, bu restorandan boshlaymizmi?'));
       if (!ok) return;
     }
     dispatch({ type: 'add', restaurantId: r.id, restaurantName: r.name, product: { id: p.id, name: p.name, priceSom: p.priceSom, packaging: p.packaging ?? null } });
@@ -80,35 +81,35 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
         <div className={`rphoto banner-photo ${r.isOpen ? '' : 'closed'}`}><RestaurantPhoto name={r.name} url={r.imageUrl} /></div>
         <h1 className="page-title">{r.name}</h1>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? 'Ochiq' : r.closedReason === 'PAUSED' ? 'Vaqtincha yopiq' : 'Yopiq'}</span>
+          <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? t('Vaqtincha yopiq') : t('Yopiq')}</span>
           {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
         </div>
       </div>
       {!r.isOpen && (
-        <div className="banner warn">{r.closedReason === 'HOURS' ? `Hozir yopiq. ${opensText(r.opensNext)}.` : 'Restoran vaqtincha buyurtma qabul qilmayapti.'} Menyuni ko‘rishingiz mumkin.</div>
+        <div className="banner warn">{r.closedReason === 'HOURS' ? t('Hozir yopiq. {opens}.', { opens: opensText(r.opensNext) }) : t('Restoran vaqtincha buyurtma qabul qilmayapti.')} {t('Menyuni ko‘rishingiz mumkin.')}</div>
       )}
       {r.reservation && !active && (
-        <button type="button" className="helpbar" onClick={() => go?.({ name: 'reserve', id })}><Icon as={CalendarClock} size={18} /><span>Joy bron qilish • oldindan to‘lov {som(r.reservation.depositSom)}</span><Icon as={ChevronRight} size={18} /></button>
+        <button type="button" className="helpbar" onClick={() => go?.({ name: 'reserve', id })}><Icon as={CalendarClock} size={18} /><span>{t('Joy bron qilish • oldindan to‘lov {sum}', { sum: som(r.reservation.depositSom) })}</span><Icon as={ChevronRight} size={18} /></button>
       )}
       {showGrid && !active && (
-        <div className="cat-grid" role="list" aria-label="Toifalar">
+        <div className="cat-grid" role="list" aria-label={t('Toifalar')}>
           {groups.map(g => (
             <button key={g.id} role="listitem" className={`cat-card ${g.id === PROMO_CATEGORY ? 'promo' : ''}`} onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
               {g.id === PROMO_CATEGORY
                 ? <span className="promo-art" aria-hidden><Icon as={Gift} size={34} /><b>1+1</b></span>
                 : <RestaurantPhoto name={g.name} url={g.imageUrl} />}
-              <span className="cat-label"><span className="cat-name">{g.name}</span><span className="cat-count">{g.count} ta taom</span></span>
+              <span className="cat-label"><span className="cat-name">{g.name}</span><span className="cat-count">{t('{n} ta taom', { n: g.count })}</span></span>
             </button>
           ))}
         </div>
       )}
       {showGrid && active && (
         <div className="row cat-head">
-          <button className="chip" onClick={() => go?.({ name: 'menu', id })}><Icon as={ChevronLeft} size={18} /> Toifalar</button>
+          <button className="chip" onClick={() => go?.({ name: 'menu', id })}><Icon as={ChevronLeft} size={18} /> {t('Toifalar')}</button>
           <h2 className="grow" style={{ fontSize: 18 }}>{active.name}</h2>
         </div>
       )}
-      {(!showGrid || active) && visible.length === 0 && <Empty icon={<Icon as={UtensilsCrossed} size={44} />} title="Bu toifada mahsulot yo‘q" />}
+      {(!showGrid || active) && visible.length === 0 && <Empty icon={<Icon as={UtensilsCrossed} size={44} />} title={t('Bu toifada mahsulot yo‘q')} />}
       {visible.map(p => {
         const q = inThisCart ? qtyOf(cart, p.id) : 0;
         const orderable = r.isOpen && p.isAvailable;
@@ -123,12 +124,12 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
             <div className="grow stack" style={{ gap: 4 }}>
               <div className="bold">{p.name}{promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}</div>
               {p.description && <div className="desc">{p.description}</div>}
-              {p.packaging && <div className="sub small">+ {p.packaging.name.toLowerCase()} {som(p.packaging.priceSom)} (har bir dona uchun)</div>}
+              {p.packaging && <div className="sub small">{t('+ {name} {sum} (har bir dona uchun)', { name: p.packaging.name.toLowerCase(), sum: som(p.packaging.priceSom) })}</div>}
               <div className="row between" style={{ marginTop: 'auto' }}>
                 <PriceTag unitSom={unit} referenceSom={Math.max(first, unit)} />
-                {!p.isAvailable ? <span className="badge closed">Mavjud emas</span>
+                {!p.isAvailable ? <span className="badge closed">{t('Mavjud emas')}</span>
                   : q > 0 ? <Qty value={q} onInc={() => dispatch({ type: 'inc', productId: p.id })} onDec={() => dispatch({ type: 'dec', productId: p.id })} />
-                  : <Button small disabled={!orderable} onClick={() => { void add(p); if (!r.isOpen) toast('Restoran hozir yopiq'); }}>Qo‘shish</Button>}
+                  : <Button small disabled={!orderable} onClick={() => { void add(p); if (!r.isOpen) toast(t('Restoran hozir yopiq')); }}>{t('Qo‘shish')}</Button>}
               </div>
             </div>
           </div>

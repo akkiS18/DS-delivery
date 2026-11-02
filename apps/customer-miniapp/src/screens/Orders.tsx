@@ -8,6 +8,7 @@ import { STAGE_LABEL } from '../lib/order';
 import { groupOrders, needsAttention, nextAction } from '../lib/orderList';
 import type { Route } from '../lib/router';
 import type { CustomerStage, OrderSummary } from '../lib/types';
+import { t } from '../i18n';
 
 const STAGE_ICON: Record<CustomerStage, LucideIcon> = {
   PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Clock3, PREPARING: ChefHat, READY: PackageCheck, SELF_DELIVERY: Footprints, TAXI_REQUESTED: CarFront,
@@ -32,9 +33,9 @@ function useOrders() {
   const anyActive = data ? groupOrders(data).active.length > 0 : true;
   useEffect(() => {
     if (!anyActive) return;
-    let t: number | undefined;
-    const stop = () => { if (t !== undefined) window.clearInterval(t); t = undefined; };
-    const start = () => { stop(); t = window.setInterval(() => void refresh(), POLL_MS); };
+    let timer: number | undefined;
+    const stop = () => { if (timer !== undefined) window.clearInterval(timer); timer = undefined; };
+    const start = () => { stop(); timer = window.setInterval(() => void refresh(), POLL_MS); };
     const vis = () => { if (document.hidden) stop(); else { void refresh(); start(); } };
     document.addEventListener('visibilitychange', vis);
     if (!document.hidden) start();
@@ -55,12 +56,12 @@ export function Orders({ go }: { go: (r: Route) => void }) {
     const taxi = o.stage.startsWith('TAXI_') && o.taxi?.companyName ? o.taxi.companyName : null;
     return (
       <div key={o.id} className={`card tap live ${needsAttention(o.stage, o.method) ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}
-        aria-label={`Buyurtma ${o.code}, ${o.restaurantName}, ${STAGE_LABEL[o.stage]}`}>
+        aria-label={t('Buyurtma {code}, {name}, {stage}', { code: o.code, name: o.restaurantName, stage: t(STAGE_LABEL[o.stage]) })}>
         <div className="ocard-head"><span className="bold">#{o.code} • {o.restaurantName}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
-        <div className="status-line" style={{ marginTop: 8 }}><Icon as={STAGE_ICON[o.stage]} /><span>{STAGE_LABEL[o.stage]}</span></div>
+        <div className="status-line" style={{ marginTop: 8 }}><Icon as={STAGE_ICON[o.stage]} /><span>{t(STAGE_LABEL[o.stage])}</span></div>
         {taxi && <div className="sub small" style={{ marginTop: 4 }}>{taxi}</div>}
         <div className="row between" style={{ marginTop: 10 }}>
-          <span className="sub small">{clock(o.createdAt)} • {o.itemsCount} ta</span>
+          <span className="sub small">{clock(o.createdAt)} • {t('{n} ta', { n: o.itemsCount })}</span>
           <span className="row bold" style={{ gap: 2, color: 'var(--primary)' }}>{nextAction(o.stage, o.method)}<Icon as={ChevronRight} size={18} /></span>
         </div>
       </div>
@@ -68,30 +69,30 @@ export function Orders({ go }: { go: (r: Route) => void }) {
   };
   const pastCard = (o: OrderSummary) => (
     <div key={o.id} className="card tap" role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}>
-      <div className="row between"><span className="bold">#{o.code} • {o.restaurantName}</span><span className={`badge ${o.stage === 'DELIVERED' ? 'open' : 'closed'}`}>{STAGE_LABEL[o.stage]}</span></div>
-      <div className="row between sub small" style={{ marginTop: 4 }}><span>{clock(o.createdAt)} • {o.itemsCount} ta</span><span className="mono">{som(o.foodTotalSom)}</span></div>
+      <div className="row between"><span className="bold">#{o.code} • {o.restaurantName}</span><span className={`badge ${o.stage === 'DELIVERED' ? 'open' : 'closed'}`}>{t(STAGE_LABEL[o.stage])}</span></div>
+      <div className="row between sub small" style={{ marginTop: 4 }}><span>{clock(o.createdAt)} • {t('{n} ta', { n: o.itemsCount })}</span><span className="mono">{som(o.foodTotalSom)}</span></div>
       {o.stage === 'DELIVERED' && <RateRow orderId={o.id} rating={o.rating ?? null} canRate={o.canRate ?? false} onSaved={() => void refresh()} />}
     </div>
   );
 
   return (
     <div className="page">
-      <h1 className="page-title">Buyurtmalarim</h1>
-      <button type="button" className="helpbar" onClick={() => go({ name: 'support' })}><Icon as={MessageCircle} size={18} /><span>Muammo yoki savol bormi? Yordamga yozing</span><Icon as={ChevronRight} size={18} /></button>
-      <button type="button" className="helpbar" onClick={() => go({ name: 'reservations' })}><Icon as={CalendarClock} size={18} /><span>Bronlarim (stol band qilish)</span><Icon as={ChevronRight} size={18} /></button>
-      {error && <div className="banner warn" role="status">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
-      {data.length === 0 && <Empty icon={<Icon as={ReceiptText} size={44} />} title="Hali buyurtma yo‘q" hint="Birinchi buyurtmangizni bering." action={<Button onClick={() => go({ name: 'home' })}>Restoranlar</Button>} />}
+      <h1 className="page-title">{t('Buyurtmalarim')}</h1>
+      <button type="button" className="helpbar" onClick={() => go({ name: 'support' })}><Icon as={MessageCircle} size={18} /><span>{t('Muammo yoki savol bormi? Yordamga yozing')}</span><Icon as={ChevronRight} size={18} /></button>
+      <button type="button" className="helpbar" onClick={() => go({ name: 'reservations' })}><Icon as={CalendarClock} size={18} /><span>{t('Bronlarim (stol band qilish)')}</span><Icon as={ChevronRight} size={18} /></button>
+      {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
+      {data.length === 0 && <Empty icon={<Icon as={ReceiptText} size={44} />} title={t('Hali buyurtma yo‘q')} hint={t('Birinchi buyurtmangizni bering.')} action={<Button onClick={() => go({ name: 'home' })}>{t('Restoranlar')}</Button>} />}
       {data.length > 0 && (
-        <section className="stack" aria-label="Faol buyurtmalar">
-          <h2 className="sec-title">Faol buyurtmalar{active.length > 0 && <span className="count">{active.length}</span>}</h2>
+        <section className="stack" aria-label={t('Faol buyurtmalar')}>
+          <h2 className="sec-title">{t('Faol buyurtmalar')}{active.length > 0 && <span className="count">{active.length}</span>}</h2>
           {active.length === 0
-            ? <div className="card center stack"><p className="sub">Hozir faol buyurtma yo‘q.</p><Button variant="secondary" onClick={() => go({ name: 'home' })}>Restoranlar</Button></div>
+            ? <div className="card center stack"><p className="sub">{t('Hozir faol buyurtma yo‘q.')}</p><Button variant="secondary" onClick={() => go({ name: 'home' })}>{t('Restoranlar')}</Button></div>
             : active.map(activeCard)}
         </section>
       )}
       {history.length > 0 && (
-        <section className="stack" aria-label="Buyurtmalar tarixi">
-          <h2 className="sec-title">Buyurtmalar tarixi</h2>
+        <section className="stack" aria-label={t('Buyurtmalar tarixi')}>
+          <h2 className="sec-title">{t('Buyurtmalar tarixi')}</h2>
           {history.map(pastCard)}
         </section>
       )}

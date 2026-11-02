@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import type { PaymentMethod, PaymentOptions } from './types';
 
 /** Which choices the checkout shows. Without server advice (older backend, quote failed) only the card is offered: the safe, existing behaviour. */
@@ -12,7 +13,7 @@ export function methodChoices(options: PaymentOptions | null | undefined): Metho
     card: cardOpen || !cash,
     cash,
     cardBusy: options.card.state === 'BUSY',
-    cashNote: !cash && options.cash.reason === 'TOO_LARGE' ? 'Naqd to‘lov bu summa uchun mavjud emas.' : null,
+    cashNote: !cash && options.cash.reason === 'TOO_LARGE' ? t('Naqd to‘lov bu summa uchun mavjud emas.') : null,
   };
 }
 

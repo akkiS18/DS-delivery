@@ -1,22 +1,22 @@
+import { t, T } from '../i18n';
 import type { OpensNext } from './types';
 
-const nf = new Intl.NumberFormat('uz-UZ');
-/** 45000 -> "45 000 so‘m" (uz-UZ groups with a no-break space on some engines; normalise to a plain space). */
-export const som = (n: number): string => `${nf.format(n).replace(/[  ]/g, ' ')} so‘m`;
+/** 45000 -> "45 000 so‘m" / "45 000 сум". Grouped by hand (a plain space), so every webview prints it the same way. */
+export const som = (n: number): string => `${String(Math.trunc(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} ${t('so‘m')}`;
 
 const TZ = 'Asia/Tashkent';
 export const clock = (iso: string | null | undefined): string => {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return new Intl.DateTimeFormat('uz-UZ', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+  return new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
 };
 
-const DAYS = ['', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
+const DAYS = ['', T('Dushanba'), T('Seshanba'), T('Chorshanba'), T('Payshanba'), T('Juma'), T('Shanba'), T('Yakshanba')];
 export function opensText(next: OpensNext | null): string {
-  if (!next) return 'Hozir yopiq';
-  const when = next.dayOffset === 0 ? 'Bugun' : next.dayOffset === 1 ? 'Ertaga' : (DAYS[next.dayOfWeek] ?? '');
-  return `${when} ${next.time} da ochiladi`;
+  if (!next) return t('Hozir yopiq');
+  const when = next.dayOffset === 0 ? t('Bugun') : next.dayOffset === 1 ? t('Ertaga') : t(DAYS[next.dayOfWeek] ?? '');
+  return t('{when} {time} da ochiladi', { when, time: next.time });
 }
 
 export const mmss = (totalSeconds: number): string => {

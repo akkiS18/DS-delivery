@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 /** Input rules mirror the backend (profile.ts / contract.ts); the server stays the authority and re-validates everything. */
 
 /** Accepts the ways Uzbek numbers are typed and returns the canonical +998XXXXXXXXX, or null. */
@@ -22,10 +24,10 @@ export function validateAddress(f: AddressForm): FieldErrors<'label' | 'addressT
   const errors: FieldErrors<'label' | 'addressText'> = {};
   const label = f.label.trim();
   const text = f.addressText.trim();
-  if (label.length < 1) errors.label = 'Nom kiriting (masalan: Uy)';
-  else if (label.length > 30) errors.label = 'Nom 30 belgidan oshmasin';
-  if (text.length < 3) errors.addressText = 'Manzilni to‘liqroq yozing (kamida 3 belgi)';
-  else if (text.length > 500) errors.addressText = 'Manzil 500 belgidan oshmasin';
+  if (label.length < 1) errors.label = t('Nom kiriting (masalan: Uy)');
+  else if (label.length > 30) errors.label = t('Nom 30 belgidan oshmasin');
+  if (text.length < 3) errors.addressText = t('Manzilni to‘liqroq yozing (kamida 3 belgi)');
+  else if (text.length > 500) errors.addressText = t('Manzil 500 belgidan oshmasin');
   return errors;
 }
 

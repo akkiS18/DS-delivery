@@ -6,6 +6,7 @@ import { storeGuestToken } from '../lib/session';
 import { openExternal } from '../lib/telegram';
 import type { LinkStatus } from '../lib/types';
 import { useApp } from '../state';
+import { t } from '../i18n';
 
 const POLL_MS = 3000;
 const LIVE = ['CREATED', 'BOT_BOUND', 'BOT_CONFIRMED'];
@@ -29,7 +30,7 @@ export function TelegramLink() {
     try {
       const s = await api.telegramLink(link.id);
       if (alive.current) setStatus(s);
-    } catch (e) { if (alive.current && e instanceof ApiError && e.status === 404) setProblem('Bog‘lash topilmadi. Qaytadan boshlang.'); }
+    } catch (e) { if (alive.current && e instanceof ApiError && e.status === 404) setProblem(t('Bog‘lash topilmadi. Qaytadan boshlang.')); }
   }, [link]);
 
   // Bounded polling: every few seconds while the sheet is open, the app is visible and the attempt is live; stops at expiry.
@@ -44,7 +45,7 @@ export function TelegramLink() {
 
   if (!isAndroidApp || !profile) return null;
   if (profile.telegramLinked) {
-    return <section className="card stack" aria-label="Telegram"><div className="row between"><span className="bold">Telegram</span><span className="badge open">Bog‘langan</span></div></section>;
+    return <section className="card stack" aria-label="Telegram"><div className="row between"><span className="bold">Telegram</span><span className="badge open">{t('Bog‘langan')}</span></div></section>;
   }
 
   const begin = async () => {
@@ -55,7 +56,7 @@ export function TelegramLink() {
       setLink(created); setOpen(true);
       await openExternal(created.deepLink);
     } catch (e) {
-      toast(e instanceof ApiError && e.code === 'TELEGRAM_LINK_NOT_CONFIGURED' ? 'Telegramga bog‘lash hozircha sozlanmagan' : 'Telegramni ochib bo‘lmadi');
+      toast(e instanceof ApiError && e.code === 'TELEGRAM_LINK_NOT_CONFIGURED' ? t('Telegramga bog‘lash hozircha sozlanmagan') : t('Telegramni ochib bo‘lmadi'));
     } finally { setBusy(false); }
   };
   const close = () => { setOpen(false); };
@@ -69,11 +70,11 @@ export function TelegramLink() {
     try {
       const r = await api.confirmTelegramLink(link.id);
       if (r.session) await storeGuestToken(r.session.token); // the server rotated the credential: keep the new one
-      toast('Telegram bog‘landi');
+      toast(t('Telegram bog‘landi'));
       setOpen(false); setLink(null); setStatus(null);
       reload();
     } catch (e) {
-      setProblem(e instanceof ApiError && (e.code === 'LINK_EXPIRED' || e.code === 'LINK_CLOSED') ? 'Bog‘lash muddati tugagan. Qaytadan boshlang.' : 'Bog‘lab bo‘lmadi. Qayta urinib ko‘ring.');
+      setProblem(e instanceof ApiError && (e.code === 'LINK_EXPIRED' || e.code === 'LINK_CLOSED') ? t('Bog‘lash muddati tugagan. Qaytadan boshlang.') : t('Bog‘lab bo‘lmadi. Qayta urinib ko‘ring.'));
     } finally { setBusy(false); }
   };
 
@@ -83,30 +84,30 @@ export function TelegramLink() {
     <>
       <section className="card stack" aria-label="Telegram">
         <h2 style={{ fontSize: 17 }}>Telegram</h2>
-        <p className="sub small">Buyurtmalaringizni boshqa qurilmada tiklash uchun Telegramga bog‘lang.</p>
-        <Button variant="secondary" loading={busy && !open} onClick={() => void begin()}>Telegramga bog‘lash</Button>
+        <p className="sub small">{t('Buyurtmalaringizni boshqa qurilmada tiklash uchun Telegramga bog‘lang.')}</p>
+        <Button variant="secondary" loading={busy && !open} onClick={() => void begin()}>{t('Telegramga bog‘lash')}</Button>
       </section>
       {open && (
-        <Sheet title="Telegramga bog‘lash" onClose={close}>
+        <Sheet title={t('Telegramga bog‘lash')} onClose={close}>
           <div className="stack">
             {problem && <div className="err" role="alert">{problem}</div>}
             {!dead && state !== 'BOT_CONFIRMED' && (
               <>
-                <p className="sub">Telegramda DS Delivery botini oching va “Ha, bog‘lash” tugmasini bosing. Keyin shu yerga qayting.</p>
-                <div className="row"><Spinner /><span className="sub small">Telegram tasdig‘i kutilmoqda…</span></div>
-                {link && <Button variant="ghost" onClick={() => void openExternal(link.deepLink)}>Telegramni qayta ochish</Button>}
+                <p className="sub">{t('Telegramda DS Delivery botini oching va “Ha, bog‘lash” tugmasini bosing. Keyin shu yerga qayting.')}</p>
+                <div className="row"><Spinner /><span className="sub small">{t('Telegram tasdig‘i kutilmoqda…')}</span></div>
+                {link && <Button variant="ghost" onClick={() => void openExternal(link.deepLink)}>{t('Telegramni qayta ochish')}</Button>}
               </>
             )}
             {state === 'BOT_CONFIRMED' && (
               <>
-                <p className="sub">Ushbu Telegram akkaunt ulanadi:</p>
-                <div className="card"><div className="bold">{status?.telegram?.name ?? 'Telegram foydalanuvchisi'}</div>{status?.telegram?.username && <div className="sub small">@{status.telegram.username}</div>}</div>
-                {status?.existingAccount && <p className="sub small">Bu akkauntda oldingi buyurtmalar bor. Tasdiqlasangiz, shu qurilmadagi buyurtma va manzillar unga qo‘shiladi.</p>}
-                <Button loading={busy} onClick={() => void confirm()}>Ha, bu mening akkauntim</Button>
+                <p className="sub">{t('Ushbu Telegram akkaunt ulanadi:')}</p>
+                <div className="card"><div className="bold">{status?.telegram?.name ?? t('Telegram foydalanuvchisi')}</div>{status?.telegram?.username && <div className="sub small">@{status.telegram.username}</div>}</div>
+                {status?.existingAccount && <p className="sub small">{t('Bu akkauntda oldingi buyurtmalar bor. Tasdiqlasangiz, shu qurilmadagi buyurtma va manzillar unga qo‘shiladi.')}</p>}
+                <Button loading={busy} onClick={() => void confirm()}>{t('Ha, bu mening akkauntim')}</Button>
               </>
             )}
-            {dead && <p className="sub">{state === 'EXPIRED' ? 'Muddat tugadi.' : 'Bog‘lash bekor qilindi.'} Qaytadan urinib ko‘ring.</p>}
-            <Button variant="ghost" onClick={() => void (dead ? Promise.resolve(close()) : cancel())}>{dead ? 'Yopish' : 'Bekor qilish'}</Button>
+            {dead && <p className="sub">{state === 'EXPIRED' ? t('Muddat tugadi.') : t('Bog‘lash bekor qilindi.')} {t('Qaytadan urinib ko‘ring.')}</p>}
+            <Button variant="ghost" onClick={() => void (dead ? Promise.resolve(close()) : cancel())}>{dead ? t('Yopish') : t('Bekor qilish')}</Button>
           </div>
         </Sheet>
       )}

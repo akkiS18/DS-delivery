@@ -2,23 +2,24 @@ import { CreditCard, ChefHat, Car, Footprints, PackageCheck, XCircle, MessageCir
 import { Icon } from './ui';
 import { heroSteps, type HeroKey } from '../lib/order';
 import type { CustomerStage } from '../lib/types';
+import { t, T } from '../i18n';
 
 const STEP_ICON: Record<HeroKey, LucideIcon> = { PAY: CreditCard, COOK: ChefHat, ROAD: Car };
 
 const HEADLINE: Record<CustomerStage, string> = {
-  PAYMENT_PENDING: 'To‘lov kutilmoqda',
-  PAYMENT_CHECKING: 'To‘lov tekshirilmoqda',
-  PREPARING: 'Tayyorlanmoqda',
-  READY: 'Taom tayyor',
-  SELF_DELIVERY: 'Restoran o‘zi olib bormoqda',
-  TAXI_REQUESTED: 'Haydovchi qidirilmoqda',
-  TAXI_ACCEPTED: 'Haydovchi qidirilmoqda',
-  TAXI_SENT: 'Buyurtmangiz yo‘lda',
-  DELIVERED: 'Yetkazildi',
-  CANCELLATION_REQUESTED: 'Bekor qilish so‘ralgan',
-  CANCELLED: 'Bekor qilingan',
-  EXPIRED: 'To‘lov vaqti tugadi',
-  NEEDS_HELP: 'Yordam kerak',
+  PAYMENT_PENDING: T('To‘lov kutilmoqda'),
+  PAYMENT_CHECKING: T('To‘lov tekshirilmoqda'),
+  PREPARING: T('Tayyorlanmoqda'),
+  READY: T('Taom tayyor'),
+  SELF_DELIVERY: T('Restoran o‘zi olib bormoqda'),
+  TAXI_REQUESTED: T('Haydovchi qidirilmoqda'),
+  TAXI_ACCEPTED: T('Haydovchi qidirilmoqda'),
+  TAXI_SENT: T('Buyurtmangiz yo‘lda'),
+  DELIVERED: T('Yetkazildi'),
+  CANCELLATION_REQUESTED: T('Bekor qilish so‘ralgan'),
+  CANCELLED: T('Bekor qilingan'),
+  EXPIRED: T('To‘lov vaqti tugadi'),
+  NEEDS_HELP: T('Yordam kerak'),
 };
 
 const BIG_ICON: Record<CustomerStage, LucideIcon> = {
@@ -27,14 +28,14 @@ const BIG_ICON: Record<CustomerStage, LucideIcon> = {
 };
 
 export function StatusHero({ stage, cash = false }: { stage: CustomerStage; cash?: boolean }) {
-  const steps = heroSteps(stage)?.map(p => (cash && p.key === 'PAY' ? { ...p, label: 'Tasdiq' } : p)) ?? null;
+  const steps = heroSteps(stage)?.map(p => (cash && p.key === 'PAY' ? { ...p, label: t('Tasdiq') } : p)) ?? null;
   const bad = stage === 'CANCELLED' || stage === 'EXPIRED' || stage === 'NEEDS_HELP';
   return (
     <div className="hero" aria-live="polite">
       <div className={`hero-ico ${bad ? 'bad' : stage === 'DELIVERED' ? 'done' : ''}`} aria-hidden><Icon as={BIG_ICON[stage]} size={56} /></div>
-      <div className="hero-title">{cash && stage === 'PAYMENT_PENDING' ? 'Restoran tasdiqlashini kutmoqda' : cash && stage === 'EXPIRED' ? 'Restoran tasdiqlamadi' : HEADLINE[stage]}</div>
+      <div className="hero-title">{cash && stage === 'PAYMENT_PENDING' ? t('Restoran tasdiqlashini kutmoqda') : cash && stage === 'EXPIRED' ? t('Restoran tasdiqlamadi') : t(HEADLINE[stage])}</div>
       {steps && (
-        <ol className="phases" aria-label="Buyurtma bosqichlari">
+        <ol className="phases" aria-label={t('Buyurtma bosqichlari')}>
           {steps.map(p => (
             <li key={p.key} className={`phase ${p.state}`} aria-current={p.state === 'current' ? 'step' : undefined}>
               <span className="phase-dot" aria-hidden><Icon as={p.state === 'done' ? Check : STEP_ICON[p.key]} size={20} /></span>

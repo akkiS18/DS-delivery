@@ -163,3 +163,11 @@ Server routes and rules ran in DB tests (`src/tests/promo-admin.db.test.ts`); th
 2. Same screen, "Yangi slayd": title + target, then the phone's picture picker; the new slide starts OFF, cannot be switched on without a picture, shows a preview, moves with the arrows, and appears in the customer home carousel only while live. Deleting a promotion switches its slides off.
 3. Sifat Food menu photos: tandir lavash x3, lavash x3, donar x3, xaggi, gamburger + dobbl burger, chez burger + dobbl chez burger (same picture), turk kebab x2, hod dog x4. Burger order: GAMBURGER, DOBBL BURGER, CHEZ BURGER, DOBBL CHEZ BURGER (not alphabetical).
 4. 1+1: two "LAVASH O'RTACHA 1+1" in the cart: the second is free; the ordinary LAVASH O'RTACHA is a different dish and is never free.
+
+## K. Customer app languages: O'zbekcha, Ўзбекча, Русский (2026-11-02, not yet tried on a phone)
+Unit tests ran (`apps/customer-miniapp/tests/i18n.test.ts`: language choice, transliteration, every text has its Russian line); no screen was looked at in the app, the Mini App and the customer APK were not rebuilt.
+1. First start on a phone whose language is Russian opens in Russian; Uzbek (Latin) phone in Uzbek; a phone in another language (English, ...) in Uzbek (Latin). Telegram Mini App: same rule (Telegram's own language only decides when the phone's language is none of the three).
+2. Profil > "Til": the three buttons switch the whole app at once (tab bar, cart bar, open screen); the choice survives closing the app and then wins over the phone's language.
+3. Walk one order in each language: menu, cart, checkout (taxi/cash/card), the payment screen (the card warning with the countdown), the order tracking, cancel, rating, support chat, reservation. Look for texts still in Uzbek Latin, cut-off buttons (Russian is longer) and wrong grammar.
+4. Cyrillic Uzbek is GENERATED from the Latin text by rule (`src/i18n/translit.ts`); a native reader must read it once. A wrong word is fixed in `UZ_CYRL_OVERRIDES` (`src/i18n/dictionary.ts`), a Russian line in `src/i18n/ru.ts`.
+5. Not translated by design: restaurant and dish names/descriptions, category names, banner titles, support chat messages (they are what the restaurant or admin typed), the legal pages (served by the backend in Uzbek), bot messages, and the restaurant/admin/taxi apps.

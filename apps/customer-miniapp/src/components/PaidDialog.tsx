@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import { Button, Icon } from './ui';
+import { t } from '../i18n';
 
 /**
  * Shown once, the moment a payment becomes accepted: the customer must SEE that paying worked and cooking began.
@@ -11,8 +12,8 @@ export function PaidDialog({ onClose, cash = false }: { onClose: () => void; cas
     <div className="sheet-back paid-back" role="alertdialog" aria-modal="true" aria-labelledby="paid-title" aria-describedby="paid-text">
       <div className="paid-card">
         <span className="paid-check" aria-hidden><Icon as={Check} size={48} /></span>
-        <h2 id="paid-title" className="paid-title">{cash ? 'Buyurtmangiz qabul qilindi' : 'To‘lovingiz qabul qilindi'}</h2>
-        <p id="paid-text" className="paid-text">{cash ? 'Taom tayyorlanmoqda. Pulni haydovchiga naqd to‘laysiz.' : 'Taom tayyorlanmoqda'}</p>
+        <h2 id="paid-title" className="paid-title">{cash ? t('Buyurtmangiz qabul qilindi') : t('To‘lovingiz qabul qilindi')}</h2>
+        <p id="paid-text" className="paid-text">{cash ? t('Taom tayyorlanmoqda. Pulni haydovchiga naqd to‘laysiz.') : t('Taom tayyorlanmoqda')}</p>
         <Button onClick={onClose}>OK</Button>
       </div>
     </div>

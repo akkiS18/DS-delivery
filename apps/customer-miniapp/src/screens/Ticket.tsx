@@ -7,6 +7,7 @@ import type { Route } from '../lib/router';
 import { TICKET_LABEL, TICKET_MAX } from '../lib/support';
 import type { TicketThread } from '../lib/types';
 import { useApp } from '../state';
+import { t } from '../i18n';
 
 const POLL_OPEN_MS = 4_000;
 const POLL_DONE_MS = 30_000;
@@ -32,9 +33,9 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
   useEffect(() => {
     if (!status) return;
     const every = status === 'RESOLVED' ? POLL_DONE_MS : POLL_OPEN_MS;
-    let t: number | undefined;
-    const stop = () => { if (t !== undefined) window.clearInterval(t); t = undefined; };
-    const start = () => { stop(); t = window.setInterval(() => void load(), every); };
+    let timer: number | undefined;
+    const stop = () => { if (timer !== undefined) window.clearInterval(timer); timer = undefined; };
+    const start = () => { stop(); timer = window.setInterval(() => void load(), every); };
     const vis = () => { if (document.hidden) stop(); else { void load(); start(); } };
     document.addEventListener('visibilitychange', vis);
     if (!document.hidden) start();
@@ -46,8 +47,8 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
 
   if (!thread && !error) return <div className="page"><Skeletons n={3} /></div>;
   if (!thread) return <div className="page"><ErrorBox error={error} onRetry={() => void load()} /></div>;
-  const t = thread.ticket;
-  const resolved = t.status === 'RESOLVED';
+  const tk = thread.ticket;
+  const resolved = tk.status === 'RESOLVED';
 
   const send = async () => {
     const body = text.trim();
@@ -55,45 +56,45 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
     key.current ??= newKey();
     setBusy(true);
     try {
-      await api.sendTicketMessage(t.id, body, key.current);
+      await api.sendTicketMessage(tk.id, body, key.current);
       key.current = null; setText('');
       await load();
     } catch (e) {
-      if (e instanceof ApiError && e.code === 'MUROJAAT_YOPILGAN') { toast('Murojaat hal qilingan'); await load(); }
-      else toast(e instanceof ApiError && e.code === 'KOP_XABAR' ? 'Javob kelguncha biroz kuting' : e instanceof ApiError && e.status === 429 ? 'Biroz kuting va qayta urinib ko‘ring' : 'Yuborib bo‘lmadi. Qayta urinib ko‘ring');
+      if (e instanceof ApiError && e.code === 'MUROJAAT_YOPILGAN') { toast(t('Murojaat hal qilingan')); await load(); }
+      else toast(e instanceof ApiError && e.code === 'KOP_XABAR' ? t('Javob kelguncha biroz kuting') : e instanceof ApiError && e.status === 429 ? t('Biroz kuting va qayta urinib ko‘ring') : t('Yuborib bo‘lmadi. Qayta urinib ko‘ring'));
     } finally { setBusy(false); }
   };
 
   return (
     <div className="page chat">
       <div>
-        <h1 className="page-title">Murojaat #{t.number}</h1>
-        <p className="sub"><a href={`#/order/${t.orderId}`}>Buyurtma #{t.orderCode}</a> • {t.restaurantName} • <span className={`badge ${resolved ? 'closed' : 'open'}`}>{TICKET_LABEL[t.status]}</span></p>
+        <h1 className="page-title">{t('Murojaat #{number}', { number: tk.number })}</h1>
+        <p className="sub"><a href={`#/order/${tk.orderId}`}>{t('Buyurtma #{code}', { code: tk.orderCode })}</a> • {tk.restaurantName} • <span className={`badge ${resolved ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span></p>
       </div>
-      {error && <div className="banner warn" role="status">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
-      <div className="bubbles" role="log" aria-live="polite" aria-label="Yozishma">
+      {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
+      <div className="bubbles" role="log" aria-live="polite" aria-label={t('Yozishma')}>
         {thread.messages.map(m => (
           <div key={m.id} className={`bubble ${m.from === 'CUSTOMER' ? 'mine' : 'theirs'}`}>
-            {m.from === 'ADMIN' && <div className="who">Yordam xizmati</div>}
+            {m.from === 'ADMIN' && <div className="who">{t('Yordam xizmati')}</div>}
             <div className="txt">{m.text}</div>
             <div className="at">{clock(m.at)}</div>
           </div>
         ))}
-        {t.status === 'OPEN' && <div className="sub small center">Murojaatingiz qabul qilindi. Javobni shu yerda ko‘rasiz.</div>}
+        {tk.status === 'OPEN' && <div className="sub small center">{t('Murojaatingiz qabul qilindi. Javobni shu yerda ko‘rasiz.')}</div>}
         <div ref={end} />
       </div>
       {resolved
         ? (
           <div className="stack">
-            <div className="banner" role="status">Murojaat hal qilingan. Muammo davom etsa, yangi murojaat yozing.</div>
-            <Button onClick={() => go({ name: 'supportNew', orderId: t.orderId })}>Yangi murojaat</Button>
+            <div className="banner" role="status">{t('Murojaat hal qilingan. Muammo davom etsa, yangi murojaat yozing.')}</div>
+            <Button onClick={() => go({ name: 'supportNew', orderId: tk.orderId })}>{t('Yangi murojaat')}</Button>
           </div>
         )
         : (
           <form className="composer" onSubmit={e => { e.preventDefault(); void send(); }}>
-            <textarea className="input" rows={2} maxLength={TICKET_MAX} value={text} placeholder="Xabar yozing…" aria-label="Xabar"
+            <textarea className="input" rows={2} maxLength={TICKET_MAX} value={text} placeholder={t('Xabar yozing…')} aria-label={t('Xabar')}
               onChange={e => { setText(e.target.value); key.current = null; }} />
-            <Button type="submit" loading={busy} disabled={!text.trim()} aria-label="Yuborish"><Icon as={Send} size={20} /></Button>
+            <Button type="submit" loading={busy} disabled={!text.trim()} aria-label={t('Yuborish')}><Icon as={Send} size={20} /></Button>
           </form>
         )}
     </div>

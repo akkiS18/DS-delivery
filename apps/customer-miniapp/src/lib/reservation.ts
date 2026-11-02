@@ -1,3 +1,4 @@
+import { t, T } from '../i18n';
 import type { ReservationStatus, ReservationView } from './types';
 
 /** Uzbekistan has no daylight saving: every restaurant's clock is UTC+5. */
@@ -32,10 +33,10 @@ export function bookingBounds(serverNowMs: number): { min: string; max: string }
 /** null = the time is fine; otherwise what to tell the customer. */
 export function checkWhen(v: string, serverNowMs: number): string | null {
   const iso = localInputToIso(v);
-  if (!iso) return 'Sana va vaqtni tanlang.';
-  const t = Date.parse(iso);
-  if (t < serverNowMs + MIN_LEAD_MINUTES * 60_000) return `Bron kamida ${MIN_LEAD_MINUTES} daqiqa oldin qilinadi.`;
-  if (t > serverNowMs + MAX_AHEAD_DAYS * 86_400_000) return `Bron ${MAX_AHEAD_DAYS} kundan keyingi vaqtga qilinmaydi.`;
+  if (!iso) return t('Sana va vaqtni tanlang.');
+  const at = Date.parse(iso);
+  if (at < serverNowMs + MIN_LEAD_MINUTES * 60_000) return t('Bron kamida {n} daqiqa oldin qilinadi.', { n: MIN_LEAD_MINUTES });
+  if (at > serverNowMs + MAX_AHEAD_DAYS * 86_400_000) return t('Bron {n} kundan keyingi vaqtga qilinmaydi.', { n: MAX_AHEAD_DAYS });
   return null;
 }
 
@@ -48,11 +49,12 @@ export function whenText(iso: string): string {
   return `${get('day')}.${get('month')} ${get('hour')}:${get('minute')}`;
 }
 
+/** Shown through t(STATUS_LABEL[status]). */
 export const STATUS_LABEL: Record<ReservationStatus, string> = {
-  PENDING_PAYMENT: 'To‘lov kutilmoqda',
-  PAID: 'Joy band qilindi',
-  EXPIRED: 'To‘lov muddati tugadi',
-  CANCELLED: 'Bekor qilindi',
+  PENDING_PAYMENT: T('To‘lov kutilmoqda'),
+  PAID: T('Joy band qilindi'),
+  EXPIRED: T('To‘lov muddati tugadi'),
+  CANCELLED: T('Bekor qilindi'),
 };
 
 /** A reservation the customer still has to act on or wait for: keeps being polled. */
@@ -70,20 +72,20 @@ export function splitReservations(list: ReservationView[], nowMs: number): { upc
 /** What the backend's refusal means for the customer. Nothing was charged for any of these. */
 export function describeReservationError(code: string | undefined, status = 0): string {
   switch (code) {
-    case 'BRON_YOPIQ': return 'Bu restoran hozir joy bron qilmayapti.';
-    case 'BRON_VAQTI_JUDA_YAQIN': return `Bron kamida ${MIN_LEAD_MINUTES} daqiqa oldin qilinadi. Keyinroq vaqt tanlang.`;
-    case 'BRON_VAQTI_JUDA_UZOQ': return `Bron ${MAX_AHEAD_DAYS} kundan keyingi vaqtga qilinmaydi.`;
-    case 'RESTORAN_SHU_VAQTDA_YOPIQ': return 'Restoran bu vaqtda ishlamaydi. Ish vaqtidagi vaqtni tanlang.';
-    case 'BRON_ALLAQACHON_BOR': return 'Bu vaqtga sizda bron bor.';
-    case 'KOP_TOLANMAGAN_BRON': return 'To‘lanmagan bronlaringiz bor. Avval ularni to‘lang yoki muddati tugashini kuting.';
-    case 'BRON_SUMMASI_OZGARDI': return 'Bron to‘lovi o‘zgargan. Sahifani yangilab, qayta urinib ko‘ring.';
+    case 'BRON_YOPIQ': return t('Bu restoran hozir joy bron qilmayapti.');
+    case 'BRON_VAQTI_JUDA_YAQIN': return t('Bron kamida {n} daqiqa oldin qilinadi. Keyinroq vaqt tanlang.', { n: MIN_LEAD_MINUTES });
+    case 'BRON_VAQTI_JUDA_UZOQ': return t('Bron {n} kundan keyingi vaqtga qilinmaydi.', { n: MAX_AHEAD_DAYS });
+    case 'RESTORAN_SHU_VAQTDA_YOPIQ': return t('Restoran bu vaqtda ishlamaydi. Ish vaqtidagi vaqtni tanlang.');
+    case 'BRON_ALLAQACHON_BOR': return t('Bu vaqtga sizda bron bor.');
+    case 'KOP_TOLANMAGAN_BRON': return t('To‘lanmagan bronlaringiz bor. Avval ularni to‘lang yoki muddati tugashini kuting.');
+    case 'BRON_SUMMASI_OZGARDI': return t('Bron to‘lovi o‘zgargan. Sahifani yangilab, qayta urinib ko‘ring.');
     case 'KARTA_YOQ':
-    case 'RESTORAN_TOLOV_QABUL_QILMAYDI': return 'Restoran hozircha to‘lov qabul qila olmaydi. Keyinroq urinib ko‘ring; pul olinmadi.';
-    case 'TOLOV_YOPIQ': return 'To‘lov qabul qilish hozircha yopiq. Keyinroq urinib ko‘ring; pul olinmadi.';
-    case 'PHONE_REQUIRED': return 'Telefon raqamini kiriting.';
+    case 'RESTORAN_TOLOV_QABUL_QILMAYDI': return t('Restoran hozircha to‘lov qabul qila olmaydi. Keyinroq urinib ko‘ring; pul olinmadi.');
+    case 'TOLOV_YOPIQ': return t('To‘lov qabul qilish hozircha yopiq. Keyinroq urinib ko‘ring; pul olinmadi.');
+    case 'PHONE_REQUIRED': return t('Telefon raqamini kiriting.');
     default:
-      if (status === 429) return 'Biroz kuting va qayta urinib ko‘ring.';
-      if (status === 0) return 'Internet bilan aloqa yo‘q. Qayta urinib ko‘ring.';
-      return 'Bronni yaratib bo‘lmadi. Qayta urinib ko‘ring; pul olinmadi.';
+      if (status === 429) return t('Biroz kuting va qayta urinib ko‘ring.');
+      if (status === 0) return t('Internet bilan aloqa yo‘q. Qayta urinib ko‘ring.');
+      return t('Bronni yaratib bo‘lmadi. Qayta urinib ko‘ring; pul olinmadi.');
   }
 }

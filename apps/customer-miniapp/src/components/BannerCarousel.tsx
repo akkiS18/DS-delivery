@@ -4,6 +4,7 @@ import { mediaUrl } from '../lib/platform';
 import type { Route } from '../lib/router';
 import type { Banner } from '../lib/types';
 import { PROMO_CATEGORY } from '../screens/Menu';
+import { t } from '../i18n';
 
 const SLIDE_MS = 4500;
 
@@ -47,7 +48,7 @@ export function BannerCarousel({ go }: { go: (r: Route) => void }) {
 
   if (banners.length === 0) return null;
   return (
-    <section className="banners" aria-label="Yangiliklar va chegirmalar" aria-roledescription="carousel">
+    <section className="banners" aria-label={t('Yangiliklar va chegirmalar')} aria-roledescription="carousel">
       <div className="banner-track" ref={track}
         onScroll={e => { const el = e.currentTarget; setIndex(Math.round(el.scrollLeft / Math.max(1, el.clientWidth))); }}
         onTouchStart={() => { paused.current = true; }} onTouchEnd={() => { window.setTimeout(() => { paused.current = false; }, 6000); }}
@@ -63,8 +64,8 @@ export function BannerCarousel({ go }: { go: (r: Route) => void }) {
         })}
       </div>
       {banners.length > 1 && (
-        <div className="banner-dots" role="tablist" aria-label="Slaydlar">
-          {banners.map((b, i) => <button key={b.id} role="tab" aria-selected={i === index} aria-label={`${i + 1}-slayd`} className={i === index ? 'on' : ''} onClick={() => scrollTo(i)} />)}
+        <div className="banner-dots" role="tablist" aria-label={t('Slaydlar')}>
+          {banners.map((b, i) => <button key={b.id} role="tab" aria-selected={i === index} aria-label={t('{n}-slayd', { n: i + 1 })} className={i === index ? 'on' : ''} onClick={() => scrollTo(i)} />)}
         </div>
       )}
     </section>

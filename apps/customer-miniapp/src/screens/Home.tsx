@@ -8,6 +8,7 @@ import { opensText } from '../lib/format';
 import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
 import { useLoad } from '../state';
+import { t } from '../i18n';
 
 /** Survives Home unmounting (menu -> back) so the customer returns to the same search. Cleared with the page, not persisted. */
 let rememberedSearch = '';
@@ -21,24 +22,24 @@ export function Home({ go }: { go: (r: Route) => void }) {
   return (
     <div className="page">
       <BannerCarousel go={go} />
-      <input className="input" type="search" inputMode="search" placeholder="Restoran qidirish" value={text} onChange={e => setText(e.target.value)} aria-label="Restoran qidirish" />
+      <input className="input" type="search" inputMode="search" placeholder={t('Restoran qidirish')} value={text} onChange={e => setText(e.target.value)} aria-label={t('Restoran qidirish')} />
       {loading && !data && <Skeletons />}
       {error && <ErrorBox error={error} onRetry={reload} />}
       {data && data.restaurants.length === 0 && (
-        <Empty icon={<Icon as={Search} size={44} />} title={q ? 'Hech narsa topilmadi' : 'Hozircha restoranlar yo‘q'} hint={q ? 'Boshqa nom bilan qidirib ko‘ring.' : 'Keyinroq qaytib keling.'} />
+        <Empty icon={<Icon as={Search} size={44} />} title={q ? t('Hech narsa topilmadi') : t('Hozircha restoranlar yo‘q')} hint={q ? t('Boshqa nom bilan qidirib ko‘ring.') : t('Keyinroq qaytib keling.')} />
       )}
       {data && data.restaurants.length > 0 && <div className="rgrid">{data.restaurants.map(r => (
-        <div key={r.id} className={`card tap rcard ${r.isOpen ? '' : 'closed'}`} role="button" tabIndex={0} aria-label={`${r.name}, ${r.isOpen ? 'ochiq' : 'yopiq'}`}
+        <div key={r.id} className={`card tap rcard ${r.isOpen ? '' : 'closed'}`} role="button" tabIndex={0} aria-label={`${r.name}, ${r.isOpen ? t('ochiq') : t('yopiq')}`}
           onClick={() => go({ name: 'menu', id: r.id })} onKeyDown={e => { if (e.key === 'Enter') go({ name: 'menu', id: r.id }); }}>
           <div className="rphoto">
             <RestaurantPhoto name={r.name} url={r.imageUrl} />
-            <span className={`badge rstate ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? 'Ochiq' : r.closedReason === 'PAUSED' ? 'Vaqtincha yopiq' : 'Yopiq'}</span>
+            <span className={`badge rstate ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? t('Vaqtincha yopiq') : t('Yopiq')}</span>
           </div>
           <div className="rbody">
             <h3 className="rname">{r.name}</h3>
             <div className="rmeta">
               {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
-              {!r.isOpen && <span className="sub">{r.closedReason === 'HOURS' ? opensText(r.opensNext) : 'Hozircha buyurtma qabul qilmaydi'}</span>}
+              {!r.isOpen && <span className="sub">{r.closedReason === 'HOURS' ? opensText(r.opensNext) : t('Hozircha buyurtma qabul qilmaydi')}</span>}
             </div>
           </div>
         </div>

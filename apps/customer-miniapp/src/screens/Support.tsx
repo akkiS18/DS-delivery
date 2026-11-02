@@ -7,6 +7,7 @@ import type { Route } from '../lib/router';
 import { itemsLine, TICKET_LABEL } from '../lib/support';
 import { STAGE_LABEL } from '../lib/order';
 import type { OrderSummary, TicketSummary } from '../lib/types';
+import { t } from '../i18n';
 
 const POLL_MS = 15_000;
 
@@ -23,9 +24,9 @@ export function Support({ go }: { go: (r: Route) => void }) {
   }, []);
   useEffect(() => { const ac = new AbortController(); void load(ac.signal); return () => ac.abort(); }, [load]);
   useEffect(() => {
-    let t: number | undefined;
-    const stop = () => { if (t !== undefined) window.clearInterval(t); t = undefined; };
-    const start = () => { stop(); t = window.setInterval(() => void load(), POLL_MS); };
+    let timer: number | undefined;
+    const stop = () => { if (timer !== undefined) window.clearInterval(timer); timer = undefined; };
+    const start = () => { stop(); timer = window.setInterval(() => void load(), POLL_MS); };
     const vis = () => { if (document.hidden) stop(); else { void load(); start(); } };
     document.addEventListener('visibilitychange', vis);
     if (!document.hidden) start();
@@ -42,44 +43,44 @@ export function Support({ go }: { go: (r: Route) => void }) {
 
   return (
     <div className="page">
-      <h1 className="page-title">Yordam</h1>
-      <div className="banner" role="note">Buyurtma bo‘yicha muammo yoki savol bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.</div>
-      <Button onClick={() => void choose()}>Yangi murojaat yozish</Button>
-      {error && <div className="banner warn" role="status">Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.</div>}
+      <h1 className="page-title">{t('Yordam')}</h1>
+      <div className="banner" role="note">{t('Buyurtma bo‘yicha muammo yoki savol bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.')}</div>
+      <Button onClick={() => void choose()}>{t('Yangi murojaat yozish')}</Button>
+      {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
 
       {tickets.length === 0
-        ? <Empty icon={<Icon as={MessageCircle} size={44} />} title="Murojaatlar yo‘q" hint="Muammo bo‘lsa, yuqoridagi tugma orqali yozing." />
+        ? <Empty icon={<Icon as={MessageCircle} size={44} />} title={t('Murojaatlar yo‘q')} hint={t('Muammo bo‘lsa, yuqoridagi tugma orqali yozing.')} />
         : (
-          <section className="stack" aria-label="Murojaatlarim">
-            <h2 className="sec-title">Murojaatlarim</h2>
-            {tickets.map(t => (
-              <div key={t.id} className={`card tap ${t.unread ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => go({ name: 'ticket', id: t.id })}
-                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go({ name: 'ticket', id: t.id }); } }}
-                aria-label={`Murojaat ${t.number}, buyurtma ${t.orderCode}, ${TICKET_LABEL[t.status]}${t.unread ? ', yangi javob' : ''}`}>
+          <section className="stack" aria-label={t('Murojaatlarim')}>
+            <h2 className="sec-title">{t('Murojaatlarim')}</h2>
+            {tickets.map(tk => (
+              <div key={tk.id} className={`card tap ${tk.unread ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => go({ name: 'ticket', id: tk.id })}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go({ name: 'ticket', id: tk.id }); } }}
+                aria-label={t('Murojaat {number}, buyurtma {code}, {status}', { number: tk.number, code: tk.orderCode, status: t(TICKET_LABEL[tk.status]) }) + (tk.unread ? `, ${t('yangi javob')}` : '')}>
                 <div className="row between">
-                  <span className="bold">#{t.orderCode} • {t.restaurantName}</span>
-                  {t.unread ? <span className="badge warn">Yangi javob</span> : <span className={`badge ${t.status === 'RESOLVED' ? 'closed' : 'open'}`}>{TICKET_LABEL[t.status]}</span>}
+                  <span className="bold">#{tk.orderCode} • {tk.restaurantName}</span>
+                  {tk.unread ? <span className="badge warn">{t('Yangi javob')}</span> : <span className={`badge ${tk.status === 'RESOLVED' ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span>}
                 </div>
-                <div className="ticket-snippet"><Icon as={MessageCircle} size={16} className="shrink" /><span>{t.lastFrom === 'ADMIN' ? 'Yordam: ' : 'Siz: '}{t.lastText}</span></div>
-                <div className="sub small" style={{ marginTop: 6 }}>Murojaat #{t.number} • {clock(t.lastAt)}</div>
+                <div className="ticket-snippet"><Icon as={MessageCircle} size={16} className="shrink" /><span>{tk.lastFrom === 'ADMIN' ? t('Yordam:') : t('Siz:')} {tk.lastText}</span></div>
+                <div className="sub small" style={{ marginTop: 6 }}>{t('Murojaat #{number}', { number: tk.number })} • {clock(tk.lastAt)}</div>
               </div>
             ))}
           </section>
         )}
 
       {picking && (
-        <Sheet title="Qaysi buyurtma haqida?" onClose={() => setPicking(false)}>
+        <Sheet title={t('Qaysi buyurtma haqida?')} onClose={() => setPicking(false)}>
           {!orders
             ? <Skeletons n={2} />
             : orders.length === 0
-              ? <p className="sub">Murojaat buyurtma bo‘yicha yoziladi. Avval buyurtma bering.</p>
+              ? <p className="sub">{t('Murojaat buyurtma bo‘yicha yoziladi. Avval buyurtma bering.')}</p>
               : (
                 <div className="stack">
                   {orders.map(o => (
                     <button key={o.id} type="button" className="opick" onClick={() => { setPicking(false); go({ name: 'supportNew', orderId: o.id }); }}>
                       <span className="row between"><span className="bold">#{o.code} • {o.restaurantName}</span><span className="mono">{som(o.foodTotalSom)}</span></span>
                       {itemsLine(o) && <span className="opick-items">{itemsLine(o)}</span>}
-                      <span className="sub small">{clock(o.createdAt)} • {STAGE_LABEL[o.stage]}</span>
+                      <span className="sub small">{clock(o.createdAt)} • {t(STAGE_LABEL[o.stage])}</span>
                     </button>
                   ))}
                 </div>

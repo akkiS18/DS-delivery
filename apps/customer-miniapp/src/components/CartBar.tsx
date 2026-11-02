@@ -6,6 +6,7 @@ import { FLAT_PRICING } from '../lib/fee';
 import { som } from '../lib/format';
 import { cartBarVisible, type Route } from '../lib/router';
 import { useApp } from '../state';
+import { t } from '../i18n';
 
 /**
  * The way into the basket from any screen: pinned above the tab bar as soon as something is in the cart, with the discount progress bar on top.
@@ -33,7 +34,7 @@ export function CartBar({ route, go }: { route: Route; go: (r: Route) => void })
   return (
     <div className="cartfloat" ref={ref}>
       <FeeProgress base={cartBase(cart)} pricing={cart.pricing ?? FLAT_PRICING} />
-      <Button onClick={() => go({ name: 'cart' })}>Savat • {count} ta • {som(cartTotal(cart))}</Button>
+      <Button onClick={() => go({ name: 'cart' })}>{t('Savat • {count} ta • {sum}', { count, sum: som(cartTotal(cart)) })}</Button>
     </div>
   );
 }

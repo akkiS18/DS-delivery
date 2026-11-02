@@ -4,6 +4,7 @@ import type { ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
 import { haptic, pushBackHandler } from '../lib/telegram';
 import type { Route } from '../lib/router';
+import { t } from '../i18n';
 
 export function Button({ variant = 'primary', loading, children, onClick, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; loading?: boolean; small?: boolean }) {
   const { small, ...dom } = rest as typeof rest & { small?: boolean };
@@ -20,7 +21,7 @@ export function Icon({ as: Glyph, size = 20, ...rest }: { as: LucideIcon; size?:
   return <Glyph size={size} strokeWidth={2} absoluteStrokeWidth aria-hidden focusable={false} className={`icon ${rest.className ?? ''}`} />;
 }
 
-export const Spinner = () => <div className="spinner" role="progressbar" aria-label="Yuklanmoqda" />;
+export const Spinner = () => <div className="spinner" role="progressbar" aria-label={t('Yuklanmoqda')} />;
 export const Skeletons = ({ n = 4 }: { n?: number }) => <div className="stack">{Array.from({ length: n }, (_, i) => <div key={i} className="skeleton" />)}</div>;
 
 export function Empty({ icon, title, hint, action }: { icon: ReactNode; title: string; hint?: string; action?: ReactNode }) {
@@ -39,8 +40,8 @@ export function ErrorBox({ error, onRetry }: { error: ApiError | null; onRetry?:
   return (
     <div className="card center stack" role="alert">
       <div className="status-ico bad" aria-hidden><Icon as={AlertTriangle} size={32} /></div>
-      <p>{d.kind === 'OTHER' && error?.status === 404 ? 'Topilmadi.' : d.message}</p>
-      {onRetry && d.kind !== 'AUTH' && <Button variant="secondary" onClick={onRetry}>Qayta urinish</Button>}
+      <p>{d.kind === 'OTHER' && error?.status === 404 ? t('Topilmadi.') : d.message}</p>
+      {onRetry && d.kind !== 'AUTH' && <Button variant="secondary" onClick={onRetry}>{t('Qayta urinish')}</Button>}
     </div>
   );
 }
@@ -96,36 +97,36 @@ export function ChoiceSummary({ title, value, sub, onChange }: { title: string; 
         <div className="bold">{value}</div>
         {sub ? <div className="sub small">{sub}</div> : null}
       </div>
-      <Button small variant="ghost" onClick={onChange} aria-label={`${title}: o‘zgartirish`}>O‘zgartirish</Button>
+      <Button small variant="ghost" onClick={onChange} aria-label={t('{title}: o‘zgartirish', { title })}>{t('O‘zgartirish')}</Button>
     </div>
   );
 }
 
 export function Qty({ value, onInc, onDec, max = 30 }: { value: number; onInc: () => void; onDec: () => void; max?: number }) {
   return (
-    <div className="qty" role="group" aria-label="Miqdor">
-      <button type="button" aria-label="Kamaytirish" onClick={() => { haptic.tap(); onDec(); }}><Icon as={Minus} size={20} /></button>
+    <div className="qty" role="group" aria-label={t('Miqdor')}>
+      <button type="button" aria-label={t('Kamaytirish')} onClick={() => { haptic.tap(); onDec(); }}><Icon as={Minus} size={20} /></button>
       <span className="mono" aria-live="polite">{value}</span>
-      <button type="button" aria-label="Ko‘paytirish" disabled={value >= max} onClick={() => { haptic.tap(); onInc(); }}><Icon as={Plus} size={20} /></button>
+      <button type="button" aria-label={t('Ko‘paytirish')} disabled={value >= max} onClick={() => { haptic.tap(); onInc(); }}><Icon as={Plus} size={20} /></button>
     </div>
   );
 }
 
 export function TabBar({ route, go, orders, support = 0, cart = 0 }: { route: Route; go: (r: Route) => void; orders: number; support?: number; cart?: number }) {
   const tabs: Array<{ r: Route; icon: LucideIcon; label: string; on: boolean; badge?: number }> = [
-    { r: { name: 'home' }, icon: UtensilsCrossed, label: 'Restoranlar', on: route.name === 'home' || route.name === 'menu' || route.name === 'reserve' },
-    { r: { name: 'cart' }, icon: ShoppingBasket, label: 'Savat', on: route.name === 'cart' || route.name === 'checkout', ...(cart > 0 ? { badge: cart } : {}) },
-    { r: { name: 'orders' }, icon: ReceiptText, label: 'Buyurtmalar', on: route.name === 'orders' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
-    { r: { name: 'support' }, icon: MessageCircle, label: 'Yordam', on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
-    { r: { name: 'profile' }, icon: UserRound, label: 'Profil', on: route.name === 'profile' },
+    { r: { name: 'home' }, icon: UtensilsCrossed, label: t('Restoranlar'), on: route.name === 'home' || route.name === 'menu' || route.name === 'reserve' },
+    { r: { name: 'cart' }, icon: ShoppingBasket, label: t('Savat'), on: route.name === 'cart' || route.name === 'checkout', ...(cart > 0 ? { badge: cart } : {}) },
+    { r: { name: 'orders' }, icon: ReceiptText, label: t('Buyurtmalar'), on: route.name === 'orders' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
+    { r: { name: 'support' }, icon: MessageCircle, label: t('Yordam'), on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
+    { r: { name: 'profile' }, icon: UserRound, label: t('Profil'), on: route.name === 'profile' },
   ];
   return (
     <div className="tabbar">
-      <nav aria-label="Asosiy navigatsiya">
-        {tabs.map(t => (
-          <button key={t.r.name} className={t.on ? 'on' : ''} onClick={() => go(t.r)} aria-current={t.on ? 'page' : undefined}>
-            <span className="ico" aria-hidden><Icon as={t.icon} size={24} />{t.badge ? <span className="dot">{t.badge}</span> : null}</span>
-            <span className="lbl">{t.label}</span>
+      <nav aria-label={t('Asosiy navigatsiya')}>
+        {tabs.map(tab => (
+          <button key={tab.r.name} className={tab.on ? 'on' : ''} onClick={() => go(tab.r)} aria-current={tab.on ? 'page' : undefined}>
+            <span className="ico" aria-hidden><Icon as={tab.icon} size={24} />{tab.badge ? <span className="dot">{tab.badge}</span> : null}</span>
+            <span className="lbl">{tab.label}</span>
           </button>
         ))}
       </nav>

@@ -8,12 +8,13 @@ import type { Route } from '../lib/router';
 import { haptic } from '../lib/telegram';
 import { formatPhone, normalizePhone } from '../lib/validation';
 import { useApp, useLoad } from '../state';
+import { t } from '../i18n';
 
 /** The first time the form offers: the next full hour at least 90 minutes ahead (the server wants 60). */
 const firstSlot = (nowMs: number): string => {
-  const t = new Date(nowMs + 90 * 60_000);
-  t.setMinutes(0, 0, 0);
-  return toLocalInput(new Date(Math.max(t.getTime() + 3_600_000, nowMs + 90 * 60_000)));
+  const base = new Date(nowMs + 90 * 60_000);
+  base.setMinutes(0, 0, 0);
+  return toLocalInput(new Date(Math.max(base.getTime() + 3_600_000, nowMs + 90 * 60_000)));
 };
 
 /** Table reservation form: when, how many, a note. The deposit is paid to the restaurant's card on the next screen. */
@@ -39,9 +40,9 @@ export function Reserve({ id, go }: { id: string; go: (r: Route) => void }) {
   if (!r.reservation) {
     return (
       <div className="page">
-        <h1 className="page-title">Joy bron qilish</h1>
-        <div className="banner warn">{r.name} hozir joy bron qilmayapti.</div>
-        <Button variant="secondary" onClick={() => go({ name: 'menu', id })}>Menyuga qaytish</Button>
+        <h1 className="page-title">{t('Joy bron qilish')}</h1>
+        <div className="banner warn">{t('{name} hozir joy bron qilmayapti.', { name: r.name })}</div>
+        <Button variant="secondary" onClick={() => go({ name: 'menu', id })}>{t('Menyuga qaytish')}</Button>
       </div>
     );
   }
@@ -72,55 +73,55 @@ export function Reserve({ id, go }: { id: string; go: (r: Route) => void }) {
       haptic.error();
       const err = e instanceof ApiError ? e : new ApiError(0, 'NETWORK');
       setProblem(describeReservationError(err.code, err.status));
-      toast('Bron yaratilmadi');
+      toast(t('Bron yaratilmadi'));
     } finally { setBusy(false); }
   };
 
   return (
     <div className="page">
       <div>
-        <h1 className="page-title">Joy bron qilish</h1>
+        <h1 className="page-title">{t('Joy bron qilish')}</h1>
         <p className="sub">{r.name}</p>
       </div>
 
       <div className="card stack">
         <div className="field">
-          <label htmlFor="resv-when">Sana va vaqt</label>
+          <label htmlFor="resv-when">{t('Sana va vaqt')}</label>
           <input id="resv-when" className={`input ${touched && whenError ? 'invalid' : ''}`} type="datetime-local" step={900} min={bounds.min} max={bounds.max} value={when} onChange={e => setWhen(e.target.value)} />
           {touched && whenError && <div className="err">{whenError}</div>}
         </div>
         <div className="field">
-          <label>Necha kishi</label>
+          <label>{t('Necha kishi')}</label>
           <div className="row" style={{ gap: 14 }}>
-            <button type="button" className="chip" aria-label="Kamaytirish" disabled={party <= 1} onClick={() => { haptic.tap(); setParty(p => Math.max(1, p - 1)); }}><Icon as={Minus} size={20} /></button>
+            <button type="button" className="chip" aria-label={t('Kamaytirish')} disabled={party <= 1} onClick={() => { haptic.tap(); setParty(p => Math.max(1, p - 1)); }}><Icon as={Minus} size={20} /></button>
             <span className="bold mono" style={{ fontSize: 22, minWidth: 32, textAlign: 'center' }} aria-live="polite">{party}</span>
-            <button type="button" className="chip" aria-label="Ko‘paytirish" disabled={party >= MAX_PARTY} onClick={() => { haptic.tap(); setParty(p => Math.min(MAX_PARTY, p + 1)); }}><Icon as={Plus} size={20} /></button>
+            <button type="button" className="chip" aria-label={t('Ko‘paytirish')} disabled={party >= MAX_PARTY} onClick={() => { haptic.tap(); setParty(p => Math.min(MAX_PARTY, p + 1)); }}><Icon as={Plus} size={20} /></button>
           </div>
         </div>
         <div className="field">
-          <label htmlFor="resv-note">Izoh (ixtiyoriy)</label>
-          <textarea id="resv-note" className="input" rows={2} maxLength={200} placeholder="Masalan: tug‘ilgan kun, bolalar stuli kerak" value={note} onChange={e => setNote(e.target.value)} />
+          <label htmlFor="resv-note">{t('Izoh (ixtiyoriy)')}</label>
+          <textarea id="resv-note" className="input" rows={2} maxLength={200} placeholder={t('Masalan: tug‘ilgan kun, bolalar stuli kerak')} value={note} onChange={e => setNote(e.target.value)} />
         </div>
         {profilePhone && !editPhone ? (
-          <div className="row between"><span className="sub">Telefon: <span className="bold mono">{formatPhone(profilePhone)}</span></span><Button small variant="ghost" onClick={() => setEditPhone(true)}>O‘zgartirish</Button></div>
+          <div className="row between"><span className="sub">{t('Telefon:')} <span className="bold mono">{formatPhone(profilePhone)}</span></span><Button small variant="ghost" onClick={() => setEditPhone(true)}>{t('O‘zgartirish')}</Button></div>
         ) : (
           <div className="field">
-            <label htmlFor="resv-phone">Telefon raqamingiz</label>
+            <label htmlFor="resv-phone">{t('Telefon raqamingiz')}</label>
             <input id="resv-phone" className={`input ${touched && !phone ? 'invalid' : ''}`} inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} />
-            {touched && !phone && <div className="err">Telefon raqamini to‘g‘ri kiriting (masalan, 90 123 45 67)</div>}
+            {touched && !phone && <div className="err">{t('Telefon raqamini to‘g‘ri kiriting (masalan, 90 123 45 67)')}</div>}
           </div>
         )}
       </div>
 
       <div className="card stack">
-        <div className="row between"><span>Bron uchun oldindan to‘lov</span><span className="bold mono" style={{ fontSize: 20 }}>{som(deposit)}</span></div>
-        <p className="sub small">Pul restoranning kartasiga o‘tkaziladi va joy sizga band qilinadi. To‘lov tushgach, restoran darrov xabar oladi. Muammo bo‘lsa, restoran xodimi siz bilan bog‘lanib, pulni qaytaradi.</p>
+        <div className="row between"><span>{t('Bron uchun oldindan to‘lov')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(deposit)}</span></div>
+        <p className="sub small">{t('Pul restoranning kartasiga o‘tkaziladi va joy sizga band qilinadi. To‘lov tushgach, restoran darrov xabar oladi. Muammo bo‘lsa, restoran xodimi siz bilan bog‘lanib, pulni qaytaradi.')}</p>
       </div>
 
       {problem && <div className="banner bad" role="alert">{problem}</div>}
-      <Button variant="ghost" onClick={() => go({ name: 'menu', id })}>Orqaga</Button>
-      <StickyAction hint="Keyingi ekranda restoran kartasiga o‘tkazma qilasiz">
-        <Button loading={busy} onClick={() => void submit()}>To‘lashga o‘tish • {som(deposit)}</Button>
+      <Button variant="ghost" onClick={() => go({ name: 'menu', id })}>{t('Orqaga')}</Button>
+      <StickyAction hint={t('Keyingi ekranda restoran kartasiga o‘tkazma qilasiz')}>
+        <Button loading={busy} onClick={() => void submit()}>{t('To‘lashga o‘tish • {sum}', { sum: som(deposit) })}</Button>
       </StickyAction>
     </div>
   );

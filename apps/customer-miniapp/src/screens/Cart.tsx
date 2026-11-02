@@ -12,6 +12,7 @@ import { opensText, som } from '../lib/format';
 import type { Route } from '../lib/router';
 import type { CheckoutIssue, QuoteResponse } from '../lib/types';
 import { useApp } from '../state';
+import { t } from '../i18n';
 
 export function Cart({ go }: { go: (r: Route) => void }) {
   const { cart, dispatch, toast } = useApp();
@@ -26,7 +27,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
     if (!cart.restaurantId || cart.lines.length === 0) { setQuote(null); return; }
     const ac = new AbortController();
     setChecking(true);
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       api.quote(cart.restaurantId!, cart.lines.map(l => ({ productId: l.productId, quantity: l.quantity })), ac.signal)
         .then(q => {
           setQuote(q); setError(null);
@@ -42,7 +43,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         .catch(e => { if ((e as { name?: string }).name !== 'AbortError') setError(e instanceof ApiError ? e : new ApiError(0, 'NETWORK')); })
         .finally(() => setChecking(false));
     }, 300);
-    return () => { window.clearTimeout(t); ac.abort(); };
+    return () => { window.clearTimeout(timer); ac.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, cart.restaurantId]);
 
@@ -52,34 +53,34 @@ export function Cart({ go }: { go: (r: Route) => void }) {
   const closed = issues.find(i => i.kind === 'RESTAURANT_CLOSED' || i.kind === 'RESTAURANT_UNAVAILABLE');
 
   if (cart.lines.length === 0) {
-    return <div className="page"><Empty icon={<Icon as={ShoppingBasket} size={44} />} title="Savat bo‘sh" hint="Restoran menyusidan taom tanlang." action={<Button onClick={() => go({ name: 'home' })}>Restoranlar</Button>} /></div>;
+    return <div className="page"><Empty icon={<Icon as={ShoppingBasket} size={44} />} title={t('Savat bo‘sh')} hint={t('Restoran menyusidan taom tanlang.')} action={<Button onClick={() => go({ name: 'home' })}>{t('Restoranlar')}</Button>} /></div>;
   }
   const blocked = unavailable.size > 0 || Boolean(closed) || !quote || !quote.ok || checking;
 
   return (
     <div className="page">
       <div>
-        <h1 className="page-title">Savat</h1>
+        <h1 className="page-title">{t('Savat')}</h1>
         <p className="sub">{cart.restaurantName}</p>
       </div>
-      {repriced.length > 0 && <div className="banner warn" role="alert">Narx yangilandi: {repriced.join(', ')}. Yangi summani tekshiring.</div>}
-      {closed && <div className="banner bad" role="alert">{closed.kind === 'RESTAURANT_CLOSED' ? `Restoran hozir yopiq. ${opensText(closed.opensNext)}.` : 'Restoran hozir buyurtma qabul qilmayapti.'}</div>}
+      {repriced.length > 0 && <div className="banner warn" role="alert">{t('Narx yangilandi: {names}. Yangi summani tekshiring.', { names: repriced.join(', ') })}</div>}
+      {closed && <div className="banner bad" role="alert">{closed.kind === 'RESTAURANT_CLOSED' ? t('Restoran hozir yopiq. {opens}.', { opens: opensText(closed.opensNext) }) : t('Restoran hozir buyurtma qabul qilmayapti.')}</div>}
       {error && <div className="banner bad" role="alert">{describeCheckoutError(error).message}</div>}
       {view.lines.map(l => (
         <div key={l.productId} className={`card ${unavailable.has(l.productId) ? 'muted' : ''}`}>
           <div className="row between">
             <div className="grow">
               <div className="bold">{l.name}</div>
-              <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.referenceSom} />{unavailable.has(l.productId) ? ' • hozir mavjud emas' : ''}</div>
+              <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.referenceSom} />{unavailable.has(l.productId) ? ` • ${t('hozir mavjud emas')}` : ''}</div>
             </div>
             <div className="bold mono">{som(l.subtotalSom)}</div>
           </div>
-          {l.freeQty > 0 && <div className="row between free-row"><span className="row" style={{ gap: 6 }}><Icon as={Gift} size={16} />{l.freeQty} ta bepul (1+1 aksiya)</span><span className="mono"><span className="strike">{som(l.freeQty * l.priceSom)}</span> <b>0</b></span></div>}
+          {l.freeQty > 0 && <div className="row between free-row"><span className="row" style={{ gap: 6 }}><Icon as={Gift} size={16} />{t('{n} ta bepul (1+1 aksiya)', { n: l.freeQty })}</span><span className="mono"><span className="strike">{som(l.freeQty * l.priceSom)}</span> <b>0</b></span></div>}
           <div className="row between" style={{ marginTop: 10 }}>
             <Qty value={l.quantity} onInc={() => dispatch({ type: 'inc', productId: l.productId })} onDec={() => dispatch({ type: 'dec', productId: l.productId })} />
-            <Button small variant="ghost" onClick={() => dispatch({ type: 'remove', productId: l.productId })} aria-label={`${l.name} ni olib tashlash`}>Olib tashlash</Button>
+            <Button small variant="ghost" onClick={() => dispatch({ type: 'remove', productId: l.productId })} aria-label={t('{name} ni olib tashlash', { name: l.name })}>{t('Olib tashlash')}</Button>
           </div>
-          {unavailable.has(l.productId) && <div className="err">Bu mahsulot mavjud emas — olib tashlang.</div>}
+          {unavailable.has(l.productId) && <div className="err">{t('Bu mahsulot mavjud emas — olib tashlang.')}</div>}
         </div>
       ))}
       {view.extras.map(x => (
@@ -87,30 +88,30 @@ export function Cart({ go }: { go: (r: Route) => void }) {
           <div className="row between">
             <div className="grow">
               <div className="bold">{x.name}</div>
-              <div className="sub small">{som(x.unitSom)} • har bir taom uchun avtomatik</div>
+              <div className="sub small">{som(x.unitSom)} • {t('har bir taom uchun avtomatik')}</div>
             </div>
             <div className="bold mono">{x.quantity} × = {som(x.subtotalSom)}</div>
           </div>
         </div>
       ))}
       <div className="card stack">
-        <div className="row between"><span>Taomlar</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(view.pricing) : view.dishesSom)}</span></div>
-        {view.savedSom > 0 && <div className="row between saved"><span>Tejadingiz</span><span className="mono">−{som(view.savedSom)}</span></div>}
-        {view.promoSavedSom > 0 && <div className="row between saved"><span>Aksiya (1+1)</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
+        <div className="row between"><span>{t('Taomlar')}</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(view.pricing) : view.dishesSom)}</span></div>
+        {view.savedSom > 0 && <div className="row between saved"><span>{t('Tejadingiz')}</span><span className="mono">−{som(view.savedSom)}</span></div>}
+        {view.promoSavedSom > 0 && <div className="row between saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
         <PlatformLine pricing={view.pricing} />
         <FeeProgress base={cartBase(cart)} pricing={view.pricing} />
-        {view.pricing.mode !== 'FLAT' && view.pricing.mode !== 'LINE' && <p className="sub small">Narxlarga xizmat haqi kiritilgan.</p>}
-        {view.pricing.mode === 'LINE' && <div className="row between bold"><span>Jami (taksidan tashqari)</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>}
+        {view.pricing.mode !== 'FLAT' && view.pricing.mode !== 'LINE' && <p className="sub small">{t('Narxlarga xizmat haqi kiritilgan.')}</p>}
+        {view.pricing.mode === 'LINE' && <div className="row between bold"><span>{t('Jami (taksidan tashqari)')}</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>}
       </div>
       <TaxiFareBox />
       <DeliveryNotice />
       {unavailable.size > 0 && (
-        <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>Mavjud bo‘lmaganlarni olib tashlash</Button>
+        <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>{t('Mavjud bo‘lmaganlarni olib tashlash')}</Button>
       )}
       {checking && <Spinner />}
-      <Button variant="ghost" onClick={() => { dispatch({ type: 'clear' }); toast('Savat tozalandi'); go({ name: 'home' }); }}>Savatni tozalash</Button>
-      <StickyAction hint={checking ? 'Narxlar tekshirilmoqda…' : blocked ? null : 'Keyingi qadam: manzil va to‘lov usuli'}>
-        <Button disabled={blocked} onClick={() => { setRepriced([]); go({ name: 'checkout' }); }}>Rasmiylashtirish • {som(quote?.ok ? quote.totalSom : view.totalSom)}</Button>
+      <Button variant="ghost" onClick={() => { dispatch({ type: 'clear' }); toast(t('Savat tozalandi')); go({ name: 'home' }); }}>{t('Savatni tozalash')}</Button>
+      <StickyAction hint={checking ? t('Narxlar tekshirilmoqda…') : blocked ? null : t('Keyingi qadam: manzil va to‘lov usuli')}>
+        <Button disabled={blocked} onClick={() => { setRepriced([]); go({ name: 'checkout' }); }}>{t('Rasmiylashtirish • {sum}', { sum: som(quote?.ok ? quote.totalSom : view.totalSom) })}</Button>
       </StickyAction>
     </div>
   );
