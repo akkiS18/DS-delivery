@@ -60,6 +60,9 @@ export async function listCards(restaurantId: string): Promise<CardView[]> {
   return rows.map(view);
 }
 
+/** RESTAURANT_CARD_SELF_ADD: on unless explicitly "false" (then only administrators add restaurant cards). */
+export const cardSelfAddAllowed = (env: Record<string, string | undefined> = process.env): boolean => (env.RESTAURANT_CARD_SELF_ADD ?? '').trim().toLowerCase() !== 'false';
+
 export type AddCardResult =
   | { ok: true; card: CardView }
   | { ok: false; code: 'CARD_TAKEN' | 'CARD_EXISTS' | 'CARD_LIMIT' | 'CARD_PENDING_LIMIT' };

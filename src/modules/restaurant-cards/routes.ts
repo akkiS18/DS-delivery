@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { RateLimiter } from '../../lib/rate-limit.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
-import { addCard, cardNumberSchema, holderNameSchema, listCards, setCardActive } from './service.js';
+import { addCard, cardNumberSchema, cardSelfAddAllowed, holderNameSchema, listCards, setCardActive } from './service.js';
 
 const httpError = (statusCode: number, message: string): Error => Object.assign(new Error(message), { statusCode });
 const addSchema = z.object({ number: cardNumberSchema, password: z.string().max(200).optional(), holderName: holderNameSchema.optional() }).strict();
@@ -24,6 +24,9 @@ export async function restaurantCardsRoutes(app: FastifyInstance, options: { lim
 
   app.post('/cards', async (request, reply) => {
     const s = await requireRestaurantSession(request);
+    // RESTAURANT_CARD_SELF_ADD=false: cards are added by an administrator (/restocard). The app shows its "Karta qo'shish" button regardless, so
+    // the refusal uses the code whose app text already says "Administrator bilan bog'laning".
+    if (!cardSelfAddAllowed()) throw httpError(409, 'CARD_TAKEN');
     // Few attempts: this is a rare action.
     if (!limiter.allow(`cardadd:${s.restaurant.id}`, Number(process.env.CARD_ADD_PER_15MIN ?? 5), 15 * 60_000).allowed) throw httpError(429, 'TOO_MANY_REQUESTS');
     const parsed = addSchema.safeParse(request.body);

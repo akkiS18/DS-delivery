@@ -1,6 +1,6 @@
 import type { Context, Telegraf } from 'telegraf';
 import { isSupportAdmin } from '../modules/support/service.js';
-import { addPlatformCard, poolOverview, renamePlatformCard, setCollectsToPlatform, setPlatformCardActive } from '../modules/payment/pool-admin.js';
+import { addPlatformCard, addRestaurantCardAsAdmin, poolOverview, renamePlatformCard, setCollectsToPlatform, setPlatformCardActive } from '../modules/payment/pool-admin.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const som = (n: number): string => n.toLocaleString('en-US').replace(/,/g, ' ');
@@ -39,6 +39,23 @@ export function registerPoolAdminHandlers<C extends Context>(bot: Telegraf<C>): 
       await ctx.reply(`✅ Karta ***${r.last4} qo‘shildi. Bir necha soniyada tasdiqlash xabari keladi (/cards).`);
     } else {
       await ctx.reply({ CARD_NUMBER_INVALID: 'Karta raqami noto‘g‘ri (16 xona, tekshiruv raqami mos kelmadi).', HOLDER_INVALID: 'Karta egasining ismi noto‘g‘ri.', CARD_TAKEN: 'Bu karta tizimda allaqachon bor.' }[r.code]);
+    }
+  });
+
+  bot.command('restocard', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const m = argsOf(ctx).match(/^([a-z0-9][a-z0-9-]{1,60})\s+([\d\s-]{16,25})\s+(.{3,40})$/iu);
+    if (!m) { await ctx.reply('Format: /restocard restoran-kodi 8600XXXXXXXXXXXX ISM F.'); return; }
+    const r = await addRestaurantCardAsAdmin({ adminId, slug: m[1]!.toLowerCase(), number: m[2]!, holderName: m[3]! });
+    if (r.ok) {
+      await ctx.deleteMessage().catch(() => undefined); // the command text holds the full card number
+      await ctx.reply(`✅ ${m[1]}: karta ***${r.card.last4} qo‘shildi. Bir necha soniyada tasdiqlash xabari keladi (/cards).`);
+    } else {
+      await ctx.reply({
+        CARD_NUMBER_INVALID: 'Karta raqami noto‘g‘ri (16 xona, tekshiruv raqami mos kelmadi).', HOLDER_INVALID: 'Karta egasining ismi noto‘g‘ri.', RESTAURANT_NOT_FOUND: 'Bunday restoran topilmadi.',
+        CARD_TAKEN: 'Bu kartaning oxirgi 4 raqami tizimda band.', CARD_EXISTS: 'Bu karta shu restoranda allaqachon bor.', CARD_LIMIT: 'Restoranda kartalar soni chegaraga yetgan.', CARD_PENDING_LIMIT: 'Tasdiq kutayotgan kartalar bor: avval ularni hal qiling (/cards).',
+      }[r.code]);
     }
   });
 

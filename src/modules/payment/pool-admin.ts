@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
-import { cardNumberSchema, holderNameSchema, statusOf, type CardStatus } from '../restaurant-cards/service.js';
+import { addCard, cardNumberSchema, holderNameSchema, statusOf, type AddCardResult, type CardStatus } from '../restaurant-cards/service.js';
 import { isSupportAdmin } from '../support/service.js';
 import { POOL_TURNOVER_DAYS, cardLabelOf, cardTurnoverSom, poolCapSom } from './pool.js';
 
@@ -32,6 +32,23 @@ export async function addPlatformCard(input: { adminId: string; number: string; 
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return { ok: false, code: 'CARD_TAKEN' };
     throw e;
   }
+}
+
+export type AddRestaurantCardResult = AddCardResult | { ok: false; code: 'CARD_NUMBER_INVALID' | 'HOLDER_INVALID' | 'RESTAURANT_NOT_FOUND' };
+
+/**
+ * An administrator adds a card to ONE restaurant (used when restaurants may not add their own: RESTAURANT_CARD_SELF_ADD=false). It goes through the same
+ * path as the app (PENDING, announced to the administrators, usable only after the approval tap), with the administrator as the author.
+ */
+export async function addRestaurantCardAsAdmin(input: { adminId: string; slug: string; number: string; holderName: string }): Promise<AddRestaurantCardResult> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  const number = cardNumberSchema.safeParse(input.number);
+  if (!number.success) return { ok: false, code: 'CARD_NUMBER_INVALID' };
+  const holder = holderNameSchema.safeParse(input.holderName);
+  if (!holder.success) return { ok: false, code: 'HOLDER_INVALID' };
+  const r = await db.restaurant.findUnique({ where: { slug: input.slug }, select: { id: true } });
+  if (!r) return { ok: false, code: 'RESTAURANT_NOT_FOUND' };
+  return addCard(r.id, number.data, `admin:${input.adminId}`, process.env, holder.data);
 }
 
 export type EditCardResult =

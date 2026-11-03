@@ -267,3 +267,37 @@ test('legacy cards without a stored number keep using the operator configuration
   assert.equal(payeeNumber({ last4: '8167', number: '8600123456788167' }, {}), '8600123456788167');
   assert.equal(payeeNumber({ last4: '1111', number: '8600123456788167' }, {}), null, 'a stored number that does not end in last4 is never shown');
 });
+
+test('RESTAURANT_CARD_SELF_ADD=false: the app cannot add a card (409 with the code whose text says "contact the administrator"); an administrator can, and it is PENDING', async () => {
+  const saved = process.env.RESTAURANT_CARD_SELF_ADD;
+  const adminSaved = process.env.SUPPORT_ADMIN_1_TELEGRAM_ID;
+  try {
+    process.env.RESTAURANT_CARD_SELF_ADD = 'false';
+    process.env.SUPPORT_ADMIN_1_TELEGRAM_ID = '424242';
+    const n = await freshNumber();
+    const refused = await call('POST', '/cards', tokenA, { number: n });
+    assert.equal(refused.statusCode, 409);
+    assert.equal(refused.json().error, 'CARD_TAKEN');
+    assert.equal(await db.card.count({ where: { last4: n.slice(-4) } }), 0, 'nothing was created');
+    assert.equal((await call('GET', '/cards', tokenA)).statusCode, 200, 'listing still works');
+
+    await db.card.updateMany({ where: { restaurantId: ids.a, approvalStatus: 'PENDING' }, data: { approvalStatus: 'REJECTED', active: false } }); // earlier tests left pending cards
+    const { addRestaurantCardAsAdmin } = await import('../modules/payment/pool-admin.js');
+    const slug = (await db.restaurant.findUniqueOrThrow({ where: { id: ids.a } })).slug;
+    const added = await addRestaurantCardAsAdmin({ adminId: '424242', slug, number: n, holderName: 'ISM F.' });
+    assert.equal(added.ok, true, JSON.stringify(added));
+    const row = await db.card.findUniqueOrThrow({ where: { last4: n.slice(-4) } });
+    assert.equal(row.restaurantId, ids.a);
+    assert.equal(row.approvalStatus, 'PENDING');
+    assert.equal(row.active, false);
+    assert.equal(row.holderName, 'ISM F.');
+    assert.equal((await addRestaurantCardAsAdmin({ adminId: '424242', slug: 'no-such-slug-xyz', number: await freshNumber(), holderName: 'ISM F.' })).ok, false);
+    await assert.rejects(addRestaurantCardAsAdmin({ adminId: '1', slug, number: await freshNumber(), holderName: 'ISM F.' }), /ADMIN_RUXSAT_YOQ/);
+
+    delete process.env.RESTAURANT_CARD_SELF_ADD;
+    assert.equal((await call('POST', '/cards', tokenA, { number: await freshNumber() })).statusCode, 201, 'unset = restaurants may add again');
+  } finally {
+    if (saved === undefined) delete process.env.RESTAURANT_CARD_SELF_ADD; else process.env.RESTAURANT_CARD_SELF_ADD = saved;
+    if (adminSaved === undefined) delete process.env.SUPPORT_ADMIN_1_TELEGRAM_ID; else process.env.SUPPORT_ADMIN_1_TELEGRAM_ID = adminSaved;
+  }
+});
