@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { editDistance, normalize, rank, skeleton, wordScore, words, type Searchable } from './search-text.js';
+import { editDistance, normalize, rank, rankIds, scoreVocabulary, skeleton, Vocabulary, wordScore, words, type Searchable } from './search-text.js';
 
 const doc = (name: string, extra = ''): Searchable => ({ name: words(name), extra: words(extra) });
 const hit = (q: string, d: Searchable): number | null => rank(words(q), d);
@@ -75,4 +75,20 @@ test('rank: an exact short name outranks a longer one with the word inside', () 
   const exact = hit('osh', doc('Osh'))!;
   const longer = hit('osh', doc('Osh xonasi menyusi'))!;
   assert.ok(exact > longer);
+});
+
+test('rankIds over a shared vocabulary ranks exactly like rank', () => {
+  const docs = [doc('Tandir lavash', 'Sifat Food'), doc('Lavash', 'Sifat Food Lavash'), doc('Burger', 'Sifat'), doc('Osh', ''), doc('Ош хонаси', 'Lavash uyi')];
+  const vocab = new Vocabulary();
+  const ids = docs.map(d => ({ name: vocab.idsOf(d.name), extra: vocab.idsOf(d.extra) }));
+  for (const q of ['lavash', 'lavsh', 'tandir lav', 'sifat', 'osh', 'ош', 'xonasi', 'pizza', 'lav sifat']) {
+    const query = words(q);
+    const scores = scoreVocabulary(query, vocab.list, new Map());
+    docs.forEach((d, i) => {
+      const a = rank(query, d);
+      const b = rankIds(scores, ids[i]!.name, ids[i]!.extra);
+      assert.equal(a === null, b === null, `${q} / doc ${i}`);
+      if (a !== null) assert.ok(Math.abs(a - b!) < 0.01, `${q} / doc ${i}: ${a} vs ${b}`);
+    });
+  }
 });
