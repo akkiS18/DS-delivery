@@ -4,7 +4,7 @@ import type { HumoAlert } from '../modules/payment/humo-telegram.js';
 import { explainReason } from '../modules/payment/review-reasons.js';
 
 const DOWN_HINT: Record<string, string> = {
-  auth: 'Telegram akkaunt sessiyasi yaroqsiz (akkauntdan chiqarilgan): `npm run humo:login` bilan yangi sessiya oling va serverga joylang.',
+  auth: 'Telegram akkaunt sessiyasi yaroqsiz (akkauntdan chiqarilgan): `npm run humo:login` (qo‘shimcha akkaunt: `-- 2`) bilan yangi sessiya oling va serverga joylang.',
   bot: 'HUMO_TG_BOT bot emas yoki topilmadi.',
   network: 'Telegram bilan aloqa yo‘q.',
   config: 'Humo Telegram sozlamalari yoki sessiya fayli yo‘q.',
@@ -12,8 +12,9 @@ const DOWN_HINT: Record<string, string> = {
 
 /** Admin text for a Humocard-Telegram event. Only amounts, the last 4 digits and reason codes: never message texts or sessions. */
 export function renderHumoAlert(a: HumoAlert): string {
-  if (a.type === 'DOWN') return `🚨 Humocard xabarlari o‘qilmayapti. Shu karta to‘lovlari ilovada tasdiqlanmasligi mumkin!\n${DOWN_HINT[a.failure] ?? DOWN_HINT.network}\nMijozlar to‘lagan bo‘lsa, restoran bank ilovasini qo‘lda tekshirsin.`;
-  if (a.type === 'RECOVERED') return '✅ Humocard xabarlarini o‘qish tiklandi.';
+  const who = a.type === 'DOWN' || a.type === 'RECOVERED' ? (a.account ? ` (${a.account}-akkaunt)` : '') : '';
+  if (a.type === 'DOWN') return `🚨 Humocard xabarlari o‘qilmayapti${who}. Shu akkauntdagi karta to‘lovlari ilovada tasdiqlanmasligi mumkin!\n${DOWN_HINT[a.failure] ?? DOWN_HINT.network}\nMijozlar to‘lagan bo‘lsa, restoran bank ilovasini qo‘lda tekshirsin.`;
+  if (a.type === 'RECOVERED') return `✅ Humocard xabarlarini o‘qish tiklandi${who}.`;
   if (a.type === 'NOTICE') {
     return `ℹ️ Humocard: yangi turdagi xabar (“${a.title || 'sarlavhasiz'}”) qabul qilindi, plyus belgisi bo‘yicha kirim deb hisoblandi.\nSumma: ${formatSom(a.amountTiyin)} | karta ***${a.cardLast4}\n${a.matched ? 'Mos to‘lovga ulandi.' : 'Mos to‘lov topilmadi: /money'}`;
   }

@@ -74,6 +74,14 @@ export function checkConfig(env: NodeJS.ProcessEnv): ConfigReport {
     if (!/^[0-9a-f]{32}$/i.test(env.HUMO_TG_API_HASH?.trim() ?? '')) errors.push('HUMO_TG_ENABLED=true requires HUMO_TG_API_HASH (32 hex characters from my.telegram.org).');
     if (!/^@?[A-Za-z][A-Za-z0-9_]{3,31}$/.test(env.HUMO_TG_BOT?.trim() ?? '')) errors.push('HUMO_TG_ENABLED=true requires HUMO_TG_BOT (the Humocard bot username).');
     if (!env.HUMO_TG_SESSION?.trim() && !env.HUMO_TG_SESSION_FILE?.trim()) warnings.push('HUMO_TG_ENABLED=true without HUMO_TG_SESSION / HUMO_TG_SESSION_FILE: the reader looks for ./humo-session.txt (made by `npm run humo:login`).');
+    // Further Telegram accounts (each owner of a Humo card has their own): HUMO_TG_API_ID_2 .. _4 switch one on and then need their hash.
+    for (const n of ['2', '3', '4']) {
+      const id = env[`HUMO_TG_API_ID_${n}`]?.trim() ?? '';
+      if (!id) continue;
+      if (!/^\d{1,12}$/.test(id)) errors.push(`HUMO_TG_API_ID_${n} must be the number from my.telegram.org.`);
+      if (!/^[0-9a-f]{32}$/i.test(env[`HUMO_TG_API_HASH_${n}`]?.trim() ?? '')) errors.push(`HUMO_TG_API_ID_${n} requires HUMO_TG_API_HASH_${n} (32 hex characters from my.telegram.org).`);
+      if (!env[`HUMO_TG_SESSION_${n}`]?.trim() && !env[`HUMO_TG_SESSION_FILE_${n}`]?.trim()) warnings.push(`HUMO_TG_API_ID_${n} without HUMO_TG_SESSION_FILE_${n}: the reader looks for ./humo-session-${n}.txt (made by "npm run humo:login -- ${n}").`);
+    }
   }
   const botToken = env.BOT_TOKEN?.trim() ?? '';
   const taxiToken = env.TAXI_BOT_TOKEN?.trim() ?? '';

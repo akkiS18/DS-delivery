@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { db } from '../../lib/db.js';
+import { cardLabelOf } from '../payment/pool.js';
 
 /**
  * Stage 8B: payee cards managed by the restaurant in its app.
@@ -90,7 +91,7 @@ export async function addCard(restaurantId: string, number: string, actorId: str
       }
       if (mine.filter(c => c.approvalStatus !== 'REJECTED').length >= maxCards(env)) return { ok: false, code: 'CARD_LIMIT' } as const;
       if (mine.filter(c => c.approvalStatus === 'PENDING').length >= MAX_PENDING) return { ok: false, code: 'CARD_PENDING_LIMIT' } as const;
-      const card = await tx.card.create({ data: { restaurantId, last4, number, holderName, isTest: false, active: false, approvalStatus: 'PENDING', label: 'UZCARD' } });
+      const card = await tx.card.create({ data: { restaurantId, last4, number, holderName, isTest: false, active: false, approvalStatus: 'PENDING', label: cardLabelOf(number) } });
       await record(tx, card.id, 'ADDED', 'RESTAURANT', actorId);
       return { ok: true, card: view(card) } as const;
     });

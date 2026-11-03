@@ -181,3 +181,10 @@ Search: unit tests (`npm run test:search`), DB test (`npm run test:search:db`, p
 5. Opening a dish and pressing back returns to the same search text.
 Restaurant app (APK 1.7.2): Operations > "Navbatchilik (faqat shu telefon)" silences only this phone; "Butun restoran" > "Buyurtma qabul qilish" stops orders for everyone; a fresh login turns this phone's duty on; the orange strip on Buyurtmalar offers "Yoqish". Never compiled: check it builds and rings.
 
+## M. Humo cards first + second Telegram account (2026-11-03, not deployed, not tried with real cards)
+Unit tests ran (pool ranking, message keys, config check); pool/cards/humo DB tests pass. No real Telegram login for a second account was done.
+1. Second account: `.env` gets HUMO_TG_API_ID_2/HASH_2 (from my.telegram.org of THAT account); `npm run humo:login -- 2` in your own terminal (the code Telegram sends goes to that person's app); then on the server `scp humo-session-2.txt ds-staging:/opt/ds-prod/inbox/`, `install-humo-session.sh 2`, production.env HUMO_TG_API_ID_2/HASH_2/SESSION_FILE_2, restart backend. Log must show `[HUMO TG ON]` and `[HUMO TG ON 2]`.
+2. Add both Humo cards as platform cards (number starts 9860 -> label HUMO) and approve them. Pay a small test amount to each from an Uzcard app: the order must confirm itself within seconds.
+3. With both Humo cards free, new payments get a Humo card; make two orders with the SAME total at once: the third same-amount payment gets an Uzcard.
+4. Watch the first days: Humo card limits (daily/monthly credit limit of a virtual card, identification level) and whether every credit message arrives in the bot chat.
+

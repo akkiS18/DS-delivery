@@ -85,6 +85,12 @@ describe('checkConfig: Humocard Telegram reader', () => {
     assert.ok(has(errs({ ...base, HUMO_TG_ENABLED: 'yes' }), 'HUMO_TG_ENABLED must be'));
     assert.ok(!JSON.stringify(checkConfig({ ...humo, HUMO_TG_API_HASH: 'SECRET' } as NodeJS.ProcessEnv)).includes('SECRET'));
   });
+  it('further Telegram accounts need their own api hash; none is needed when only the first account is used', () => {
+    assert.deepEqual(errs({ ...humo, HUMO_TG_API_ID_2: '7654321', HUMO_TG_API_HASH_2: 'b'.repeat(32) }), []);
+    assert.ok(has(errs({ ...humo, HUMO_TG_API_ID_2: '7654321' }), 'HUMO_TG_API_HASH_2'));
+    assert.ok(has(errs({ ...humo, HUMO_TG_API_ID_3: 'abc', HUMO_TG_API_HASH_3: 'b'.repeat(32) }), 'HUMO_TG_API_ID_3'));
+    assert.ok(!JSON.stringify(checkConfig({ ...humo, HUMO_TG_API_ID_2: '7654321', HUMO_TG_API_HASH_2: 'SECRET2' } as NodeJS.ProcessEnv)).includes('SECRET2'));
+  });
   it('REAL payments accept Humo messages instead of Gmail, but need at least one of them', () => {
     const real = { ...base, BOT_PAYMENT_MODE: 'REAL', BOT_ENABLED: 'true', BOT_TOKEN: TOKEN, SUPPORT_ADMIN_1_TELEGRAM_ID: '123456789' };
     assert.ok(has(errs(real), 'GMAIL_ENABLED=true'));

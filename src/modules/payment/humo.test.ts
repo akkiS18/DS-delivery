@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { isUnreadableHumoCredit, type TgMessage } from './humo-telegram.js';
+import { humoMessageKey, humoSlots, ingestHumoMessage, isUnreadableHumoCredit, type TgMessage } from './humo-telegram.js';
+import type { PaymentEngineV3 } from './engine.js';
 import test from 'node:test';
 import { isKnownHumoTitle, looksLikeHumoCredit, parseHumoMessage, sampleHumoMessage } from './humo.js';
 
@@ -90,4 +91,21 @@ test('an unreadable credit is reported only for the verified bot, fresh, and nev
   assert.equal(isUnreadableHumoCredit('BOT', msg({ out: true }), now, 1_800_000), false);
   assert.equal(isUnreadableHumoCredit('BOT', msg({ date: Math.floor(now / 1000) - 7200 }), now, 1_800_000), false, 'old');
   assert.equal(isUnreadableHumoCredit('BOT', msg({ message: OBSERVED }), now, 1_800_000), false, 'readable');
+});
+
+test('several Telegram accounts: message ids only count per account, so the stored key carries the account; the first account keeps the old key', async () => {
+  assert.equal(humoMessageKey('BOT', '', 7), 'BOT:7');
+  assert.equal(humoMessageKey('BOT', '2', 7), 'BOT:2:7');
+  assert.notEqual(humoMessageKey('BOT', '2', 7), humoMessageKey('BOT', '3', 7));
+  assert.deepEqual(humoSlots({}), ['']);
+  assert.deepEqual(humoSlots({ HUMO_TG_API_ID_2: '123', HUMO_TG_API_ID_4: ' 9 ', HUMO_TG_API_ID_3: '  ' }), ['', '2', '4']);
+
+  const keys: string[] = [];
+  const engine = { ingestHumo: async (key: string) => { keys.push(key); return { status: 'MATCHED_UNVERIFIED' }; } } as unknown as PaymentEngineV3;
+  const now = Date.now();
+  const text = sampleHumoMessage('6062', 5_000_00n, new Date(now - 60_000));
+  const msg: TgMessage = { id: 41, date: Math.floor(now / 1000), message: text, senderId: { toString: () => 'BOT' } };
+  await ingestHumoMessage(engine, 'BOT', msg, now, 1_800_000);
+  await ingestHumoMessage(engine, 'BOT', msg, now, 1_800_000, '2');
+  assert.deepEqual(keys, ['BOT:41', 'BOT:2:41']);
 });

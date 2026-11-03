@@ -1,15 +1,20 @@
 import readline from 'node:readline/promises';
 import fs from 'node:fs/promises';
 import { Writable } from 'node:stream';
-import { humoSessionFile } from '../modules/payment/humo-telegram.js';
+import { humoSessionFile, isHumoSlot } from '../modules/payment/humo-telegram.js';
 
 // One-time interactive login of the Telegram account that receives the Humocard bot's messages. Run it in YOUR OWN terminal (not through an
 // assistant): it asks for the phone, the code Telegram sends and the 2-step password, and writes the resulting session to a private file.
 // The session is a full login of that account: it is never printed, never committed (humo-session.txt is git-ignored).
-const apiId = Number(process.env.HUMO_TG_API_ID);
-const apiHash = process.env.HUMO_TG_API_HASH?.trim() ?? '';
+// `npm run humo:login` = the original account; `npm run humo:login -- 2` = the second account (HUMO_TG_API_ID_2 / _HASH_2, file humo-session-2.txt), up to 4.
+const slotArg = process.argv[2] ?? '';
+if (!isHumoSlot(slotArg)) { console.error('Hisob raqami 2, 3 yoki 4 bo‘lishi kerak (asosiy hisob uchun hech narsa yozmang).'); process.exit(1); }
+const slot = slotArg;
+const suffix = slot ? `_${slot}` : '';
+const apiId = Number(process.env[`HUMO_TG_API_ID${suffix}`]);
+const apiHash = process.env[`HUMO_TG_API_HASH${suffix}`]?.trim() ?? '';
 if (!Number.isSafeInteger(apiId) || apiId <= 0 || !/^[0-9a-f]{32}$/i.test(apiHash)) {
-  console.error('Avval .env ga HUMO_TG_API_ID va HUMO_TG_API_HASH ni yozing (my.telegram.org dan).');
+  console.error(`Avval .env ga HUMO_TG_API_ID${suffix} va HUMO_TG_API_HASH${suffix} ni yozing (my.telegram.org dan, shu akkaunt bilan).`);
   process.exit(1);
 }
 
@@ -44,7 +49,7 @@ try {
     password: () => secret('2 bosqichli parol (bo‘lmasa Enter): '),
     onError: (err: Error) => console.error('Xato:', err.message),
   });
-  const file = humoSessionFile();
+  const file = humoSessionFile(slot);
   await fs.writeFile(file, client.session.save(), { mode: 0o600 });
   console.log(`\nKirish muvaffaqiyatli. Sessiya "${file}" fayliga yozildi (yashirin; gitga tushmaydi, hech kimga bermang).`);
   const bots = (await client.getDialogs({ limit: 200 })).filter(d => d.entity?.bot && d.entity.username);

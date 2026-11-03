@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_POOL_CAP_SOM, poolCapSom, rankCards, withinCap } from './pool.js';
+import { DEFAULT_POOL_CAP_SOM, cardLabelOf, isHumoCard, poolCapSom, preferHumo, rankCards, withinCap } from './pool.js';
 
 test('poolCapSom: unset, blank and invalid values give the safe default; 0 is the only way to switch the cap off', () => {
   assert.equal(poolCapSom({}), DEFAULT_POOL_CAP_SOM);
@@ -36,4 +36,27 @@ test('rankCards: fewest open payments, then lowest turnover, then longest unused
   assert.deepEqual(rankCards(cards, new Map(), new Map()).map(c => c.id), ['c', 'd', 'b', 'a']);
   // does not reorder the caller's array
   assert.deepEqual(cards.map(c => c.id), ['a', 'b', 'c', 'd']);
+});
+
+test('Humocard first: a Humo card goes before any Uzcard, even one that is busier; with the switch off the old order returns', () => {
+  const cards = [
+    { id: 'u1', last4: '1111', lastAssignedAt: null, label: 'UZCARD', number: '8600123412341234' },
+    { id: 'h1', last4: '2222', lastAssignedAt: null, label: 'HUMO', number: '9860123412341234' },
+    { id: 'u2', last4: '3333', lastAssignedAt: null, label: 'UZCARD', number: null },
+    { id: 'h2', last4: '4444', lastAssignedAt: null, label: 'UZCARD', number: '9860999999999999' }, // an older row: recognised by its number
+  ];
+  const busy = new Map([['h1', 3]]);
+  assert.deepEqual(rankCards(cards, busy, new Map(), true).map(c => c.id), ['h2', 'h1', 'u1', 'u2'], 'Humo first, then the usual order inside each group');
+  assert.deepEqual(rankCards(cards, busy, new Map(), false).map(c => c.id), ['u1', 'u2', 'h2', 'h1'], 'switch off: busier card last');
+  assert.equal(preferHumo({}), true);
+  assert.equal(preferHumo({ CARD_PREFER_HUMO: ' FALSE ' }), false);
+  assert.equal(preferHumo({ CARD_PREFER_HUMO: 'nonsense' }), true);
+});
+
+test('cardLabelOf / isHumoCard: 9860 is Humo, everything else Uzcard', () => {
+  assert.equal(cardLabelOf('9860123412341234'), 'HUMO');
+  assert.equal(cardLabelOf('8600123412341234'), 'UZCARD');
+  assert.equal(cardLabelOf(null), 'UZCARD');
+  assert.equal(isHumoCard({ label: 'UZCARD', number: null }), false);
+  assert.equal(isHumoCard({ label: 'HUMO' }), true);
 });

@@ -6,6 +6,7 @@ dist/
 credentials.json
 gmail-token.json
 humo-session.txt
+humo-session-*.txt
 *.log
 *.zip
 

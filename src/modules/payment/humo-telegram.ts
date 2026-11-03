@@ -4,7 +4,7 @@ import { isKnownHumoTitle, looksLikeHumoCredit, parseHumoMessage } from './humo.
 import { isFreshIncoming } from './gmail-health.js';
 
 /**
- * Reads the Humocard bot chat of ONE Telegram user account (MTProto, api_id/api_hash from my.telegram.org) and feeds every credit into the same
+ * Reads the Humocard bot chat of one or more Telegram user accounts (MTProto, api_id/api_hash from my.telegram.org) and feeds every credit into the same
  * payment engine as the bank e-mail. It is a signal like the mail: the engine ends in MATCHED_UNVERIFIED (never an automatic confirmation here).
  *
  * Trust: a message counts only when it comes from the configured bot account (HUMO_TG_BOT, resolved to its numeric id at start, and it must be
@@ -16,11 +16,16 @@ import { isFreshIncoming } from './gmail-health.js';
  * dropped update and for messages that arrived while this process was down (HUMO_TG_LOOKBACK_SECONDS). Both paths are idempotent: the key
  * `<botId>:<messageId>` is the IncomingTransaction.sourceId.
  *
+ * Several accounts: each Humo card is registered in the Humocard bot of the person who owns it, so every owner's account gets its own reader ("slot").
+ * Slot '' is the original account (HUMO_TG_API_ID, HUMO_TG_SESSION_FILE); further accounts are HUMO_TG_API_ID_2 / _HASH_2 / _SESSION_FILE_2 (up to _4).
+ * Telegram message ids count per account, so the idempotency key of a further slot carries the slot: `<botId>:<slot>:<messageId>`. The first
+ * account keeps the old `<botId>:<messageId>`, so nothing already stored is read twice. One account failing never stops the others.
+ *
  * The `telegram` (gramjs) package is imported only when this feature is switched on, so a server without it still starts.
  */
 export type HumoAlert =
-  | { type: 'DOWN'; failure: 'auth' | 'bot' | 'network' | 'config' }
-  | { type: 'RECOVERED' }
+  | { type: 'DOWN'; failure: 'auth' | 'bot' | 'network' | 'config'; account?: string }
+  | { type: 'RECOVERED'; account?: string }
   | { type: 'REVIEW'; reason: string; amountTiyin: bigint; cardLast4: string }
   /** A credit under a heading we have not seen before (the sign says credit, so it was accepted like any other); the admin is only told. */
   | { type: 'NOTICE'; title: string; amountTiyin: bigint; cardLast4: string; matched: boolean }
@@ -46,13 +51,27 @@ type TgClient = {
   disconnect(): Promise<unknown>;
 };
 
-export const humoSessionFile = (): string => process.env.HUMO_TG_SESSION_FILE?.trim() || 'humo-session.txt';
+/** '' = the original account; '2'..'4' = further accounts (HUMO_TG_*_2 ...). */
+export type HumoSlot = '' | '2' | '3' | '4';
+export const EXTRA_HUMO_SLOTS: HumoSlot[] = ['2', '3', '4'];
+const sfx = (slot: HumoSlot): string => (slot ? `_${slot}` : '');
+export const isHumoSlot = (v: string): v is HumoSlot => v === '' || (EXTRA_HUMO_SLOTS as string[]).includes(v);
 
-export async function readHumoSession(): Promise<string> {
-  const inline = process.env.HUMO_TG_SESSION?.trim();
-  if (inline) return inline;
-  try { return (await fs.readFile(humoSessionFile(), 'utf8')).trim(); } catch { return ''; }
+/** The accounts to read: the original one, plus every further one whose HUMO_TG_API_ID_<n> is set. */
+export function humoSlots(env: Record<string, string | undefined> = process.env): HumoSlot[] {
+  return ['', ...EXTRA_HUMO_SLOTS.filter(n => (env[`HUMO_TG_API_ID_${n}`] ?? '').trim() !== '')];
 }
+
+export const humoSessionFile = (slot: HumoSlot = ''): string => process.env[`HUMO_TG_SESSION_FILE${sfx(slot)}`]?.trim() || (slot ? `humo-session-${slot}.txt` : 'humo-session.txt');
+
+export async function readHumoSession(slot: HumoSlot = ''): Promise<string> {
+  const inline = process.env[`HUMO_TG_SESSION${sfx(slot)}`]?.trim();
+  if (inline) return inline;
+  try { return (await fs.readFile(humoSessionFile(slot), 'utf8')).trim(); } catch { return ''; }
+}
+
+/** The key under which one message is stored: unique per account because message ids only count within one account's chat. */
+export const humoMessageKey = (botId: string, slot: HumoSlot, messageId: number): string => (slot ? `${botId}:${slot}:${messageId}` : `${botId}:${messageId}`);
 
 function positiveInt(name: string, fallback: number, minimum: number): number {
   const n = Number(process.env[name] ?? fallback);
@@ -62,21 +81,21 @@ function positiveInt(name: string, fallback: number, minimum: number): number {
 
 export type HumoSettings = { apiId: number; apiHash: string; session: string; bot: string; pollSeconds: number; lookbackSeconds: number };
 
-export async function humoSettings(): Promise<HumoSettings> {
-  const apiId = Number(process.env.HUMO_TG_API_ID);
-  const apiHash = process.env.HUMO_TG_API_HASH?.trim() ?? '';
+export async function humoSettings(slot: HumoSlot = ''): Promise<HumoSettings> {
+  const apiId = Number(process.env[`HUMO_TG_API_ID${sfx(slot)}`]);
+  const apiHash = process.env[`HUMO_TG_API_HASH${sfx(slot)}`]?.trim() ?? '';
   const bot = (process.env.HUMO_TG_BOT ?? '').trim().replace(/^@/, '');
-  if (!Number.isSafeInteger(apiId) || apiId <= 0) throw new Error('HUMO_TG_API_ID (my.telegram.org dagi raqam) kerak.');
-  if (!/^[0-9a-f]{32}$/i.test(apiHash)) throw new Error('HUMO_TG_API_HASH (my.telegram.org dagi 32 belgili matn) kerak.');
+  if (!Number.isSafeInteger(apiId) || apiId <= 0) throw new Error(`HUMO_TG_API_ID${sfx(slot)} (my.telegram.org dagi raqam) kerak.`);
+  if (!/^[0-9a-f]{32}$/i.test(apiHash)) throw new Error(`HUMO_TG_API_HASH${sfx(slot)} (my.telegram.org dagi 32 belgili matn) kerak.`);
   if (!/^[A-Za-z][A-Za-z0-9_]{3,31}$/.test(bot)) throw new Error('HUMO_TG_BOT: Humocard botning username‘i (masalan humocardbot) kerak.');
-  const session = await readHumoSession();
-  if (!session) throw new Error('Telegram session yo‘q: avval `npm run humo:login` ni ishga tushiring.');
+  const session = await readHumoSession(slot);
+  if (!session) throw new Error(`Telegram session yo‘q: avval "npm run humo:login${slot ? ` -- ${slot}` : ''}" ni ishga tushiring.`);
   return { apiId, apiHash, session, bot, pollSeconds: positiveInt('HUMO_TG_POLL_SECONDS', 30, 5), lookbackSeconds: positiveInt('HUMO_TG_LOOKBACK_SECONDS', 1800, 120) };
 }
 
 /** Pure part of message handling (also what the tests drive): one message from the verified bot -> engine result, or null when not a credit. */
 export async function ingestHumoMessage(
-  engine: PaymentEngineV3, botId: string, message: TgMessage, nowMs = Date.now(), lookbackMs = 1_800_000,
+  engine: PaymentEngineV3, botId: string, message: TgMessage, nowMs = Date.now(), lookbackMs = 1_800_000, slot: HumoSlot = '',
 ): Promise<{ result: MatchResult; cardLast4: string; amountTiyin: bigint; title: string } | null> {
   // Authority check first, before the text is read: only the verified bot account, never our own outgoing messages.
   if (message.out || message.senderId?.toString() !== botId) return null;
@@ -84,7 +103,7 @@ export async function ingestHumoMessage(
   if (!Number.isFinite(messageMs) || nowMs - messageMs > lookbackMs) return null;
   const parsed = parseHumoMessage(message.message ?? '');
   if (!parsed) return null;
-  const result = await engine.ingestHumo(`${botId}:${message.id}`, {
+  const result = await engine.ingestHumo(humoMessageKey(botId, slot, message.id), {
     cardLast4: parsed.cardLast4, amountTiyin: parsed.amountTiyin, occurredAt: parsed.occurredAt, minutePrecision: true,
     messageDate: new Date(messageMs), trustedSender: true,
   });
@@ -100,12 +119,26 @@ export function isUnreadableHumoCredit(botId: string, message: TgMessage, nowMs:
   return looksLikeHumoCredit(text) && parseHumoMessage(text) === null;
 }
 
+/** Starts a reader for every configured account. One that cannot start is reported (admin alert + log) and the others keep running; only when none starts does this throw. */
 export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHooks = {}): Promise<() => void> {
+  const slots = humoSlots();
+  const results = await Promise.allSettled(slots.map(slot => startHumoReader(engine, hooks, slot)));
+  const stops: Array<() => void> = [];
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') stops.push(r.value);
+    else if (slots.length > 1) console.error(`[HUMO ERROR] hisob ${slots[i] || '1'} ishga tushmadi: ${r.reason instanceof Error ? r.reason.message.slice(0, 160) : 'error'}`);
+  });
+  if (!stops.length) throw (results[0] as PromiseRejectedResult).reason;
+  return () => { for (const stop of stops) stop(); };
+}
+
+async function startHumoReader(engine: PaymentEngineV3, hooks: HumoHooks, slot: HumoSlot): Promise<() => void> {
+  const account = slot || undefined;
   const alert = async (a: HumoAlert): Promise<void> => {
-    try { await hooks.onAlert?.(a); } catch { /* an alert that cannot be delivered must never stop the reader */ }
+    try { await hooks.onAlert?.(a.type === 'DOWN' || a.type === 'RECOVERED' ? { ...a, account } : a); } catch { /* an alert that cannot be delivered must never stop the reader */ }
   };
   let settings: HumoSettings;
-  try { settings = await humoSettings(); }
+  try { settings = await humoSettings(slot); }
   catch (err) { void alert({ type: 'DOWN', failure: 'config' }); throw err; }
 
   // Variable specifier: the package is optional at install time and typed above.
@@ -146,7 +179,7 @@ export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHook
   const toldUnreadable = new Set<number>();
   const handle = async (message: TgMessage): Promise<void> => {
     try {
-      const r = await ingestHumoMessage(engine, botId, message, Date.now(), lookbackMs);
+      const r = await ingestHumoMessage(engine, botId, message, Date.now(), lookbackMs, slot);
       if (!r && !toldUnreadable.has(message.id) && isUnreadableHumoCredit(botId, message, Date.now(), lookbackMs)) {
         toldUnreadable.add(message.id);
         if (toldUnreadable.size > 500) toldUnreadable.delete(toldUnreadable.values().next().value as number);
@@ -176,8 +209,8 @@ export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHook
     try {
       const recent = await client.getMessages(botEntity, { limit: 30 });
       const fresh = recent.filter(m => !m.out && Date.now() - m.date * 1000 <= lookbackMs);
-      const seen = await engine.seenHumo(fresh.map(m => `${botId}:${m.id}`));
-      for (const m of fresh.reverse()) if (!stopped && !seen.has(`${botId}:${m.id}`)) await handle(m);
+      const seen = await engine.seenHumo(fresh.map(m => humoMessageKey(botId, slot, m.id)));
+      for (const m of fresh.reverse()) if (!stopped && !seen.has(humoMessageKey(botId, slot, m.id))) await handle(m);
       succeeded();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -187,11 +220,11 @@ export async function startHumoTelegram(engine: PaymentEngineV3, hooks: HumoHook
   };
   const timer = setInterval(() => void poll(), settings.pollSeconds * 1000);
   void poll();
-  console.log(`[HUMO TG ON] @${settings.bot} | har ${settings.pollSeconds}s tekshiriladi | so‘nggi ${Math.round(settings.lookbackSeconds / 60)} daqiqa qayta ko‘riladi`);
+  console.log(`[HUMO TG ON${slot ? ` ${slot}` : ''}] @${settings.bot} | har ${settings.pollSeconds}s tekshiriladi | so‘nggi ${Math.round(settings.lookbackSeconds / 60)} daqiqa qayta ko‘riladi`);
   return () => {
     stopped = true;
     clearInterval(timer);
     void client.disconnect().catch(() => undefined);
-    console.log('[HUMO TG OFF]');
+    console.log(`[HUMO TG OFF${slot ? ` ${slot}` : ''}]`);
   };
 }

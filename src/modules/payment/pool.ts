@@ -9,6 +9,10 @@ import type { Prisma } from '@prisma/client';
  * Turnover cap: a bank may flag a card whose monthly intake grows too large, so a pool card is not given to a new payment when its
  * last-30-days intake (matched payments + payments waiting on it right now) plus the new amount would pass the cap. The card choice also
  * prefers the card with the lowest turnover, which keeps the cards even. Cards of single restaurants are not capped here.
+ *
+ * Humocard first (owner decision 2026-11-03): the Humocard bot reports a credit within seconds, the Uzcard e-mail sometimes arrives late or not at
+ * all. So a Humo card is chosen before any other whenever it can take the payment; an Uzcard card is only given out when every Humo card is taken
+ * for that amount (an open payment or cooldown on the same amount) or over its turnover cap. CARD_PREFER_HUMO=false turns this off.
  */
 type Tx = Prisma.TransactionClient;
 
@@ -28,10 +32,18 @@ export function poolCapSom(env: Record<string, string | undefined> = process.env
 /** Pure. A card with `turnoverSom` of intake can take `amountSom` more only while the total stays within the cap (cap 0 = unlimited). */
 export const withinCap = (turnoverSom: number, amountSom: number, capSom: number): boolean => capSom === 0 || turnoverSom + amountSom <= capSom;
 
-export interface RankableCard { id: string; last4: string; lastAssignedAt: Date | null }
-/** Pure. Fewest open payments first, then lowest turnover, then the longest-unused card, then last4 (a stable tie-break). */
-export function rankCards<T extends RankableCard>(cards: T[], openCount: Map<string, number>, turnoverSom: Map<string, number>): T[] {
+/** Humocard numbers start with 9860 (Uzcard: 8600). The label is set from this when a card is added; the number also covers older rows. */
+export const HUMO_BIN = '9860';
+export const cardLabelOf = (number: string | null | undefined): 'HUMO' | 'UZCARD' => (number?.startsWith(HUMO_BIN) ? 'HUMO' : 'UZCARD');
+export const isHumoCard = (c: { label?: string | null; number?: string | null }): boolean => c.label === 'HUMO' || (c.number ?? '').startsWith(HUMO_BIN);
+/** CARD_PREFER_HUMO: on unless explicitly "false". */
+export const preferHumo = (env: Record<string, string | undefined> = process.env): boolean => (env.CARD_PREFER_HUMO ?? '').trim().toLowerCase() !== 'false';
+
+export interface RankableCard { id: string; last4: string; lastAssignedAt: Date | null; label?: string | null; number?: string | null }
+/** Pure. Humocards first (unless `humoFirst` is false), then fewest open payments, then lowest turnover, then the longest-unused card, then last4 (a stable tie-break). */
+export function rankCards<T extends RankableCard>(cards: T[], openCount: Map<string, number>, turnoverSom: Map<string, number>, humoFirst = preferHumo()): T[] {
   return [...cards].sort((a, b) =>
+    (humoFirst ? Number(isHumoCard(b)) - Number(isHumoCard(a)) : 0) ||
     (openCount.get(a.id) ?? 0) - (openCount.get(b.id) ?? 0) ||
     (turnoverSom.get(a.id) ?? 0) - (turnoverSom.get(b.id) ?? 0) ||
     (a.lastAssignedAt?.getTime() ?? 0) - (b.lastAssignedAt?.getTime() ?? 0) ||

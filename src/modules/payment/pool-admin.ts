@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { cardNumberSchema, holderNameSchema, statusOf, type CardStatus } from '../restaurant-cards/service.js';
 import { isSupportAdmin } from '../support/service.js';
-import { POOL_TURNOVER_DAYS, cardTurnoverSom, poolCapSom } from './pool.js';
+import { POOL_TURNOVER_DAYS, cardLabelOf, cardTurnoverSom, poolCapSom } from './pool.js';
 
 /** Administrator tools for the platform card pool (owner decision 2026-10-30). Everything here is support-admin only and audited. */
 
@@ -24,7 +24,7 @@ export async function addPlatformCard(input: { adminId: string; number: string; 
   try {
     return await db.$transaction(async tx => {
       if (await tx.card.findUnique({ where: { last4 }, select: { id: true } })) return { ok: false, code: 'CARD_TAKEN' } as const;
-      const card = await tx.card.create({ data: { restaurantId: null, last4, number: number.data, holderName: holder.data, isTest: false, active: false, approvalStatus: 'PENDING', label: 'UZCARD' } });
+      const card = await tx.card.create({ data: { restaurantId: null, last4, number: number.data, holderName: holder.data, isTest: false, active: false, approvalStatus: 'PENDING', label: cardLabelOf(number.data) } });
       await tx.cardEvent.create({ data: { cardId: card.id, action: 'ADDED', actorType: 'ADMIN', actorId: input.adminId, details: { platformCard: true } } });
       return { ok: true, cardId: card.id, last4 } as const;
     });
