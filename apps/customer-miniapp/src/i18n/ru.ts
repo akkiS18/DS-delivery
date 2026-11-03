@@ -61,10 +61,12 @@ export const RU: Record<string, string> = {
   'Bu ilova faqat Telegram ichida ishlaydi. Botdagi “Buyurtma berish” tugmasini bosing.': 'Это приложение работает только внутри Telegram. Нажмите кнопку «Заказать» в боте.',
 
   // ---- home / menu
-  'Restoran qidirish': 'Поиск ресторана',
+  'Taom yoki restoran qidirish': 'Поиск блюда или ресторана',
+  'Tozalash': 'Очистить',
+  'Kamida 2 ta harf yozing': 'Введите не менее 2 букв',
   'Hech narsa topilmadi': 'Ничего не найдено',
   'Hozircha restoranlar yo‘q': 'Пока нет ресторанов',
-  'Boshqa nom bilan qidirib ko‘ring.': 'Попробуйте поискать по другому названию.',
+  'Boshqa so‘z bilan qidirib ko‘ring.': 'Попробуйте поискать по другому слову.',
   'Keyinroq qaytib keling.': 'Загляните позже.',
   'Hozircha buyurtma qabul qilmaydi': 'Пока не принимает заказы',
   'Boshqa taomlar': 'Другие блюда',

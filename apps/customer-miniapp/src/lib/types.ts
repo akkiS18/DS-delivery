@@ -18,6 +18,14 @@ export interface Restaurant {
   reservation?: { depositSom: number } | null;
 }
 
+/** One dish in a search answer, with the restaurant it belongs to (open / closed state included). */
+export interface SearchDish {
+  id: string; name: string; priceSom: number; imageUrl: string | null; isAvailable: boolean;
+  categoryId: string | null; categoryName: string | null;
+  restaurantId: string; restaurantName: string; isOpen: boolean; closedReason: 'PAUSED' | 'HOURS' | null;
+}
+export interface SearchResponse { restaurants: Restaurant[]; dishes: SearchDish[]; pricing: PublicPricing | null }
+
 export interface Category { id: string; name: string; imageUrl?: string | null }
 
 export interface Product {

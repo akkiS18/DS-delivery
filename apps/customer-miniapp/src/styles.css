@@ -309,3 +309,23 @@ h1, h2, h3, p { margin: 0; }
 .banner-dots { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; justify-content: center; gap: 6px; pointer-events: none; }
 .banner-dots button { pointer-events: auto; width: 8px; height: 8px; padding: 0; border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.6); box-shadow: 0 0 2px rgba(0, 0, 0, 0.35); }
 .banner-dots button.on { width: 18px; border-radius: 4px; background: #fff; }
+
+/* ---- search (Home) */
+.searchbox { position: relative; display: flex; align-items: center; }
+.searchbox-icon { position: absolute; left: 14px; color: var(--primary); pointer-events: none; }
+.searchbox-input { width: 100%; min-height: 50px; padding: 10px 44px 10px 44px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; outline: none; font-size: 16px; box-shadow: 0 2px 8px rgba(8, 127, 91, 0.08); -webkit-appearance: none; appearance: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.searchbox-input::-webkit-search-cancel-button, .searchbox-input::-webkit-search-decoration { -webkit-appearance: none; display: none; }
+.searchbox-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(8, 127, 91, 0.14); }
+.searchbox-clear { position: absolute; right: 8px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--mint-soft); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; }
+.searchhint { text-align: center; }
+.sresults { transition: opacity 0.12s; }
+.sresults.waiting { opacity: 0.55; }
+.sres { display: flex; align-items: center; gap: 12px; padding: 10px; }
+.sres.closed .rphoto-img { filter: grayscale(0.75); opacity: 0.85; }
+.sres-photo { position: relative; width: 56px; height: 56px; border-radius: 14px; overflow: hidden; flex: none; }
+.sres-photo .rphoto-img, .sres-photo .rphoto-empty { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sres-photo .rphoto-empty { font-size: 20px; }
+.sres-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sdish { align-items: stretch; content-visibility: auto; contain-intrinsic-size: auto 96px; }
+.sdish .img { width: 72px; height: 72px; }
+.sdish-where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

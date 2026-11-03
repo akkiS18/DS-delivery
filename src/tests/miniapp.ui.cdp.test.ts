@@ -210,13 +210,13 @@ for (const width of [320, 375, 390, 430]) {
       await t.test('search filters, and focusing it keeps the tab bar and navigation', async () => {
         await page.eval(`document.querySelector('input[type=search]').focus()`);
         await page.send('Input.insertText', { text: 'Lavash' });
-        await page.waitFor(`document.querySelectorAll('.card.tap').length === 1`, 'one search result');
-        assert.ok(await page.eval(`document.body.innerText.includes('Lavash Markazi ${nonce}') && !document.body.innerText.includes('Shashlik Uyi ${nonce}')`));
+        await page.waitFor(`!!document.querySelector('.sresults') && document.querySelector('.sresults').innerText.includes('Lavash Markazi ${nonce}')`, 'search result');
+        assert.ok(await page.eval(`!document.querySelector('.sresults').innerText.includes('Shashlik Uyi ${nonce}')`));
         const bar = await page.eval<{ shown: boolean; bottomOk: boolean; buttons: number }>(`(() => { const b = document.querySelector('.tabbar'); const r = b.getBoundingClientRect();
           return { shown: getComputedStyle(b).display !== 'none' && r.height > 30, bottomOk: r.bottom <= window.innerHeight + 1 && r.top >= 0, buttons: b.querySelectorAll('button').length }; })()`);
         assert.deepEqual(bar, { shown: true, bottomOk: true, buttons: 5 }, 'tab bar remains while the search field is focused');
         await page.send('Input.insertText', { text: ' zzzz-no-match' });
-        await page.waitFor(`document.querySelectorAll('.card.tap').length === 0`, 'empty result');
+        await page.waitFor(`!!document.querySelector('.sresults') && document.querySelectorAll('.sresults .card.tap').length === 0`, 'empty result');
         await assertNoOverflow(page, 'search');
       });
       await t.test('tab bar hides only while the keyboard really shrinks the screen, and always comes back', async () => {

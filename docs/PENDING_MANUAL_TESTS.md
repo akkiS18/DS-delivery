@@ -171,3 +171,13 @@ Unit tests ran (`apps/customer-miniapp/tests/i18n.test.ts`: language choice, tra
 3. Walk one order in each language: menu, cart, checkout (taxi/cash/card), the payment screen (the card warning with the countdown), the order tracking, cancel, rating, support chat, reservation. Look for texts still in Uzbek Latin, cut-off buttons (Russian is longer) and wrong grammar.
 4. Cyrillic Uzbek is GENERATED from the Latin text by rule (`src/i18n/translit.ts`); a native reader must read it once. A wrong word is fixed in `UZ_CYRL_OVERRIDES` (`src/i18n/dictionary.ts`), a Russian line in `src/i18n/ru.ts`.
 5. Not translated by design: restaurant and dish names/descriptions, category names, banner titles, support chat messages (they are what the restaurant or admin typed), the legal pages (served by the backend in Uzbek), bot messages, and the restaurant/admin/taxi apps.
+
+## L. Customer search: dishes + restaurants, per-phone duty in the restaurant app (2026-11-03, not yet tried on a phone)
+Search: unit tests (`npm run test:search`), DB test (`npm run test:search:db`, passes on the test database), customer app typecheck + vitest ran. The screen was NOT looked at (no browser run) and `miniapp.ui.cdp.test.ts` was adjusted for the new result layout but not run.
+1. Bosh sahifa: pill-shaped search field with a magnifier and an X button. One letter shows the normal restaurant list plus "Kamida 2 ta harf yozing"; two letters or more search after 0.3 s.
+2. Try: `lavash`, `lavsh` (typo), `лаваш` (Cyrillic), `pitsa`/`pizza`, a restaurant's name, a category name, `o'sh`/`osh`. Results show "Restoranlar" (up to 6) and "Taomlar" (up to 30); a dish tap opens that restaurant's menu at the dish's category.
+3. Closed restaurants / unavailable dishes stay in the list with a grey badge; archived dishes and packaging (soboy idishi) never appear.
+4. Typing fast must not freeze the phone or flash: the old answer stays dimmed until the new one arrives. A new dish added by a restaurant appears in search within ~45 s.
+5. Opening a dish and pressing back returns to the same search text.
+Restaurant app (APK 1.7.2): Operations > "Navbatchilik (faqat shu telefon)" silences only this phone; "Butun restoran" > "Buyurtma qabul qilish" stops orders for everyone; a fresh login turns this phone's duty on; the orange strip on Buyurtmalar offers "Yoqish". Never compiled: check it builds and rings.
+
