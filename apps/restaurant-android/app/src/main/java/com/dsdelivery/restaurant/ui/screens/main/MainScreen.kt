@@ -228,6 +228,8 @@ fun MainScreen(
                         onNavigateToOrderDetail = onNavigateToOrderDetail,
                         alarmRinging = bellRinging,
                         onSilence = alarm.watcher::silence,
+                        dutyOff = !bellOn,
+                        onDutyOn = { alarm.settings.setEnabled(true) },
                         isPaused = operationsState.isPaused,
                         onSetPaused = operationsViewModel::setPaused
                     )

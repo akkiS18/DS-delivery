@@ -38,8 +38,8 @@ fun BellSection() {
     val enabled by alarm.settings.enabled.collectAsState()
 
     SettingsSection(
-        title = "Yangi buyurtma signali",
-        footer = "Yoqilgan bo‘lsa, yangi to‘langan buyurtma uchun ilova yopiq yoki ekran o‘chiq bo‘lsa ham qo‘ng‘iroq chalinadi. Qo‘ng‘iroq buyurtmaga javob berilguncha (vaqt tanlanguncha) takrorlanadi."
+        title = "Navbatchilik (faqat shu telefon)",
+        footer = "Ish vaqti tugagach shu telefonda o‘chirib qo‘ying: u jim bo‘ladi, chiqib-kirish shart emas. Boshqa telefonlarga va restoranning buyurtma qabuliga ta’sir qilmaydi. Yoqilgan bo‘lsa, yangi to‘langan buyurtma uchun ilova yopiq yoki ekran o‘chiq bo‘lsa ham qo‘ng‘iroq chalinadi va buyurtmaga javob berilguncha takrorlanadi."
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
@@ -47,8 +47,8 @@ fun BellSection() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Qo‘ng‘iroq", style = MaterialTheme.typography.bodyLarge)
-                if (!enabled) Text("O‘chiq: faqat ilova ochiq paytda xabar beradi", style = MaterialTheme.typography.bodyMedium, color = WarningOrange)
+                Text("Shu telefon navbatchilikda", style = MaterialTheme.typography.bodyLarge)
+                if (!enabled) Text("O‘chiq: bu telefon jim, yangi buyurtmada qo‘ng‘iroq chalmaydi", style = MaterialTheme.typography.bodyMedium, color = WarningOrange)
             }
             Switch(
                 checked = enabled,

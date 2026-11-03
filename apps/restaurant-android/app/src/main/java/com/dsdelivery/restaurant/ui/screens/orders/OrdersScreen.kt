@@ -85,6 +85,9 @@ fun OrdersScreen(
     /** The kitchen bell is sounding: a strip with a mute button is shown. */
     alarmRinging: Boolean = false,
     onSilence: () -> Unit = {},
+    /** This phone is off duty (its bell is off): a strip says so and offers to switch it back on. */
+    dutyOff: Boolean = false,
+    onDutyOn: () -> Unit = {},
     /** Reception switch in the title bar (Ochiq / Tanaffus); null hides it. */
     isPaused: Boolean = false,
     onSetPaused: ((Boolean) -> Unit)? = null
@@ -109,6 +112,8 @@ fun OrdersScreen(
         onSelfDelivered = viewModel::markSelfDelivered,
         alarmRinging = alarmRinging,
         onSilence = onSilence,
+        dutyOff = dutyOff,
+        onDutyOn = onDutyOn,
         isPaused = isPaused,
         onSetPaused = onSetPaused,
         modifier = modifier
@@ -134,6 +139,8 @@ fun OrdersContent(
     onSelfDelivered: ((orderId: String) -> Unit)? = null,
     alarmRinging: Boolean = false,
     onSilence: () -> Unit = {},
+    dutyOff: Boolean = false,
+    onDutyOn: () -> Unit = {},
     isPaused: Boolean = false,
     onSetPaused: ((Boolean) -> Unit)? = null
 ) {
@@ -265,6 +272,18 @@ fun OrdersContent(
                 }
             }
 
+            if (dutyOff) {
+                Surface(
+                    color = WarningOrange.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Bu telefon navbatchilikda emas: yangi buyurtmada qo‘ng‘iroq chalmaydi", color = WarningOrange, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onDutyOn) { Text("Yoqish") }
+                    }
+                }
+            }
             if (alarmRinging) {
                 Surface(
                     color = ErrorRed,

@@ -214,7 +214,10 @@ fun OperationsContent(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // 1. Are we taking orders right now?
-            SettingsSection(title = "Qabul") {
+            SettingsSection(
+                title = "Butun restoran",
+                footer = "Hamma telefonlar uchun umumiy. O‘chirsangiz, mijozlar restoranga umuman buyurtma bera olmaydi. Faqat o‘z telefoningizni jim qilish uchun pastdagi “Navbatchilik” dan foydalaning."
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,

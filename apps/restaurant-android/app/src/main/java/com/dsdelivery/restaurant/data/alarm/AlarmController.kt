@@ -39,7 +39,15 @@ class AlarmController(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     fun init() {
-        scope.launch { sessionState.collect { refresh() } }
+        scope.launch {
+            var wasLoggedOut = false
+            sessionState.collect { state ->
+                // A fresh sign-in on this phone puts it on duty (like the taxi app); an app start with a saved session keeps the choice made earlier.
+                if (state is SessionState.LoggedIn && wasLoggedOut) settings.setEnabled(true)
+                wasLoggedOut = state is SessionState.LoggedOut
+                refresh()
+            }
+        }
         scope.launch { settings.enabled.collect { refresh() } }
     }
 
