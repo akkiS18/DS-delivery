@@ -38,6 +38,8 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/cards — restoran kartalari va yangi karta tasdig‘i',
       '/pool — platforma kartalari (guruh) va aylanma',
       '/platformcard — platforma kartasini qo‘shish',
+      '/cardname — platforma kartasi egasining ko‘rinadigan nomini o‘zgartirish',
+      '/cardoff, /cardon — platforma kartasini o‘chirish / qayta yoqish',
       '/collect — restoran pulini platforma kartalariga o‘tkazish / qaytarish',
       '/commission — haftalik komissiya hisobi',
       '/restaurants — restoranni to‘xtatish / yoqish',

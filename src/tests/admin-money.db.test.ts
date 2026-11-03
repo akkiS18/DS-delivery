@@ -4,6 +4,7 @@ import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { buildApp } from '../app.js';
 import { PaymentEngineV3, defaultOptions } from '../modules/payment/engine.js';
+import { renamePlatformCard, setPlatformCardActive } from '../modules/payment/pool-admin.js';
 import { hashToken } from '../modules/admin-auth/service.js';
 import { luhnValid } from '../modules/restaurant-cards/service.js';
 
@@ -203,4 +204,23 @@ test('pool: turnover levels, the 70/90 warnings in "Diqqat", and switching a res
   assert.equal((await db.restaurant.findUniqueOrThrow({ where: { id: created.restaurant } })).collectsToPlatform, true, 'refused: nothing changed');
   await db.payment.update({ where: { id: open.id }, data: { status: 'EXPIRED' } });
   assert.equal((await api('POST', '/pool/collect', { slug, on: false })).json().result, 'CHANGED');
+});
+
+test('platform card edit: rename (validated, audited) and switching a card off/on (only approved cards; history kept)', async () => {
+  const a = await addPoolCard('Birinchi Karta');
+  const b = await addPoolCard('Ikkinchi Karta');
+  assert.equal((await renamePlatformCard({ adminId, last4: a.last4, holderName: 'ISM F.' })).result, 'DONE');
+  assert.equal((await db.card.findUniqueOrThrow({ where: { id: a.id } })).holderName, 'ISM F.');
+  assert.equal((await renamePlatformCard({ adminId, last4: a.last4, holderName: 'ISM F.' })).result, 'UNCHANGED');
+  assert.equal((await renamePlatformCard({ adminId, last4: a.last4, holderName: '12' })).result, 'HOLDER_INVALID');
+    await assert.rejects(renamePlatformCard({ adminId: '1', last4: a.last4, holderName: 'ISM F.' }), /ADMIN_RUXSAT_YOQ/);
+  assert.ok(await db.cardEvent.findFirst({ where: { cardId: a.id, action: 'RENAMED' } }), 'rename is audited');
+
+  assert.equal((await setPlatformCardActive({ adminId, last4: a.last4, active: false })).result, 'NOT_APPROVED', 'a pending card cannot be switched');
+  await db.card.updateMany({ where: { id: { in: [a.id, b.id] } }, data: { approvalStatus: 'APPROVED', active: true } });
+  assert.equal((await setPlatformCardActive({ adminId, last4: a.last4, active: false })).result, 'DONE');
+  assert.equal((await db.card.findUniqueOrThrow({ where: { id: a.id } })).active, false);
+  assert.equal((await setPlatformCardActive({ adminId, last4: a.last4, active: false })).result, 'UNCHANGED');
+  assert.equal((await setPlatformCardActive({ adminId, last4: a.last4, active: true })).result, 'DONE');
+  assert.deepEqual((await db.cardEvent.findMany({ where: { cardId: a.id, action: { in: ['DISABLED', 'ENABLED'] } }, orderBy: { createdAt: 'asc' } })).map(e => e.action), ['DISABLED', 'ENABLED']);
 });

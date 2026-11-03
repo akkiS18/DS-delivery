@@ -34,6 +34,53 @@ export async function addPlatformCard(input: { adminId: string; number: string; 
   }
 }
 
+export type EditCardResult =
+  | { result: 'DONE' | 'UNCHANGED'; last4: string }
+  | { result: 'NOT_FOUND' | 'HOLDER_INVALID' | 'NOT_APPROVED' | 'LAST_ACTIVE_CARD' }
+  | { result: 'OPEN_PAYMENTS'; count: number };
+
+const findPoolCard = (tx: Prisma.TransactionClient, last4: string) => tx.card.findFirst({ where: { last4, restaurantId: null, isTest: false } });
+
+/** Changes the name shown to paying customers on a platform card (audited). Letters, spaces, dots and hyphens only, like when the card is added. */
+export async function renamePlatformCard(input: { adminId: string; last4: string; holderName: string }): Promise<EditCardResult> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  const holder = holderNameSchema.safeParse(input.holderName);
+  if (!holder.success) return { result: 'HOLDER_INVALID' };
+  return db.$transaction(async tx => {
+    const card = await findPoolCard(tx, input.last4);
+    if (!card) return { result: 'NOT_FOUND' } as const;
+    if (card.holderName === holder.data) return { result: 'UNCHANGED', last4: card.last4 } as const;
+    await tx.card.update({ where: { id: card.id }, data: { holderName: holder.data } });
+    await tx.cardEvent.create({ data: { cardId: card.id, action: 'RENAMED', actorType: 'ADMIN', actorId: input.adminId, details: { from: card.holderName, to: holder.data } } });
+    return { result: 'DONE', last4: card.last4 } as const;
+  });
+}
+
+/**
+ * Switches a platform card off (customers stop being given it; the card and its history stay) or back on. Runs under the payment lock. Switching OFF
+ * is refused while a customer is still paying to the card, and for the last active card (the pool would be empty). Switching ON needs an approved card.
+ */
+export async function setPlatformCardActive(input: { adminId: string; last4: string; active: boolean }): Promise<EditCardResult> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7013, 3001)`;
+    const card = await findPoolCard(tx, input.last4);
+    if (!card) return { result: 'NOT_FOUND' } as const;
+    if (card.approvalStatus !== 'APPROVED') return { result: 'NOT_APPROVED' } as const;
+    if (card.active === input.active) return { result: 'UNCHANGED', last4: card.last4 } as const;
+    if (!input.active) {
+      const open = await tx.payment.count({ where: { cardId: card.id, status: { in: ['QUEUED', 'AWAITING'] } } });
+      if (open > 0) return { result: 'OPEN_PAYMENTS', count: open } as const;
+      const others = await tx.card.count({ where: { restaurantId: null, isTest: false, active: true, approvalStatus: 'APPROVED', id: { not: card.id } } });
+      const served = await tx.restaurant.count({ where: { collectsToPlatform: true } });
+      if (others === 0 && served > 0) return { result: 'LAST_ACTIVE_CARD' } as const;
+    }
+    await tx.card.update({ where: { id: card.id }, data: { active: input.active } });
+    await tx.cardEvent.create({ data: { cardId: card.id, action: input.active ? 'ENABLED' : 'DISABLED', actorType: 'ADMIN', actorId: input.adminId } });
+    return { result: 'DONE', last4: card.last4 } as const;
+  });
+}
+
 export type CollectResult =
   | { result: 'CHANGED' | 'UNCHANGED'; name: string }
   | { result: 'NOT_FOUND' }

@@ -1,12 +1,12 @@
 import type { Context, Telegraf } from 'telegraf';
 import { isSupportAdmin } from '../modules/support/service.js';
-import { addPlatformCard, poolOverview, setCollectsToPlatform } from '../modules/payment/pool-admin.js';
+import { addPlatformCard, poolOverview, renamePlatformCard, setCollectsToPlatform, setPlatformCardActive } from '../modules/payment/pool-admin.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const som = (n: number): string => n.toLocaleString('en-US').replace(/,/g, ' ');
 const STATUS = { PENDING: '⏳ tasdiq kutmoqda', ACTIVE: '✅ faol', DISABLED: '⏸ o‘chirilgan', REJECTED: '❌ rad etilgan' } as const;
 
-/** Platform card pool commands (support admins only): /pool, /platformcard, /collect. */
+/** Platform card pool commands (support admins only): /pool, /platformcard, /cardname, /cardoff, /cardon, /collect. */
 export function registerPoolAdminHandlers<C extends Context>(bot: Telegraf<C>): void {
   const admin = (ctx: Context): string | null => {
     if (!ctx.from || ctx.chat?.type !== 'private') return null;
@@ -41,6 +41,34 @@ export function registerPoolAdminHandlers<C extends Context>(bot: Telegraf<C>): 
       await ctx.reply({ CARD_NUMBER_INVALID: 'Karta raqami noto‘g‘ri (16 xona, tekshiruv raqami mos kelmadi).', HOLDER_INVALID: 'Karta egasining ismi noto‘g‘ri.', CARD_TAKEN: 'Bu karta tizimda allaqachon bor.' }[r.code]);
     }
   });
+
+  bot.command('cardname', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const m = argsOf(ctx).match(/^(\d{4})\s+(.{3,40})$/u);
+    if (!m) { await ctx.reply('Format: /cardname 7572 ISM F. (karta oxirgi 4 raqami va mijozga ko‘rinadigan nom)'); return; }
+    const r = await renamePlatformCard({ adminId, last4: m[1]!, holderName: m[2]! });
+    await ctx.reply({
+      DONE: `✅ ***${m[1]} egasi nomi o‘zgartirildi.`, UNCHANGED: 'Nom o‘zgarmadi (allaqachon shunday).', NOT_FOUND: 'Bunday platforma kartasi topilmadi (/pool).',
+      HOLDER_INVALID: 'Nom noto‘g‘ri (harflar, bo‘shliq, nuqta; 3–40 belgi).', NOT_APPROVED: '', LAST_ACTIVE_CARD: '', OPEN_PAYMENTS: '',
+    }[r.result] || 'Bajarilmadi.');
+  });
+
+  const cardSwitch = (name: 'cardoff' | 'cardon', active: boolean) => bot.command(name, async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const m = argsOf(ctx).match(/^(\d{4})$/);
+    if (!m) { await ctx.reply(`Format: /${name} 7572 (karta oxirgi 4 raqami)`); return; }
+    const r = await setPlatformCardActive({ adminId, last4: m[1]!, active });
+    if (r.result === 'DONE') await ctx.reply(active ? `✅ ***${m[1]} yoqildi: mijozlarga berila boshlaydi.` : `✅ ***${m[1]} o‘chirildi: mijozlarga berilmaydi (tarixi saqlanadi, /cardon bilan qaytarish mumkin).`);
+    else if (r.result === 'UNCHANGED') await ctx.reply('O‘zgarmadi (allaqachon shunday).');
+    else if (r.result === 'NOT_FOUND') await ctx.reply('Bunday platforma kartasi topilmadi (/pool).');
+    else if (r.result === 'NOT_APPROVED') await ctx.reply('Bu karta hali tasdiqlanmagan (/cards).');
+    else if (r.result === 'LAST_ACTIVE_CARD') await ctx.reply('⛔ Bu oxirgi faol platforma kartasi: o‘chirsangiz pul qabul qiladigan karta qolmaydi. Avval boshqa kartani yoqing.');
+    else if (r.result === 'OPEN_PAYMENTS') await ctx.reply(`⛔ Hozir bu kartaga to‘lanayotgan ${r.count} ta to‘lov bor. Tugagach (taxminan 10 daqiqa) qayta urining.`);
+  });
+  cardSwitch('cardoff', false);
+  cardSwitch('cardon', true);
 
   bot.command('collect', async ctx => {
     const adminId = admin(ctx);
