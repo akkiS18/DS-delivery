@@ -1,3 +1,4 @@
+import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
 import { isPaymentCleared } from '../payment/status.js';
@@ -13,15 +14,13 @@ import { publicRatings, ratingWindow, rankingEnabled, rankingScores } from '../r
 /** What the Mini App is allowed to see. Built from real backend rows only; nothing here is demo data. */
 
 // ------------------------------------------------------------------------------------------------ restaurants and menu
-export async function listRestaurants(search: string | undefined, now = new Date()) {
-  const rows = await db.restaurant.findMany({
-    where: { isActive: true, ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}) },
-    orderBy: { name: 'asc' }, take: 100,
-    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } } },
-  });
-  const ids = rows.map(r => r.id);
-  const [ratings, ranked] = await Promise.all([publicRatings(ids), rankingEnabled().then(on => (on ? rankingScores(ids, now) : null))]);
-  const list = rows.map(r => {
+const cardSelect = { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } } } as const;
+type CardRow = { id: string; slug: string; name: string; isPaused: boolean; workingHours: Prisma.JsonValue | null; timezone: string; defaultPrepMinutes: number; image: { version: number } | null };
+
+/** The restaurant card the app shows (open state computed now, rating if there is one). */
+async function toCards(rows: CardRow[], now: Date) {
+  const ratings = await publicRatings(rows.map(r => r.id));
+  return rows.map(r => {
     const hours = openState(r, now);
     const isOpen = !r.isPaused && hours.open;
     return {
@@ -33,6 +32,21 @@ export async function listRestaurants(search: string | undefined, now = new Date
       rating: ratings.get(r.id) ?? null,
     };
   });
+}
+
+/** Cards for these restaurants (only active ones), in no particular order. */
+export async function restaurantCards(ids: string[], now = new Date()) {
+  const rows = await db.restaurant.findMany({ where: { isActive: true, id: { in: ids } }, select: cardSelect });
+  return toCards(rows, now);
+}
+
+export async function listRestaurants(search: string | undefined, now = new Date()) {
+  const rows = await db.restaurant.findMany({
+    where: { isActive: true, ...(search ? { name: { contains: search, mode: 'insensitive' as const } } : {}) },
+    orderBy: { name: 'asc' }, take: 100, select: cardSelect,
+  });
+  const ids = rows.map(r => r.id);
+  const [list, ranked] = await Promise.all([toCards(rows, now), rankingEnabled().then(on => (on ? rankingScores(ids, now) : null))]);
   // Ranking is off until an admin switches it on (/ratings): then better-rated restaurants come first (ties keep the alphabetical order).
   return ranked ? list.sort((a, b) => (ranked.get(b.id) ?? 0) - (ranked.get(a.id) ?? 0)) : list;
 }

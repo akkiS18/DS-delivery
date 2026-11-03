@@ -28,6 +28,7 @@ import {
   ProfileError, setDefaultAddress, setPhone, touchAddress, updateAddress,
 } from './profile.js';
 import { eligibleCompanyWhere } from '../taxi/assignment.js';
+import { searchCatalog } from './search.js';
 import { customerOrderView, listCustomerOrders, listRestaurants, listTaxiOptions, loadCustomerOrder, restaurantMenu } from './views.js';
 
 /** Who is calling. Exactly one credential type per request: `tma <initData>` (Telegram) or `Bearer dsg_...` (Android guest session). No fallback between them. */
@@ -219,6 +220,12 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
 
   // ------------------------------------------------------------------ catalog & quote
   app.get('/restaurants', async request => ({ restaurants: await listRestaurants(z.object({ q: z.string().trim().max(60).optional() }).parse(request.query).q) }));
+  // Search over restaurants and dishes (names; Latin or Cyrillic; tolerant of typing mistakes). Cheap by design (in-memory index), still rate limited per customer.
+  app.get('/search', async request => {
+    strict(request, 'search', 90);
+    const { q } = z.object({ q: z.string().trim().max(60).default('') }).strict().parse(request.query);
+    return searchCatalog(q);
+  });
   // The restaurant's photo. Public on purpose (an <img> cannot send the auth header; it is a marketing picture): the id is not secret and the
   // URL carries ?v=<version>, so the answer is cached hard and a replaced photo shows up at once.
   app.get<{ Params: { id: string } }>('/restaurants/:id/image', { config: { public: true } }, async (request, reply) => {
