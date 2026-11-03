@@ -18,6 +18,7 @@ services:
       - "443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/ds-apk:/srv/apk:ro      # staff app downloads (apk.<domain>); files are put there by deploy/apk/publish.sh
       - caddy_data:/data            # certificates + ACME account: keep (re-issuing too often hits Let's Encrypt rate limits). Never `down -v`.
       - caddy_config:/config
     networks: [edge]

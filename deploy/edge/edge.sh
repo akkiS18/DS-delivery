@@ -29,7 +29,7 @@ case "${1:-}" in
   reload) dc exec -T caddy caddy validate --config /etc/caddy/Caddyfile && dc exec -T caddy caddy reload --config /etc/caddy/Caddyfile ;;
   set)
     NAME="${2:?name}"; VALUE="${3:?value}"
-    [[ "$NAME" =~ ^(STAGING_DOMAIN|PROD_DOMAIN|STAGING_ALLOW_IPS|PROD_ALLOW_IPS)$ ]] || { echo "only STAGING_DOMAIN PROD_DOMAIN STAGING_ALLOW_IPS PROD_ALLOW_IPS"; exit 1; }
+    [[ "$NAME" =~ ^(STAGING_DOMAIN|PROD_DOMAIN|APK_DOMAIN|STAGING_ALLOW_IPS|PROD_ALLOW_IPS)$ ]] || { echo "only STAGING_DOMAIN PROD_DOMAIN APK_DOMAIN STAGING_ALLOW_IPS PROD_ALLOW_IPS"; exit 1; }
     [[ "$VALUE" =~ ^[A-Za-z0-9.:/\ -]+$ ]] || { echo "value may contain only letters, digits, . : / - and spaces"; exit 1; }
     umask 077; TMP="$(mktemp "$CONF.XXXXXX")"
     grep -v "^${NAME}=" "$CONF" > "$TMP" || true; printf '%s=%s\n' "$NAME" "$VALUE" >> "$TMP"; chmod 600 "$TMP"; mv "$TMP" "$CONF"

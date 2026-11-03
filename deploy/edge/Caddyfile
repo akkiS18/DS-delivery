@@ -75,3 +75,31 @@
 		respond "Forbidden" 403
 	}
 }
+
+# ---- app downloads (restaurant / taxi APKs for staff). Static files from /srv/apk (host /opt/ds-apk, mounted read-only), nothing else is served:
+# the two APKs and latest.json (versions for the portfolio page). Files are replaced by deploy/apk/publish.sh, never edited by hand.
+{$APK_DOMAIN} {
+	import common
+
+	header Strict-Transport-Security "max-age=31536000"
+	root * /srv/apk
+
+	@version path /latest.json
+	handle @version {
+		header Access-Control-Allow-Origin "*"
+		header Cache-Control "no-store"
+		file_server
+	}
+
+	@apks path /restoran.apk /taksi.apk
+	handle @apks {
+		header Content-Type "application/vnd.android.package-archive"
+		header Content-Disposition "attachment"
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	handle {
+		respond "Not found" 404
+	}
+}
