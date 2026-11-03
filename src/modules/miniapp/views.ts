@@ -160,7 +160,9 @@ export function customerPrep(o: CustomerOrderRow, now: Date) {
 
 /** Where and how much to pay, once a card is allocated (null before that). Shared by orders and table reservations. */
 export function paymentInstructionsOf(pay: { status: string; expiresAt: Date | null; assignedAt: Date | null; card: { last4: string; isTest: boolean; number: string | null; holderName: string | null } | null } | null | undefined): unknown {
-  if (pay?.status !== 'AWAITING' || !pay.card) return null;
+  // "Shirin" mode: the restaurant checks the money itself - the same card block, but no payment window (no expiry, no countdown) and manualCheck=true.
+  const manualCheck = pay?.status === 'RESTAURANT_CHECK';
+  if ((pay?.status !== 'AWAITING' && !manualCheck) || !pay.card) return null;
   const requisite = pay.card.isTest ? null : payeeNumber(pay.card);
   return {
     cardLast4: pay.card.last4, isTest: pay.card.isTest,
@@ -168,9 +170,10 @@ export function paymentInstructionsOf(pay: { status: string; expiresAt: Date | n
     cardNumber: requisite, recipientUnavailable: !pay.card.isTest && !requisite,
     // The name on the card, so the customer can check they are paying the right person (legacy cards have none: the app shows the restaurant name).
     cardHolder: pay.card.holderName ?? null,
-    expiresAt: pay.expiresAt?.toISOString() ?? null,
+    expiresAt: manualCheck ? null : pay.expiresAt?.toISOString() ?? null,
+    manualCheck,
     // The length of the payment window, so the screen can say "within N minutes" (it counts down to expiresAt on the server's clock).
-    windowSeconds: pay.expiresAt && pay.assignedAt ? Math.max(1, Math.round((pay.expiresAt.getTime() - pay.assignedAt.getTime()) / 1000)) : null,
+    windowSeconds: !manualCheck && pay.expiresAt && pay.assignedAt ? Math.max(1, Math.round((pay.expiresAt.getTime() - pay.assignedAt.getTime()) / 1000)) : null,
   };
 }
 

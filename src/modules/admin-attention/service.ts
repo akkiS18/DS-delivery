@@ -4,7 +4,7 @@ import { gmailHealth } from '../payment/gmail-health.js';
 import { cardTurnoverSom, poolCapSom, POOL_TURNOVER_DAYS } from '../payment/pool.js';
 import { explainReason } from '../payment/review-reasons.js';
 import { listUnhandledReviews } from '../payment/review.js';
-import { CASH_PENDING } from '../payment/status.js';
+import { CARD_MANUAL, CASH_PENDING, RESTAURANT_CHECK } from '../payment/status.js';
 import { taxiStage } from '../taxi/workflow.js';
 
 /**
@@ -131,6 +131,7 @@ export function activeOrdersWhere(now: Date, cfg: AttentionConfig): Prisma.Order
     OR: [
       { status: { in: ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY'] } },
       { status: 'PAYMENT_PENDING', payment: { is: { method: 'CASH', status: CASH_PENDING } } },
+      { status: 'PAYMENT_PENDING', payment: { is: { method: CARD_MANUAL, status: RESTAURANT_CHECK } } }, // "Shirin": the restaurant has to confirm the money
     ],
   };
 }
@@ -143,7 +144,7 @@ const ref = (r: OrderRow['restaurant']) => ({ id: r.id, name: r.name, phone: r.p
 /** One restaurant is waiting for something the restaurant must do NOW (used by the "app offline" rule). */
 function restaurantWaitingSince(o: OrderRow): Date | null {
   const method = o.payment?.method;
-  if (o.status === 'PAYMENT_PENDING' && method === 'CASH') return o.createdAt;
+  if (o.status === 'PAYMENT_PENDING' && (method === 'CASH' || method === CARD_MANUAL)) return o.createdAt;
   if (o.status === 'PAYMENT_MATCHED_UNVERIFIED') return o.payment?.matchedAt ?? o.updatedAt;
   if (o.status === 'PAYMENT_CONFIRMED') return o.paymentVerifiedAt ?? o.updatedAt;
   if (o.status === 'PREPARING' && o.prepChosenMinutes === null) return o.preparingStartedAt ?? o.paymentVerifiedAt ?? o.updatedAt;
@@ -165,13 +166,19 @@ export function evaluateOrders(rows: OrderRow[], online: ReadonlySet<string>, no
         out.push({ ...base, key: `CASH_UNACCEPTED:${o.id}`, kind: 'CASH_UNACCEPTED', title: 'Naqd buyurtma qabul qilinmadi',
           detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(o.createdAt, now))} daqiqa`, since: o.createdAt });
       }
+    } else if (o.status === 'PAYMENT_PENDING' && method === CARD_MANUAL && pstatus === RESTAURANT_CHECK) {
+      // "Shirin" mode: the order waits for the restaurant to look at its bank and confirm (or reject). Same urgency as an unverified payment.
+      if (ageSec(o.createdAt, now) >= cfg.unverifiedSeconds) {
+        out.push({ ...base, key: `PAYMENT_UNVERIFIED:${o.id}`, kind: 'PAYMENT_UNVERIFIED', title: 'Restoran to‘lovni tasdiqlamadi',
+          detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(o.createdAt, now))} daqiqa`, since: o.createdAt });
+      }
     } else if (o.status === 'PAYMENT_MATCHED_UNVERIFIED') {
       const since = o.payment?.matchedAt ?? o.updatedAt;
       if (ageSec(since, now) >= cfg.unverifiedSeconds) {
         out.push({ ...base, key: `PAYMENT_UNVERIFIED:${o.id}`, kind: 'PAYMENT_UNVERIFIED', title: 'To‘lov kelgan, lekin tasdiqlanmadi',
           detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(since, now))} daqiqa`, since });
       }
-    } else if (method === 'CARD' && o.prepChosenMinutes === null && (o.status === 'PREPARING' || o.status === 'PAYMENT_CONFIRMED')) {
+    } else if ((method === 'CARD' || method === CARD_MANUAL) && o.prepChosenMinutes === null && (o.status === 'PREPARING' || o.status === 'PAYMENT_CONFIRMED')) {
       // A paid order the kitchen has not acknowledged (the one-tap "SET_PREP_TIME" silences the app's bell).
       const since = o.status === 'PREPARING' ? (o.preparingStartedAt ?? o.paymentVerifiedAt ?? o.updatedAt) : (o.paymentVerifiedAt ?? o.updatedAt);
       if (ageSec(since, now) >= cfg.unseenSeconds) {

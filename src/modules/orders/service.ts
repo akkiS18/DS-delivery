@@ -252,6 +252,9 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
   const waiting = acceptanceRequired(data.paymentMode);
   if (isCash && waiting) throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409); // the legacy accept-first flow has no cash step
   const deadline = waiting ? new Date(Date.now() + responseTimeoutMs()) : null;
+  // "Shirin" mode: this restaurant checks the money itself (Restaurant.manualPaymentCheck). Real card orders only; cash and the legacy accept-first flow are unchanged.
+  const manualCheck = !isCash && !waiting && data.paymentMode === 'REAL'
+    && Boolean((await db.restaurant.findUnique({ where: { id: data.restaurantId }, select: { manualPaymentCheck: true } }))?.manualPaymentCheck);
   try {
     const buildOrder = async (tx: Prisma.TransactionClient) => {
       if (data.checkoutKey) {
@@ -346,7 +349,12 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       });
       return orderDetails(order.id);
     }
-    const { order } = await (isCash ? engine.createCashCheckout(buildOrder, data.paymentMode === 'MOCK') : engine.createCheckout(buildOrder, data.paymentMode === 'MOCK'));
+    const { order } = await (isCash ? engine.createCashCheckout(buildOrder, data.paymentMode === 'MOCK')
+      : manualCheck ? engine.createManualCheckout(buildOrder).catch(e => {
+        // No usable card (or the switch was turned off a moment ago): the same "this restaurant cannot take payments now" answer as the normal flow.
+        throw e instanceof Error && (e.message === 'RESTORAN_TOLOV_QABUL_QILMAYDI' || e.message === 'QOLDA_TEKSHIRUV_YOQILMAGAN') ? new CheckoutError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409) : e;
+      })
+      : engine.createCheckout(buildOrder, data.paymentMode === 'MOCK'));
     return orderDetails(order.id);
   } catch (error) {
     if ((hasUniqueConstraint(error) || (error instanceof Error && error.message === 'CHECKOUT_ALREADY_CREATED')) && data.checkoutKey) {

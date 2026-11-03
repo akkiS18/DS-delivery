@@ -15,6 +15,8 @@ model Restaurant {
   isPaused            Boolean               @default(false)
   /// Paid on the platform's own card pool (Card.restaurantId = null) instead of cards of its own (owner decision 2026-10-30).
   collectsToPlatform  Boolean               @default(false)
+  /// "Shirin" mode (owner decision 2026-11-04): the restaurant itself checks that the customer's transfer to its own card arrived (Payment.method CARD_MANUAL). Exclusive with collectsToPlatform.
+  manualPaymentCheck  Boolean               @default(false)
   /// "Yaqin, piyoda mumkin" is offered to customers only where this is on (owner decision 2026-10-31: Sifat Food only).
   walkingDeliveryEnabled Boolean            @default(false)
   defaultPrepMinutes  Int                   @default(25)
@@ -429,7 +431,8 @@ model Payment {
   restaurant            Restaurant?       @relation(fields: [restaurantId], references: [id])
   amountTiyin           BigInt
   status                String            @default("QUEUED")
-  /// CARD = bank transfer to a restaurant card (matched from the bank e-mail); CASH = the customer pays the courier on delivery (statuses CASH_PENDING -> CASH_ACCEPTED, no card).
+  /// CARD = bank transfer to a restaurant card (matched from the bank e-mail); CASH = the customer pays the courier on delivery (statuses CASH_PENDING -> CASH_ACCEPTED, no card);
+  /// CARD_MANUAL = transfer to the restaurant's own card that the RESTAURANT confirms by itself (RESTAURANT_CHECK -> CONFIRMED_MANUAL; never linked to a bank signal).
   method                String            @default("CARD")
   isTest                Boolean           @default(false)
   isStress              Boolean           @default(false)

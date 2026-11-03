@@ -102,6 +102,7 @@ export type CollectResult =
   | { result: 'CHANGED' | 'UNCHANGED'; name: string }
   | { result: 'NOT_FOUND' }
   | { result: 'NO_POOL_CARD' }
+  | { result: 'MANUAL_MODE'; name: string }
   | { result: 'OPEN_PAYMENTS'; name: string; count: number };
 
 /**
@@ -113,15 +114,50 @@ export async function setCollectsToPlatform(input: { adminId: string; slug: stri
   if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7013, 3001)`;
-    const r = await tx.restaurant.findUnique({ where: { slug: input.slug }, select: { id: true, name: true, collectsToPlatform: true } });
+    const r = await tx.restaurant.findUnique({ where: { slug: input.slug }, select: { id: true, name: true, collectsToPlatform: true, manualPaymentCheck: true } });
     if (!r) return { result: 'NOT_FOUND' } as const;
     if (r.collectsToPlatform === input.on) return { result: 'UNCHANGED', name: r.name } as const;
+    if (input.on && r.manualPaymentCheck) return { result: 'MANUAL_MODE', name: r.name } as const; // the restaurant checks its own money: it is not paid on platform cards (/manualpay off first)
     if (input.on && (await tx.card.count({ where: { restaurantId: null, isTest: false, active: true, approvalStatus: 'APPROVED' } })) === 0) return { result: 'NO_POOL_CARD' } as const;
     const open = await tx.payment.count({ where: { restaurantId: r.id, isTest: false, method: 'CARD', status: { in: ['QUEUED', 'AWAITING'] } } });
     if (open > 0) return { result: 'OPEN_PAYMENTS', name: r.name, count: open } as const;
     await tx.restaurant.update({ where: { id: r.id }, data: { collectsToPlatform: input.on } });
     await tx.adminAuditEvent.create({ data: {
       actorId: input.adminId, action: input.on ? 'COLLECTS_TO_PLATFORM_ON' : 'COLLECTS_TO_PLATFORM_OFF', targetType: 'Restaurant', targetId: r.id, details: { slug: input.slug },
+    } });
+    return { result: 'CHANGED', name: r.name } as const;
+  });
+}
+
+export type ManualCheckSwitchResult =
+  | { result: 'CHANGED' | 'UNCHANGED'; name: string }
+  | { result: 'NOT_FOUND' }
+  | { result: 'PLATFORM_CARDS'; name: string }
+  | { result: 'NO_OWN_CARD'; name: string }
+  | { result: 'OPEN_PAYMENTS'; name: string; count: number };
+
+/**
+ * "Shirin" mode on/off for one restaurant: customers are shown the restaurant's own card with no countdown and the RESTAURANT confirms the money itself
+ * (Payment.method CARD_MANUAL). Turning it ON needs the restaurant to be paid on its own cards (not the platform pool), an approved active own card, and no
+ * unpaid card payment in flight (those hold engine slots of the old flow). Turning it OFF is always allowed: orders already waiting for the restaurant's
+ * confirmation still finish (confirm / reject / expire) by their own status. Runs under the payment advisory lock; audited.
+ */
+export async function setManualPaymentCheck(input: { adminId: string; slug: string; on: boolean }): Promise<ManualCheckSwitchResult> {
+  if (!isSupportAdmin(input.adminId)) throw new Error('ADMIN_RUXSAT_YOQ');
+  return db.$transaction(async tx => {
+    await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7013, 3001)`;
+    const r = await tx.restaurant.findUnique({ where: { slug: input.slug }, select: { id: true, name: true, collectsToPlatform: true, manualPaymentCheck: true } });
+    if (!r) return { result: 'NOT_FOUND' } as const;
+    if (r.manualPaymentCheck === input.on) return { result: 'UNCHANGED', name: r.name } as const;
+    if (input.on) {
+      if (r.collectsToPlatform) return { result: 'PLATFORM_CARDS', name: r.name } as const;
+      if ((await tx.card.count({ where: { restaurantId: r.id, isTest: false, active: true, approvalStatus: 'APPROVED' } })) === 0) return { result: 'NO_OWN_CARD', name: r.name } as const;
+      const open = await tx.payment.count({ where: { restaurantId: r.id, isTest: false, method: 'CARD', status: { in: ['QUEUED', 'AWAITING'] } } });
+      if (open > 0) return { result: 'OPEN_PAYMENTS', name: r.name, count: open } as const;
+    }
+    await tx.restaurant.update({ where: { id: r.id }, data: { manualPaymentCheck: input.on } });
+    await tx.adminAuditEvent.create({ data: {
+      actorId: input.adminId, action: input.on ? 'MANUAL_PAYMENT_CHECK_ON' : 'MANUAL_PAYMENT_CHECK_OFF', targetType: 'Restaurant', targetId: r.id, details: { slug: input.slug },
     } });
     return { result: 'CHANGED', name: r.name } as const;
   });

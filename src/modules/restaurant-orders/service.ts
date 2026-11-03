@@ -13,8 +13,9 @@ import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
 import { rescheduleTaxiForPrep } from '../taxi/service.js';
 import { completeSelfDelivery } from '../orders/self-delivery.js';
 import { autoStartPreparing } from './auto.js';
-import { CASH_PENDING, isPaymentCleared } from '../payment/status.js';
+import { CARD_MANUAL, CASH_PENDING, RESTAURANT_CHECK, isPaymentCleared } from '../payment/status.js';
 import { acceptCashOrder, rejectCashOrder } from '../restaurant/cash.js';
+import { confirmRestaurantCheckedPayment, rejectRestaurantCheckedOrder } from '../restaurant/manual-payment.js';
 
 /** Same buckets the Android tabs use. */
 export const FILTERS = {
@@ -40,7 +41,10 @@ export const FILTERS = {
  */
 // A cash order nobody has accepted yet is the kitchen's job too (the bell rings for it); it is PAYMENT_PENDING, which the other tabs would call unpaid.
 const CASH_PENDING_WHERE: Prisma.OrderWhereInput = { status: 'PAYMENT_PENDING', payment: { is: { method: 'CASH', status: CASH_PENDING } } };
-const NEW_WHERE: Prisma.OrderWhereInput = { OR: [{ status: { in: [...FILTERS.incoming] } }, { status: 'PREPARING', prepChosenMinutes: null }, CASH_PENDING_WHERE] };
+// "Shirin" mode: the customer was shown the restaurant's own card and the restaurant checks the money itself. The order reaches the kitchen before the
+// payment is confirmed (the tap on "To'lovni tasdiqlash" is the check), so it rings the bell like a cash order and is not "unpaid, waiting".
+const MANUAL_CHECK_WHERE: Prisma.OrderWhereInput = { status: 'PAYMENT_PENDING', payment: { is: { method: CARD_MANUAL, status: RESTAURANT_CHECK } } };
+const NEW_WHERE: Prisma.OrderWhereInput = { OR: [{ status: { in: [...FILTERS.incoming] } }, { status: 'PREPARING', prepChosenMinutes: null }, CASH_PENDING_WHERE, MANUAL_CHECK_WHERE] };
 const COOKING_WHERE: Prisma.OrderWhereInput = { status: 'PREPARING', prepChosenMinutes: { not: null } };
 export const WAITING_STATUSES = ['WAITING_CUSTOMER_CONSENT', 'PAYMENT_PENDING', 'ACCEPTED', 'TAXI_REQUESTED', 'DRIVER_ASSIGNED', 'DELIVERY_ASSUMED', 'CANCELLATION_REQUESTED'] as const satisfies readonly OrderStatus[];
 
@@ -56,7 +60,7 @@ function filterWhere(filter: z.output<typeof listQuerySchema>['filter']): Prisma
     case 'all': return {};
     case 'new': return NEW_WHERE;
     case 'cooking': return COOKING_WHERE;
-    case 'waiting': return { AND: [{ status: { in: [...WAITING_STATUSES] } }, { NOT: CASH_PENDING_WHERE }] };
+    case 'waiting': return { AND: [{ status: { in: [...WAITING_STATUSES] } }, { NOT: CASH_PENDING_WHERE }, { NOT: MANUAL_CHECK_WHERE }] };
     case 'attention': return ATTENTION_WHERE;
     default: return { status: { in: [...FILTERS[filter]] } };
   }
@@ -120,6 +124,12 @@ const detailSelect = {
 } satisfies Prisma.OrderSelect;
 type Row = Prisma.OrderGetPayload<{ select: typeof detailSelect }>;
 
+/**
+ * The restaurant app (already installed) knows a fixed list of payment statuses and shows anything else as "Noma'lum". A restaurant-checked payment that
+ * waits for the restaurant is shown to it as the status it already understands ("Kutilmoqda"); the real status stays in the database and in allowedActions.
+ */
+export const appPaymentStatus = (status: string): string => (status === RESTAURANT_CHECK ? 'AWAITING' : status);
+
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 const som = (t: bigint): number => Number(t / 100n);
 
@@ -151,6 +161,9 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblem
   } else if (o.status === 'PAYMENT_PENDING' && o.paymentMethod === 'CASH' && o.paymentStatus === CASH_PENDING) {
     // Cash on delivery: the restaurant decides (the same two buttons as the legacy accept-first flow).
     actions.push('ACCEPT', 'REJECT');
+  } else if (o.status === 'PAYMENT_PENDING' && o.paymentMethod === CARD_MANUAL && o.paymentStatus === RESTAURANT_CHECK) {
+    // "Shirin" mode: the restaurant looks at its own bank balance. Confirm = the money arrived (cooking starts); reject = it did not.
+    actions.push('VERIFY_PAYMENT', 'REJECT');
   } else if (o.status === 'PAYMENT_MATCHED_UNVERIFIED' && o.paymentStatus === 'MATCHED_UNVERIFIED') {
     actions.push('VERIFY_PAYMENT');
   } else if (o.status === 'PAYMENT_CONFIRMED' && isPaymentCleared(o.paymentStatus) && !openRefund) {
@@ -171,7 +184,7 @@ export function attentionCodes(o: Row, extras: Extras): string[] {
   const out: string[] = [];
   const refund = o.refundRequests[0];
   const taxi = o.taxiDispatches[0];
-  if (o.status === 'PAYMENT_MATCHED_UNVERIFIED') out.push('VERIFY_PAYMENT');
+  if (o.status === 'PAYMENT_MATCHED_UNVERIFIED' || (o.status === 'PAYMENT_PENDING' && o.payment?.method === CARD_MANUAL && o.payment.status === RESTAURANT_CHECK)) out.push('VERIFY_PAYMENT');
   if (o.status === 'CANCELLATION_REQUESTED' || refund?.status === 'REQUESTED') out.push('CANCELLATION_REQUESTED');
   if (refund && ['APPROVED', 'DISPUTED'].includes(refund.status)) out.push('REFUND_PENDING');
   if (o.status === 'PAYMENT_CONFIRMED') out.push('AUTO_START_FAILED');
@@ -216,14 +229,14 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
       : { name, unitSom: baseUnitSom, quantity, subtotalSom: baseUnitSom * quantity })),
     serviceFeeSom: o.serviceFeeSom ?? 0,
     payment: o.payment && {
-      status: o.payment.status, method: o.payment.method, isTest: o.payment.isTest, amountSom: som(o.payment.amountTiyin),
+      status: appPaymentStatus(o.payment.status), method: o.payment.method, isTest: o.payment.isTest, amountSom: som(o.payment.amountTiyin),
       cardLast4: o.payment.card?.last4 ?? null,
     },
     /** Cash on delivery: the taxi driver pays the restaurant `amountSom` (the food total) at pickup and collects it from the customer. */
     cash: o.payment?.method === 'CASH' ? { amountSom: o.totalSom, acceptBy: iso(o.payment.expiresAt), accepted: o.payment.status !== CASH_PENDING } : null,
     /** What the restaurant checks before confirming real money. A Gmail signal is NEVER proof of a bank credit. */
     paymentEvidence: o.payment && o.payment.method !== 'CASH' ? {
-      expectedAmountSom: som(o.payment.amountTiyin), status: o.payment.status, isTest: o.payment.isTest,
+      expectedAmountSom: som(o.payment.amountTiyin), status: appPaymentStatus(o.payment.status), isTest: o.payment.isTest,
       cardLast4: o.payment.card?.last4 ?? null, assignedAt: iso(o.payment.assignedAt), matchedAt: iso(o.payment.matchedAt),
       verifiedAt: iso(o.paymentVerifiedAt),
       signal: extras.incoming && {
@@ -296,12 +309,13 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
   const where: Prisma.OrderWhereInput = {
     AND: [base, filterWhere(q.filter), ...(q.cursor ? [beforeCursor('createdAt', q.cursor)] : [])],
   };
-  const [rows, grouped, unchosen, attention, cashPending] = await Promise.all([
+  const [rows, grouped, unchosen, attention, cashPending, manualPending] = await Promise.all([
     db.order.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: q.limit + 1, select: detailSelect }),
     db.order.groupBy({ by: ['status'], where: base, _count: { _all: true } }),
     db.order.count({ where: { AND: [base, { status: 'PREPARING', prepChosenMinutes: null }] } }),
     db.order.count({ where: { AND: [base, ATTENTION_WHERE] } }),
     db.order.count({ where: { AND: [base, CASH_PENDING_WHERE] } }),
+    db.order.count({ where: { AND: [base, MANUAL_CHECK_WHERE] } }),
   ]);
   const page = rows.slice(0, q.limit);
   const count = (s: readonly OrderStatus[]) => grouped.filter(g => s.includes(g.status)).reduce((n, g) => n + g._count._all, 0);
@@ -310,7 +324,7 @@ export async function listOrders(restaurantId: string, q: z.output<typeof listQu
     nextCursor: rows.length > q.limit ? encodeCursor(page[page.length - 1]!.createdAt, page[page.length - 1]!.id) : null,
     counts: {
       incoming: count(FILTERS.incoming), inProgress: count(FILTERS.inProgress), toCook: count(FILTERS.toCook), ready: count(FILTERS.ready), attention,
-      new: count(FILTERS.incoming) + unchosen + cashPending, cooking: count(['PREPARING']) - unchosen, waiting: count(WAITING_STATUSES) - cashPending,
+      new: count(FILTERS.incoming) + unchosen + cashPending + manualPending, cooking: count(['PREPARING']) - unchosen, waiting: count(WAITING_STATUSES) - cashPending - manualPending,
     },
   };
 }
@@ -379,6 +393,7 @@ export async function performOrderAction(
   });
   if (!current) return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
   const cash = current.payment?.method === 'CASH';
+  const manual = current.payment?.method === CARD_MANUAL;
   if (args.expectedStatus && args.expectedStatus !== current.status) {
     return { ok: false, httpStatus: 409, error: 'STALE', status: current.status };
   }
@@ -404,6 +419,16 @@ export async function performOrderAction(
       if (autoStart.started) await setPrepTime(restaurantId, orderId, undefined).catch(() => undefined);
     } else if (action === 'REJECT' && cash) {
       if ((await rejectCashOrder({ ...actor, reason: args.reason as (typeof REJECT_REASONS)[number] })).result !== 'DONE') return stale();
+    } else if (action === 'VERIFY_PAYMENT' && manual) {
+      // "Shirin" mode: this tap is the restaurant saying the money is on its card (it checked its own bank); cooking then starts by itself.
+      const r = await confirmRestaurantCheckedPayment(actor);
+      if (r.result === 'EXPIRED') return stale('TIMED_OUT');
+      if (r.result === 'STALE') return stale();
+      autoStart = await autoStartPreparing({ actorRestaurantId: restaurantId }, orderId);
+      // The confirming tap IS the kitchen's acknowledgement, like accepting a cash order: no second "Qabul qildim" and the bell stops.
+      if (autoStart.started) await setPrepTime(restaurantId, orderId, undefined).catch(() => undefined);
+    } else if (action === 'REJECT' && manual) {
+      if ((await rejectRestaurantCheckedOrder({ ...actor, reason: args.reason as (typeof REJECT_REASONS)[number] })).result !== 'DONE') return stale();
     } else if (action === 'CANCEL_ORDER' && cash) {
       const r = await cancelCashOrder({ restaurantId, actorLabel: label, orderId, reasonCode: args.reason as string, ...(args.note ? { note: args.note } : {}) });
       if (r.result === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };

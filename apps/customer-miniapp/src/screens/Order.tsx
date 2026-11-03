@@ -3,7 +3,7 @@ import { MapPin } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
 import { PaidDialog } from '../components/PaidDialog';
-import { PayWarning } from '../components/PayWarning';
+import { ManualPayNote, PayWarning } from '../components/PayWarning';
 import { PlatformLineRow, TaxiFareBox } from '../components/PriceLines';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
@@ -203,7 +203,9 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
               ? <div className="banner bad" role="alert"><strong>{t('To‘lov qabul qiluvchi hozircha sozlanmagan.')}</strong><br />{t('Hozir pul o‘tkazmang. Restoran bilan bog‘laning yoki keyinroq qaytib keling.')}</div>
               : (
                 <div className="stack">
-                  <PayWarning amountSom={pay.amountSom} windowMinutes={windowMinutes(ins.windowSeconds)} remaining={payLeft} total={ins.windowSeconds ?? null} contactPhone={o.restaurantPhone} />
+                  {ins.manualCheck
+                    ? <ManualPayNote amountSom={pay.amountSom} contactPhone={o.restaurantPhone} />
+                    : <PayWarning amountSom={pay.amountSom} windowMinutes={windowMinutes(ins.windowSeconds)} remaining={payLeft} total={ins.windowSeconds ?? null} contactPhone={o.restaurantPhone} />}
                   <PayCard number={ins.cardNumber} holder={ins.cardHolder ?? o.restaurantName} onCopy={d => void copy(d)} />
                 </div>
               )

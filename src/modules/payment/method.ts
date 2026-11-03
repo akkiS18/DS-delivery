@@ -8,8 +8,8 @@ import { isSupportAdmin } from '../support/service.js';
  *   CASH_ACCEPTED the restaurant accepted it (a person, in the app): cooking and the taxi may proceed, like a verified card payment.
  * The taxi driver pays the restaurant the food total and takes it from the customer; nothing is matched against bank e-mails.
  */
-export type PaymentMethod = 'CARD' | 'CASH';
-export { CASH_ACCEPTED, CASH_PENDING, PAYMENT_CLEARED_STATUSES, isPaymentCleared } from './status.js';
+export type PaymentMethod = 'CARD' | 'CASH' | 'CARD_MANUAL';
+export { CARD_MANUAL, CASH_ACCEPTED, CASH_PENDING, PAYMENT_CLEARED_STATUSES, RESTAURANT_CHECK, isPaymentCleared } from './status.js';
 
 export const CASH_ENABLED_KEY = 'cash_orders_enabled';
 type Tx = Prisma.TransactionClient | typeof db;
@@ -65,6 +65,11 @@ export async function setCashMaxOrderSom(input: { adminId: string; maxOrderSom: 
     } });
     return 'CHANGED' as const;
   });
+}
+/** How long a restaurant-checked ("Shirin") order waits for the restaurant to confirm the money before it expires (the customer is shown no countdown). */
+export function manualCheckWindowMs(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.MANUAL_CHECK_MINUTES);
+  return (Number.isInteger(n) && n >= 5 && n <= 180 ? n : 30) * 60_000;
 }
 /** How long a cash order waits for the restaurant to accept it before it expires. */
 export function cashAcceptWindowMs(env: NodeJS.ProcessEnv = process.env): number {

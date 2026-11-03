@@ -106,6 +106,8 @@ export interface PaymentInstructions {
   /** The name on the card (null for older cards: the screen then shows the restaurant name). */
   cardHolder?: string | null;
   expiresAt: string | null;
+  /** "Shirin" mode: the restaurant checks the money itself - no payment window and no countdown; the screen says the restaurant will confirm. */
+  manualCheck?: boolean;
   /** Length of the payment window in seconds (the screen says "within N minutes" and counts down to expiresAt). */
   windowSeconds?: number | null;
 }

@@ -128,7 +128,7 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
       verifiedReceived: { count: verifiedAll.count - verifiedPlatform.count, som: tiyinToSom(verifiedAll.tiyin - verifiedPlatform.tiyin) },
       verifiedOnPlatformCard: { count: verifiedPlatform.count, som: tiyinToSom(verifiedPlatform.tiyin) },
       pendingUnverified: pay(['MATCHED_UNVERIFIED']),
-      awaitingPayment: pay(['QUEUED', 'AWAITING']),
+      awaitingPayment: pay(['QUEUED', 'AWAITING', 'RESTAURANT_CHECK']),
     },
     refunds: {
       period: {
@@ -169,7 +169,7 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
 
 const paymentState = (p: { status: string; isTest: boolean } | null) =>
   !p ? 'NONE' : p.isTest ? 'TEST' : p.status === 'CASH_PENDING' || p.status === 'CASH_ACCEPTED' ? 'CASH_ON_DELIVERY' : p.status === 'CONFIRMED_MANUAL' ? 'VERIFIED_BY_RESTAURANT' : p.status === 'MATCHED_UNVERIFIED' ? 'MATCHED_UNVERIFIED'
-    : ['QUEUED', 'AWAITING'].includes(p.status) ? 'AWAITING_PAYMENT' : 'EXPIRED_OR_CANCELLED';
+    : ['QUEUED', 'AWAITING', 'RESTAURANT_CHECK'].includes(p.status) ? 'AWAITING_PAYMENT' : 'EXPIRED_OR_CANCELLED';
 
 export async function financeOrders(restaurantId: string, q: { from?: string; to?: string; bucket?: OrderBucket } & PageQuery) {
   const { from, to } = range(q);

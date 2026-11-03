@@ -4,6 +4,21 @@ import { Icon } from './ui';
 import { t, T } from '../i18n';
 import { rich } from '../i18n/rich';
 
+/** "Shirin" mode (the restaurant checks its own bank): the same yellow notice, with the exact amount but no payment window and no countdown. */
+export function ManualPayNote({ amountSom, contactPhone }: { amountSom: number; contactPhone?: string | null }) {
+  const phone = contactPhone ? contactPhone.replace(/[^\d+]/g, '') : '';
+  return (
+    <div className="pay-warn" role="alert">
+      <div className="pay-warn-head">
+        <Icon as={TriangleAlert} size={22} className="shrink" />
+        <strong>{rich('Mana shu kartaga aynan {sum} o‘tkazing.', { sum: <span className="nowrap">{som(amountSom)}</span> })}</strong>
+      </div>
+      <div className="pay-warn-note">{t('Restoran pulni ko‘rgach buyurtmani o‘zi tasdiqlaydi. Shu sahifada qoling — holat o‘zi yangilanadi.')}</div>
+      <div className="pay-warn-note">{t('Boshqa summa o‘tkazgan bo‘lsangiz, restoranga murojaat qiling')}{phone ? <>: <a href={`tel:${phone}`} className="nowrap">{contactPhone}</a></> : '.'}</div>
+    </div>
+  );
+}
+
 /**
  * The yellow notice above the card the customer must pay to: how long the payment window is, that the amount must be exactly this one,
  * and a countdown that runs backwards (like the cooking timer in the restaurant app). `remaining` is computed from the server's clock.

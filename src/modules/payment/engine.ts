@@ -3,7 +3,7 @@ import { Prisma, PrismaClient, type Card, type Payment } from '@prisma/client';
 import {
   classifyAmountMismatch, couldBelongToEarlierPayment, incomingFingerprint, isDelayedNotification, overlapsPaymentWindow,
 } from './matching.js';
-import { CASH_ACCEPTED, CASH_PENDING, cashAcceptWindowMs } from './method.js';
+import { CARD_MANUAL, CASH_ACCEPTED, CASH_PENDING, RESTAURANT_CHECK, cashAcceptWindowMs, manualCheckWindowMs } from './method.js';
 import { cardOwnerOf, cardTurnoverSom, paymentsOfOwner, poolCapSom, rankCards, withinCap } from './pool.js';
 import { formatSom } from './uzcard.js';
 
@@ -82,8 +82,9 @@ export class PaymentEngineV3 {
   ): Promise<{ cancelled: boolean; status: string | null }> {
     const p = await tx.payment.findUnique({ where: { orderId } });
     if (!p) return { cancelled: false, status: null };
-    // A cash order the restaurant has not accepted yet can be cancelled too (it never held a card, so there is no cooldown).
-    if (p.status !== 'QUEUED' && p.status !== 'AWAITING' && p.status !== CASH_PENDING) return { cancelled: false, status: p.status };
+    // A cash order the restaurant has not accepted yet can be cancelled too (it never held a card, so there is no cooldown). The same for a
+    // restaurant-checked ("Shirin") order the restaurant has not confirmed: no engine card slot was held, so nothing to cool down.
+    if (p.status !== 'QUEUED' && p.status !== 'AWAITING' && p.status !== CASH_PENDING && p.status !== RESTAURANT_CHECK) return { cancelled: false, status: p.status };
     const { count } = await tx.payment.updateMany({ where: { id: p.id, status: p.status }, data: { status: 'CANCELLED' } });
     if (count !== 1) return { cancelled: false, status: p.status };
     if (p.status === 'AWAITING' && p.cardId) await this.setCooldown(tx, p.cardId, p.amountTiyin, now, this.options.cancelCooldownMs ?? this.options.cooldownMs);
@@ -190,6 +191,41 @@ export class PaymentEngineV3 {
         data: { amountTiyin, isTest, status: CASH_PENDING, method: 'CASH', restaurantId: order.restaurantId, orderId: order.id, expiresAt: new Date(now.getTime() + cashAcceptWindowMs()) },
       });
       await record(tx, { paymentId: payment.id, action: 'CREATED', toStatus: CASH_PENDING, details: { method: 'CASH' } });
+      return { order, payment };
+    });
+  }
+
+  /**
+   * "Shirin" mode: the restaurant checks the money itself. The order and a RESTAURANT_CHECK payment are created together; the customer is shown the
+   * restaurant's own card (no engine slot: nothing is matched against bank mail, so two equal amounts do not queue behind each other), and the restaurant's
+   * confirmation (restaurant/manual-payment.ts) is the only way to CONFIRMED_MANUAL. expiresAt only bounds how long the restaurant may take; the customer
+   * is never shown it. Of the restaurant's active cards the one with the fewest open checks is shown.
+   */
+  async createManualCheckout<T extends { id: string; restaurantId: string; totalSom: number }>(
+    createOrder: (tx: Prisma.TransactionClient) => Promise<T>,
+  ): Promise<{ order: T; payment: Payment }> {
+    return this.locked(async tx => {
+      const now = new Date();
+      await this.expireWithin(tx, now);
+      const order = await createOrder(tx);
+      const amountTiyin = BigInt(order.totalSom) * 100n;
+      allowedMoney(amountTiyin);
+      const restaurant = await tx.restaurant.findUnique({ where: { id: order.restaurantId }, select: { manualPaymentCheck: true, collectsToPlatform: true } });
+      if (!restaurant?.manualPaymentCheck || restaurant.collectsToPlatform) throw new Error('QOLDA_TEKSHIRUV_YOQILMAGAN');
+      const cards = await tx.card.findMany({ where: { restaurantId: order.restaurantId, isTest: false, active: true }, select: { id: true, last4: true, lastAssignedAt: true } });
+      if (!cards.length) throw new Error('RESTORAN_TOLOV_QABUL_QILMAYDI');
+      const open = await tx.payment.groupBy({ by: ['cardId'], where: { method: CARD_MANUAL, status: RESTAURANT_CHECK, cardId: { in: cards.map(c => c.id) } }, _count: { _all: true } });
+      const load = new Map(open.map(o => [o.cardId, o._count._all]));
+      const card = [...cards].sort((a, b) => (load.get(a.id) ?? 0) - (load.get(b.id) ?? 0)
+        || (a.lastAssignedAt?.getTime() ?? 0) - (b.lastAssignedAt?.getTime() ?? 0) || a.last4.localeCompare(b.last4))[0]!;
+      const payment = await tx.payment.create({
+        data: {
+          amountTiyin, isTest: false, status: RESTAURANT_CHECK, method: CARD_MANUAL, restaurantId: order.restaurantId, orderId: order.id,
+          cardId: card.id, assignedAt: now, expiresAt: new Date(now.getTime() + manualCheckWindowMs()),
+        },
+      });
+      await tx.card.update({ where: { id: card.id }, data: { lastAssignedAt: now } });
+      await record(tx, { paymentId: payment.id, action: 'CREATED', toStatus: RESTAURANT_CHECK, details: { method: CARD_MANUAL, cardId: card.id } });
       return { order, payment };
     });
   }
@@ -314,6 +350,16 @@ export class PaymentEngineV3 {
         paymentId: p.id, action: 'EXPIRED', fromStatus: CASH_PENDING, toStatus: 'EXPIRED', actorType: 'SYSTEM',
       })) });
       const orderIds = cashOut.map(p => p.orderId).filter((id): id is string => id !== null);
+      if (orderIds.length) await tx.order.updateMany({ where: { id: { in: orderIds }, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_EXPIRED' } });
+    }
+    // Restaurant-checked orders the restaurant never confirmed. Expired exactly like an unpaid card order, but with no card cooldown (no engine slot was held).
+    const checkOut = await tx.payment.findMany({ where: { method: CARD_MANUAL, status: RESTAURANT_CHECK, expiresAt: { lte: now } }, select: { id: true, orderId: true } });
+    if (checkOut.length) {
+      await tx.payment.updateMany({ where: { id: { in: checkOut.map(p => p.id) }, status: RESTAURANT_CHECK }, data: { status: 'EXPIRED' } });
+      await tx.paymentEvent.createMany({ data: checkOut.map(p => ({
+        paymentId: p.id, action: 'EXPIRED', fromStatus: RESTAURANT_CHECK, toStatus: 'EXPIRED', actorType: 'SYSTEM',
+      })) });
+      const orderIds = checkOut.map(p => p.orderId).filter((id): id is string => id !== null);
       if (orderIds.length) await tx.order.updateMany({ where: { id: { in: orderIds }, status: 'PAYMENT_PENDING' }, data: { status: 'PAYMENT_EXPIRED' } });
     }
     return expiring;

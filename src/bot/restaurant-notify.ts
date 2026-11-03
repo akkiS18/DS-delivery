@@ -71,7 +71,9 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
             RESTAURANT_REJECTED: `🚫 #${order.code}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.code}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
             // Cash: nothing was paid yet, the restaurant only accepted the order; the customer pays the driver.
-            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. Pulni haydovchiga naqd to‘laysiz.` : `✅ #${order.code}: to‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz.`,
+            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. Pulni haydovchiga naqd to‘laysiz.`
+              : order.payment?.method === 'CARD_MANUAL' ? `✅ #${order.code}: restoran to‘lovni tasdiqladi, buyurtma qabul qilindi.` // "Shirin": the confirming tap is also the acceptance
+              : `✅ #${order.code}: to‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz.`,
             PREPARING: `👨‍🍳 #${order.code}: restoran buyurtmani qabul qildi, tayyorlanmoqda.`,
           };
           // Walking delivery has no taxi "on the way" news, so the customer is told here that the restaurant brings it itself.

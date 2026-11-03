@@ -440,6 +440,12 @@ async function showOrder(ctx: ClientContext, orderId: string): Promise<void> {
     }
     if (pay.expiresAt) lines.push(`⏱ To‘lov oynasi tugashi: ${new Intl.DateTimeFormat('uz-UZ', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(pay.expiresAt))} (Toshkent)`);
     lines.push('Faqat ko‘rsatilgan summani yuboring. To‘lov oynasi tugasa, qayta pul yubormang.');
+  } else if (pay.status === 'RESTAURANT_CHECK') {
+    // "Shirin" mode: the restaurant checks its own bank; no window, no automatic matching.
+    const requisites = pay.card ? payeeNumber(pay.card) : null;
+    if (!requisites) lines.push('⚠️ Karta rekvizitlari mavjud emas. Pul yubormang, administratorga murojaat qiling.');
+    else lines.push(`💳 Restoran kartasi: <code>${requisites}</code>`);
+    lines.push('Faqat ko‘rsatilgan summani yuboring. Restoran pulni ko‘rgach buyurtmani o‘zi tasdiqlaydi — hech narsa bosish shart emas.');
   } else if (pay.status === 'MATCHED_UNVERIFIED') {
     lines.push('🔎 To‘lovingiz topildi, tasdiqlanmoqda…');
   } else if (pay.status === 'CONFIRMED_MANUAL') {

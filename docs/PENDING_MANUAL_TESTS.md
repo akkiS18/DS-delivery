@@ -188,3 +188,12 @@ Unit tests ran (pool ranking, message keys, config check); pool/cards/humo DB te
 3. With both Humo cards free, new payments get a Humo card; make two orders with the SAME total at once: the third same-amount payment gets an Uzcard.
 4. Watch the first days: Humo card limits (daily/monthly credit limit of a virtual card, identification level) and whether every credit message arrives in the bot chat.
 
+
+## N. "Shirin" mode: the restaurant confirms the money itself (2026-11-04, not deployed, not tried on a phone)
+Server code + customer Mini App changed; `src/tests/manual-check.db.test.ts` (12 tests) passes on the test database, and the cash/payment/pool/attention/finance/miniapp/auto-confirm/refunds/restaurant-orders/checkout DB tests still pass. The restaurant APK and the customer APK were NOT rebuilt or run.
+Turn on (Telegram admin bot): `/restocard <slug> <card number> <NAME F.>` and approve the card (/cards), then `/manualpay <slug> on` (refused while the restaurant is on the platform pool, has no approved active own card, or has unpaid card payments in flight). `/manualpay <slug> off` goes back; orders already waiting still finish.
+1. Customer (Telegram Mini App): order from that restaurant by card. The payment screen shows the restaurant's card and the exact amount, NO countdown, and "Restoran pulni ko'rgach buyurtmani o'zi tasdiqlaydi". Equal-amount orders from two phones both show the card at once.
+2. Restaurant app (installed APK, no rebuild): the order arrives in "Yangi" at once with the bell, payment pill "Kutilmoqda", buttons "To'lovni tasdiqlash" and "Rad etish". "To'lovni tasdiqlash" -> cooking starts, taxi is planned, the customer is told "restoran to'lovni tasdiqladi". "Rad etish" -> the customer sees the order cancelled. Nothing tapped for 30 minutes (`MANUAL_CHECK_MINUTES`, 5..180) -> the order expires; a late tap is refused.
+3. The customer can cancel for free until the restaurant taps; afterwards the usual rules apply.
+4. Customer APK (not rebuilt): its payment screen still says "10 daqiqa ichida ... to'lov qiling" (the old text) though no deadline exists; the Telegram Mini App is correct. Rebuild the customer APK when convenient.
+5. Open points: no Telegram "open the app" alert for staff exists for these orders (the app bell is the only signal, like cash); /money and Moliya show the order as waiting; an order's customer limits are the normal open-unpaid-orders limit (no separate cap, no max total).

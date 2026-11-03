@@ -1,6 +1,6 @@
 import type { Context, Telegraf } from 'telegraf';
 import { isSupportAdmin } from '../modules/support/service.js';
-import { addPlatformCard, addRestaurantCardAsAdmin, poolOverview, renamePlatformCard, setCollectsToPlatform, setPlatformCardActive } from '../modules/payment/pool-admin.js';
+import { addPlatformCard, addRestaurantCardAsAdmin, poolOverview, setManualPaymentCheck, renamePlatformCard, setCollectsToPlatform, setPlatformCardActive } from '../modules/payment/pool-admin.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const som = (n: number): string => n.toLocaleString('en-US').replace(/,/g, ' ');
@@ -96,8 +96,28 @@ export function registerPoolAdminHandlers<C extends Context>(bot: Telegraf<C>): 
     const r = await setCollectsToPlatform({ adminId, slug: m[1]!.toLowerCase(), on });
     if (r.result === 'NOT_FOUND') await ctx.reply('Bunday restoran topilmadi.');
     else if (r.result === 'NO_POOL_CARD') await ctx.reply('Faol, tasdiqlangan platforma kartasi yo‘q. Avval /platformcard bilan qo‘shing va tasdiqlang.');
+    else if (r.result === 'MANUAL_MODE') await ctx.reply(`⛔ ${r.name}: pulni restoranning o‘zi tekshiradi (/manualpay). Avval /manualpay ${m[1]!.toLowerCase()} off.`);
     else if (r.result === 'OPEN_PAYMENTS') await ctx.reply(`⛔ ${r.name}: hozir to‘lanmagan ${r.count} ta karta to‘lovi bor. Ular tugagach (taxminan 10 daqiqa) qayta urining.`);
     else if (r.result === 'UNCHANGED') await ctx.reply(`${r.name}: o‘zgarmadi (allaqachon shunday).`);
     else await ctx.reply(on ? `✅ ${r.name}: endi pul platforma kartalariga tushadi.` : `✅ ${r.name}: endi pul restoranning o‘z kartalariga tushadi.`);
+  });
+
+  // "Shirin" mode: the restaurant checks by itself that the customer's transfer arrived (no bank signal, no payment window for the customer).
+  bot.command('manualpay', async ctx => {
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    const m = argsOf(ctx).match(/^([a-z0-9][a-z0-9-]{1,60})\s+(on|off)$/i);
+    if (!m) { await ctx.reply('Format: /manualpay restoran-kodi on|off'); return; }
+    const slug = m[1]!.toLowerCase();
+    const on = m[2]!.toLowerCase() === 'on';
+    const r = await setManualPaymentCheck({ adminId, slug, on });
+    if (r.result === 'NOT_FOUND') await ctx.reply('Bunday restoran topilmadi.');
+    else if (r.result === 'PLATFORM_CARDS') await ctx.reply(`⛔ ${r.name}: hozir pul platforma kartalariga tushadi. Avval /collect ${slug} off.`);
+    else if (r.result === 'NO_OWN_CARD') await ctx.reply(`⛔ ${r.name}: faol, tasdiqlangan o‘z kartasi yo‘q. Avval /restocard ${slug} 8600XXXXXXXXXXXX ISM F. bilan qo‘shing va tasdiqlang.`);
+    else if (r.result === 'OPEN_PAYMENTS') await ctx.reply(`⛔ ${r.name}: hozir to‘lanmagan ${r.count} ta karta to‘lovi bor. Ular tugagach (taxminan 10 daqiqa) qayta urining.`);
+    else if (r.result === 'UNCHANGED') await ctx.reply(`${r.name}: o‘zgarmadi (allaqachon shunday).`);
+    else await ctx.reply(on
+      ? `✅ ${r.name}: endi mijoz restoran kartasini vaqtsiz ko‘radi, buyurtma restoranga darhol tushadi va pulni restoranning o‘zi tasdiqlaydi.`
+      : `✅ ${r.name}: odatdagi rejim (bank xabari bo‘yicha tekshiruv). Tasdiq kutayotgan buyurtmalar o‘z yo‘lida tugaydi.`);
   });
 }

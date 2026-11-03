@@ -39,6 +39,7 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/pool — platforma kartalari (guruh) va aylanma',
       '/platformcard — platforma kartasini qo‘shish',
       '/restocard — restoranga karta qo‘shish (restoranlar o‘zi qo‘sha olmasa)',
+      '/manualpay — restoran pulni o‘zi tasdiqlaydi (Shirin rejimi): /manualpay kod on|off',
       '/cardname — platforma kartasi egasining ko‘rinadigan nomini o‘zgartirish',
       '/cardoff, /cardon — platforma kartasini o‘chirish / qayta yoqish',
       '/collect — restoran pulini platforma kartalariga o‘tkazish / qaytarish',
