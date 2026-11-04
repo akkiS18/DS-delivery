@@ -569,6 +569,10 @@ export class PaymentEngineV3 {
     const { messageDate, ...rest } = incoming;
     return this.ingest({ ...rest, emailReceivedAt: messageDate, sourceId: `humo:${messageKey}`, source: 'HUMO_TG' });
   }
+  /** Is this card (last 4 digits) registered in the system at all? The Humo reader uses it to ignore money that arrives on somebody else's card. */
+  async isRegisteredCard(last4: string): Promise<boolean> {
+    return (await this.db.card.count({ where: { last4 } })) > 0;
+  }
   async seenHumo(messageKeys: string[]): Promise<Set<string>> {
     const rows = await this.db.incomingTransaction.findMany({ where: { sourceId: { in: messageKeys.map(k => `humo:${k}`) } }, select: { sourceId: true } });
     return new Set(rows.map(r => r.sourceId.slice('humo:'.length)));

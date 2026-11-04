@@ -124,8 +124,10 @@ test('doubtful money goes to review, never to an order: wrong amount, unknown ca
   assert.equal(wrong?.result.reason, 'AMOUNT_ABOVE_EXPECTED');
   assert.equal((await order(id)).status, 'PAYMENT_PENDING');
 
+  // A card that is not registered (e.g. the partner's own card in the same Humo chat) is ignored without a trace: no review row, so no admin alert.
   const unknown = await ingestHumoMessage(engine, BOT, message({ text: credit(pay.amountTiyin, '0000') }));
-  assert.equal(unknown?.result.reason, 'UNKNOWN_CARD');
+  assert.equal(unknown, null);
+  assert.equal(await db.incomingTransaction.count({ where: { cardLast4: '0000' } }), 0, 'nothing stored for an unregistered card');
   const onTestCard = await ingestHumoMessage(engine, BOT, message({ text: credit(pay.amountTiyin, testCardLast4) }));
   assert.equal(onTestCard?.result.reason, 'GMAIL_FOR_MOCK_CARD', 'a real bank signal never pays a mock card');
   await db.incomingTransaction.deleteMany({ where: { cardLast4: '0000' } });

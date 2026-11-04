@@ -101,11 +101,22 @@ test('several Telegram accounts: message ids only count per account, so the stor
   assert.deepEqual(humoSlots({ HUMO_TG_API_ID_2: '123', HUMO_TG_API_ID_4: ' 9 ', HUMO_TG_API_ID_3: '  ' }), ['', '2', '4']);
 
   const keys: string[] = [];
-  const engine = { ingestHumo: async (key: string) => { keys.push(key); return { status: 'MATCHED_UNVERIFIED' }; } } as unknown as PaymentEngineV3;
+  const engine = { isRegisteredCard: async () => true, ingestHumo: async (key: string) => { keys.push(key); return { status: 'MATCHED_UNVERIFIED' }; } } as unknown as PaymentEngineV3;
   const now = Date.now();
   const text = sampleHumoMessage('6062', 5_000_00n, new Date(now - 60_000));
   const msg: TgMessage = { id: 41, date: Math.floor(now / 1000), message: text, senderId: { toString: () => 'BOT' } };
   await ingestHumoMessage(engine, 'BOT', msg, now, 1_800_000);
   await ingestHumoMessage(engine, 'BOT', msg, now, 1_800_000, '2');
   assert.deepEqual(keys, ['BOT:41', 'BOT:2:41']);
+});
+
+test('money on a card that is not registered in the system (a partner\'s own card in the same chat) is ignored: the engine is never called', async () => {
+  const keys: string[] = [];
+  const engine = { isRegisteredCard: async (last4: string) => last4 === '6062', ingestHumo: async (key: string) => { keys.push(key); return { status: 'MATCHED_UNVERIFIED' }; } } as unknown as PaymentEngineV3;
+  const now = Date.now();
+  const msgFor = (id: number, card: string): TgMessage => ({ id, date: Math.floor(now / 1000), message: sampleHumoMessage(card, 45_000_00n, new Date(now - 60_000)), senderId: { toString: () => 'BOT' } });
+  assert.equal(await ingestHumoMessage(engine, 'BOT', msgFor(1, '7286'), now, 1_800_000), null);
+  assert.deepEqual(keys, []);
+  assert.ok(await ingestHumoMessage(engine, 'BOT', msgFor(2, '6062'), now, 1_800_000));
+  assert.deepEqual(keys, ['BOT:2']);
 });

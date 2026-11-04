@@ -103,6 +103,9 @@ export async function ingestHumoMessage(
   if (!Number.isFinite(messageMs) || nowMs - messageMs > lookbackMs) return null;
   const parsed = parseHumoMessage(message.message ?? '');
   if (!parsed) return null;
+  // Owner decision 2026-11-04: the Humo chat of a partner's account also shows that person's own cards. Money on a card that is not registered in the
+  // system is none of our business: dropped silently (nothing stored, no review row, no admin alert), like any non-credit message.
+  if (!(await engine.isRegisteredCard(parsed.cardLast4))) return null;
   const result = await engine.ingestHumo(humoMessageKey(botId, slot, message.id), {
     cardLast4: parsed.cardLast4, amountTiyin: parsed.amountTiyin, occurredAt: parsed.occurredAt, minutePrecision: true,
     messageDate: new Date(messageMs), trustedSender: true,
