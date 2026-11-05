@@ -91,6 +91,7 @@ export interface ReservationBody {
 export const api = {
   config: (signal?: AbortSignal) => request<AppConfig>('/config', { signal }),
   me: (signal?: AbortSignal) => request<Profile>('/me', { signal }),
+  deleteAccount: () => request<{ deleted: true; result: 'DELETED' | 'ALREADY_DELETED' } | undefined>('/me', { method: 'DELETE' }),
   setPhone: (phone: string) => request<{ phone: string }>('/me/phone', { method: 'PUT', body: { phone } }),
   addAddress: (a: { label: string; addressText: string; lat?: number; lng?: number; makeDefault?: boolean }) => request<Address>('/me/addresses', { method: 'POST', body: a }),
   updateAddress: (id: string, a: { label: string; addressText: string; lat?: number; lng?: number }) => request<Address>(`/me/addresses/${id}`, { method: 'PUT', body: a }),

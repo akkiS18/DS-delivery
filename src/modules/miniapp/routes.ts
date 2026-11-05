@@ -21,6 +21,7 @@ import { publicBanners, readBannerImage } from '../promotions/service.js';
 import { readCategoryImage, readProductImage } from '../restaurant-catalog/images.js';
 import { ReservationError, customerReservationView, listCustomerReservations, loadCustomerReservation, placeReservation, reservationSchema } from '../reservations/service.js';
 import { initDataFromHeader, verifyInitData, type InitDataUser } from './auth.js';
+import { AccountDeletionError, deleteCustomerAccount } from './account-deletion.js';
 import { createGuest, guestAuthEnabled, guestTokenFromHeader, installationIdSchemaRe, resolveGuestSession, revokeSession } from './guest.js';
 import { cancelLink, completeLink, createLinkAttempt, LinkError, linkStatus } from './telegram-link.js';
 import {
@@ -192,6 +193,21 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     strict(request, 'profile', 30);
     await deleteAddress(await customerId(request), idParam.parse(request.params.id));
     return reply.code(204).send();
+  });
+
+  // Account deletion (Google Play policy): erases the person's data, keeps accounting rows (account-deletion.ts). 409 while an order / booking / refund is still open.
+  app.delete('/me', async (request, reply) => {
+    strict(request, 'account-delete', 3, 3_600_000);
+    const p = request.principal!;
+    const id = p.kind === 'guest' ? p.customerId : (await db.customer.findUnique({ where: { telegramUserId: p.user.id }, select: { id: true } }))?.id;
+    if (!id) return reply.code(204).send(); // a Telegram user with no row has nothing stored
+    try {
+      const done = await deleteCustomerAccount(id, `customer:${id}`);
+      return reply.send({ deleted: true, result: done.result });
+    } catch (err) {
+      if (err instanceof AccountDeletionError) throw httpError(err.statusCode, err.code);
+      throw err;
+    }
   });
 
   // ------------------------------------------------------------------ optional Telegram link (guest sessions only)

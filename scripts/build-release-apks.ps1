@@ -5,7 +5,7 @@ prompt and lives only in this process's environment while Gradle runs.
   powershell -ExecutionPolicy Bypass -File scripts\build-release-apks.ps1 -ApiUrl https://api.example.uz -VersionCode 1 -VersionName 1.0.0
 
 Output: <OutDir>\ds-customer-release-<versionName>.apk, ds-restaurant-release-<versionName>.apk, ds-taxi-release-<versionName>.apk and
-ds-admin-release-<versionName>.apk with SHA-256 files. Add -OnlyAdmin to build just the DS Admin app, or -OnlyRestaurant for just the restaurant app (neither needs Node / the customer web build).
+ds-admin-release-<versionName>.apk with SHA-256 files. Add -CustomerAab to build ONLY the customer app as a Google Play bundle (.aab, signed with the upload key; the other apps are skipped). Add -OnlyAdmin to build just the DS Admin app, or -OnlyRestaurant for just the restaurant app (neither needs Node / the customer web build).
 Needs Node (customer web build), the Android SDK and a JDK (Android Studio's is found automatically). The keystore comes from
 scripts\create-release-keystore.ps1. It does not install anything on a phone and never uses the debug key.
 #>
@@ -17,6 +17,7 @@ param(
   [string]$Alias = 'ds-release',
   [string]$OutDir = (Join-Path $env:USERPROFILE 'Documents\DS-backups\apk'),
   [switch]$OnlyAdmin,
+  [switch]$CustomerAab,
   [switch]$OnlyRestaurant
 )
 $ErrorActionPreference = 'Stop'
@@ -40,6 +41,23 @@ $env:DS_API_BASE_URL = $ApiUrl
 $gradle = Join-Path $root 'apps\customer-miniapp\android\gradlew.bat'
 try {
   New-Item -ItemType Directory -Force $OutDir | Out-Null
+
+  if ($CustomerAab) {
+    Write-Host '== customer: web build (release mode) + Capacitor sync'
+    Push-Location (Join-Path $root 'apps\customer-miniapp')
+    try { npm run android:sync:release; if ($LASTEXITCODE -ne 0) { throw 'customer web build failed' } } finally { Pop-Location }
+    Write-Host '== customer: signed release bundle (.aab) for Google Play'
+    & $gradle -p (Join-Path $root 'apps\customer-miniapp\android') :app:bundleRelease "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
+    if ($LASTEXITCODE -ne 0) { throw 'customer bundle build failed' }
+    $aab = Join-Path $root 'apps\customer-miniapp\android\app\build\outputs\bundle\release\app-release.aab'
+    if (-not (Test-Path $aab)) { throw "Expected output missing (unsigned build?): $aab" }
+    $dest = Join-Path $OutDir "ds-customer-release-$VersionName.aab"
+    Copy-Item $aab $dest -Force
+    $h = (Get-FileHash $dest -Algorithm SHA256).Hash
+    "$h  ds-customer-release-$VersionName.aab" | Set-Content -Encoding ascii "$dest.sha256"
+    Write-Host "OK  $dest`n    SHA-256 $h"
+    return
+  }
 
   if (-not $OnlyAdmin -and -not $OnlyRestaurant) {
     Write-Host '== customer: web build (release mode) + Capacitor sync'

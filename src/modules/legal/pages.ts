@@ -6,7 +6,7 @@
  */
 import { receiptRetentionDays } from '../refunds/retention-config.js';
 
-export type LegalKind = 'privacy' | 'terms';
+export type LegalKind = 'privacy' | 'terms' | 'delete-account';
 
 export const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -36,35 +36,65 @@ export function renderLegalPage(kind: LegalKind, cfg: LegalConfig): string {
   const op = escapeHtml(cfg.operator);
   const contact = escapeHtml(cfg.contact);
   const hours = cfg.supportHours ? `<p>Yordam xizmati ish vaqti: ${escapeHtml(cfg.supportHours)}.</p>` : '';
+  if (kind === 'delete-account') {
+    return page('Hisobni o‘chirish', `
+<h1>DS Delivery: hisobni o‘chirish</h1>
+<p class="small">Mas’ul tomon: ${op}. Aloqa: ${contact}.</p>
+<h2>Ilova ichida</h2>
+<p><b>Profil → Hisobni o‘chirish</b> tugmasini bosing va tasdiqlang. Hisob darhol o‘chiriladi.</p>
+<h2>Ilovasiz (o‘rnatilmagan yoki telefon yo‘qolgan bo‘lsa)</h2>
+<p>${contact} manziliga “DS Delivery hisobini o‘chiring” deb yozing va hisobingizdagi <b>telefon raqamini</b> (yoki Telegram foydalanuvchi nomingizni) ko‘rsating. Shaxsingizni tasdiqlash uchun sizdan qo‘shimcha ma’lumot so‘rashimiz mumkin. So‘rov 30 kun ichida bajariladi.</p>
+<h2>Nima o‘chiriladi</h2>
+<ul>
+<li>Ismingiz, telefon raqamingiz, Telegram identifikatoringiz.</li>
+<li>Saqlangan manzillaringiz va xarita nuqtalari.</li>
+<li>Qurilma/seans identifikatorlari (ilovadagi kirish bekor qilinadi).</li>
+<li>Buyurtmalardagi telefon raqami, manzil va koordinatalar; joy band qilishdagi ism, telefon va izoh.</li>
+<li>Baho izohlari va yordam yozishmalaridagi matnlaringiz.</li>
+</ul>
+<h2>Nima saqlanadi</h2>
+<ul>
+<li>Buyurtma, to‘lov va pulni qaytarish yozuvlari (summa, vaqt, holat) — hisob-kitob va nizolarni hal qilish uchun. Ular endi sizning ismingiz, telefoningiz yoki manzilingizga bog‘lanmaydi.</li>
+<li>Bloklangan yoki firibgarlik belgisi bor hisoblarda Telegram identifikatori saqlanadi, aks holda o‘chirib qayta kirish orqali blokdan qutulish mumkin bo‘lardi.</li>
+</ul>
+<h2>Qachon o‘chirib bo‘lmaydi</h2>
+<p>Tugallanmagan buyurtmangiz, to‘lanmagan yoki kelgusi joy bron qilishingiz yoki ochiq pul qaytarish so‘rovingiz bo‘lsa, avval ularni yakunlang yoki bekor qiling, so‘ng o‘chiring.</p>
+${hours}`);
+  }
   if (kind === 'privacy') {
     return page('Maxfiylik siyosati', `
 <h1>Maxfiylik siyosati</h1>
-<p class="small">DS Delivery — sinov (pilot) bosqichi. Mas’ul tomon: ${op}. Aloqa: ${contact}.</p>
+<p class="small">DS Delivery (Android ilovasi va Telegram Mini App). Mas’ul tomon: ${op}. Aloqa: ${contact}.</p>
 <h2>Qanday ma’lumotlar yig‘iladi</h2>
 <ul>
-<li>Telefon raqamingiz va yetkazish manzili (xohlasangiz xarita koordinatalari) — buyurtmani bajarish uchun.</li>
+<li>Telefon raqamingiz va yetkazish manzili — buyurtmani bajarish uchun.</li>
+<li>Joylashuv (aniq yoki taxminiy): <b>faqat</b> buyurtma paytida “mening joylashuvim” tugmasini bossangiz so‘raladi va ruxsat bergan bo‘lsangiz olinadi. Ilova fonda joylashuvni kuzatmaydi. Ruxsat bermasangiz, manzilni yozib kiritasiz.</li>
 <li>Ismingiz va Telegram identifikatoringiz — faqat Telegram orqali kirsangiz yoki ilovani Telegramga bog‘lasangiz.</li>
-<li>Ilova o‘rnatilganda yaratiladigan tasodifiy qurilma/seans identifikatori — Telegramsiz buyurtma berish uchun.</li>
+<li>Ilova o‘rnatilganda yaratiladigan tasodifiy qurilma/seans identifikatori (reklama identifikatori emas) — Telegramsiz buyurtma berish va firibgarlikdan himoya qilish uchun.</li>
 <li>Buyurtma tarixi: mahsulotlar, summa, holatlar, vaqtlar; to‘lov va qaytarish yozuvlari (summa, vaqt, restoran kartasining oxirgi 4 raqami). Sizning karta ma’lumotlaringiz saqlanmaydi.</li>
 <li>Yordam so‘rovlaringiz va yozishmalar.</li>
 <li>Texnik jurnallar (IP manzil, so‘rov vaqti) — xavfsizlik va xatolarni topish uchun.</li>
 </ul>
 <h2>Nima uchun ishlatiladi</h2>
-<p>Buyurtmani qabul qilish, to‘lovni tekshirish, taom tayyorlash, taksi orqali yetkazish, pulni qaytarish va yordam ko‘rsatish hamda firibgarlikdan himoya qilish uchun. Ma’lumotlar sotilmaydi va reklama uchun ishlatilmaydi.</p>
+<p>Buyurtmani qabul qilish, to‘lovni tekshirish, taom tayyorlash, taksi orqali yetkazish, pulni qaytarish va yordam ko‘rsatish hamda firibgarlikdan himoya qilish uchun. Ma’lumotlar sotilmaydi, reklama yoki kuzatuv (analitika) uchun ishlatilmaydi va reklama tarmoqlariga berilmaydi. Ma’lumotlar internet orqali faqat shifrlangan (HTTPS) ulanishda uzatiladi.</p>
 <h2>Kimlarga beriladi</h2>
 <ul>
-<li>Buyurtma berilgan restoranga: buyurtma tarkibi, telefon raqami va manzil.</li>
-<li>Yetkazishni bajaruvchi taksi operatoriga: olib ketish va yetkazish manzili, telefon raqami.</li>
+<li>Buyurtma berilgan restoranga: buyurtma tarkibi, telefon raqami va manzil (restoran o‘zi yetkazadigan buyurtmada xarita nuqtasi ham).</li>
+<li>Yetkazishni bajaruvchi taksi operatoriga: olib ketish va yetkazish manzili, telefon raqami (va xarita nuqtasi, agar ko‘rsatgan bo‘lsangiz).</li>
 <li>Telegram: bildirishnomalar yuborilganda (agar Telegramdan foydalansangiz).</li>
 </ul>
 <p>Qonun talab qilgan hollar bundan mustasno.</p>
 <h2>Qancha vaqt saqlanadi</h2>
 <ul>
-<li>Buyurtma va to‘lov yozuvlari hisob-kitob va nizolarni hal qilish uchun saqlanadi.</li>
+<li>Buyurtma va to‘lov yozuvlari hisob-kitob va nizolarni hal qilish uchun saqlanadi. Hisobingizni o‘chirsangiz, ular ismingiz, telefoningiz va manzilingizga bog‘lanmaydigan qilib saqlanadi.</li>
+<li>Telefon, manzillar va qurilma identifikatori hisobingiz o‘chirilguncha saqlanadi.</li>
 <li>Pulni qaytarish cheki rasmlari ${cfg.receiptDays} kundan keyin o‘chiriladi.</li>
 </ul>
-<h2>Huquqlaringiz</h2>
-<p>Ma’lumotlaringiz haqida so‘rash, tuzatish yoki o‘chirishni talab qilish uchun ${contact} ga murojaat qiling. Hisob-kitob uchun qonun bo‘yicha saqlanishi shart yozuvlar o‘chirilmasligi mumkin.</p>
+<h2>Huquqlaringiz va hisobni o‘chirish</h2>
+<p>Ma’lumotlaringiz haqida so‘rash yoki tuzatishni talab qilish uchun ${contact} ga murojaat qiling.</p>
+<p><b>Hisobni o‘chirish:</b> ilovada <b>Profil → Hisobni o‘chirish</b>. Ilovani o‘rnatmagan bo‘lsangiz ham o‘chirishni so‘rashingiz mumkin: <a href="/legal/delete-account">/legal/delete-account</a>. Nimalar o‘chirilishi va nimalar saqlanishi o‘sha sahifada yozilgan.</p>
+<h2>Bolalar</h2>
+<p>Ilova 18 yoshga to‘lmaganlar uchun mo‘ljallanmagan va ularning ma’lumotlarini ongli ravishda yig‘maydi.</p>
 ${hours}`);
   }
   return page('Foydalanish shartlari', `

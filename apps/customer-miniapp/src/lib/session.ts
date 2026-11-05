@@ -71,3 +71,9 @@ export async function dropGuestToken(bad: string): Promise<void> {
   const stored = (await SecureStore.get({ key: TOKEN_KEY })).value;
   if (stored === bad) await SecureStore.remove({ key: TOKEN_KEY });
 }
+
+/** The account was deleted: forget the credential so the next call starts a brand-new guest. */
+export async function forgetGuestToken(): Promise<void> {
+  cached = null;
+  await SecureStore.remove({ key: TOKEN_KEY });
+}

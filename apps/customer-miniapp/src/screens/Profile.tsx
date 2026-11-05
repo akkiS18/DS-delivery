@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { Button, Empty, Icon, Sheet, Spinner } from '../components/ui';
 import { api, ApiError } from '../lib/api';
+import { deletionErrorText } from '../lib/accountDeletion';
+import { forgetGuestToken } from '../lib/session';
 import { apiOrigin, isAndroidApp } from '../lib/platform';
 import { confirmDialog, openExternal } from '../lib/telegram';
 import type { Address } from '../lib/types';
@@ -17,7 +19,7 @@ function legalOrigin(): string {
 }
 
 export function Profile() {
-  const { profile, refreshProfile, toast } = useApp();
+  const { profile, refreshProfile, toast, dispatch } = useApp();
   const [phone, setPhone] = useState('');
   const [editPhone, setEditPhone] = useState(false);
   const [form, setForm] = useState<{ id: string | null; label: string; addressText: string } | null>(null);
@@ -32,6 +34,20 @@ export function Profile() {
     setBusy(true);
     try { await fn(); await refreshProfile(); toast(ok); return true; }
     catch (e) { toast(e instanceof ApiError && e.code === 'MANZIL_LIMIT' ? t('Manzillar soni chegaraga yetdi') : t('Saqlab bo‘lmadi')); return false; }
+    finally { setBusy(false); }
+  };
+
+  const deleteAccount = async () => {
+    if (busy) return;
+    if (!(await confirmDialog(t('Hisobingiz o‘chiriladi: ism, telefon, manzillar va yozishmalar tozalanadi. Buni qaytarib bo‘lmaydi. Davom etasizmi?')))) return;
+    setBusy(true);
+    try {
+      await api.deleteAccount();
+      if (isAndroidApp) await forgetGuestToken();
+      dispatch({ type: 'clear' });
+      await refreshProfile();
+      toast(t('Hisobingiz o‘chirildi'));
+    } catch (e) { toast(t(deletionErrorText(e))); }
     finally { setBusy(false); }
   };
 
@@ -89,6 +105,13 @@ export function Profile() {
       <section className="row" style={{ flexWrap: 'wrap' }} aria-label={t('Hujjatlar')}>
         <Button small variant="ghost" onClick={() => void openExternal(`${legalOrigin()}/legal/privacy`)}>{t('Maxfiylik siyosati')}</Button>
         <Button small variant="ghost" onClick={() => void openExternal(`${legalOrigin()}/legal/terms`)}>{t('Foydalanish shartlari')}</Button>
+      </section>
+
+      <section className="card stack" aria-label={t('Hisobni o‘chirish')}>
+        <h2 style={{ fontSize: 17 }}>{t('Hisobni o‘chirish')}</h2>
+        <p className="sub small">{t('Ism, telefon, manzillar va yozishmalaringiz o‘chiriladi. Buyurtmalar tarixi shaxsingizsiz hisob-kitob uchun saqlanadi.')}</p>
+        <Button small variant="secondary" disabled={busy} onClick={() => void deleteAccount()}>{t('Hisobni o‘chirish')}</Button>
+        <Button small variant="ghost" onClick={() => void openExternal(`${legalOrigin()}/legal/delete-account`)}>{t('Batafsil')}</Button>
       </section>
 
       {form && (

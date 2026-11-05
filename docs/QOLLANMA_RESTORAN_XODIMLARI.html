@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DS Delivery — Restoran xodimlari uchun qo'llanma</title>
+<style>
+  :root { --g:#0f7a4d; --gl:#e6f4ec; --r:#b3261e; --rl:#fdeceb; --y:#8a5a00; --yl:#fff4d6; --t:#1b1f1d; --m:#5b645f; --b:#d9dedb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--t); background:#f6f8f7; }
+  header { background:var(--g); color:#fff; padding:18px 16px 14px; position:sticky; top:0; z-index:5; box-shadow:0 2px 6px rgba(0,0,0,.15); }
+  header h1 { margin:0 0 8px; font-size:1.15rem; }
+  header input { width:100%; padding:11px 13px; font-size:1rem; border:0; border-radius:10px; }
+  main { max-width:760px; margin:0 auto; padding:14px 14px 60px; }
+  h2 { font-size:1.2rem; margin:26px 0 8px; color:var(--g); }
+  .card { background:#fff; border:1px solid var(--b); border-radius:14px; padding:14px 16px; margin:10px 0; }
+  .quick { background:var(--gl); border-color:#b9dcc9; }
+  .quick ol { margin:6px 0 0 0; padding-left:22px; }
+  .quick li { margin:5px 0; }
+  details { background:#fff; border:1px solid var(--b); border-radius:12px; margin:8px 0; }
+  summary { cursor:pointer; padding:13px 15px; font-weight:600; list-style:none; }
+  summary::-webkit-details-marker { display:none; }
+  summary::before { content:"＋ "; color:var(--g); }
+  details[open] > summary::before { content:"－ "; }
+  details > div { padding:0 16px 14px; }
+  .btn { display:inline-block; background:var(--g); color:#fff; border-radius:8px; padding:1px 9px; font-weight:600; font-size:.92em; white-space:nowrap; }
+  .btn.red { background:var(--r); }
+  .warn { background:var(--yl); border-left:5px solid #e0a100; padding:10px 12px; border-radius:8px; margin:10px 0; }
+  .stop { background:var(--rl); border-left:5px solid var(--r); padding:10px 12px; border-radius:8px; margin:10px 0; }
+  .ok { background:var(--gl); border-left:5px solid var(--g); padding:10px 12px; border-radius:8px; margin:10px 0; }
+  table { width:100%; border-collapse:collapse; font-size:.95rem; background:#fff; }
+  th, td { border:1px solid var(--b); padding:8px 9px; text-align:left; vertical-align:top; }
+  th { background:#eef2f0; }
+  .ph { background:#fff3a8; padding:0 5px; border-radius:4px; font-weight:600; }
+  .small { color:var(--m); font-size:.88rem; }
+  ul, ol { padding-left:22px; }
+  li { margin:4px 0; }
+  .hide { display:none !important; }
+  .none { display:none; text-align:center; color:var(--m); padding:24px; }
+  footer { color:var(--m); font-size:.85rem; text-align:center; padding:20px 14px; }
+  @media print {
+    header { position:static; background:none; color:#000; box-shadow:none; }
+    header input { display:none; }
+    details { break-inside:avoid; }
+    details > div { display:block !important; }
+    summary::before { content:""; }
+    body { background:#fff; font-size:13px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DS Delivery — restoran xodimlari uchun qo'llanma</h1>
+  <input id="q" type="search" placeholder="Qidirish: masalan, «naqd», «qo'ng'iroq», «narx»…" autocomplete="off">
+</header>
+
+<main>
+
+<div id="none" class="none">Hech narsa topilmadi. Boshqa so'z bilan urinib ko'ring yoki administratorga qo'ng'iroq qiling.</div>
+
+<section data-sec>
+  <h2>1. Shpargalka — bir qarashda</h2>
+  <div class="card quick" data-s>
+    <b>Yangi buyurtma kelganda:</b>
+    <ol>
+      <li>Telefon qo'ng'iroq qiladi. <b>Buyurtmalar → Yangi</b> bo'limini oching va buyurtmani bosing.</li>
+      <li>Hammasi joyidami (taom bor, narx to'g'ri) — <span class="btn">Qabul qildim</span> bosing. Qo'ng'iroq to'xtaydi.</li>
+      <li>Taomni tayyorlang.</li>
+      <li>Tayyor bo'lgach <span class="btn">Buyurtma tayyor</span> bosing. Taksi operatoriga o'zi xabar ketadi.</li>
+      <li>Haydovchi olib ketadi. Taksini siz chaqirmaysiz.</li>
+    </ol>
+    <p><b>Taom yo'q yoki narx o'zgargan bo'lsa:</b> <span class="btn red">Rad etish</span> bosing va sababini tanlang.</p>
+  </div>
+  <div class="card" data-s>
+    <b>Eng muhim 5 qoida</b>
+    <ol>
+      <li><b>Ish vaqtida</b> telefon zaryadda, interneti yoqilgan, ilova ochiq bo'lsin va <b>Navbatchilik</b> yoqilgan bo'lsin.</li>
+      <li>Yangi buyurtmaga <b>darhol javob bering</b> — mijoz kutib turibdi.</li>
+      <li><span class="btn">Qabul qildim</span> bosilgach mijoz buyurtmani o'zi bekor qila olmaydi. Shuning uchun avval taom borligini tekshiring.</li>
+      <li>Taom tugasa — menyuda uni <b>«Sotuvda»</b> dan o'chirib qo'ying (4-bo'lim). Aks holda mijoz buyurtma beraveradi.</li>
+      <li>Tushunmasangiz yoki ilova xato bersa — <b>o'zingiz taxmin qilmang</b>, administratorga qo'ng'iroq qiling (<span class="ph">ADMIN TELEFONI</span>).</li>
+    </ol>
+  </div>
+</section>
+
+<section data-sec>
+  <h2>2. Ilovaga kirish</h2>
+  <details data-s open>
+    <summary>Kirish va chiqish</summary>
+    <div>
+      <ul>
+        <li>Ilovani oching. <b>Restoran kodi</b> va <b>Parol</b> yozing. Ularni administrator bergan.</li>
+        <li>Kodni va parolni begonaga bermang.</li>
+        <li>Chiqish: <b>Sozlamalar → Chiqish</b>. Qayta kirish uchun parol kerak bo'ladi — parolni unutgan bo'lsangiz, chiqmang!</li>
+        <li>Ish tugagach chiqish shart emas. Faqat <b>Navbatchilik</b>ni o'chirib qo'ying (5-bo'lim).</li>
+      </ul>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Pastdagi to'rtta bo'lim nima uchun?</summary>
+    <div>
+      <table>
+        <tr><th>Bo'lim</th><th>Nima uchun</th></tr>
+        <tr><td><b>Buyurtmalar</b></td><td>Yangi buyurtmalar, tayyorlanayotgan, tayyor, tarix</td></tr>
+        <tr><td><b>Bronlar</b></td><td>Mijozlar joy band qilgan bo'lsa shu yerda ko'rinadi</td></tr>
+        <tr><td><b>Menyu</b></td><td>Taomlar: qo'shish, narx, rasm, vaqtincha to'xtatish</td></tr>
+        <tr><td><b>Sozlamalar</b></td><td>Buyurtma qabuli, navbatchilik, ish vaqti, kartalar, baholar</td></tr>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section data-sec>
+  <h2>3. Buyurtma qadam-baqadam</h2>
+  <details data-s open>
+    <summary>Yangi buyurtma: qabul qilish</summary>
+    <div>
+      <ol>
+        <li><b>Buyurtmalar → Yangi</b>. Yangi buyurtmani bosing.</li>
+        <li>Nima buyurtma qilingani va nechta ekanini tekshiring.</li>
+        <li>Hammasi joyida bo'lsa <span class="btn">Qabul qildim</span> bosing. Qo'ng'iroq to'xtaydi, buyurtma <b>Tayyorlanmoqda</b> ga o'tadi.</li>
+        <li>Muammo bo'lsa <span class="btn red">Rad etish</span> — sababini tanlang: <i>Mahsulot tugagan</i>, <i>Narx o'zgargan</i>, <i>Restoran yopiq</i>, <i>Boshqa sabab</i>.</li>
+      </ol>
+      <div class="warn">Ilova «Qabul qilasizmi?» deb so'rasa — javob bering. Javob bermasangiz buyurtma osilib qoladi va mijoz ham, administrator ham kutadi.</div>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Tayyor bo'lganda</summary>
+    <div>
+      <ol>
+        <li>Buyurtmani oching va <span class="btn">Buyurtma tayyor</span> bosing.</li>
+        <li>Taksi operatoriga o'zi xabar boradi. <b>Taksini siz chaqirmaysiz.</b></li>
+        <li>Buyurtma ekranida «Taksi holati» chiqadi: <i>Taksi so'raldi → Operator qabul qildi → Taksi yuborildi → Yetkazish tugallandi</i>.</li>
+      </ol>
+      <p class="small">Juda erta bosmang: «Tayyor» bosilganda haydovchi yo'lga chiqadi. Taom hali tayyor bo'lmasa, haydovchi kutib qoladi.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>«O'zimiz yetkazamiz» yoki «Taksi chaqirish» (faqat ba'zi restoranlarda)</summary>
+    <div>
+      <p>Mijoz uyi yaqin bo'lsa va «piyoda olib borsangiz ham bo'ladi» deb belgilagan bo'lsa, «Tayyor» bosganda ilova so'raydi: <i>Kim yetkazadi?</i></p>
+      <ul>
+        <li><span class="btn">Taksi chaqirish</span> — oddiy yo'l, taksi keladi.</li>
+        <li><span class="btn">O'zimiz yetkazamiz</span> — taksi chaqirilmaydi. O'zingiz olib borasiz va yetkazgach buyurtmada <span class="btn">Yetkazildi</span> bosasiz. <b>Bu qaytarilmaydi</b>, shuning uchun mijozga yetkazib bo'lgach bosing.</li>
+      </ul>
+      <p class="small">Mijoz telefon raqami va xarita nuqtasi faqat shu holatda ko'rinadi («Xaritada ochish»).</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Naqd to'lovli buyurtma</summary>
+    <div>
+      <p>Buyurtmada «Naqd to'lov» yozuvi bo'ladi. Pulni kim berishi shu yerda yozilgan:</p>
+      <ul>
+        <li><b>«Taksi haydovchisi restoranga … so'm to'laydi»</b> — haydovchi olib ketayotganda sizga pul beradi, mijozdan o'zi oladi. Haydovchidan pulni sanab oling.</li>
+        <li><b>«Yetkazganingizda mijozdan … so'm oling»</b> — o'zingiz yetkazganda mijozdan naqd oling.</li>
+      </ul>
+      <div class="warn">Naqd buyurtmani <b>15 daqiqa ichida</b> qabul qilmasangiz u o'zi bekor bo'ladi. Qabul qilgach mijoz bekor qila olmaydi.</div>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Mijoz bekor qilmoqchi bo'lsa</summary>
+    <div>
+      <p>Buyurtmada «Bekor qilish so'rovi — Mijoz bekor qilmoqchi. Qaror kerak.» chiqadi. Ikki tugma:</p>
+      <ul>
+        <li><span class="btn">Bekor qilishga rozi</span> — buyurtma bekor bo'ladi. Pul kartangizga tushgan bo'lsa, uni <b>mijozga qaytarishingiz</b> kerak: bankdan qaytaring, so'ng <b>«Pul qaytarildi (chek yuklash)»</b> orqali bank chekining rasmini yuklang.</li>
+        <li><span class="btn red">Bekor qilishni rad etish</span> — buyurtma davom etadi (masalan, taom allaqachon tayyor).</li>
+      </ul>
+      <p class="small">Qaysi bo'limda bo'lmasin, tepada «N ta buyurtmaga e'tibor kerak» yozuvi chiqsa — <b>Ko'rish</b> ni bosing: u yerda javob kutayotgan buyurtmalar turadi.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Pulni o'zingiz tekshiradigan restoranlar uchun</summary>
+    <div>
+      <p>Sizning restoran shunday sozlangan bo'lsa (administrator aytgan), buyurtmada «<i>Pul kartangizga tushganini bankda tekshiring</i>» chiqadi:</p>
+      <ol>
+        <li>Bank ilovasini oching, pul tushganini ko'ring (summa to'g'ri bo'lsin).</li>
+        <li>Tushgan bo'lsa — <span class="btn">Pul tushganini tekshirdim</span>.</li>
+        <li>Tushmagan bo'lsa — <span class="btn red">Rad etish</span>.</li>
+      </ol>
+      <div class="warn">Tekshirmasdan tasdiqlamang. Tasdiqlangach buyurtma ketadi, taksi chaqiriladi — pul kelmagan bo'lsa zarar sizniki. Taxminan 30 daqiqa ichida javob bermasangiz buyurtma bekor bo'ladi.</div>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Buyurtma holatlari (Yangi, Tayyorlanmoqda, Kutilmoqda…)</summary>
+    <div>
+      <table>
+        <tr><th>Bo'lim</th><th>Ma'nosi</th></tr>
+        <tr><td>Yangi</td><td>Sizdan javob kerak: qabul qiling yoki rad eting</td></tr>
+        <tr><td>Tayyorlanmoqda</td><td>Qabul qilingan, oshxonada tayyorlanmoqda</td></tr>
+        <tr><td>Tayyor</td><td>«Tayyor» bosilgan; taksi yoki yetkazish jarayonida</td></tr>
+        <tr><td>Kutilmoqda</td><td>Hozircha sizga ish yo'q: mijoz hali to'lamagan, taksi yo'lda yoki bekor qilish so'ralgan</td></tr>
+        <tr><td>Tarix</td><td>Tugagan buyurtmalar</td></tr>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section data-sec>
+  <h2>4. Menyu va narxlar</h2>
+  <details data-s>
+    <summary>Taom tugadi — nima qilaman?</summary>
+    <div>
+      <ol>
+        <li><b>Menyu</b> bo'limiga kiring (kerak bo'lsa «Qidirish» dan foydalaning) va taomni bosing.</li>
+        <li><b>«Sotuvda»</b> tugmasini o'chiring va saqlang. Taom ostida «Vaqtincha to'xtatilgan» yozuvi chiqadi.</li>
+        <li>Taom mijozlarga ko'rinmaydi. Qaytib kelganda «Sotuvda» ni yoqib qo'yasiz.</li>
+      </ol>
+      <p class="small">Taomni <b>«Olib tashlash»</b> bilan o'chirmang — u butunlay yo'qoladi. Vaqtincha tugagan bo'lsa «Sotuvda» ni o'chirish yetarli.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Narxni o'zgartirish</summary>
+    <div>
+      <div class="warn">Narxni o'zgartirishdan oldin <b>Sozlamalar → Buyurtma qabul qilish</b> ni o'chiring (to'xtating). Aks holda ilova narxni o'zgartirishga ruxsat bermaydi: <i>«Narxni o'zgartirish uchun avval Sozlamalarda qabulni to'xtating»</i>.</div>
+      <ol>
+        <li>Sozlamalar → qabulni to'xtating.</li>
+        <li>Menyu → taomni oching → yangi narxni yozing → saqlang.</li>
+        <li>Sozlamalar → qabulni qayta yoqing.</li>
+      </ol>
+      <p class="small">Bu qoida eski narxda buyurtma kelib qolmasligi uchun.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Yangi taom qo'shish, rasm qo'yish</summary>
+    <div>
+      <ol>
+        <li>Menyu → <span class="btn">Yangi taom</span>.</li>
+        <li>Taom nomini, narxini (so'mda) yozing va toifasini tanlang.</li>
+        <li><b>Taom rasmi</b> — «Rasm tanlash»: telefondagi rasmni tanlang. Rasm ixtiyoriy, lekin rasmli taom ko'proq sotiladi.</li>
+        <li>Saqlang.</li>
+      </ol>
+      <p class="small">Yaxshi rasm: yorug'da, yaqindan, taom to'liq ko'rinib tursin.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>«Boshqa joyda o'zgartirilgan» degan xabar</summary>
+    <div>
+      <p>Bu taomni boshqa telefonda ham o'zgartirishgan. Ro'yxatni yangilang (pastga tortib qo'yib yuboring) va qayta urinib ko'ring.</p>
+    </div>
+  </details>
+</section>
+
+<section data-sec>
+  <h2>5. Telefon va qo'ng'iroq (Navbatchilik)</h2>
+  <details data-s open>
+    <summary>Ikki xil o'chirgich — farqini bilib oling!</summary>
+    <div>
+      <table>
+        <tr><th></th><th>Navbatchilik</th><th>Buyurtma qabul qilish</th></tr>
+        <tr><td><b>Qayerda</b></td><td>Sozlamalar → Yangi buyurtma signali</td><td>Sozlamalar → Butun restoran</td></tr>
+        <tr><td><b>Kimga ta'sir qiladi</b></td><td>Faqat <b>shu telefon</b> jim bo'ladi</td><td><b>Butun restoran</b>: mijozlar umuman buyurtma bera olmaydi</td></tr>
+        <tr><td><b>Qachon ishlatiladi</b></td><td>Ish tugadi, telefon jim bo'lsin</td><td>Restoran vaqtincha yopildi (masalan, taom tugadi, narx o'zgartirilyapti)</td></tr>
+      </table>
+      <div class="stop">Ish vaqtida «Buyurtma qabul qilish» ni o'chirib qo'ymang — mijozlar buyurtma bera olmaydi. Faqat o'z telefoningizni jim qilmoqchi bo'lsangiz <b>Navbatchilik</b> dan foydalaning.</div>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Qo'ng'iroq chalmayapti</summary>
+    <div>
+      <p>Quyidagilarni ketma-ket tekshiring:</p>
+      <ol>
+        <li><b>Navbatchilik</b> yoqilganmi? (Sozlamalar → «Shu telefon navbatchilikda»)</li>
+        <li>Telefon <b>jim emasmi</b>? Signal ovozi budilnik ovozidan chiqadi — telefonning <b>budilnik ovozini</b> baland qiling. Ilovada «Signal ovozi (budilnik) o'chiq» yozuvi chiqsa, shu sabab.</li>
+        <li><b>Internet</b> bormi? Tepada «Internet yo'q. Qayta urinilmoqda…» chiqsa — Wi-Fi yoki mobil internetni tekshiring.</li>
+        <li>Sozlamalar → <b>«Ovozni sinash»</b> ni bosib ko'ring.</li>
+        <li><b>«Batareya sozlamasi»</b> ni oching va ilovaga cheklovsiz ishlashga ruxsat bering (ba'zi telefonlar ilovani o'chirib qo'yadi).</li>
+        <li>Bitta telefon bo'lsa ham, ilovani <b>yopib tashlamang</b> va telefonni o'chirmang.</li>
+      </ol>
+      <p>Hammasi to'g'ri, lekin chalmasa — administratorga qo'ng'iroq qiling.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Qo'ng'iroq to'xtamayapti</summary>
+    <div>
+      <p>Yangi buyurtma ustiga bosing va <span class="btn">Qabul qildim</span> bosing yoki <b>«Ovozni o'chirish»</b> tugmasidan foydalaning. Qo'ng'iroq buyurtmaga javob berilgunicha takrorlanadi — bu ataylab shunday.</p>
+    </div>
+  </details>
+</section>
+
+<section data-sec>
+  <h2>6. Boshqa bo'limlar</h2>
+  <details data-s>
+    <summary>Ish vaqti</summary>
+    <div>
+      <p>Sozlamalar → <b>Ish vaqti</b>. Soatlarni <b>09:00</b> ko'rinishida yozing (yopilish vaqti ochilishdan keyin bo'lsin), so'ng <span class="btn">Shu soatlarni saqlash</span> bosing.</p>
+      <div class="warn">Ish vaqti saqlanmagan bo'lsa restoran <b>kechayu-kunduz ochiq</b> hisoblanadi va mijozlar istalgan soatda buyurtma beradi. Agar tunda buyurtma olmasangiz, soatlarni saqlang.</div>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Bronlar (joy band qilish)</summary>
+    <div>
+      <p>Bu bo'lim faqat restoran bron qabul qilsa ishlaydi (Sozlamalar → «Joy bron qilish» → «Bron qabul qilish»).</p>
+      <ul>
+        <li>Mijoz bron uchun oldindan summani to'laydi (summani Sozlamalarda siz belgilaysiz).</li>
+        <li><b>Kelgusi bronlar</b> — kim, qachon, necha kishi, telefon raqami.</li>
+        <li>«Tasdiq kutmoqda» holatida pul tushganini tekshirib <span class="btn">Pul tushdi — joyni band qilish</span> bosing.</li>
+        <li>Bronni bekor qilsangiz mijozga <b>qo'ng'iroq qiling va pulini qaytaring</b> — ilova telefon raqamini ko'rsatadi.</li>
+      </ul>
+    </div>
+  </details>
+  <details data-s>
+    <summary>To'lov kartalari</summary>
+    <div>
+      <p>Sozlamalar → <b>To'lov kartalari</b>: mijozlar to'laydigan karta shu yerda. «Faol karta yo'q» yozuvi chiqsa — mijozlar buyurtma bera olmaydi!</p>
+      <p>Yangi karta qo'shish yoki almashtirish uchun <b>administratorga murojaat qiling</b> (karta uni tasdiqlagach faollashadi).</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Mijozlar baholari</summary>
+    <div>
+      <p>Sozlamalar → <b>Mijozlar baholari</b>. Mijoz yetkazilgan buyurtmadan keyin 24 soat ichida taomga 1–5 yulduz qo'yadi. Past baholar va izohlar shu yerda ko'rinadi (mijozning ismi va raqami ko'rsatilmaydi). Shikoyatlarni o'qib, taomni yaxshilang.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Menejer / egasi uchun: Moliya</summary>
+    <div>
+      <p>Hisob-kitob sahifasi yashirin: <b>Sozlamalar</b> tugmasini tezda <b>3 marta</b> bosing. U yerda ko'rinadi:</p>
+      <ul>
+        <li>Platforma xizmat haqi va u uchun to'lanmagan summa;</li>
+        <li>Qaytarilgan (refund) pullar;</li>
+        <li>«Platformadan olasiz» — platforma kartasiga tushgan pul hisobidan sizga o'tkaziladigan summa (hisob: tushgan pul − xizmat haqi − qaytarilgan pul; taksi haqini mijoz alohida to'laydi; pulni administrator qo'lda o'tkazadi).</li>
+      </ul>
+      <p class="small">Raqamlarda xato ko'rsangiz, administratorga ayting.</p>
+    </div>
+  </details>
+</section>
+
+<section data-sec>
+  <h2>7. Tez-tez beriladigan savollar</h2>
+
+  <details data-s>
+    <summary>Buyurtmani qabul qildim, lekin taom yo'q ekan. Endi nima qilaman?</summary>
+    <div>
+      <p>Mijozga qo'ng'iroq qiling (telefon buyurtmada ko'rinsa) yoki darhol administratorga ayting. Mijoz «Qabul qildim» dan keyin bekor qila olmaydi, shuning uchun sizning kelishuvingiz kerak. Pulni qaytarishni administrator bilan hal qiling.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Buyurtmada «To'lov hali tasdiqlanmadi» yozuvi bor</summary>
+    <div>
+      <p>Mijoz hali to'lamagan yoki pul tekshirilmoqda. Bunday buyurtma <b>Kutilmoqda</b> bo'limida turadi — taom tayyorlashni boshlamang. To'lov tasdiqlangach buyurtma <b>Yangi</b> bo'limiga o'tadi va qo'ng'iroq chalinadi.</p>
+      <p class="small">Pulni o'zingiz tekshiradigan restoran bo'lsangiz, 3-bo'limdagi «Pulni o'zingiz tekshiradigan restoranlar» ga qarang.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>«Tayyorlash boshlanmadi. Qo'lda boshlang.» chiqdi</summary>
+    <div>
+      <p>Buyurtma ochiq turibdi, lekin hali tayyorlash boshlanmagan. Buyurtmani oching va <span class="btn">Tayyorlashni boshlash</span> yoki <span class="btn">Qabul qildim</span> bosing.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>«Menyudagi taom mavjud emas» yoki «Narx o'zgargan. Buyurtmani rad eting»</summary>
+    <div>
+      <p>Mijoz buyurtma bergandan keyin taom menyudan olib tashlangan yoki narxi o'zgargan. Buyurtmani <span class="btn red">Rad etish</span> bilan rad eting (sabab: <i>Mahsulot tugagan</i> yoki <i>Narx o'zgargan</i>). Mijoz yangi narxda qaytadan buyurtma beradi.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>«Taksi bo'yicha yordam kerak» yoki «Taksi muammosi» chiqdi</summary>
+    <div>
+      <p>Operator javob bermadi yoki rad etdi. <b>Siz taksi chaqirmaysiz</b> — DS Delivery administratori buni hal qiladi. Siz buyurtmani tayyor holda saqlang. Uzoq kutilsa administratorga qo'ng'iroq qiling.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Haydovchi keldi, lekin buyurtma hali tayyor emas</summary>
+    <div>
+      <p>Haydovchiga aytib qo'ying va tezroq tayyorlang. Kelajakda <span class="btn">Buyurtma tayyor</span> ni taom haqiqatan tayyor bo'lganda bosing — shunda haydovchi o'z vaqtida keladi.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Yetkazildi tugmasi nima uchun kerak?</summary>
+    <div>
+      <p>Faqat <b>o'zingiz yetkazganingizda</b> («O'zimiz yetkazamiz»). Taksi bilan ketgan buyurtma uchun hech narsa bosmaysiz: tizim haydovchi chiqqanidan taxminan 20 daqiqadan keyin buyurtmani «yetkazildi» deb belgilaydi.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Mijoz «pul kelmadi» deydi</summary>
+    <div>
+      <p>Buyurtmada pul to'lovi holatini ko'ring: «Pul keldi» yoki «Tasdiqlandi» yozuvi bo'lsa — pul kelgan. Bank ilovangizda ham tekshiring. Kelishmovchilik bo'lsa administratorga ayting va buyurtma raqamini bering.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Pul qaytarish: chek yuklash qanday?</summary>
+    <div>
+      <ol>
+        <li>Pulni bank orqali mijoz kartasiga qaytaring.</li>
+        <li>Buyurtmada <b>«Pul qaytarildi (chek yuklash)»</b> ni bosing.</li>
+        <li><b>«Chek rasmini tanlash»</b> — bank chekining rasmini tanlang.</li>
+        <li>Mijoz tasdig'i kutiladi. «Mijoz pul kelmadi, deydi» chiqsa, tekshirib, chekni qayta yuklang.</li>
+      </ol>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Ilova yangilandimi? Eski ilovada ish noto'g'ri bo'ladimi?</summary>
+    <div>
+      <p>Ha, ba'zi yangi imkoniyatlar (masalan, «O'zimiz yetkazamiz») faqat yangi ilovada ishlaydi. Administrator yangi ilova faylini bersa, o'rnating — ma'lumotlaringiz yo'qolmaydi, kodingiz va parolingiz bilan qayta kirasiz.</p>
+    </div>
+  </details>
+  <details data-s>
+    <summary>Telefonni almashtirdim / ilovani qayta o'rnatdim</summary>
+    <div>
+      <p>Restoran kodi va parol bilan qayta kiring. Kirgach Navbatchilik o'zi yoqiladi. Yangi telefonda <b>Batareya sozlamasi</b> va <b>budilnik ovozi</b> ni qayta tekshiring.</p>
+    </div>
+  </details>
+</section>
+
+<section data-sec>
+  <h2>8. Muammo bo'lsa kimga murojaat qilaman</h2>
+  <div class="card" data-s>
+    <table>
+      <tr><th>Holat</th><th>Nima qilaman</th></tr>
+      <tr><td>Ilova ochilmayapti / parol esdan chiqdi</td><td>Administratorga qo'ng'iroq: <span class="ph">ADMIN TELEFONI</span></td></tr>
+      <tr><td>Qo'ng'iroq chalmayapti</td><td>5-bo'limdagi ro'yxatni tekshiring, keyin qo'ng'iroq</td></tr>
+      <tr><td>Taksi kelmadi</td><td>Administratorga qo'ng'iroq (buyurtma raqamini ayting)</td></tr>
+      <tr><td>Pul bilan bog'liq kelishmovchilik</td><td>Administrator, buyurtma raqami bilan</td></tr>
+      <tr><td>Karta qo'shish / almashtirish</td><td>Administrator</td></tr>
+      <tr><td>Boshqa savol</td><td>Telegram: <span class="ph">ADMIN TELEGRAM</span></td></tr>
+    </table>
+    <p class="small">Murojaat qilganda ayting: restoran nomi, buyurtma raqami, ilovada nima yozilgani (ekranni rasmga oling).</p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  DS Delivery · Restoran xodimlari uchun qo'llanma · 2026-11-04<br>
+  Ilova matnlari yangilanishi mumkin; tugma nomi bu yerdagidan farq qilsa, ma'nosiga qarang va administratordan so'rang.
+</footer>
+
+<script>
+(function () {
+  var q = document.getElementById('q');
+  var items = [].slice.call(document.querySelectorAll('[data-s]'));
+  var secs = [].slice.call(document.querySelectorAll('[data-sec]'));
+  var none = document.getElementById('none');
+  function norm(s) { return s.toLowerCase().replace(/[‘’`´ʻʼ]/g, "'"); }
+  var texts = items.map(function (el) { return norm(el.textContent); });
+  items.forEach(function (el) { if (el.tagName === 'DETAILS') el.setAttribute('data-open0', el.open ? '1' : '0'); });
+  q.addEventListener('input', function () {
+    var v = norm(q.value.trim());
+    var any = false;
+    items.forEach(function (el, i) {
+      var hit = !v || texts[i].indexOf(v) !== -1;
+      el.classList.toggle('hide', !hit);
+      if (el.tagName === 'DETAILS') el.open = v ? hit : el.getAttribute('data-open0') === '1';
+      if (hit) any = true;
+    });
+    secs.forEach(function (sec) {
+      sec.classList.toggle('hide', sec.querySelectorAll('[data-s]:not(.hide)').length === 0);
+    });
+    none.style.display = any ? 'none' : 'block';
+  });
+})();
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@ describe('legal pages', () => {
   });
   it('configuration values can never inject markup', () => {
     const cfg = legalConfig(env({ LEGAL_OPERATOR_NAME: '<script>alert(1)</script>"x"', LEGAL_SUPPORT_HOURS: '<img src=x onerror=alert(1)>' }))!;
-    for (const kind of ['privacy', 'terms'] as const) {
+    for (const kind of ['privacy', 'terms', 'delete-account'] as const) {
       const html = renderLegalPage(kind, cfg);
       assert.ok(!html.includes('<script>alert') && !html.includes('<img src=x'), kind);
       assert.ok(html.includes('&lt;script&gt;'), kind);
@@ -40,6 +40,19 @@ describe('legal pages', () => {
     assert.match(terms, /xizmat haqi kiritilgan/, 'the service fee inside the dish prices is disclosed');
     assert.match(terms, /yetkazilganini bildirmaydi/, 'taxi acceptance is never claimed as delivery');
   });
+  it('Google Play: the privacy policy names location, device id, the deletion route; the deletion page says what is erased and what stays', () => {
+    const cfg = legalConfig(env({ LEGAL_OPERATOR_CONTACT: 'owner@example.uz' }))!;
+    const privacy = renderLegalPage('privacy', cfg);
+    assert.match(privacy, /Joylashuv/);
+    assert.match(privacy, /Profil → Hisobni o‘chirish/);
+    assert.match(privacy, /\/legal\/delete-account/);
+    assert.match(privacy, /owner@example\.uz/);
+    assert.doesNotMatch(privacy, /sinov \(pilot\)/);
+    const del = renderLegalPage('delete-account', cfg);
+    assert.match(del, /Nima o‘chiriladi/);
+    assert.match(del, /Nima saqlanadi/);
+    assert.match(del, /owner@example\.uz/);
+  });
   it('are served publicly with their own CSP, 503 until configured', async () => {
     const saved = { n: process.env.LEGAL_OPERATOR_NAME, c: process.env.LEGAL_OPERATOR_CONTACT };
     const app = Fastify();
@@ -48,7 +61,7 @@ describe('legal pages', () => {
       delete process.env.LEGAL_OPERATOR_NAME; delete process.env.LEGAL_OPERATOR_CONTACT;
       assert.equal((await app.inject('/legal/privacy')).statusCode, 503);
       process.env.LEGAL_OPERATOR_NAME = 'Test MChJ'; process.env.LEGAL_OPERATOR_CONTACT = '+998 90 000 00 00';
-      for (const p of ['/legal/privacy', '/legal/terms']) {
+      for (const p of ['/legal/privacy', '/legal/terms', '/legal/delete-account']) {
         const res = await app.inject(p);
         assert.equal(res.statusCode, 200, p);
         assert.match(String(res.headers['content-type']), /text\/html/);

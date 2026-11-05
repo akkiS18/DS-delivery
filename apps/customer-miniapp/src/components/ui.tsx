@@ -40,7 +40,7 @@ export function ErrorBox({ error, onRetry }: { error: ApiError | null; onRetry?:
   return (
     <div className="card center stack" role="alert">
       <div className="status-ico bad" aria-hidden><Icon as={AlertTriangle} size={32} /></div>
-      <p>{d.kind === 'OTHER' && error?.status === 404 ? t('Topilmadi.') : d.message}</p>
+      <p>{d.kind === 'OTHER' && error?.status === 404 ? t('Topilmadi.') : d.kind === 'NETWORK' ? t('Internet aloqasi yo‘q yoki server javob bermadi. Aloqani tekshirib, qayta urinib ko‘ring.') : d.message}</p>
       {onRetry && d.kind !== 'AUTH' && <Button variant="secondary" onClick={onRetry}>{t('Qayta urinish')}</Button>}
     </div>
   );
