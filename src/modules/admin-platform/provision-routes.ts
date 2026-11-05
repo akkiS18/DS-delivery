@@ -7,6 +7,7 @@ import { planRestaurantRemoval, removeRestaurant } from '../platform/removal.js'
 import { RECEIPT_TYPES } from '../refunds/receipts.js';
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin } from '../restaurant/provision.js';
 import { IMAGE_MAX_BYTES, setRestaurantImage } from '../restaurant/image.js';
+import { issueFinancePin } from '../restaurant-finance/pin.js';
 import { notifyAdmins } from './service.js';
 
 const idParams = z.object({ id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/) }).strict();
@@ -66,6 +67,17 @@ export async function adminProvisionRoutes(app: FastifyInstance): Promise<void> 
     if (!r) return reply.code(404).send({ error: 'NOT_FOUND' });
     await notifyAdmins(`🔑 ${r.name}: parol yangilandi, barcha qurilmalar chiqarildi — DS Admin ilovasi.`);
     return { ok: true, slug: r.slug, name: r.name, password: r.password };
+  });
+
+  // The 4-digit code that opens the restaurant's Moliya screens (owner decision 2026-11-05). The code is in the answer exactly once; only a hash is stored.
+  // Issuing a new one replaces the old code and closes every open unlock of that restaurant.
+  app.post('/restaurants/:id/finance-pin', async (request, reply) => {
+    const s = await requireAdminSession(request);
+    const { id } = idParams.parse(request.params);
+    const r = await issueFinancePin({ adminId: s.telegramUserId, restaurantId: id });
+    if (r.result !== 'ISSUED') return reply.code(404).send({ error: 'NOT_FOUND' });
+    await notifyAdmins(`🔐 ${r.restaurantName}: moliya kodi yangilandi — DS Admin ilovasi.`);
+    return { ok: true, name: r.restaurantName, pin: r.pin };
   });
 
   app.put('/restaurants/:id/staff', async (request, reply) => {

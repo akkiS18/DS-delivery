@@ -44,6 +44,7 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/cardoff, /cardon — platforma kartasini o‘chirish / qayta yoqish',
       '/collect — restoran pulini platforma kartalariga o‘tkazish / qaytarish',
       '/commission — haftalik komissiya hisobi',
+      '/financepin — restoranning moliya bo‘limi kodini berish: /financepin restoran-kodi',
       '/waive — bitta buyurtma komissiyasini olib tashlash: /waive KOD sabab',
       '/paidout — platforma kartasidan restoranga o‘tkazganingizni belgilash: /paidout restoran-kodi',
       '/restaurants — restoranni to‘xtatish / yoqish',

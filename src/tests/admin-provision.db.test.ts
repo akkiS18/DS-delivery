@@ -70,7 +70,7 @@ const create = async (name: string) => {
 
 test('every provisioning route needs an admin session and the switch', async () => {
   for (const [m, u, body] of [
-    ['POST', '/restaurants', { name: 'Abc', pickupAddress: 'Manzil 1' }], ['POST', '/restaurants/x/password', undefined], ['PUT', '/restaurants/x/staff', { telegramId: '1' }],
+    ['POST', '/restaurants', { name: 'Abc', pickupAddress: 'Manzil 1' }], ['POST', '/restaurants/x/password', undefined], ['POST', '/restaurants/x/finance-pin', undefined], ['PUT', '/restaurants/x/staff', { telegramId: '1' }],
     ['GET', '/restaurants/x/removal', undefined], ['POST', '/restaurants/x/remove', { expected: 'DELETE' }],
   ] as const) {
     assert.equal((await api(m, u, body, {})).statusCode, 401, u);
@@ -128,6 +128,27 @@ test('password reset: a new password, old sessions signed out, unknown id is 404
   assert.equal(await db.restaurantSession.count({ where: { restaurantId: r.id, revokedAt: null } }), 0);
   assert.equal(await audits('RESTAURANT_PASSWORD_RESET'), before + 1);
   assert.equal((await api('POST', '/restaurants/nope/password')).statusCode, 404);
+});
+
+test('finance code: issued once, only a hash is stored, a new one replaces it, audited and announced without the code, unknown id is 404', async () => {
+  const r = await create(`Kod ${tag}`);
+  const list = async () => (await api('GET', '/restaurants')).json().restaurants.find((x: { id: string }) => x.id === r.id);
+  assert.equal((await list()).hasFinancePin, false);
+  const before = await audits('FINANCE_PIN_ISSUED');
+  const sentBefore = sent.length;
+  const one = await api('POST', `/restaurants/${r.id}/finance-pin`);
+  assert.equal(one.statusCode, 200, one.body);
+  assert.match(one.json().pin, /^\d{4}$/);
+  assert.equal(one.headers['cache-control'], 'no-store');
+  const row = await db.restaurantFinancePin.findUniqueOrThrow({ where: { restaurantId: r.id } });
+  assert.ok(!row.pinHash.includes(one.json().pin) && row.pinHash.startsWith('$argon2'), 'only a hash is stored');
+  assert.equal((await list()).hasFinancePin, true);
+  assert.equal(await audits('FINANCE_PIN_ISSUED'), before + 1);
+  assert.ok(sent.slice(sentBefore).length > 0 && sent.slice(sentBefore).every(m => !m.text.includes(one.json().pin)), 'the code is never sent to Telegram');
+  const two = await api('POST', `/restaurants/${r.id}/finance-pin`);
+  assert.equal(two.statusCode, 200);
+  assert.notEqual((await db.restaurantFinancePin.findUniqueOrThrow({ where: { restaurantId: r.id } })).pinHash, row.pinHash);
+  assert.equal((await api('POST', '/restaurants/nope/finance-pin')).statusCode, 404);
 });
 
 test('staff link: linked, the same Telegram account cannot serve two restaurants', async () => {

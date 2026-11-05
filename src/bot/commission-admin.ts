@@ -4,6 +4,7 @@ import { commissionStatements, settleRestaurant, type RestaurantStatement } from
 import { waiveCommission } from '../modules/commission/waiver.js';
 import { dateKey, markPayoutPaid, payoutDayDetail } from '../modules/admin-payouts/service.js';
 import { db } from '../lib/db.js';
+import { issueFinancePin } from '../modules/restaurant-finance/pin.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const som = (n: number): string => `${n.toLocaleString('en-US')} so‘m`;
@@ -107,6 +108,21 @@ export function registerCommissionAdminHandlers<C extends Context>(bot: Telegraf
       const code = err instanceof Error ? err.message : '';
       await ctx.reply(`⚠️ Bajarilmadi: ${ERR[code] ?? 'xatolik'}`);
     }
+  });
+
+  // /financepin restoran-kodi: issue (or re-issue) the 4-digit code that opens the restaurant's money screens. Shown once, only the hash is stored.
+  bot.command('financepin', async ctx => {
+    const id = admin(ctx);
+    if (!id) return;
+    const m = /^\/financepin(?:@\w+)?\s+([a-z0-9-]{2,40})$/i.exec(ctx.message.text.trim());
+    if (!m) { await ctx.reply('Format: /financepin restoran-kodi\nMasalan: /financepin sifat-food\nYangi kod beriladi, eskisi ishlamay qoladi.'); return; }
+    const r = await db.restaurant.findUnique({ where: { slug: m[1]!.toLowerCase() }, select: { id: true } });
+    if (!r) { await ctx.reply('Bunday restoran kodi yo‘q.'); return; }
+    try {
+      const out = await issueFinancePin({ adminId: id, restaurantId: r.id });
+      if (out.result !== 'ISSUED') { await ctx.reply('Bunday restoran topilmadi.'); return; }
+      await ctx.reply(`🔐 ${escapeHtml(out.restaurantName)} — moliya kodi:\n\n<code>${out.pin}</code>\n\nBu kod faqat shu yerda ko‘rsatiladi. Restoran egasiga o‘zingiz aytib bering, kassirlarga bermang. Eski kod (bo‘lsa) ishlamaydi.`, { parse_mode: 'HTML' });
+    } catch { await ctx.reply('⚠️ Bajarilmadi.'); }
   });
 
   // /paidout restoran-kodi [YYYY-MM-DD]: "I transferred this day's payout" (PayoutMark). Shows the amount first, one tap to record. Moves no money.

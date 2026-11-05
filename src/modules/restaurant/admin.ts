@@ -7,19 +7,19 @@ import { isSupportAdmin } from '../support/service.js';
  * open session. Existing orders are untouched. Every change is recorded in the append-only AdminAuditEvent.
  */
 export interface AdminRestaurantRow {
-  id: string; slug: string; name: string; isActive: boolean; isPaused: boolean; staffLinked: boolean; hasPassword: boolean; enabledCards: number; pendingCards: number;
+  id: string; slug: string; name: string; isActive: boolean; isPaused: boolean; staffLinked: boolean; hasPassword: boolean; hasFinancePin: boolean; enabledCards: number; pendingCards: number;
 }
 
 export async function listRestaurantsForAdmin(): Promise<AdminRestaurantRow[]> {
   const rows = await db.restaurant.findMany({
     orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 50,
     select: {
-      id: true, slug: true, name: true, isActive: true, isPaused: true, staffTelegramUserId: true, credential: { select: { restaurantId: true } },
+      id: true, slug: true, name: true, isActive: true, isPaused: true, staffTelegramUserId: true, credential: { select: { restaurantId: true } }, financePin: { select: { id: true } },
       cards: { where: { isTest: false }, select: { active: true, approvalStatus: true } },
     },
   });
   return rows.map(r => ({
-    id: r.id, slug: r.slug, name: r.name, isActive: r.isActive, isPaused: r.isPaused, staffLinked: r.staffTelegramUserId !== null, hasPassword: r.credential !== null,
+    id: r.id, slug: r.slug, name: r.name, isActive: r.isActive, isPaused: r.isPaused, staffLinked: r.staffTelegramUserId !== null, hasPassword: r.credential !== null, hasFinancePin: r.financePin !== null,
     enabledCards: r.cards.filter(c => c.active).length, pendingCards: r.cards.filter(c => c.approvalStatus === 'PENDING').length,
   }));
 }

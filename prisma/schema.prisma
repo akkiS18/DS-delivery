@@ -44,6 +44,7 @@ model Restaurant {
   commissionEntries   CommissionEntry[]
   commissionSettlements CommissionSettlement[]
   commissionWaivers   CommissionWaiver[]
+  financePin          RestaurantFinancePin?
   payoutMarks         PayoutMark[]
   ratings             OrderRating[]
   image               RestaurantImage?
@@ -743,8 +744,23 @@ model RestaurantSession {
   expiresAt       DateTime   @db.Timestamptz(3)
   lastSeenAt      DateTime   @default(now()) @db.Timestamptz(3)
   revokedAt       DateTime?  @db.Timestamptz(3)
+  /// Finance PIN entered on this session: money screens are open until this instant (sliding); null = locked.
+  financeUnlockedUntil DateTime? @db.Timestamptz(3)
 
   @@index([restaurantId, revokedAt, expiresAt])
+}
+
+/// The 4-digit code that opens the restaurant's money screens. Issued by an administrator (shown once); only the hash is stored.
+model RestaurantFinancePin {
+  id             String     @id @default(cuid())
+  restaurantId   String     @unique
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  pinHash        String
+  setBy          String
+  failedAttempts Int        @default(0)
+  lockedUntil    DateTime?  @db.Timestamptz(3)
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
 }
 
 // Login throttling. keyHash = sha256("slug:<slug>") or sha256("ip:<ip>"); no raw identifiers are stored.
