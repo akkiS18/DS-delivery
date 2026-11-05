@@ -63,8 +63,24 @@ for the administrators, so the program keeps polling while its window is hidden 
 `Enter` — the main (yellow) step of the selected request, unless it needs a confirmation; `F9` or `Ctrl+M` — silence the sound for 30 s;
 `F5` — refresh; `Up`/`Down` — choose a request.
 
+## Program versions (forcing an update)
+
+The program asks the public `GET /api/v1/taxi/client-config` before sign-in and every 30 minutes. The server answers from its environment
+(restart after changing): `TAXI_WINDOWS_MIN_VERSION=1.2.0` (older programs stop and show "Dastur yangilanishi kerak"),
+`TAXI_WINDOWS_LATEST_VERSION=1.3.0` (older programs show a hint), `TAXI_WINDOWS_DOWNLOAD_URL=https://...` (the installer or its page).
+Unset or malformed values mean no rule. Updating itself is manual: the operator downloads and runs the new installer (it replaces the old one).
+
+## How the screen behaves
+
+- A new request that needs an answer never moves the list, the selection or the tab: it waits at the end of the list and a card pinned at the top
+  (F2, or click) opens it. The x on the card hides it.
+- `Enter` on the main button asks first ("Qabul qilasizmi?"); hard-to-undo questions (Taksi yo'q, Yetkazildi) default to "No".
+- Connection lost for 30 s while on duty: a warning sound every minute and one balloon.
+- "Ixcham" (top right): a narrow window that stays on top of other programs.
+
 ## Not done yet
 
 - Not compiled/tested (see Status). No installer yet (Inno Setup script is planned); code-signing certificate is an owner decision.
 - No detection of a muted sound device (only "no output device" is detected); use "Ovozni sinash".
 - No spoken (TTS) announcement; no `tel:` call button (phone numbers are copyable).
+- Uzbek (Latin) only: no Russian (server messages are Uzbek too; needs a translator's review). No automated UI tests (only the logic in `DsTaxi.Core` is tested).
