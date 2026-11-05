@@ -12,7 +12,9 @@ $libs = 'kotlin-compiler-embeddable-1.9.23','kotlin-stdlib-1.9.23','kotlin-scrip
 $out = Join-Path $env:TEMP 'ds-time-checks'
 Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
 & $java -cp ($libs -join ';') org.jetbrains.kotlin.cli.jvm.K2JVMCompiler -no-stdlib -no-reflect -cp (Jar 'kotlin-stdlib-1.9.23') -d $out `
-  (Join-Path $app 'data\model\Order.kt') (Join-Path $app 'data\model\OrderTime.kt') (Join-Path $app 'data\alarm\NewOrderAttention.kt') (Join-Path $here 'TimeChecks.kt') 2>&1 | Where-Object { $_ -notmatch "warning:" }
+  (Join-Path $app 'data\model\Order.kt') (Join-Path $app 'data\model\OrderTime.kt') (Join-Path $app 'data\alarm\NewOrderAttention.kt') (Join-Path $app 'data\model\FinanceFormat.kt') (Join-Path $here 'TimeChecks.kt') (Join-Path $here 'FinanceChecks.kt') 2>&1 | Where-Object { $_ -notmatch "warning:" }
 if ($LASTEXITCODE -ne 0) { throw 'compile failed' }
 & $java -cp "$out;$(Jar 'kotlin-stdlib-1.9.23')" com.dsdelivery.restaurant.unitchecks.TimeChecksKt
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+& $java -cp "$out;$(Jar 'kotlin-stdlib-1.9.23')" com.dsdelivery.restaurant.unitchecks.FinanceChecksKt
 exit $LASTEXITCODE

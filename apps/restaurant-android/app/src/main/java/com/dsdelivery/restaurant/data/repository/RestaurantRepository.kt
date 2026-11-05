@@ -99,6 +99,15 @@ interface RestaurantRepository {
     // --- Stage 4: Finance ---
     suspend fun getFinanceSummary(filter: com.dsdelivery.restaurant.data.model.FinanceDateFilter): Resource<com.dsdelivery.restaurant.data.model.FinanceSummary>
 
+    // --- Moliya behind a 4-digit code (owner decision 2026-11-05) ---
+    suspend fun getFinanceState(): Resource<com.dsdelivery.restaurant.data.api.dto.FinanceStateDto>
+    suspend fun unlockFinance(pin: String): com.dsdelivery.restaurant.data.model.FinanceUnlock
+    /** Best effort: the server also closes the window by itself after 10 idle minutes. */
+    suspend fun lockFinance()
+    /** On Resource.Error whose cause is an HttpException with code 423 the code must be entered again ([isFinanceLocked]). */
+    suspend fun getFinanceOverview(): Resource<com.dsdelivery.restaurant.data.api.dto.FinanceOverviewDto>
+    suspend fun getFinanceLedger(filter: String, from: String?, to: String?, cursor: String?): Resource<com.dsdelivery.restaurant.data.api.dto.LedgerDto>
+
     // --- Ratings (read-only) ---
     suspend fun getRatings(): Resource<com.dsdelivery.restaurant.data.model.RatingsReport>
 

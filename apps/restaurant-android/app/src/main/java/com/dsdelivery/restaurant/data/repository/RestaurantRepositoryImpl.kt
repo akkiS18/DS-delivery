@@ -658,6 +658,38 @@ class RestaurantRepositoryImpl(
         }
     }
 
+    // --- Moliya behind a 4-digit code ---
+
+    override suspend fun getFinanceState(): Resource<com.dsdelivery.restaurant.data.api.dto.FinanceStateDto> = call { apiClient.service.getFinanceState() }
+
+    override suspend fun unlockFinance(pin: String): com.dsdelivery.restaurant.data.model.FinanceUnlock {
+        return try {
+            val response = apiClient.service.unlockFinance(com.dsdelivery.restaurant.data.api.dto.FinanceUnlockRequestDto(pin))
+            if (response.isSuccessful) return com.dsdelivery.restaurant.data.model.FinanceUnlock.Opened
+            val body = try { response.errorBody()?.string() } catch (_: Exception) { null }
+            val json = try { if (body.isNullOrBlank()) null else JsonParser.parseString(body).asJsonObject } catch (_: Exception) { null }
+            when (response.code()) {
+                403 -> com.dsdelivery.restaurant.data.model.FinanceUnlock.Wrong(json?.get("attemptsLeft")?.asInt)
+                429 -> com.dsdelivery.restaurant.data.model.FinanceUnlock.Blocked(json?.get("retryAfterSeconds")?.asInt ?: 900)
+                409 -> com.dsdelivery.restaurant.data.model.FinanceUnlock.NoPin
+                401 -> com.dsdelivery.restaurant.data.model.FinanceUnlock.Failed("Qayta kiring.")
+                else -> com.dsdelivery.restaurant.data.model.FinanceUnlock.Failed("Tekshirib bo‘lmadi. Qayta urinib ko‘ring.")
+            }
+        } catch (e: Exception) {
+            com.dsdelivery.restaurant.data.model.FinanceUnlock.Failed(parseGenericException(e))
+        }
+    }
+
+    override suspend fun lockFinance() {
+        try { apiClient.service.lockFinance() } catch (_: Exception) { /* the server closes it after 10 idle minutes anyway */ }
+    }
+
+    override suspend fun getFinanceOverview(): Resource<com.dsdelivery.restaurant.data.api.dto.FinanceOverviewDto> = call { apiClient.service.getFinanceOverview() }
+
+    override suspend fun getFinanceLedger(filter: String, from: String?, to: String?, cursor: String?): Resource<com.dsdelivery.restaurant.data.api.dto.LedgerDto> = call {
+        apiClient.service.getFinanceLedger(filter = filter, from = from, to = to, cursor = cursor, limit = 30)
+    }
+
     // --- Ratings (read-only) ---
 
     override suspend fun getRatings(): Resource<com.dsdelivery.restaurant.data.model.RatingsReport> {

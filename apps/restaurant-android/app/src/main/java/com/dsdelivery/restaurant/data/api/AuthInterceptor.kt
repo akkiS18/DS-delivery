@@ -25,7 +25,7 @@ class AuthInterceptor(
         val response = chain.proceed(requestBuilder.build())
 
         // Handle expired, revoked, or unauthenticated token (HTTP 401)
-        if (response.code == 401 && !isLoginEndpoint) {
+        if (response.code == 401 && !isLoginEndpoint && !url.contains("/api/v1/restaurant/finance/unlock")) {
             sessionManager.clearSession()
         }
 

@@ -108,12 +108,15 @@ fun MainScreen(
         if (firstResume) { firstResume = false; return@LifecycleEventEffect }
         ordersViewModel.loadOrders(silent = true)
         productManagementViewModel.loadData(silent = true)
-        financeViewModel.refresh()
+        if (selectedTab == MainTab.FINANCE) financeViewModel.refresh()
         ratingsViewModel.refresh()
         reservationsViewModel.refresh(silent = true)
         operationsViewModel.loadOperations()
         operationsViewModel.loadCards()
     }
+
+    // The money screens close whenever the app goes to the background (owner decision 2026-11-05: behind a 4-digit code, cashiers must not see them).
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { financeViewModel.lock() }
 
     // Back from the hidden Moliya page or from Baholar goes to Sozlamalar.
     BackHandler(enabled = selectedTab == MainTab.FINANCE || (selectedTab == MainTab.OPERATIONS && showRatings)) {
@@ -133,6 +136,8 @@ fun MainScreen(
     var shownTab by remember { mutableStateOf(selectedTab) }
     LaunchedEffect(selectedTab) {
         if (shownTab == selectedTab) return@LaunchedEffect
+        // Leaving Moliya hides the money again; the code is asked next time.
+        if (shownTab == MainTab.FINANCE) financeViewModel.lock()
         shownTab = selectedTab
         when (selectedTab) {
             MainTab.ORDERS -> ordersViewModel.loadOrders(silent = true)

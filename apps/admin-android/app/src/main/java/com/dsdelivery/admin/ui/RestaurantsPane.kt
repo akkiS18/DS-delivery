@@ -32,6 +32,7 @@ import com.dsdelivery.admin.AdminApp
 import com.dsdelivery.admin.data.AdminRestaurantDto
 import com.dsdelivery.admin.data.ApiResult
 import com.dsdelivery.admin.data.CredentialResponse
+import com.dsdelivery.admin.data.FinancePinResponse
 import com.dsdelivery.admin.data.RemovalPlanDto
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -58,6 +59,8 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
     var secret by remember { mutableStateOf<CredentialResponse?>(null) }
     var resetFor by remember { mutableStateOf<AdminRestaurantDto?>(null) }
     var linkFor by remember { mutableStateOf<AdminRestaurantDto?>(null) }
+    var pinFor by remember { mutableStateOf<AdminRestaurantDto?>(null) }
+    var pinShown by remember { mutableStateOf<FinancePinResponse?>(null) }
     var removal by remember { mutableStateOf<Pair<AdminRestaurantDto, RemovalPlanDto>?>(null) }
     var photoFor by remember { mutableStateOf<AdminRestaurantDto?>(null) }
 
@@ -122,12 +125,14 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                         val notes = listOfNotNull(
                             if (r.isPaused) "⏸ pauzada" else null,
                             if (!r.hasPassword) "⚠️ parol yo‘q" else null,
+                            if (!r.hasFinancePin) "moliya kodi berilmagan" else null,
                             if (!r.staffLinked) "Telegram xodimi ulanmagan" else null,
                             "kartalar: ${r.enabledCards} faol" + if (r.pendingCards > 0) ", ${r.pendingCards} kutmoqda" else "",
                         )
                         Text(notes.joinToString(" • "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(enabled = !saving, onClick = { resetFor = r }) { Text("🔑 Yangi parol") }
+                            OutlinedButton(enabled = !saving, onClick = { pinFor = r }) { Text("🔐 Moliya kodi") }
                             OutlinedButton(enabled = !saving, onClick = { linkFor = r }) { Text("🔗 Telegram") }
                             OutlinedButton(enabled = !saving, onClick = { photoFor = r; picker.launch("image/*") }) { Text("🖼 Rasm") }
                             OutlinedButton(enabled = !saving, onClick = {
@@ -210,6 +215,24 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
             },
         )
     }
+
+    pinFor?.let { r ->
+        IssueFinancePinDialog(
+            name = r.name, hasPin = r.hasFinancePin, busy = saving, onDismiss = { pinFor = null },
+            onConfirm = {
+                saving = true
+                scope.launch {
+                    val res = unwrap(app.repository.issueFinancePin(r.id), onMessage)
+                    saving = false
+                    pinFor = null
+                    if (res != null) pinShown = res
+                    load()
+                }
+            },
+        )
+    }
+
+    pinShown?.let { FinancePinDialog(it, onDone = { pinShown = null }) }
 
     linkFor?.let { r ->
         LinkStaffDialog(

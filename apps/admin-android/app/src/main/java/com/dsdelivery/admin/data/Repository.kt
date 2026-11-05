@@ -51,6 +51,7 @@ interface AdminApi {
     @PUT("api/v1/admin/restaurants/{id}/active") suspend fun setRestaurantActive(@Path("id") id: String, @Body body: ActiveRequest): Response<ActiveResponse>
     @POST("api/v1/admin/restaurants") suspend fun createRestaurant(@Body body: CreateRestaurantRequest): Response<CredentialResponse>
     @POST("api/v1/admin/restaurants/{id}/password") suspend fun resetPassword(@Path("id") id: String): Response<CredentialResponse>
+    @POST("api/v1/admin/restaurants/{id}/finance-pin") suspend fun issueFinancePin(@Path("id") id: String): Response<FinancePinResponse>
     @PUT("api/v1/admin/restaurants/{id}/staff") suspend fun linkStaff(@Path("id") id: String, @Body body: StaffRequest): Response<NameResponse>
     @PUT("api/v1/admin/restaurants/{id}/image") suspend fun setRestaurantImage(@Path("id") id: String, @Body body: RequestBody): Response<ImageResponse>
     @GET("api/v1/admin/restaurants/{id}/removal") suspend fun removalPlan(@Path("id") id: String): Response<RemovalPlanResponse>
@@ -205,6 +206,7 @@ class Repository(private val session: SessionStore) {
     suspend fun createRestaurant(name: String, address: String, phone: String): ApiResult<CredentialResponse> =
         call { api.createRestaurant(CreateRestaurantRequest(name.trim(), address.trim(), phone.trim().ifEmpty { null })) }
     suspend fun resetPassword(id: String): ApiResult<CredentialResponse> = call { api.resetPassword(id) }
+    suspend fun issueFinancePin(id: String): ApiResult<FinancePinResponse> = call { api.issueFinancePin(id) }
     suspend fun linkStaff(id: String, telegramId: String): ApiResult<NameResponse> = call { api.linkStaff(id, StaffRequest(telegramId.trim())) }
     /** [jpeg] is already shrunk by ImagePrep; the server decides the type from the bytes. */
     suspend fun setRestaurantImage(id: String, jpeg: ByteArray): ApiResult<ImageResponse> =

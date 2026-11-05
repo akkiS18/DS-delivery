@@ -20,6 +20,10 @@ import com.dsdelivery.restaurant.data.api.dto.CategoryDto
 import com.dsdelivery.restaurant.data.api.dto.CreateCategoryRequestDto
 import com.dsdelivery.restaurant.data.api.dto.CreateProductRequestDto
 import com.dsdelivery.restaurant.data.api.dto.FinanceSummaryDto
+import com.dsdelivery.restaurant.data.api.dto.FinanceStateDto
+import com.dsdelivery.restaurant.data.api.dto.FinanceUnlockRequestDto
+import com.dsdelivery.restaurant.data.api.dto.FinanceOverviewDto
+import com.dsdelivery.restaurant.data.api.dto.LedgerDto
 import com.dsdelivery.restaurant.data.api.dto.RatingsReportDto
 import com.dsdelivery.restaurant.data.api.dto.LoginRequestDto
 import com.dsdelivery.restaurant.data.api.dto.LoginResponseDto
@@ -217,6 +221,30 @@ interface RestaurantApiService {
         @Query("from") from: String,
         @Query("to") to: String
     ): FinanceSummaryDto
+
+    // --- Moliya behind a 4-digit code (owner decision 2026-11-05) ---
+    @GET("api/v1/restaurant/finance/state")
+    suspend fun getFinanceState(): FinanceStateDto
+
+    /** 200 opened; 403 FINANCE_PIN_WRONG {attemptsLeft}; 429 FINANCE_PIN_BLOCKED {retryAfterSeconds}; 409 FINANCE_NO_PIN. */
+    @POST("api/v1/restaurant/finance/unlock")
+    suspend fun unlockFinance(@Body body: FinanceUnlockRequestDto): Response<Unit>
+
+    @POST("api/v1/restaurant/finance/lock")
+    suspend fun lockFinance(): Response<Unit>
+
+    /** 423 while the code has not been entered. */
+    @GET("api/v1/restaurant/finance/overview")
+    suspend fun getFinanceOverview(): FinanceOverviewDto
+
+    @GET("api/v1/restaurant/finance/ledger")
+    suspend fun getFinanceLedger(
+        @Query("filter") filter: String,
+        @Query("from") from: String?,
+        @Query("to") to: String?,
+        @Query("cursor") cursor: String?,
+        @Query("limit") limit: Int
+    ): LedgerDto
 
     /** The restaurant's own food ratings and reasons (read-only; never who rated). */
     @GET("api/v1/restaurant/ratings")

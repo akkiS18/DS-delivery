@@ -277,6 +277,8 @@ data class AdminRestaurantDto(
     @SerializedName("isPaused") val isPaused: Boolean,
     @SerializedName("staffLinked") val staffLinked: Boolean,
     @SerializedName("hasPassword") val hasPassword: Boolean,
+    /** Whether an administrator has issued the 4-digit Moliya code (older servers do not send it: false). */
+    @SerializedName("hasFinancePin") val hasFinancePin: Boolean = false,
     @SerializedName("enabledCards") val enabledCards: Int,
     @SerializedName("pendingCards") val pendingCards: Int,
 )
@@ -295,6 +297,12 @@ data class CredentialResponse(
     @SerializedName("slug") val slug: String,
     @SerializedName("name") val name: String,
     @SerializedName("password") val password: String,
+)
+/** The one-time 4-digit Moliya code. It is never shown again; a new one replaces it. */
+data class FinancePinResponse(
+    @SerializedName("ok") val ok: Boolean,
+    @SerializedName("name") val name: String,
+    @SerializedName("pin") val pin: String,
 )
 data class StaffRequest(@SerializedName("telegramId") val telegramId: String)
 data class NameResponse(@SerializedName("ok") val ok: Boolean, @SerializedName("name") val name: String)

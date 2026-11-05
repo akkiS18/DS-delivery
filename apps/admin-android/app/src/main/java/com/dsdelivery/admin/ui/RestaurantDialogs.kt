@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.admin.data.CredentialResponse
+import com.dsdelivery.admin.data.FinancePinResponse
 import com.dsdelivery.admin.data.RemovalPlanDto
 
 /** Add a restaurant: the same three fields the Telegram /newrestaurant asked for. The photo is added afterwards from the restaurant's card. */
@@ -78,6 +79,49 @@ fun SecretDialog(credential: CredentialResponse, onDone: () -> Unit) {
                 }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalash") }
                 Text(
                     "Parol faqat shu yerda va faqat hozir ko‘rinadi: tizim uni saqlamaydi. Restoranga xavfsiz yo‘l bilan yuboring (masalan, shaxsiy Telegram). Yuborgach, boshqa narsani nusxalab qo‘ying.",
+                    style = MaterialTheme.typography.bodyMedium, color = WarnColor,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text("Yozib oldim") } },
+    )
+}
+
+/** Asks before issuing: a new code replaces the old one at once and closes the restaurant's open Moliya screens. */
+@Composable
+fun IssueFinancePinDialog(name: String, hasPin: Boolean, busy: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(if (hasPin) "$name: yangi moliya kodi berilsinmi?" else "$name: moliya kodi berilsinmi?") },
+        text = {
+            Text(
+                (if (hasPin) "Eski kod ishlamaydi va ochiq turgan Moliya sahifalari yopiladi. " else "") +
+                    "4 xonali kod keyingi oynada bir marta ko‘rsatiladi. Uni faqat restoran egasiga o‘zingiz ayting; kassirlarga bermang."
+            )
+        },
+        confirmButton = { TextButton(enabled = !busy, onClick = onConfirm) { Text("Ha, kod berish") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Yo‘q") } },
+    )
+}
+
+/** The generated Moliya code, shown once. Like [SecretDialog] it cannot be dismissed by a stray tap. */
+@Composable
+fun FinancePinDialog(result: FinancePinResponse, onDone: () -> Unit) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(result.name) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Moliya kodi:", style = MaterialTheme.typography.bodyMedium)
+                Text(result.pin, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.displaySmall)
+                OutlinedButton(onClick = {
+                    clipboard.setText(AnnotatedString(result.pin))
+                    copied = true
+                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalash") }
+                Text(
+                    "Kod faqat shu yerda va faqat hozir ko‘rinadi: tizim uni saqlamaydi. Restoran egasiga o‘zingiz ayting; kassirlarga bermang. Yozib olgach, boshqa narsani nusxalab qo‘ying.",
                     style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                 )
             }

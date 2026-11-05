@@ -1,15 +1,16 @@
 package com.dsdelivery.taxi.core
 
 import android.content.Context
+import com.dsdelivery.taxi.R
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
-import android.media.AudioFormat
 import android.media.AudioManager
-import android.media.AudioTrack
+import android.media.MediaPlayer
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,23 +18,20 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.exp
-import kotlin.math.sin
-import kotlin.math.tanh
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * The dispatch office alarm: a pleasant two-note chime followed by the phone's voice saying "Yangi buyurtma" (see [OrderVoice]), repeated until the
+ * The dispatch office alarm: the new-order ringtone followed by the phone's voice saying "Yangi buyurtma" (see [OrderVoice]), repeated until the
  * order is answered. Owner request 2026-10-30: the earlier piercing square-wave beeps were unpleasant and did not sound like "a new order". The
- * chime is generated here (no audio file), everything plays on the ALARM stream (silent mode does not mute it), and the alarm volume is raised to
- * the maximum whenever it rings. Safe to call from any thread.
+ * ringtone is the owner's own recording (res/raw/new_order.mp3, owner decision 2026-11-05, replacing the generated chime), everything plays on the ALARM
+ * stream (silent mode does not mute it), and the alarm volume is raised to the maximum whenever it rings. Safe to call from any thread.
  */
 class AlarmPlayer(private val context: Context) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private var loop: Job? = null
-    private var track: AudioTrack? = null
+    private var player: MediaPlayer? = null
     private var focus: AudioFocusRequest? = null
     private val voice = OrderVoice(context)
 
@@ -90,35 +88,28 @@ class AlarmPlayer(private val context: Context) {
     private fun stop() {
         loop?.cancel()
         loop = null
-        releaseTrack()
+        releasePlayer()
         voice.stop()
         abandonFocus()
         vibrator()?.cancel()
     }
 
+    /** Plays the ringtone once and returns when it ends (or after [MAX_RING_MS] at most). */
     private suspend fun playHorn() {
-        val t = buildTrack() ?: return
-        synchronized(this) { releaseTrack(); track = t }
-        runCatching { t.play() }
-        delay(CHIME_MS.toLong())
+        val done = CompletableDeferred<Unit>()
+        val attrs = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+        val p = runCatching { MediaPlayer.create(context, R.raw.new_order, attrs, AudioManager.AUDIO_SESSION_ID_GENERATE) }.getOrNull() ?: return
+        p.setOnCompletionListener { done.complete(Unit) }
+        p.setOnErrorListener { _, _, _ -> done.complete(Unit); true }
+        synchronized(this) { releasePlayer(); player = p }
+        runCatching { p.start() }.onFailure { return }
+        try { withTimeoutOrNull(MAX_RING_MS) { done.await() } } finally { releasePlayer() } // also when the ring is cancelled mid-way
     }
 
-    private fun buildTrack(): AudioTrack? = runCatching {
-        val pcm = chimePcm()
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        val format = AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(SAMPLE_RATE).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build()
-        val t = AudioTrack(attrs, format, pcm.size * 2, AudioTrack.MODE_STATIC, AudioManager.AUDIO_SESSION_ID_GENERATE)
-        t.write(pcm, 0, pcm.size)
-        t
-    }.getOrNull()
-
     @Synchronized
-    private fun releaseTrack() {
-        track?.let { runCatching { it.stop() }; runCatching { it.release() } }
-        track = null
+    private fun releasePlayer() {
+        player?.let { runCatching { it.stop() }; runCatching { it.release() } }
+        player = null
     }
 
     private fun requestFocus() {
@@ -146,35 +137,9 @@ class AlarmPlayer(private val context: Context) {
     }
 
     companion object {
-        private const val SAMPLE_RATE = 44_100
         /** Pause after the voice before the next round: the order must not be missed, so it stays insistent until it is answered. */
         const val REPEAT_MS = 1_200L
-        /** Length of [chimePcm] in milliseconds. */
-        private const val CHIME_MS = 1_150
-
-        /**
-         * A two-note "ding-dong" (B5 then E6, a rising fourth) of bell-like tones: a fundamental plus its 2nd and 3rd partials, a soft 8 ms attack
-         * and a smooth decay, so it is clear and friendly rather than sharp. A little soft saturation raises the average loudness without any
-         * harsh edge. The voice follows it; the player sets the phone's ALARM volume to the maximum, so the phone's speaker is the limit.
-         */
-        internal fun chimePcm(): ShortArray {
-            fun note(hz: Double, ms: Int, tauMs: Double): FloatArray {
-                val n = SAMPLE_RATE * ms / 1000
-                val attack = SAMPLE_RATE * 0.008
-                return FloatArray(n) { i ->
-                    val t = i.toDouble() / SAMPLE_RATE
-                    val tone = sin(2 * PI * hz * t) + 0.45 * sin(2 * PI * 2 * hz * t) + 0.18 * sin(2 * PI * 3 * hz * t)
-                    val env = minOf(1.0, i / attack) * exp(-t * 1000.0 / tauMs) * minOf(1.0, (n - i) / (SAMPLE_RATE * 0.03))
-                    (tone * env / 1.63).toFloat()
-                }
-            }
-            val total = SAMPLE_RATE * CHIME_MS / 1000
-            val mix = FloatArray(total)
-            fun add(from: FloatArray, at: Int) { for (i in from.indices) if (at + i < total) mix[at + i] += from[i] }
-            add(note(987.77, 650, 260.0), 0)
-            add(note(1318.51, 800, 330.0), SAMPLE_RATE * 300 / 1000)
-            val drive = 1.7
-            return ShortArray(total) { (tanh(mix[it] * drive) / tanh(drive) * 0.97 * Short.MAX_VALUE).toInt().toShort() }
-        }
+        /** A ringtone that never ends (a broken file) must not freeze the loop. */
+        private const val MAX_RING_MS = 15_000L
     }
 }
