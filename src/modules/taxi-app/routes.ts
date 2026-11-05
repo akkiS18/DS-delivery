@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { authenticateTaxi, bearerToken, LOGIN_RE, loginTaxi, logoutTaxi, type PublicTaxiCompany } from './auth.js';
+import { windowsClientConfig } from './client-config.js';
 import { act, getRequest, listRequests, TaxiAppError } from './service.js';
 
 const loginSchema = z.object({ login: z.string().regex(LOGIN_RE), password: z.string().min(1).max(200) }).strict();
@@ -23,6 +24,9 @@ export async function requireTaxiSession(request: FastifyRequest): Promise<Sessi
 /** DS Taxi app API (/api/v1/taxi). The app polls GET /requests every few seconds while its dispatch service runs; that poll is also its heartbeat. */
 export async function taxiAppRoutes(app: FastifyInstance): Promise<void> {
   app.addHook('onSend', async (_request, reply, payload) => { reply.header('Cache-Control', 'no-store'); return payload; });
+
+  // Public and read-only: the desktop program asks it before sign-in (oldest allowed version, where to download the new one). No company data.
+  app.get('/client-config', async () => ({ windows: windowsClientConfig() }));
 
   app.post('/auth/login', async (request, reply) => {
     const body = loginSchema.parse(request.body);
