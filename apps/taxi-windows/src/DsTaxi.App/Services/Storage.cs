@@ -64,7 +64,7 @@ public sealed class AppSettings
     public string? CompanyName { get; set; }
     public string? Login { get; set; }
 
-    /// <summary>The production API address (the same one the Android apps are built with). Changeable on the login screen under "Server".</summary>
+    /// <summary>The production API address (the same one the Android apps are built with). Not shown anywhere in the program; only a developer editing settings.json (e.g. to try staging) changes it.</summary>
     public const string DefaultServerUrl = "https://api.sultonxoja.uz";
 }
 

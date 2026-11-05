@@ -14,6 +14,12 @@ public partial class ConfirmDialog : Window
         NoButton.Content = no;
     }
 
+    protected override void OnSourceInitialized(System.EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        DsTaxi.App.Services.TitleBar.Apply(this);
+    }
+
     private void OnYes(object sender, RoutedEventArgs e) => DialogResult = true;
 
     private void OnNo(object sender, RoutedEventArgs e) => DialogResult = false;

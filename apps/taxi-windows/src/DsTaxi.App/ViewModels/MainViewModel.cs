@@ -105,8 +105,7 @@ public sealed class MainViewModel : ObservableObject
 
     public string CompanyName => _session.CompanyName ?? "";
     public string LoginName => _session.Login ?? "";
-    public string VersionText => "DS Taxi " + (typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0");
-    public string ServerUrl => _session.Settings.ServerUrl;
+    public string VersionText => "DS " + (typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0");
 
     public bool Loaded => _state.Loaded;
     public bool Offline => _state.Offline;

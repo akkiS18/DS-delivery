@@ -84,15 +84,21 @@ public partial class App : System.Windows.Application
     // ---- sign in
     private void ShowLogin()
     {
-        _window.ShowLogin(new LoginViewModel(_session.Settings.ServerUrl, _session.Settings.Login, SignInAsync));
+        _window.ShowLogin(new LoginViewModel(_session.Settings.Login, SignInAsync));
         _tray.Set(TrayState.OffDuty, "Kirish kerak", false);
     }
 
-    private async Task<string?> SignInAsync(string login, string password, string serverUrl)
+    private async Task<string?> SignInAsync(string login, string password)
     {
+        // The server address is not on the screen. It is the production address unless settings.json (a developer's file) says otherwise.
         HttpClient http;
-        try { http = TaxiApi.CreateClient(serverUrl); }
-        catch (ArgumentException) { return "Server manzili noto‘g‘ri. U https:// bilan boshlanishi kerak."; }
+        try { http = TaxiApi.CreateClient(_session.Settings.ServerUrl); }
+        catch (ArgumentException e)
+        {
+            Log.Error("saved server address invalid, default used", e);
+            _session.Update(s => s.ServerUrl = AppSettings.DefaultServerUrl);
+            http = TaxiApi.CreateClient(AppSettings.DefaultServerUrl);
+        }
 
         ApiResult<LoginResponse> result;
         using (http)
@@ -101,7 +107,6 @@ public partial class App : System.Windows.Application
         }
         if (!result.IsOk || result.Data is null) return Fmt.LoginErrorText(result.Status, result.HttpStatus, result.RetryAfterSeconds);
 
-        _session.Update(s => s.ServerUrl = serverUrl.Trim().TrimEnd('/'));
         _session.SignIn(result.Data.AccessToken, result.Data.Company.Name, result.Data.Company.Login);
         Log.Info("signed in");
         EnterMain();

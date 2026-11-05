@@ -27,6 +27,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.14393
+SetupIconFile=..\src\DsTaxi.App\Resources\app.ico
 OutputDir=..\dist
 OutputBaseFilename=DsTaxi-Setup-{#AppVersion}
 Compression=lzma2/ultra64

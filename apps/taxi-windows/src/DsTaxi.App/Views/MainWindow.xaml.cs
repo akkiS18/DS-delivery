@@ -19,6 +19,12 @@ public partial class MainWindow : Window, IShell
         Activated += (_, _) => WindowAttention.StopFlash(this);
     }
 
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        TitleBar.Apply(this);
+    }
+
     /// <summary>Raised when the operator pressed "Chiqish (hisobdan)" in the settings.</summary>
     public event Action? LogoutRequested;
 

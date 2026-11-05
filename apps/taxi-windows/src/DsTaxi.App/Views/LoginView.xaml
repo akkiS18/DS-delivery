@@ -4,8 +4,13 @@
     <Grid Background="{StaticResource InkBrush}">
         <Border Background="White" CornerRadius="16" Width="420" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="32,28">
             <StackPanel>
-                <TextBlock Text="DS Taxi" FontSize="32" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
-                <TextBlock Text="Taksi operatori uchun" FontSize="15" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,22"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
+                    <Image Source="pack://application:,,,/Resources/logo.png" Width="56" Height="56" RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="DS" FontSize="32" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                        <TextBlock Text="Taksi operatori uchun" FontSize="15" Foreground="{StaticResource MutedBrush}"/>
+                    </StackPanel>
+                </StackPanel>
 
                 <TextBlock Text="Login" FontSize="13" Foreground="{StaticResource MutedBrush}"/>
                 <TextBox x:Name="LoginBox" Text="{Binding Login, UpdateSourceTrigger=PropertyChanged}" FontSize="17" Padding="8,7" Margin="0,4,0,14"/>
@@ -18,11 +23,6 @@
 
                 <Button Content="Kirish" Command="{Binding LoginCommand}" Style="{StaticResource PrimaryButton}" IsDefault="True" Margin="0,4,0,0"/>
 
-                <Button Content="Server" Command="{Binding ToggleServerCommand}" Style="{StaticResource SmallButton}" Margin="0,16,0,0" HorizontalAlignment="Left" FontSize="12" Padding="8,3"/>
-                <StackPanel Visibility="{Binding ShowServer, Converter={StaticResource B2V}}" Margin="0,8,0,0">
-                    <TextBlock Text="Server manzili (odatda o‘zgartirish shart emas)" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
-                    <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" FontSize="14" Padding="6,5" Margin="0,4,0,0"/>
-                </StackPanel>
             </StackPanel>
         </Border>
     </Grid>

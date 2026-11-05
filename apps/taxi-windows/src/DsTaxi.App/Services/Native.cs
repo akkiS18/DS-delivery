@@ -119,6 +119,44 @@ public static class WindowAttention
     }
 }
 
+/// <summary>
+/// Paints the window's title bar in the program's dark colour (Windows 11: exact colour; Windows 10: the dark title bar). The system minimise / maximise /
+/// close buttons stay where they are and turn white automatically, so they are not swallowed by the colour. Failures are ignored (older Windows: normal title bar).
+/// </summary>
+public static class TitleBar
+{
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int size);
+
+    private const int BorderColor = 34;
+    private const int CaptionColor = 35;
+    private const int TextColor = 36;
+    private const int UseImmersiveDarkMode = 20;
+
+    // COLORREF is 0x00BBGGRR. Ink #1B1B1F.
+    private const int Ink = 0x001F1B1B;
+    private const int White = 0x00FFFFFF;
+
+    public static void Apply(Window window)
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(window).EnsureHandle();
+            var on = 1;
+            DwmSetWindowAttribute(hwnd, UseImmersiveDarkMode, ref on, sizeof(int));
+            var ink = Ink;
+            var white = White;
+            DwmSetWindowAttribute(hwnd, CaptionColor, ref ink, sizeof(int));
+            DwmSetWindowAttribute(hwnd, BorderColor, ref ink, sizeof(int));
+            DwmSetWindowAttribute(hwnd, TextColor, ref white, sizeof(int));
+        }
+        catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+        {
+            Log.Error("title bar colour not supported", e);
+        }
+    }
+}
+
 /// <summary>Is there any sound output device at all? (A muted device cannot be detected this simply; the "Ovozni sinash" button covers it.)</summary>
 public static class AudioDevices
 {

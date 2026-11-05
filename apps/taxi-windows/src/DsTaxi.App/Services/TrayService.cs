@@ -92,14 +92,14 @@ public sealed class TrayService : IDisposable
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Chiqish", null, (_, _) => ExitRequested?.Invoke());
 
-        _icon = new NotifyIcon { Icon = _offDuty, Text = "DS Taxi", ContextMenuStrip = menu, Visible = true };
+        _icon = new NotifyIcon { Icon = _offDuty, Text = "DS", ContextMenuStrip = menu, Visible = true };
         _icon.DoubleClick += (_, _) => OpenRequested?.Invoke();
     }
 
     public void Set(TrayState state, string tooltip, bool duty)
     {
         _icon.Icon = state switch { TrayState.Connected => _connected, TrayState.Offline => _offline, _ => _offDuty };
-        _icon.Text = Truncate("DS Taxi — " + tooltip, 63); // NotifyIcon allows 63 characters; the tooltip never shows addresses, phones or money
+        _icon.Text = Truncate("DS — " + tooltip, 63); // NotifyIcon allows 63 characters; the tooltip never shows addresses, phones or money
         _duty.Checked = duty;
     }
 
@@ -107,7 +107,15 @@ public sealed class TrayService : IDisposable
 
     private static string Truncate(string s, int max) => s.Length <= max ? s : s[..max];
 
-    /// <summary>A round yellow "taxi" badge with a coloured status dot.</summary>
+    private static PointF P(float x, float y) => new(x, y);
+
+    /// <summary>Quadratic curve as the cubic GDI+ wants.</summary>
+    private static void Quad(System.Drawing.Drawing2D.GraphicsPath path, float x0, float y0, float cx, float cy, float x1, float y1) =>
+        path.AddBezier(P(x0, y0), P(x0 + 2f / 3 * (cx - x0), y0 + 2f / 3 * (cy - y0)), P(x1 + 2f / 3 * (cx - x1), y1 + 2f / 3 * (cy - y1)), P(x1, y1));
+
+    /// <summary>
+    /// The DS logo (yellow tile, black taxi - the phone launcher icon, same shapes as scripts\make-icon.ps1) with a coloured status dot in the corner.
+    /// </summary>
     private static Icon MakeIcon(Color status)
     {
         using var bmp = new Bitmap(32, 32);
@@ -116,12 +124,44 @@ public sealed class TrayService : IDisposable
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             g.Clear(Color.Transparent);
             using var yellow = new SolidBrush(Color.FromArgb(0xFF, 0xC4, 0x00));
-            using var ink = new Pen(Color.FromArgb(0x1B, 0x1B, 0x1F), 2);
-            g.FillEllipse(yellow, 1, 1, 29, 29);
-            g.DrawEllipse(ink, 1, 1, 29, 29);
-            // checker strip: the taxi sign
-            using var black = new SolidBrush(Color.FromArgb(0x1B, 0x1B, 0x1F));
-            for (var i = 0; i < 6; i++) g.FillRectangle(black, 5 + i * 4, i % 2 == 0 ? 11 : 15, 4, 4);
+            using var ink = new SolidBrush(Color.FromArgb(0x1B, 0x1B, 0x1F));
+
+            const float size = 32, d = size * 0.22f * 2;
+            using (var tile = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                tile.AddArc(0, 0, d, d, 180, 90);
+                tile.AddArc(size - d, 0, d, d, 270, 90);
+                tile.AddArc(size - d, size - d, d, d, 0, 90);
+                tile.AddArc(0, size - d, d, d, 90, 90);
+                tile.CloseFigure();
+                g.FillPath(yellow, tile);
+            }
+
+            g.ScaleTransform(size / 64f, size / 64f);
+            g.TranslateTransform(-22, -22);
+            using (var body = new System.Drawing.Drawing2D.GraphicsPath())
+            {
+                body.AddLine(P(30, 60), P(35, 46));
+                Quad(body, 35, 46, 36, 43, 40, 43);
+                body.AddLine(P(40, 43), P(68, 43));
+                Quad(body, 68, 43, 72, 43, 73, 46);
+                body.AddLine(P(73, 46), P(78, 60));
+                body.AddLine(P(78, 60), P(78, 70));
+                body.AddLine(P(78, 70), P(73, 70));
+                body.AddLine(P(73, 70), P(73, 66));
+                body.AddLine(P(73, 66), P(35, 66));
+                body.AddLine(P(35, 66), P(35, 70));
+                body.AddLine(P(35, 70), P(30, 70));
+                body.CloseFigure();
+                g.FillPath(ink, body);
+            }
+            g.FillPolygon(yellow, new[] { P(39, 48), P(69, 48), P(73, 58), P(35, 58) });
+            g.FillEllipse(yellow, 34.5f, 59.5f, 5, 5);
+            g.FillEllipse(yellow, 68.5f, 59.5f, 5, 5);
+            g.FillRectangle(ink, 49, 38, 10, 5);
+
+            // status dot, bottom right (pixel coordinates again)
+            g.ResetTransform();
             using var dot = new SolidBrush(status);
             g.FillEllipse(dot, 17, 17, 14, 14);
             using var ring = new Pen(Color.White, 2);

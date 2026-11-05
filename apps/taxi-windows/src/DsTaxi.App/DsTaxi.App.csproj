@@ -9,12 +9,18 @@
     <RootNamespace>DsTaxi.App</RootNamespace>
     <AssemblyName>DsTaxi</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\DsTaxi.Core\DsTaxi.Core.csproj" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The logo (the phone app's launcher icon), compiled into the program for the window icon and the login screen. -->
+    <Resource Include="Resources\app.ico" />
+    <Resource Include="Resources\logo.png" />
   </ItemGroup>
   <ItemGroup>
     <!-- The owner's new-order ringtone (same file as the Android apps), played from the folder next to the program. -->

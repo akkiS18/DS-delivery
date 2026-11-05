@@ -38,6 +38,13 @@ The build PC needs internet once (NuGet fetches the runtime pack) and Inno Setup
 `publish\DsTaxi.exe` is the program (copy the whole folder; it includes `Resources\new_order.mp3`, the ringtone).
 Start it with `--minimized` to begin hidden in the tray (this is what the "Windows bilan ishga tushsin" setting registers).
 
+## Logo and title bar
+
+The logo is the phone app's launcher icon: `scripts\make-icon.ps1` draws it into `src\DsTaxi.App\Resources\app.ico` / `logo.png`
+(run once, results are committed; the tray icon draws the same shapes in `TrayService.cs`). The window's title bar is painted in the app's
+dark colour with the Windows DWM (`TitleBar` in `Services\Native.cs`): exact colour on Windows 11, the dark title bar on Windows 10;
+the system minimise / maximise / close buttons stay and turn white.
+
 ## Where it keeps things
 
 `%LOCALAPPDATA%\DsTaxi\` — `session.bin` (token, encrypted with Windows DPAPI for this user), `settings.json`
@@ -46,7 +53,8 @@ Requests are never stored on disk. The password is never stored.
 
 ## Server
 
-Default `https://api.sultonxoja.uz`; changeable on the sign-in screen under "Server" (HTTPS only, except localhost for development).
+Fixed at `https://api.sultonxoja.uz`; there is no server field on any screen. A developer can point it elsewhere by editing `ServerUrl` in
+`settings.json` (HTTPS only, except localhost).
 API: `/api/v1/taxi` (login, requests poll every 3 s — 2 s while ringing —, action). The poll is also the "company is online" signal
 for the administrators, so the program keeps polling while its window is hidden in the tray.
 
