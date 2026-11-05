@@ -1,0 +1,283 @@
+<UserControl x:Class="DsTaxi.App.Views.MainView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:DsTaxi.App.ViewModels"
+             Background="{StaticResource PageBrush}">
+    <UserControl.InputBindings>
+        <KeyBinding Key="Enter" Command="{Binding PrimaryCommand}"/>
+        <KeyBinding Key="F9" Command="{Binding SilenceCommand}"/>
+        <KeyBinding Key="M" Modifiers="Control" Command="{Binding SilenceCommand}"/>
+        <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+    </UserControl.InputBindings>
+
+    <UserControl.Resources>
+        <!-- One action button: yellow for the main step, red outline for "Taksi yo'q". The server decides which exist. -->
+        <DataTemplate x:Key="ActionTemplate" DataType="{x:Type vm:ActionItem}">
+            <Grid Margin="0,0,12,10">
+                <Button Content="{Binding Label}" IsEnabled="{Binding Enabled}" MinWidth="200"
+                        Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPrimary}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                <Button Content="{Binding Label}" IsEnabled="{Binding Enabled}" MinWidth="200"
+                        Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource DangerButton}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPrimary}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </Grid>
+        </DataTemplate>
+
+        <!-- Left list card -->
+        <DataTemplate x:Key="RequestListItem" DataType="{x:Type vm:RequestViewModel}">
+            <Border x:Name="Card" Background="White" CornerRadius="10" Padding="12,10" Margin="0,0,0,8"
+                    BorderThickness="2" BorderBrush="{Binding BorderBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Code}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                            <TextBlock Text="TEST" Visibility="{Binding IsTest, Converter={StaticResource B2V}}" Margin="8,3,0,0" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding RestaurantName}" FontSize="14" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                        <TextBlock Text="{Binding StatusLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{Binding StatusBrush}" Margin="0,2,0,0"/>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding TimerText}" Visibility="{Binding HasTimer, Converter={StaticResource B2V}}"
+                               FontSize="20" FontWeight="Bold" Foreground="{Binding TimerBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding Ringing}" Value="True">
+                    <Setter TargetName="Card" Property="Background" Value="#FDECEA"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Right detail card -->
+        <DataTemplate x:Key="RequestDetail" DataType="{x:Type vm:RequestViewModel}">
+            <Border Background="White" CornerRadius="14" Padding="28,22" BorderThickness="3" BorderBrush="{Binding BorderBrush}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Code}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                        <TextBlock Text="TEST" Visibility="{Binding IsTest, Converter={StaticResource B2V}}" Margin="12,12,0,0" FontSize="14" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
+                        <TextBlock Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontSize="18" FontWeight="SemiBold" Margin="18,10,0,0"/>
+                        <TextBlock Text="{Binding TimerText}" Visibility="{Binding HasTimer, Converter={StaticResource B2V}}" Foreground="{Binding TimerBrush}"
+                                   FontSize="26" FontWeight="Bold" Margin="18,4,0,0"/>
+                    </StackPanel>
+
+                    <TextBlock Text="OLISH JOYI" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,22,0,2"/>
+                    <TextBlock Text="{Binding RestaurantName}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                    <TextBlock Text="{Binding RestaurantAddress}" FontSize="16" Foreground="{StaticResource InkBrush}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Visibility="{Binding HasRestaurantPhone, Converter={StaticResource B2V}}">
+                        <TextBlock Text="{Binding RestaurantPhone}" FontSize="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button Content="Nusxalash" Style="{StaticResource SmallButton}" Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding RestaurantPhone}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="YETKAZISH MANZILI" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,20,0,2"/>
+                    <TextBlock Text="{Binding DeliveryAddress}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Manzilni nusxalash" Style="{StaticResource SmallButton}" Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding DeliveryAddress}"/>
+                        <Button Content="Xaritada ochish" Style="{StaticResource SmallButton}" Visibility="{Binding HasMap, Converter={StaticResource B2V}}"
+                                Command="{Binding DataContext.OpenMapCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding MapUrl}"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0" Visibility="{Binding HasCustomerPhone, Converter={StaticResource B2V}}">
+                        <TextBlock Text="Mijoz:" FontSize="16" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding CustomerPhone}" FontSize="18" FontWeight="SemiBold" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                        <Button Content="Nusxalash" Style="{StaticResource SmallButton}" Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding CustomerPhone}"/>
+                    </StackPanel>
+
+                    <TextBlock Text="TAOM" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,20,0,2"/>
+                    <TextBlock Text="{Binding FoodLine}" FontSize="17" FontWeight="SemiBold" Foreground="{Binding FoodBrush}"/>
+                    <TextBlock Text="{Binding FoodPriceLine}" FontSize="15" Foreground="{StaticResource MutedBrush}"/>
+
+                    <Border Background="#FDECEA" BorderBrush="{StaticResource UrgentBrush}" BorderThickness="2" CornerRadius="10" Padding="14,10" Margin="0,16,0,0"
+                            Visibility="{Binding IsCash, Converter={StaticResource B2V}}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding CashHeadline}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource UrgentBrush}"/>
+                            <TextBlock Text="{Binding CashHint}" FontSize="14" Foreground="{StaticResource InkBrush}" Margin="0,4,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="{Binding CardLine}" Visibility="{Binding IsCard, Converter={StaticResource B2V}}"
+                               FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource OkBrush}" Margin="0,16,0,0"/>
+
+                    <TextBlock Text="{Binding BlockedReason}" Visibility="{Binding HasBlockedReason, Converter={StaticResource B2V}}"
+                               FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource WarnBrush}" Margin="0,14,0,0"/>
+
+                    <ItemsControl ItemsSource="{Binding Actions}" ItemTemplate="{StaticResource ActionTemplate}" Margin="0,24,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <TextBlock Text="{Binding UpdatedClock, StringFormat='Yangilangan: {0}'}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="HistoryItem" DataType="{x:Type vm:HistoryRowViewModel}">
+            <Border Background="White" CornerRadius="8" Padding="14,10" Margin="0,0,0,6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="170"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Code}" FontWeight="Bold" FontSize="16"/>
+                    <TextBlock Grid.Column="1" Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" FontSize="15"/>
+                    <TextBlock Grid.Column="2" Text="{Binding Route}" FontSize="14" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                    <TextBlock Grid.Column="3" Text="{Binding Time}" FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="12,0,0,0"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top bar: name + tabs -->
+        <Border Background="{StaticResource InkBrush}" Padding="20,10">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" Text="DS Taxi" FontSize="22" FontWeight="Bold" Foreground="{StaticResource YellowBrush}" VerticalAlignment="Center"/>
+                <TextBlock DockPanel.Dock="Left" Text="{Binding CompanyName}" FontSize="15" Foreground="#C9C9D0" Margin="14,4,0,0" VerticalAlignment="Center"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="So‘rovlar" Style="{StaticResource TabButton}" Tag="{Binding IsRequestsTab}" Command="{Binding SelectTabCommand}" CommandParameter="0"/>
+                    <Button Content="Tarix" Style="{StaticResource TabButton}" Tag="{Binding IsHistoryTab}" Command="{Binding SelectTabCommand}" CommandParameter="1"/>
+                    <Button Content="Sozlamalar" Style="{StaticResource TabButton}" Tag="{Binding IsSettingsTab}" Command="{Binding SelectTabCommand}" CommandParameter="2"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- Status strip -->
+        <Border Grid.Row="1" Background="{Binding StatusBrush}" Padding="20,6">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Yangilash (F5)" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" Margin="8,0,0,0" Padding="10,3" FontSize="12"/>
+                <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Ringing banner: the sound is on until someone answers -->
+        <Border Grid.Row="2" Background="{StaticResource UrgentBrush}" Padding="20,8" Visibility="{Binding Ringing, Converter={StaticResource B2V}}">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Ovozni o‘chirish (F9)" Style="{StaticResource SmallButton}" Command="{Binding SilenceCommand}" Margin="8,0,0,0"/>
+                <TextBlock Text="Yangi so‘rov! Javob bering." Foreground="White" FontSize="17" FontWeight="Bold" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Notices: readiness problems and short messages -->
+        <StackPanel Grid.Row="3">
+            <Border Background="#FFF3E0" Padding="20,8" Visibility="{Binding ReadinessProblem, Converter={StaticResource B2V}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Tuzatish" Style="{StaticResource SmallButton}" Command="{Binding FixCommand}" Margin="8,0,0,0"/>
+                    <TextBlock Text="{Binding ReadinessText}" Foreground="{StaticResource WarnBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </DockPanel>
+            </Border>
+            <Border Background="#E8F0FE" Padding="20,8" Visibility="{Binding HasNotice, Converter={StaticResource B2V}}">
+                <TextBlock Text="{Binding Notice}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+            </Border>
+        </StackPanel>
+
+        <!-- Requests tab -->
+        <Grid Grid.Row="4" Margin="16" Visibility="{Binding IsRequestsTab, Converter={StaticResource B2V}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="340"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <ListBox ItemsSource="{Binding Requests}" SelectedItem="{Binding Selected, Mode=TwoWay}" ItemTemplate="{StaticResource RequestListItem}"
+                     Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" Margin="0,0,16,0">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="Frame" Background="Transparent" CornerRadius="12" Padding="3" BorderThickness="2" BorderBrush="Transparent">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource YellowBrush}"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+
+            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                <ContentControl Content="{Binding Selected}" ContentTemplate="{StaticResource RequestDetail}"/>
+            </ScrollViewer>
+
+            <!-- Empty / loading states cover both columns -->
+            <Border Grid.ColumnSpan="2" Background="{StaticResource PageBrush}" Visibility="{Binding NotLoaded, Converter={StaticResource B2V}}">
+                <TextBlock Text="Yuklanmoqda..." FontSize="18" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <Border Grid.ColumnSpan="2" Background="{StaticResource PageBrush}" Visibility="{Binding IsEmpty, Converter={StaticResource B2V}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="Hozircha so‘rov yo‘q" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="{Binding EmptyText}" FontSize="15" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" TextAlignment="Center"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- History tab -->
+        <Grid Grid.Row="4" Margin="16" Visibility="{Binding IsHistoryTab, Converter={StaticResource B2V}}">
+            <ListBox ItemsSource="{Binding History}" ItemTemplate="{StaticResource HistoryItem}" Background="Transparent" BorderThickness="0"
+                     HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Focusable="False"/>
+            <TextBlock Text="Hozircha tarix yo‘q" Visibility="{Binding HistoryEmpty, Converter={StaticResource B2V}}"
+                       FontSize="18" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+
+        <!-- Settings tab -->
+        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Visibility="{Binding IsSettingsTab, Converter={StaticResource B2V}}">
+            <Border Background="White" CornerRadius="14" Padding="28,22" Margin="16" MaxWidth="720" HorizontalAlignment="Left">
+                <StackPanel>
+                    <TextBlock Text="Hisob" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBlock Text="{Binding CompanyName}" FontSize="20" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding LoginName}" FontSize="14" Foreground="{StaticResource MutedBrush}"/>
+
+                    <CheckBox IsChecked="{Binding Duty, Mode=TwoWay}" Content="Navbatchilik" FontSize="17" FontWeight="SemiBold" Margin="0,24,0,0"/>
+                    <TextBlock Text="{Binding DutyHelp}" FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="24,2,0,0"/>
+
+                    <CheckBox IsChecked="{Binding AutostartSetting, Mode=TwoWay}" Content="Windows bilan birga ishga tushsin" FontSize="16" Margin="0,18,0,0"/>
+                    <CheckBox IsChecked="{Binding MinimizeToTray, Mode=TwoWay}" Content="Oynani yopganda fonda ishlashda davom etsin (soat yonidagi belgi)" FontSize="16" Margin="0,12,0,0"/>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
+                        <Button Content="Ovozni sinash" Style="{StaticResource SmallButton}" Command="{Binding TestSoundCommand}" FontSize="15" Padding="16,8"/>
+                    </StackPanel>
+
+                    <Button x:Name="LogoutButton" Content="Chiqish (hisobdan)" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,28,0,0" Click="OnLogoutClick"/>
+
+                    <TextBlock Text="{Binding ServerUrl, StringFormat='Server: {0}'}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,24,0,0"/>
+                    <TextBlock Text="{Binding VersionText}" FontSize="12" Foreground="{StaticResource MutedBrush}"/>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
