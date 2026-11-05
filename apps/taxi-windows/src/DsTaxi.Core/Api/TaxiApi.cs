@@ -32,7 +32,7 @@ public sealed class TaxiApi : ITaxiApi
     }
 
     /// <summary>Builds the HttpClient for a server address such as https://api.example.uz (HTTPS only, except localhost for development).</summary>
-    public static HttpClient CreateClient(string baseUrl, HttpMessageHandler? handler = null)
+    public static HttpClient CreateClient(string baseUrl, HttpMessageHandler? handler = null, string clientVersion = "1.0.0")
     {
         var url = baseUrl.Trim().TrimEnd('/') + "/";
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) throw new ArgumentException("Server address is not a valid URL.", nameof(baseUrl));
@@ -41,7 +41,7 @@ public sealed class TaxiApi : ITaxiApi
         var client = handler is null ? new HttpClient() : new HttpClient(handler);
         client.BaseAddress = uri;
         client.Timeout = TimeSpan.FromSeconds(10);
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("DsTaxi-Windows/1.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("DsTaxi-Windows/" + clientVersion);
         return client;
     }
 
@@ -65,6 +65,10 @@ public sealed class TaxiApi : ITaxiApi
             return Task.FromResult(ApiResult<ActionResponse>.Failed(0, "BAD_ID", null)); // never put an odd id into a URL
         return SendAsync<ActionResponse>(HttpMethod.Post, $"api/v1/taxi/requests/{id}/action", new ActionRequest { Action = action }, withToken: true, ct);
     }
+
+    /// <summary>Public: the oldest allowed program version and the download link (asked before and during a session).</summary>
+    public Task<ApiResult<ClientConfigResponse>> ClientConfigAsync(CancellationToken ct = default) =>
+        SendAsync<ClientConfigResponse>(HttpMethod.Get, "api/v1/taxi/client-config", null, withToken: false, ct);
 
     private async Task<ApiResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, bool withToken, CancellationToken ct)
     {

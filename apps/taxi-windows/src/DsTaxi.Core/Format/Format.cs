@@ -65,6 +65,17 @@ public static class Fmt
         ? ("Yetkazildimi?", "Buyurtma mijozga haqiqatan topshirildimi? Tasdiqlasangiz buyurtma yakunlanadi, qaytarib bo‘lmaydi.", "Ha, yetkazildi")
         : ("Taksi yo‘qmi?", "Bu so‘rovga haydovchi yuborib bo‘lmasligini tasdiqlaysizmi? Mijoz roziligi bo‘lsa boshqa kompaniyaga murojaat qilinadi.", "Ha, taksi yo‘q");
 
+    /// <summary>
+    /// The question asked when a main button is pressed with the keyboard (Enter): one more look before it counts. The labels are the button's own words,
+    /// so "Qabul qilish" asks "Qabul qilasizmi?". Actions that already have their own dialog keep it (see <see cref="NeedsConfirm"/>).
+    /// </summary>
+    public static (string Title, string Body, string Yes) KeyboardConfirmTexts(string action, string status) => action switch
+    {
+        TaxiAction.Accept => ("Qabul qilasizmi?", "Bu so‘rovni qabul qilasizmi?", "Ha, qabul qilaman"),
+        TaxiAction.Sent => ("Taksi yuborildimi?", "Haydovchi shu buyurtmaga yuborildimi?", "Ha, yuborildi"),
+        _ => (ActionLabel(action, status) + "?", "Tasdiqlaysizmi?", "Ha"),
+    };
+
     /// <summary>"Delivered" is disabled while the server gives a reason (food not ready yet).</summary>
     public static bool ActionEnabled(string action, RequestDto r, bool busy) =>
         !busy && !(action == TaxiAction.Delivered && r.DeliverBlockedReason is not null);
@@ -110,6 +121,19 @@ public static class Fmt
         if (string.IsNullOrWhiteSpace(iso)) return null;
         if (!DateTimeOffset.TryParse(iso, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var t)) return null;
         return TimeZoneInfo.ConvertTime(t, Tashkent).ToString("HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>"Bugun 14:05", "Kecha 22:10" or "05.11 09:12" (Asia/Tashkent) for the history list, or null.</summary>
+    public static string? DayClockOf(string? iso, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(iso)) return null;
+        if (!DateTimeOffset.TryParse(iso, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out var t)) return null;
+        var local = TimeZoneInfo.ConvertTime(t, Tashkent);
+        var today = TimeZoneInfo.ConvertTime(now, Tashkent).Date;
+        var clock = local.ToString("HH:mm", CultureInfo.InvariantCulture);
+        if (local.Date == today) return "Bugun " + clock;
+        if (local.Date == today.AddDays(-1)) return "Kecha " + clock;
+        return local.ToString("dd.MM", CultureInfo.InvariantCulture) + " " + clock;
     }
 
     /// <summary>Seconds left until <paramref name="answerByIso"/>, by the SERVER clock (local now + offset). Null when there is no deadline.</summary>

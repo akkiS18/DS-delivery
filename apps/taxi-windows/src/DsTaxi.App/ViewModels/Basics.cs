@@ -98,7 +98,7 @@ public static class Palette
     }
 
     public static readonly SolidColorBrush Urgent = Frozen(0xD3, 0x2F, 0x2F);
-    public static readonly SolidColorBrush Warn = Frozen(0xEF, 0x6C, 0x00);
+    public static readonly SolidColorBrush Warn = Frozen(0xB5, 0x47, 0x08);
     public static readonly SolidColorBrush Ok = Frozen(0x2E, 0x7D, 0x32);
     public static readonly SolidColorBrush Neutral = Frozen(0x61, 0x61, 0x61);
     public static readonly SolidColorBrush TaxiYellow = Frozen(0xFF, 0xC4, 0x00);

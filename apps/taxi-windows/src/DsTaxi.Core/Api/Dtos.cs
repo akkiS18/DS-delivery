@@ -113,3 +113,16 @@ public static class TaxiAction
     public const string NoTaxi = "NO_TAXI";
     public const string Delivered = "DELIVERED";
 }
+
+/// <summary>GET /api/v1/taxi/client-config (public): what the server asks of the Windows program. Any field may be null = no rule.</summary>
+public sealed class WindowsClientConfig
+{
+    public string? MinVersion { get; init; }
+    public string? LatestVersion { get; init; }
+    public string? DownloadUrl { get; init; }
+}
+
+public sealed class ClientConfigResponse
+{
+    public WindowsClientConfig? Windows { get; init; }
+}

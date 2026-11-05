@@ -141,14 +141,14 @@ public sealed class RequestViewModel : ObservableObject
 /// <summary>One line of the "Tarix" tab.</summary>
 public sealed class HistoryRowViewModel
 {
-    public HistoryRowViewModel(RequestDto r)
+    public HistoryRowViewModel(RequestDto r, DateTimeOffset now)
     {
         Code = "#" + r.OrderCode;
         var look = Fmt.StatusLookOf(r.Status);
         StatusLabel = look.Label;
         StatusBrush = Palette.Of(look.Tone);
         Route = $"{r.Restaurant.Name} → {r.Delivery.Address}";
-        Time = Fmt.ClockOf(r.UpdatedAt) ?? "";
+        Time = Fmt.DayClockOf(r.DeliveredAt ?? r.UpdatedAt, now) ?? "";
     }
 
     public string Code { get; }

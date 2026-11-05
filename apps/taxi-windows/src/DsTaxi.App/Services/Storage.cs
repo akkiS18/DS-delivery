@@ -64,6 +64,16 @@ public sealed class AppSettings
     public string? CompanyName { get; set; }
     public string? Login { get; set; }
 
+    /// <summary>The day (yyyy-MM-dd, local) the operator last pressed "Ovozni sinash": the screen asks once a day.</summary>
+    public string? LastSoundTest { get; set; }
+
+    // The window where the operator left it (not saved in compact mode).
+    public double? WindowLeft { get; set; }
+    public double? WindowTop { get; set; }
+    public double? WindowWidth { get; set; }
+    public double? WindowHeight { get; set; }
+    public bool WindowMaximized { get; set; }
+
     /// <summary>The production API address (the same one the Android apps are built with). Not shown anywhere in the program; only a developer editing settings.json (e.g. to try staging) changes it.</summary>
     public const string DefaultServerUrl = "https://api.sultonxoja.uz";
 }

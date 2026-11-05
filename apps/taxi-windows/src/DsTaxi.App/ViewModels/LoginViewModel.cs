@@ -12,6 +12,7 @@ public sealed class LoginViewModel : ObservableObject
     private string _password = "";
     private string? _error;
     private bool _busy;
+    private bool _capsLock;
 
     /// <param name="signIn">(login, password) -> an Uzbek error text, or null when signed in.</param>
     public LoginViewModel(string? lastLogin, Func<string, string, Task<string?>> signIn)
@@ -30,6 +31,9 @@ public sealed class LoginViewModel : ObservableObject
     public bool HasError => !string.IsNullOrEmpty(_error);
     public bool Busy { get => _busy; private set { Set(ref _busy, value); Raise(nameof(NotBusy)); } }
     public bool NotBusy => !_busy;
+
+    /// <summary>Set by the view from the keyboard state: a wrong password is very often a forgotten Caps Lock.</summary>
+    public bool CapsLockOn { get => _capsLock; set => Set(ref _capsLock, value); }
 
     /// <summary>Raised after a successful sign-in so the view can empty its PasswordBox.</summary>
     public event Action? PasswordCleared;

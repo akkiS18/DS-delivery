@@ -13,15 +13,23 @@
                 </StackPanel>
 
                 <TextBlock Text="Login" FontSize="13" Foreground="{StaticResource MutedBrush}"/>
-                <TextBox x:Name="LoginBox" Text="{Binding Login, UpdateSourceTrigger=PropertyChanged}" FontSize="17" Padding="8,7" Margin="0,4,0,14"/>
+                <TextBox x:Name="LoginBox" Text="{Binding Login, UpdateSourceTrigger=PropertyChanged}" FontSize="17" Padding="8,7" Margin="0,4,0,14" AutomationProperties.Name="Login"/>
 
                 <TextBlock Text="Parol" FontSize="13" Foreground="{StaticResource MutedBrush}"/>
-                <PasswordBox x:Name="PasswordBox" FontSize="17" Padding="8,7" Margin="0,4,0,10" PasswordChanged="OnPasswordChanged"/>
+                <Grid Margin="0,4,0,6">
+                    <PasswordBox x:Name="PasswordBox" FontSize="17" Padding="8,7" PasswordChanged="OnPasswordChanged" AutomationProperties.Name="Parol"/>
+                    <TextBox x:Name="PasswordText" Text="{Binding Password, UpdateSourceTrigger=PropertyChanged}" FontSize="17" Padding="8,7" Visibility="Collapsed" AutomationProperties.Name="Parol (ko‘rinib turibdi)"/>
+                </Grid>
+                <CheckBox x:Name="ShowPasswordCheck" Content="Parolni ko‘rsatish" FontSize="14" Margin="0,0,0,6" Checked="OnShowPasswordChanged" Unchecked="OnShowPasswordChanged"/>
+                <TextBlock Text="Caps Lock yoqilgan: harflar katta bo‘lib yozilmoqda." Visibility="{Binding CapsLockOn, Converter={StaticResource B2V}}"
+                           Foreground="{StaticResource WarnBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,6"/>
 
                 <TextBlock Text="{Binding Error}" Visibility="{Binding HasError, Converter={StaticResource B2V}}"
                            Foreground="{StaticResource UrgentBrush}" FontSize="14" Margin="0,2,0,10"/>
 
                 <Button Content="Kirish" Command="{Binding LoginCommand}" Style="{StaticResource PrimaryButton}" IsDefault="True" Margin="0,4,0,0"/>
+
+                <TextBlock Text="Parol esdan chiqdimi yoki kirib bo‘lmayaptimi? Administratorga murojaat qiling." FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="0,16,0,0"/>
 
             </StackPanel>
         </Border>

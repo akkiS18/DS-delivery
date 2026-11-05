@@ -4,17 +4,19 @@
              xmlns:vm="clr-namespace:DsTaxi.App.ViewModels"
              Background="{StaticResource PageBrush}">
     <UserControl.InputBindings>
+        <!-- Enter does not act by itself: it asks "Qabul qilasizmi?" first (see MainViewModel.ActAsync). -->
         <KeyBinding Key="Enter" Command="{Binding PrimaryCommand}"/>
         <KeyBinding Key="F9" Command="{Binding SilenceCommand}"/>
         <KeyBinding Key="M" Modifiers="Control" Command="{Binding SilenceCommand}"/>
         <KeyBinding Key="F5" Command="{Binding RefreshCommand}"/>
+        <KeyBinding Key="F2" Command="{Binding AlertOpenCommand}"/>
     </UserControl.InputBindings>
 
     <UserControl.Resources>
         <!-- One action button: yellow for the main step, red outline for "Taksi yo'q". The server decides which exist. -->
         <DataTemplate x:Key="ActionTemplate" DataType="{x:Type vm:ActionItem}">
             <Grid Margin="0,0,12,10">
-                <Button Content="{Binding Label}" IsEnabled="{Binding Enabled}" MinWidth="200"
+                <Button Content="{Binding Label}" IsEnabled="{Binding Enabled}" MinWidth="200" AutomationProperties.Name="{Binding Label}"
                         Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}">
                     <Button.Style>
@@ -27,7 +29,7 @@
                         </Style>
                     </Button.Style>
                 </Button>
-                <Button Content="{Binding Label}" IsEnabled="{Binding Enabled}" MinWidth="200"
+                <Button Content="{Binding Label}" IsEnabled="{Binding Enabled}" MinWidth="200" AutomationProperties.Name="{Binding Label}"
                         Command="{Binding DataContext.ActCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                         CommandParameter="{Binding}">
                     <Button.Style>
@@ -55,10 +57,10 @@
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Code}" FontSize="17" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
-                            <TextBlock Text="TEST" Visibility="{Binding IsTest, Converter={StaticResource B2V}}" Margin="8,3,0,0" FontSize="11" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
+                            <TextBlock Text="TEST" Visibility="{Binding IsTest, Converter={StaticResource B2V}}" Margin="8,3,0,0" FontSize="13" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
                         </StackPanel>
                         <TextBlock Text="{Binding RestaurantName}" FontSize="14" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
-                        <TextBlock Text="{Binding StatusLabel}" FontSize="13" FontWeight="SemiBold" Foreground="{Binding StatusBrush}" Margin="0,2,0,0"/>
+                        <TextBlock Text="{Binding StatusLabel}" FontSize="14" FontWeight="SemiBold" Foreground="{Binding StatusBrush}" Margin="0,2,0,0"/>
                     </StackPanel>
                     <TextBlock Grid.Column="1" Text="{Binding TimerText}" Visibility="{Binding HasTimer, Converter={StaticResource B2V}}"
                                FontSize="20" FontWeight="Bold" Foreground="{Binding TimerBrush}" VerticalAlignment="Center" Margin="8,0,0,0"/>
@@ -71,42 +73,45 @@
             </DataTemplate.Triggers>
         </DataTemplate>
 
-        <!-- Right detail card -->
+        <!-- Right detail card. Addresses, names and phones are selectable text (a read-only TextBox that looks like text). -->
         <DataTemplate x:Key="RequestDetail" DataType="{x:Type vm:RequestViewModel}">
             <Border Background="White" CornerRadius="14" Padding="28,22" BorderThickness="3" BorderBrush="{Binding BorderBrush}">
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="{Binding Code}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
                         <TextBlock Text="TEST" Visibility="{Binding IsTest, Converter={StaticResource B2V}}" Margin="12,12,0,0" FontSize="14" FontWeight="Bold" Foreground="{StaticResource WarnBrush}"/>
-                        <TextBlock Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontSize="18" FontWeight="SemiBold" Margin="18,10,0,0"/>
-                        <TextBlock Text="{Binding TimerText}" Visibility="{Binding HasTimer, Converter={StaticResource B2V}}" Foreground="{Binding TimerBrush}"
-                                   FontSize="26" FontWeight="Bold" Margin="18,4,0,0"/>
                     </StackPanel>
+                    <TextBlock Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontSize="18" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                    <TextBlock Text="{Binding TimerText}" Visibility="{Binding HasTimer, Converter={StaticResource B2V}}" Foreground="{Binding TimerBrush}"
+                               FontSize="22" FontWeight="Bold" Margin="0,4,0,0"/>
 
-                    <TextBlock Text="OLISH JOYI" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,22,0,2"/>
-                    <TextBlock Text="{Binding RestaurantName}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
-                    <TextBlock Text="{Binding RestaurantAddress}" FontSize="16" Foreground="{StaticResource InkBrush}"/>
+                    <TextBlock Text="OLISH JOYI" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,22,0,2"/>
+                    <TextBox Text="{Binding RestaurantName, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                    <TextBox Text="{Binding RestaurantAddress, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="16" Foreground="{StaticResource InkBrush}"/>
                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0" Visibility="{Binding HasRestaurantPhone, Converter={StaticResource B2V}}">
-                        <TextBlock Text="{Binding RestaurantPhone}" FontSize="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                        <Button Content="Nusxalash" Style="{StaticResource SmallButton}" Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding RestaurantPhone}"/>
+                        <TextBox Text="{Binding RestaurantPhone, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="16" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button Content="Nusxalash" Style="{StaticResource SmallButton}" AutomationProperties.Name="Restoran raqamini nusxalash"
+                                Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding RestaurantPhone}"/>
                     </StackPanel>
 
-                    <TextBlock Text="YETKAZISH MANZILI" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,20,0,2"/>
-                    <TextBlock Text="{Binding DeliveryAddress}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="Manzilni nusxalash" Style="{StaticResource SmallButton}" Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding DeliveryAddress}"/>
+                    <TextBlock Text="YETKAZISH MANZILI" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,20,0,2"/>
+                    <TextBox Text="{Binding DeliveryAddress, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                    <WrapPanel Margin="0,8,0,0">
+                        <Button Content="Manzilni nusxalash" Style="{StaticResource SmallButton}"
+                                Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding DeliveryAddress}"/>
                         <Button Content="Xaritada ochish" Style="{StaticResource SmallButton}" Visibility="{Binding HasMap, Converter={StaticResource B2V}}"
                                 Command="{Binding DataContext.OpenMapCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding MapUrl}"/>
-                    </StackPanel>
+                    </WrapPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0" Visibility="{Binding HasCustomerPhone, Converter={StaticResource B2V}}">
                         <TextBlock Text="Mijoz:" FontSize="16" Foreground="{StaticResource MutedBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="{Binding CustomerPhone}" FontSize="18" FontWeight="SemiBold" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                        <Button Content="Nusxalash" Style="{StaticResource SmallButton}" Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding CustomerPhone}"/>
+                        <TextBox Text="{Binding CustomerPhone, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="18" FontWeight="SemiBold" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                        <Button Content="Nusxalash" Style="{StaticResource SmallButton}" AutomationProperties.Name="Mijoz raqamini nusxalash"
+                                Command="{Binding DataContext.CopyCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding CustomerPhone}"/>
                     </StackPanel>
 
-                    <TextBlock Text="TAOM" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,20,0,2"/>
-                    <TextBlock Text="{Binding FoodLine}" FontSize="17" FontWeight="SemiBold" Foreground="{Binding FoodBrush}"/>
-                    <TextBlock Text="{Binding FoodPriceLine}" FontSize="15" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBlock Text="TAOM" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,20,0,2"/>
+                    <TextBox Text="{Binding FoodLine, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="17" FontWeight="SemiBold" Foreground="{Binding FoodBrush}"/>
+                    <TextBox Text="{Binding FoodPriceLine, Mode=OneWay}" Style="{StaticResource SelectableText}" FontSize="15" Foreground="{StaticResource MutedBrush}"/>
 
                     <Border Background="#FDECEA" BorderBrush="{StaticResource UrgentBrush}" BorderThickness="2" CornerRadius="10" Padding="14,10" Margin="0,16,0,0"
                             Visibility="{Binding IsCash, Converter={StaticResource B2V}}">
@@ -126,25 +131,29 @@
                             <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
-                    <TextBlock Text="{Binding UpdatedClock, StringFormat='Yangilangan: {0}'}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+                    <TextBlock Text="Yuborilmoqda..." Visibility="{Binding Busy, Converter={StaticResource B2V}}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBlock Text="Enter — asosiy tugma (avval so‘raladi)" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0"/>
+                    <TextBlock Text="{Binding UpdatedClock, StringFormat='Yangilangan: {0}'}" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0"/>
                 </StackPanel>
             </Border>
         </DataTemplate>
 
+        <!-- One history line: code, outcome and time on the first line, the route below -->
         <DataTemplate x:Key="HistoryItem" DataType="{x:Type vm:HistoryRowViewModel}">
             <Border Background="White" CornerRadius="8" Padding="14,10" Margin="0,0,0,6">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="90"/>
-                        <ColumnDefinition Width="170"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="{Binding Code}" FontWeight="Bold" FontSize="16"/>
-                    <TextBlock Grid.Column="1" Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" FontSize="15"/>
-                    <TextBlock Grid.Column="2" Text="{Binding Route}" FontSize="14" Foreground="{StaticResource MutedBrush}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
-                    <TextBlock Grid.Column="3" Text="{Binding Time}" FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="12,0,0,0"/>
-                </Grid>
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Code}" FontWeight="Bold" FontSize="16"/>
+                        <TextBlock Grid.Column="1" Text="{Binding StatusLabel}" Foreground="{Binding StatusBrush}" FontWeight="SemiBold" FontSize="15" Margin="14,0,0,0"/>
+                        <TextBlock Grid.Column="2" Text="{Binding Time}" FontSize="14" Foreground="{StaticResource MutedBrush}"/>
+                    </Grid>
+                    <TextBlock Text="{Binding Route}" FontSize="14" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                </StackPanel>
             </Border>
         </DataTemplate>
     </UserControl.Resources>
@@ -158,24 +167,56 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Top bar: name + tabs -->
-        <Border Background="{StaticResource InkBrush}" Padding="20,10">
-            <DockPanel LastChildFill="False">
-                <!-- The taxi park's own name, big, yellow, capitals. The logo and "DS" are already in the window's title bar. -->
-                <TextBlock DockPanel.Dock="Left" Text="{Binding CompanyTitle}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource YellowBrush}"
-                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="560" VerticalAlignment="Center"/>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+        <!-- Top bar: the taxi park's own name (the logo and "DS" are in the title bar) + tabs + compact switch -->
+        <Border Background="{StaticResource InkBrush}" Padding="20,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Text="{Binding CompanyTitle}" FontWeight="Bold" Foreground="{StaticResource YellowBrush}"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" AutomationProperties.Name="Taksopark nomi">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontSize" Value="30"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCompact}" Value="True"><Setter Property="FontSize" Value="20"/></DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Grid.Row" Value="0"/>
+                            <Setter Property="Grid.Column" Value="1"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCompact}" Value="True">
+                                    <Setter Property="Grid.Row" Value="1"/>
+                                    <Setter Property="Grid.Column" Value="0"/>
+                                    <Setter Property="Grid.ColumnSpan" Value="3"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
                     <Button Content="So‘rovlar" Style="{StaticResource TabButton}" Tag="{Binding IsRequestsTab}" Command="{Binding SelectTabCommand}" CommandParameter="0"/>
                     <Button Content="Tarix" Style="{StaticResource TabButton}" Tag="{Binding IsHistoryTab}" Command="{Binding SelectTabCommand}" CommandParameter="1"/>
                     <Button Content="Sozlamalar" Style="{StaticResource TabButton}" Tag="{Binding IsSettingsTab}" Command="{Binding SelectTabCommand}" CommandParameter="2"/>
                 </StackPanel>
-            </DockPanel>
+                <Button Grid.Column="2" Content="{Binding CompactButtonText}" Style="{StaticResource SmallButton}" Command="{Binding ToggleCompactCommand}"
+                        Margin="16,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Ixcham oyna rejimini almashtirish"/>
+            </Grid>
         </Border>
 
         <!-- Status strip -->
         <Border Grid.Row="1" Background="{Binding StatusBrush}" Padding="20,6">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Yangilash (F5)" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" Margin="8,0,0,0" Padding="10,3" FontSize="12"/>
+                <Button DockPanel.Dock="Right" Content="Yangilash (F5)" Style="{StaticResource SmallButton}" Command="{Binding RefreshCommand}" Margin="8,0,0,0" Padding="10,3" FontSize="13"/>
                 <TextBlock Text="{Binding StatusText}" Foreground="White" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
             </DockPanel>
         </Border>
@@ -188,7 +229,7 @@
             </DockPanel>
         </Border>
 
-        <!-- Notices: readiness problems and short messages -->
+        <!-- Banners: readiness problems and a new program version -->
         <StackPanel Grid.Row="3">
             <Border Background="#FFF3E0" Padding="20,8" Visibility="{Binding ReadinessProblem, Converter={StaticResource B2V}}">
                 <DockPanel>
@@ -196,20 +237,36 @@
                     <TextBlock Text="{Binding ReadinessText}" Foreground="{StaticResource WarnBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 </DockPanel>
             </Border>
-            <Border Background="#E8F0FE" Padding="20,8" Visibility="{Binding HasNotice, Converter={StaticResource B2V}}">
-                <TextBlock Text="{Binding Notice}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+            <Border Background="#E8F0FE" Padding="20,8" Visibility="{Binding UpdateAvailable, Converter={StaticResource B2V}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Yuklab olish" Style="{StaticResource SmallButton}" Command="{Binding OpenUpdateCommand}" Margin="8,0,0,0"
+                            Visibility="{Binding HasUpdateLink, Converter={StaticResource B2V}}"/>
+                    <TextBlock Text="{Binding UpdateText}" Foreground="{StaticResource InkBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </DockPanel>
             </Border>
         </StackPanel>
 
-        <!-- Requests tab -->
+        <!-- Requests tab. Wide window: list on the left, detail on the right. Compact window: list on top, detail below. -->
         <Grid Grid.Row="4" Margin="16" Visibility="{Binding IsRequestsTab, Converter={StaticResource B2V}}">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="340"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="{Binding ListColumnWidth}"/>
+                <ColumnDefinition Width="{Binding DetailColumnWidth}"/>
             </Grid.ColumnDefinitions>
-            <ListBox ItemsSource="{Binding Requests}" SelectedItem="{Binding Selected, Mode=TwoWay}" ItemTemplate="{StaticResource RequestListItem}"
-                     Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" Margin="0,0,16,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="{Binding ListRowHeight}"/>
+                <RowDefinition Height="{Binding DetailRowHeight}"/>
+            </Grid.RowDefinitions>
+            <ListBox x:Name="RequestList" ItemsSource="{Binding Requests}" SelectedItem="{Binding Selected, Mode=TwoWay}" ItemTemplate="{StaticResource RequestListItem}"
+                     Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" AutomationProperties.Name="So‘rovlar ro‘yxati"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" SelectionChanged="OnRequestSelected">
+                <ListBox.Style>
+                    <Style TargetType="ListBox">
+                        <Setter Property="Margin" Value="0,0,16,0"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCompact}" Value="True"><Setter Property="Margin" Value="0,0,0,8"/></DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.Style>
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="0"/>
@@ -223,6 +280,9 @@
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource YellowBrush}"/>
                                         </Trigger>
+                                        <Trigger Property="IsKeyboardFocused" Value="True">
+                                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource FocusBrush}"/>
+                                        </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Setter.Value>
@@ -231,15 +291,27 @@
                 </ListBox.ItemContainerStyle>
             </ListBox>
 
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                        <Setter Property="Grid.Row" Value="0"/>
+                        <Setter Property="Grid.Column" Value="1"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCompact}" Value="True">
+                                <Setter Property="Grid.Row" Value="1"/>
+                                <Setter Property="Grid.Column" Value="0"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ScrollViewer.Style>
                 <ContentControl Content="{Binding Selected}" ContentTemplate="{StaticResource RequestDetail}"/>
             </ScrollViewer>
 
-            <!-- Empty / loading states cover both columns -->
-            <Border Grid.ColumnSpan="2" Background="{StaticResource PageBrush}" Visibility="{Binding NotLoaded, Converter={StaticResource B2V}}">
-                <TextBlock Text="Yuklanmoqda..." FontSize="18" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <!-- Loading / not connected / empty states cover everything -->
+            <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="{StaticResource PageBrush}" Visibility="{Binding NotLoaded, Converter={StaticResource B2V}}">
+                <TextBlock Text="{Binding LoadingText}" FontSize="18" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" MaxWidth="520"/>
             </Border>
-            <Border Grid.ColumnSpan="2" Background="{StaticResource PageBrush}" Visibility="{Binding IsEmpty, Converter={StaticResource B2V}}">
+            <Border Grid.ColumnSpan="2" Grid.RowSpan="2" Background="{StaticResource PageBrush}" Visibility="{Binding IsEmpty, Converter={StaticResource B2V}}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="Hozircha so‘rov yo‘q" FontSize="24" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" HorizontalAlignment="Center"/>
                     <TextBlock Text="{Binding EmptyText}" FontSize="15" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" TextAlignment="Center"/>
@@ -249,9 +321,29 @@
 
         <!-- History tab -->
         <Grid Grid.Row="4" Margin="16" Visibility="{Binding IsHistoryTab, Converter={StaticResource B2V}}">
-            <ListBox ItemsSource="{Binding History}" ItemTemplate="{StaticResource HistoryItem}" Background="Transparent" BorderThickness="0"
-                     HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Focusable="False"/>
-            <TextBlock Text="Hozircha tarix yo‘q" Visibility="{Binding HistoryEmpty, Converter={StaticResource B2V}}"
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel Margin="0,0,0,10">
+                <TextBlock Text="{Binding HistorySummary}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}"/>
+                <TextBlock Text="Qidirish: kod, restoran yoki manzil" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,8,0,2"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox Text="{Binding HistoryText, UpdateSourceTrigger=PropertyChanged}" FontSize="15" Padding="8,6" AutomationProperties.Name="Tarixda qidirish"/>
+                    <ComboBox Grid.Column="1" SelectedIndex="{Binding HistoryKindIndex, Mode=TwoWay}" FontSize="15" Padding="8,6" MinWidth="170" Margin="10,0,0,0" AutomationProperties.Name="Tarixni natija bo‘yicha saralash">
+                        <ComboBoxItem Content="Hammasi"/>
+                        <ComboBoxItem Content="Yetkazilgan"/>
+                        <ComboBoxItem Content="Rad etilgan / bekor"/>
+                    </ComboBox>
+                </Grid>
+            </StackPanel>
+            <ListBox Grid.Row="1" ItemsSource="{Binding History}" ItemTemplate="{StaticResource HistoryItem}" Background="Transparent" BorderThickness="0"
+                     HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Focusable="False" AutomationProperties.Name="Tarix ro‘yxati"/>
+            <TextBlock Grid.Row="1" Text="{Binding HistoryEmptyText}" Visibility="{Binding HistoryEmpty, Converter={StaticResource B2V}}"
                        FontSize="18" Foreground="{StaticResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
         </Grid>
 
@@ -259,7 +351,7 @@
         <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto" Visibility="{Binding IsSettingsTab, Converter={StaticResource B2V}}">
             <Border Background="White" CornerRadius="14" Padding="28,22" Margin="16" MaxWidth="720" HorizontalAlignment="Left">
                 <StackPanel>
-                    <TextBlock Text="Hisob" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"/>
+                    <TextBlock Text="Hisob" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"/>
                     <TextBlock Text="{Binding CompanyName}" FontSize="20" FontWeight="SemiBold"/>
                     <TextBlock Text="{Binding LoginName}" FontSize="14" Foreground="{StaticResource MutedBrush}"/>
 
@@ -269,15 +361,79 @@
                     <CheckBox IsChecked="{Binding AutostartSetting, Mode=TwoWay}" Content="Windows bilan birga ishga tushsin" FontSize="16" Margin="0,18,0,0"/>
                     <CheckBox IsChecked="{Binding MinimizeToTray, Mode=TwoWay}" Content="Oynani yopganda fonda ishlashda davom etsin (soat yonidagi belgi)" FontSize="16" Margin="0,12,0,0"/>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,22,0,0">
+                    <WrapPanel Margin="0,22,0,0">
                         <Button Content="Ovozni sinash" Style="{StaticResource SmallButton}" Command="{Binding TestSoundCommand}" FontSize="15" Padding="16,8"/>
-                    </StackPanel>
+                        <Button Content="Jurnal papkasini ochish" Style="{StaticResource SmallButton}" Command="{Binding OpenLogsCommand}" FontSize="15" Padding="16,8"/>
+                        <Button Content="Versiyani nusxalash" Style="{StaticResource SmallButton}" Command="{Binding CopyVersionCommand}" FontSize="15" Padding="16,8"/>
+                    </WrapPanel>
+                    <TextBlock Text="Muammo bo‘lsa, jurnal papkasidagi eng so‘nggi faylni administratorga yuboring (unda parol, raqam yoki manzil yo‘q)." FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,0"/>
 
                     <Button x:Name="LogoutButton" Content="Chiqish (hisobdan)" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,28,0,0" Click="OnLogoutClick"/>
 
-                    <TextBlock Text="{Binding VersionText}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,24,0,0"/>
+                    <TextBlock Text="{Binding VersionText}" FontSize="13" Foreground="{StaticResource MutedBrush}" Margin="0,24,0,0"/>
                 </StackPanel>
             </Border>
         </ScrollViewer>
+
+        <!-- The "new request" card: pinned at the top of the content like a notification, as high as a button row, never a dialog.
+             It does not cover the status strip or the tabs, and pressing it (or F2) opens the new request. The x hides it without opening. -->
+        <Border Grid.Row="4" VerticalAlignment="Top" HorizontalAlignment="Stretch" Margin="16,10,16,0" MaxHeight="64" Background="{StaticResource InkBrush}"
+                BorderBrush="{StaticResource YellowBrush}" BorderThickness="2" CornerRadius="12" Padding="14,6" Cursor="Hand"
+                Visibility="{Binding HasAlert, Converter={StaticResource B2V}}" AutomationProperties.Name="Yangi so‘rov kartasi" AutomationProperties.LiveSetting="Assertive">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.35"/>
+            </Border.Effect>
+            <Border.InputBindings>
+                <MouseBinding MouseAction="LeftClick" Command="{Binding AlertOpenCommand}"/>
+            </Border.InputBindings>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Yangi so‘rov" FontSize="16" FontWeight="Bold" Foreground="{StaticResource YellowBrush}"/>
+                        <TextBlock Text="{Binding AlertRequest.Code}" FontSize="16" FontWeight="Bold" Foreground="White" Margin="8,0,0,0"/>
+                        <TextBlock Text="{Binding AlertRequest.TimerText}" Visibility="{Binding AlertRequest.HasTimer, Converter={StaticResource B2V}}"
+                                   FontSize="14" FontWeight="SemiBold" Foreground="#FF8A80" Margin="14,1,0,0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding AlertRequest.RestaurantName}" FontSize="14" Foreground="#E0E0E6" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxWidth="380"/>
+                        <TextBlock Text="{Binding AlertMoreText}" Visibility="{Binding HasAlertMore, Converter={StaticResource B2V}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource YellowBrush}" Margin="10,0,0,0"/>
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="Ko‘rish (F2)" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource YellowBrush}" VerticalAlignment="Center" Margin="12,0,12,0"/>
+                <Button Grid.Column="2" Content="✕" Command="{Binding AlertDismissCommand}" Style="{StaticResource SmallButton}" Margin="0" Padding="9,3" VerticalAlignment="Center"
+                        AutomationProperties.Name="Kartani yopish (so‘rovni ochmasdan)" ToolTip="Yopish"/>
+            </Grid>
+        </Border>
+
+        <!-- Short messages ("Nusxalandi", server refusals): a toast at the bottom, it never pushes the content -->
+        <Border Grid.Row="4" VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="16,0,16,16" Background="{StaticResource InkBrush}" CornerRadius="10" Padding="16,10"
+                Visibility="{Binding HasNotice, Converter={StaticResource B2V}}" AutomationProperties.LiveSetting="Polite" MaxWidth="720">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="12" ShadowDepth="2" Opacity="0.35"/>
+            </Border.Effect>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Notice}" Foreground="White" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="620"/>
+                <Button Content="✕" Command="{Binding DismissNoticeCommand}" Style="{StaticResource SmallButton}" Margin="14,0,0,0" Padding="9,2" AutomationProperties.Name="Xabarni yopish"/>
+            </StackPanel>
+        </Border>
+
+        <!-- The program is too old for the server: nothing else can be used -->
+        <Grid Grid.RowSpan="5" Background="{StaticResource InkBrush}" Visibility="{Binding UpdateRequired, Converter={StaticResource B2V}}" Panel.ZIndex="100">
+            <Border Background="White" CornerRadius="16" Padding="32,28" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Dastur yangilanishi kerak" FontSize="24" FontWeight="Bold" Foreground="{StaticResource InkBrush}"/>
+                    <TextBlock Text="{Binding UpdateText}" FontSize="16" Foreground="{StaticResource MutedBrush}" Margin="0,10,0,20"/>
+                    <Button Content="Yangi versiyani yuklab olish" Style="{StaticResource PrimaryButton}" Command="{Binding OpenUpdateCommand}"
+                            Visibility="{Binding HasUpdateLink, Converter={StaticResource B2V}}"/>
+                    <TextBlock Text="Yuklab olish havolasi berilmagan. Administratorga murojaat qiling." FontSize="15" Foreground="{StaticResource WarnBrush}"
+                               Visibility="{Binding HasUpdateLinkNot, Converter={StaticResource B2V}}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

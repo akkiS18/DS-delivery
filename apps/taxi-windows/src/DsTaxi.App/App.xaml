@@ -8,12 +8,13 @@
         <SolidColorBrush x:Key="YellowBrush" Color="#FFC400"/>
         <SolidColorBrush x:Key="InkBrush" Color="#1B1B1F"/>
         <SolidColorBrush x:Key="UrgentBrush" Color="#D32F2F"/>
-        <SolidColorBrush x:Key="WarnBrush" Color="#EF6C00"/>
+        <SolidColorBrush x:Key="WarnBrush" Color="#B54708"/>
         <SolidColorBrush x:Key="OkBrush" Color="#2E7D32"/>
         <SolidColorBrush x:Key="MutedBrush" Color="#55555C"/>
         <SolidColorBrush x:Key="PageBrush" Color="#F6F6F8"/>
         <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="LineBrush" Color="#E0E0E6"/>
+        <SolidColorBrush x:Key="FocusBrush" Color="#1E6FD9"/>
         <BooleanToVisibilityConverter x:Key="B2V"/>
 
         <Style TargetType="TextBlock">
@@ -41,6 +42,7 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Opacity" Value="0.88"/></Trigger>
                             <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource InkBrush}"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Box" Property="Opacity" Value="0.7"/></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Opacity" Value="0.4"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -62,6 +64,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="#14D32F2F"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource FocusBrush}"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Box" Property="Background" Value="#33D32F2F"/></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Opacity" Value="0.4"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -85,6 +89,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="Background" Value="#EDEDF1"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource FocusBrush}"/><Setter TargetName="Box" Property="BorderThickness" Value="3"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Box" Property="Background" Value="#D5D5DC"/></Trigger>
                             <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Opacity" Value="0.4"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -114,10 +120,23 @@
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="White"/></Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Line" Property="BorderBrush" Value="White"/><Setter Property="Foreground" Value="White"/></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
+        </Style>
+
+        <!-- Text the operator can select with the mouse (read-only TextBox that looks like a TextBlock). Always bind it with Mode=OneWay. -->
+        <Style x:Key="SelectableText" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Cursor" Value="IBeam"/>
         </Style>
 
         <!-- Rounded status chip text holder -->

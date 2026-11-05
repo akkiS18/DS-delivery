@@ -3,11 +3,13 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Threading;
 using DsTaxi.App.Services;
 using DsTaxi.App.ViewModels;
 using DsTaxi.App.Views;
 using DsTaxi.Core.Api;
 using DsTaxi.Core.Format;
+using DsTaxi.Core.Versioning;
 
 namespace DsTaxi.App;
 
@@ -26,6 +28,8 @@ public partial class App : System.Windows.Application
     private MainViewModel? _main;
     private bool _loggingOut;
     private bool _exited;
+    private UpdateState? _lastUpdate;
+    private DispatcherTimer? _updateTimer;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -53,7 +57,8 @@ public partial class App : System.Windows.Application
         _session = SessionStore.Load();
         _alarm = new AlarmPlayer(Dispatcher);
 
-        _window = new MainWindow();
+        _window = new MainWindow { Store = _session };
+        _window.ApplySavedBounds(_session.Settings);
         _window.MinimizeToTrayOnClose = () => _session.IsLoggedIn && _session.Settings.MinimizeToTray;
         _window.CloseRequested += () => !_session.IsLoggedIn || ConfirmExit();
         _window.LogoutRequested += () => _ = LogoutAsync();
@@ -68,6 +73,10 @@ public partial class App : System.Windows.Application
 
         _single.ActivationRequested += () => Dispatcher.BeginInvoke(new Action(() => _window.ShowWindow()));
         SessionEnding += (_, _) => ExitNow(); // Windows is shutting down: no questions
+
+        // A program that stays open for weeks asks the server again every half hour whether it is still allowed.
+        _updateTimer = new DispatcherTimer(TimeSpan.FromMinutes(30), DispatcherPriority.Background, (_, _) => { if (_main is not null) _ = CheckForUpdateAsync(); }, Dispatcher);
+        _updateTimer.Start();
 
         if (_session.IsLoggedIn)
         {
@@ -91,13 +100,17 @@ public partial class App : System.Windows.Application
     private async Task<string?> SignInAsync(string login, string password)
     {
         // The server address is not on the screen. It is the production address unless settings.json (a developer's file) says otherwise.
+        var update = await CheckForUpdateAsync();
+        if (update.Level == UpdateLevel.Required)
+            return "Dastur versiyasi eskirgan. Yangi versiyani o‘rnating" + (update.DownloadUrl is { } link ? ": " + link : ".");
+
         HttpClient http;
-        try { http = TaxiApi.CreateClient(_session.Settings.ServerUrl); }
+        try { http = TaxiApi.CreateClient(_session.Settings.ServerUrl, clientVersion: AppInfo.Version); }
         catch (ArgumentException e)
         {
             Log.Error("saved server address invalid, default used", e);
             _session.Update(s => s.ServerUrl = AppSettings.DefaultServerUrl);
-            http = TaxiApi.CreateClient(AppSettings.DefaultServerUrl);
+            http = TaxiApi.CreateClient(AppSettings.DefaultServerUrl, clientVersion: AppInfo.Version);
         }
 
         ApiResult<LoginResponse> result;
@@ -119,13 +132,13 @@ public partial class App : System.Windows.Application
         LeaveMain();
         try
         {
-            _http = TaxiApi.CreateClient(_session.Settings.ServerUrl);
+            _http = TaxiApi.CreateClient(_session.Settings.ServerUrl, clientVersion: AppInfo.Version);
         }
         catch (ArgumentException e)
         {
             Log.Error("saved server address invalid, default used", e);
             _session.Update(s => s.ServerUrl = AppSettings.DefaultServerUrl);
-            _http = TaxiApi.CreateClient(AppSettings.DefaultServerUrl);
+            _http = TaxiApi.CreateClient(AppSettings.DefaultServerUrl, clientVersion: AppInfo.Version);
         }
 
         _api = new TaxiApi(_http, () => _session.Token);
@@ -134,8 +147,30 @@ public partial class App : System.Windows.Application
         _main = new MainViewModel(_dispatcher, _session, _alarm, _window, Dispatcher);
         _main.TrayChanged += (state, text, duty) => _tray.Set(state, text, duty);
         _main.AttentionNeeded += OnAttention;
+        _main.BalloonRequested += (title, text) => _tray.Balloon(title, text);
+        if (_lastUpdate is { } known) _main.ApplyUpdateState(known);
         _window.ShowMain(_main);
         _main.Start();
+        _ = CheckForUpdateAsync();
+    }
+
+    /// <summary>Asks the server which program versions it allows (public call, no sign-in needed). When the answer cannot be had, the last known rule stays.</summary>
+    private async Task<UpdateState> CheckForUpdateAsync()
+    {
+        try
+        {
+            using var http = TaxiApi.CreateClient(_session.Settings.ServerUrl, clientVersion: AppInfo.Version);
+            var result = await new TaxiApi(http, () => null).ClientConfigAsync();
+            if (!result.IsOk || result.Data is null) return _lastUpdate ?? UpdateState.Current;
+            var state = UpdateCheck.Evaluate(AppInfo.Version, result.Data.Windows);
+            _lastUpdate = state;
+            _main?.ApplyUpdateState(state);
+            return state;
+        }
+        catch (ArgumentException)
+        {
+            return _lastUpdate ?? UpdateState.Current;
+        }
     }
 
     private void LeaveMain()
