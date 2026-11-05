@@ -104,6 +104,8 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public string CompanyName => _session.CompanyName ?? "";
+    /// <summary>The taxi park's name in capitals for the top bar.</summary>
+    public string CompanyTitle => CompanyName.ToUpperInvariant();
     public string LoginName => _session.Login ?? "";
     public string VersionText => "DS " + (typeof(MainViewModel).Assembly.GetName().Version?.ToString(3) ?? "1.0.0");
 

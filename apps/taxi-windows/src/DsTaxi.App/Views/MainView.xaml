@@ -161,9 +161,9 @@
         <!-- Top bar: name + tabs -->
         <Border Background="{StaticResource InkBrush}" Padding="20,10">
             <DockPanel LastChildFill="False">
-                <Image DockPanel.Dock="Left" Source="pack://application:,,,/Resources/logo.png" Width="30" Height="30" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
-                <TextBlock DockPanel.Dock="Left" Text="DS" FontSize="22" FontWeight="Bold" Foreground="{StaticResource YellowBrush}" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                <TextBlock DockPanel.Dock="Left" Text="{Binding CompanyName}" FontSize="15" Foreground="#C9C9D0" Margin="14,4,0,0" VerticalAlignment="Center"/>
+                <!-- The taxi park's own name, big, yellow, capitals. The logo and "DS" are already in the window's title bar. -->
+                <TextBlock DockPanel.Dock="Left" Text="{Binding CompanyTitle}" FontSize="30" FontWeight="Bold" Foreground="{StaticResource YellowBrush}"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" MaxWidth="560" VerticalAlignment="Center"/>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <Button Content="So‘rovlar" Style="{StaticResource TabButton}" Tag="{Binding IsRequestsTab}" Command="{Binding SelectTabCommand}" CommandParameter="0"/>
                     <Button Content="Tarix" Style="{StaticResource TabButton}" Tag="{Binding IsHistoryTab}" Command="{Binding SelectTabCommand}" CommandParameter="1"/>
