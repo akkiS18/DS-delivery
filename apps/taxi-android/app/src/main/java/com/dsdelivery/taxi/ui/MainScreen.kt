@@ -3,6 +3,8 @@ package com.dsdelivery.taxi.ui
 import android.content.Context
 import android.os.PowerManager
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,12 +13,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalTaxi
 import androidx.compose.material.icons.filled.Settings
@@ -24,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -35,6 +42,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +51,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.taxi.TaxiApp
+import com.dsdelivery.taxi.data.RequestDto
 import kotlinx.coroutines.launch
 
 /** What must be true for the phone to ring reliably. Checked every time the app comes back to the screen. */
@@ -80,6 +91,27 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit, onSignedOut
     val scope = rememberCoroutineScope()
     var busyId by remember { mutableStateOf<String?>(null) }
 
+    // Nothing may jump under the operator's finger: a NEW request that needs an answer is not slotted into the list they are reading. It waits at the
+    // END of the list and a card pinned at the top announces it; tapping the card moves it to its place and scrolls there.
+    val listState = rememberLazyListState()
+    var seen by remember { mutableStateOf<Set<String>?>(null) } // "id:status" keys already shown; null until the first list arrived
+    var jumpToId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(state.loaded) {
+        if (state.loaded && seen == null) seen = state.active.map { requestKey(it) }.toSet() // what is there when the screen opens counts as seen
+    }
+    val seenNow = seen
+    val unseen = if (seenNow == null) emptyList() else state.active.filter { it.attention && requestKey(it) !in seenNow }
+    val shown = state.active.filter { r -> unseen.none { it.id == r.id } } + unseen
+    val headerCount = 1 + (if (!readiness.allGood) 1 else 0) + (if (state.active.isEmpty()) 1 else 0)
+    LaunchedEffect(jumpToId, shown.map { it.id }) {
+        val id = jumpToId ?: return@LaunchedEffect
+        val at = shown.indexOfFirst { it.id == id }
+        if (at >= 0) {
+            listState.animateScrollToItem(headerCount + at)
+            jumpToId = null
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -109,7 +141,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit, onSignedOut
         Box(Modifier.padding(padding).fillMaxSize()) {
             when (tab) {
                 Tab.REQUESTS -> RequestsTab(
-                    state = state, duty = duty, readiness = readiness, busyId = busyId,
+                    state = state, shown = shown, listState = listState, duty = duty, readiness = readiness, busyId = busyId,
                     onFix = { tab = Tab.SETTINGS },
                     onRefresh = { app.dispatcher.refreshNow() },
                     onSilence = { app.dispatcher.silence() },
@@ -127,6 +159,18 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit, onSignedOut
                 Tab.HISTORY -> HistoryTab(state.history, state.clockOffsetMs, onRefresh = { app.dispatcher.refreshNow() })
                 Tab.SETTINGS -> SettingsTab(readiness, duty, onReadinessChanged, onSignedOut)
             }
+            unseen.firstOrNull()?.let { first ->
+                NewRequestBanner(
+                    r = first, more = unseen.size - 1,
+                    onOpen = {
+                        seen = (seen ?: emptySet()) + requestKey(first)
+                        tab = Tab.REQUESTS
+                        jumpToId = first.id
+                    },
+                    onDismiss = { seen = (seen ?: emptySet()) + requestKey(first) },
+                    modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
         }
     }
 }
@@ -134,6 +178,8 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit, onSignedOut
 @Composable
 private fun RequestsTab(
     state: com.dsdelivery.taxi.core.DispatchState,
+    shown: List<RequestDto>,
+    listState: LazyListState,
     duty: Boolean,
     readiness: Readiness,
     busyId: String?,
@@ -145,6 +191,7 @@ private fun RequestsTab(
     PullRefresh(onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -165,7 +212,7 @@ private fun RequestsTab(
                     }
                 }
             }
-            items(state.active, key = { it.id }) { r ->
+            items(shown, key = { it.id }) { r ->
                 RequestCard(
                     r = r, clockOffsetMs = state.clockOffsetMs,
                     ringing = state.ringing && "${r.id}:${r.status}" in state.waiting,
@@ -175,6 +222,32 @@ private fun RequestsTab(
                 )
             }
         }
+    }
+}
+
+private fun requestKey(r: RequestDto) = "${r.id}:${r.status}"
+
+/**
+ * The "new request" card: pinned at the top like a notification, never taller than the navigation bar, so the requests below stay visible and
+ * reachable. Tap = open the new request; the x = hide it without opening.
+ */
+@Composable
+private fun NewRequestBanner(r: RequestDto, more: Int, onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier.fillMaxWidth().heightIn(max = 64.dp).shadow(6.dp, shape).background(Color(0xFF1B1B1F), shape).border(2.dp, TaxiYellow, shape)
+            .clickable(onClick = onOpen).padding(start = 14.dp, end = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Yangi so‘rov #${r.orderCode}", color = TaxiYellow, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                r.restaurant.name + if (more > 0) "  •  +$more ta yana" else "",
+                color = Color(0xFFE0E0E6), style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Text("Ko‘rish", color = TaxiYellow, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp))
+        IconButton(onClick = onDismiss) { Icon(Icons.Filled.Close, contentDescription = "Yopish", tint = Color.White) }
     }
 }
 
