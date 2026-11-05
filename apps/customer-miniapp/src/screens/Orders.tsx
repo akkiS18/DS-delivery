@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { AlertTriangle, CalendarClock, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, Footprints, MessageCircle, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CalendarClock, CarFront, ChefHat, ChevronDown, ChevronRight, Clock3, CreditCard, Footprints, History, MessageCircle, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
 import { RateRow } from '../components/RateRow';
 import { Button, Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
@@ -46,6 +46,7 @@ function useOrders() {
 
 export function Orders({ go }: { go: (r: Route) => void }) {
   const { data, error, refresh } = useOrders();
+  const [showHistory, setShowHistory] = useState(false);
   if (!data && !error) return <div className="page"><Skeletons n={4} /></div>;
   if (!data) return <div className="page"><ErrorBox error={error} onRetry={() => void refresh()} /></div>;
   const { active, history } = groupOrders(data);
@@ -92,8 +93,11 @@ export function Orders({ go }: { go: (r: Route) => void }) {
       )}
       {history.length > 0 && (
         <section className="stack" aria-label={t('Buyurtmalar tarixi')}>
-          <h2 className="sec-title">{t('Buyurtmalar tarixi')}</h2>
-          {history.map(pastCard)}
+          <button type="button" className="helpbar" aria-expanded={showHistory} onClick={() => setShowHistory(v => !v)}>
+            <Icon as={History} size={18} /><span>{t('Buyurtmalar tarixi')}</span><span className="count">{history.length}</span>
+            <Icon as={ChevronDown} size={18} className={showHistory ? 'flip' : ''} />
+          </button>
+          {showHistory && history.map(pastCard)}
         </section>
       )}
     </div>

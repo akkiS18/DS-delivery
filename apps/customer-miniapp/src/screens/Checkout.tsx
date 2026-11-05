@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CircleCheck, MapPin, ShoppingBasket } from 'lucide-react';
-import { DeliveryNotice } from '../components/DeliveryNotice';
+import { Banknote, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket } from 'lucide-react';
+import { Fold, TaxiTile, Tile } from '../components/Choice';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
-import { Button, ChoiceSummary, Empty, Icon, Spinner, StickyAction } from '../components/ui';
+import { Button, Empty, Icon, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartCount, cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
@@ -38,14 +38,10 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [save, setSave] = useState(true);
   const [phoneInput, setPhoneInput] = useState('');
-  const [editPhone, setEditPhone] = useState(false);
+  const phoneEdited = useRef(false);
   const [walk, setWalk] = useState(false);
   // Walking is offered only by a restaurant that allows it (the server says so in the quote); everywhere else the option is not shown.
   const [walkingAvailable, setWalkingAvailable] = useState(false);
-  // Chosen options are shown as one line each; the full list opens only when the customer taps "O‘zgartirish".
-  const [addrOpen, setAddrOpen] = useState(false);
-  const [deliveryOpen, setDeliveryOpen] = useState(false);
-  const [payOpen, setPayOpen] = useState(false);
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Described | null>(null);
@@ -63,6 +59,11 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     api.taxiCompanies().then(r => { setTaxiOptions(r.companies); setTaxiId(cur => pickTaxi(r.companies, cur, loadTaxiChoice())); }, () => setTaxiFailed(true));
   }, []);
   useEffect(() => { loadTaxis(); }, [loadTaxis]);
+
+  // The saved phone is put into the input (the customer can still change it); an empty profile leaves the input empty.
+  useEffect(() => {
+    if (profile?.phone && !phoneEdited.current) setPhoneInput(formatPhone(profile.phone));
+  }, [profile?.phone]);
 
   const addresses = profile?.addresses ?? [];
   useEffect(() => {
@@ -93,7 +94,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
 
   const savedAddress = addresses.find(a => a.id === selected) ?? null;
   const newErrors = selected === 'new' ? validateAddress({ label, addressText: text, lat: coords?.lat ?? null, lng: coords?.lng ?? null }) : {};
-  const phone = editPhone || !profile.phone ? normalizePhone(phoneInput) : profile.phone;
+  const phone = normalizePhone(phoneInput);
   const ready = checkoutReady({ addressText: selected === 'new' ? text : savedAddress?.addressText ?? null, phone });
   // Several services and none picked yet: the customer must choose. No services at all (or the list failed): the server answers with the reason.
   const taxiMissing = taxiOptions !== null && taxiOptions.length > 1 && taxiId === null;
@@ -101,9 +102,6 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const view = cartView(cart);
   const total = view.totalSom;
 
-  // Chosen options collapse into one line each; they open when the customer changes them or when something there still needs an answer.
-  const addrExpanded = addrOpen || selected === 'new' || addresses.length === 0;
-  const deliveryExpanded = deliveryOpen || taxiOptions === null || taxiFailed || taxiOptions.length === 0 || taxiMissing;
   const missingText = [
     ready.missing.includes('address') || (selected === 'new' && hasErrors(newErrors)) ? t('Manzilni kiriting') : '',
     ready.missing.includes('phone') ? t('Telefon raqamini kiriting') : '',
@@ -126,8 +124,6 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     if (!canSubmit) {
       // Not silently disabled: say what is missing and take the customer to it.
       const target = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') ? 'co-address' : ready.missing.includes('phone') ? 'co-phone' : taxiMissing ? 'co-delivery' : null;
-      if (target === 'co-address') setAddrOpen(true);
-      if (target === 'co-delivery') setDeliveryOpen(true);
       if (target) window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
@@ -171,9 +167,6 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
 
       <section className="stack" id="co-address" aria-label={t('Yetkazish manzili')}>
         <h2 style={{ fontSize: 17 }}>{t('Yetkazish manzili')}</h2>
-        {!addrExpanded && savedAddress ? (
-          <ChoiceSummary title={t('Manzil')} value={savedAddress.label} sub={savedAddress.addressText} onChange={() => setAddrOpen(true)} />
-        ) : (<>
         {addresses.map(a => (
           <label key={a.id} className="card row" style={{ border: selected === a.id ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
             <input type="radio" name="addr" checked={selected === a.id} onChange={() => setSelected(a.id)} style={{ width: 22, height: 22 }} />
@@ -199,87 +192,43 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
             <label className="row"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('Keyingi buyurtmalar uchun saqlash')}</label>
           </div>
         )}
-        </>)}
       </section>
 
       <section className="stack" id="co-phone" aria-label={t('Telefon')}>
         <h2 style={{ fontSize: 17 }}>{t('Telefon raqami')}</h2>
-        {profile.phone && !editPhone ? (
-          <div className="card row between"><span className="bold mono">{formatPhone(profile.phone)}</span><Button small variant="ghost" onClick={() => setEditPhone(true)}>{t('O‘zgartirish')}</Button></div>
-        ) : (
-          <div className="field">
-            <input className={`input ${touched && !phone ? 'invalid' : ''}`} inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} aria-label={t('Telefon raqami')} />
-            {touched && !phone && <div className="err">{t('Telefon raqamini to‘g‘ri kiriting (masalan, 90 123 45 67)')}</div>}
-            <p className="sub small" style={{ marginTop: 6 }}>{t('Keyingi buyurtmalarda qayta so‘ralmaydi.')}</p>
-          </div>
-        )}
+        <div className="field">
+          <input className={`input ${touched && !phone ? 'invalid' : ''}`} inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phoneInput}
+            onChange={e => { phoneEdited.current = true; setPhoneInput(e.target.value); }} aria-label={t('Telefon raqami')} />
+          {touched && !phone && <div className="err">{t('Telefon raqamini to‘g‘ri kiriting (masalan, 90 123 45 67)')}</div>}
+        </div>
       </section>
 
       <section className="stack" id="co-delivery" aria-label={t('Yetkazish usuli')}>
         <h2 style={{ fontSize: 17 }}>{t('Yetkazish usuli')}</h2>
-        {!deliveryExpanded ? (
-          <ChoiceSummary
-            title={t('Yetkazish')}
-            value={walk && walkingAvailable ? t('Piyoda (restoran hal qiladi)') : t('Taksi bilan')}
-            sub={t('{reserve}{name} • narxni taksi xizmati belgilaydi', { reserve: walk ? `${t('Zaxira:')} ` : '', name: taxiOptions?.find(o => o.id === taxiId)?.name ?? t('taksi xizmati') })}
-            onChange={() => setDeliveryOpen(true)} />
-        ) : (<>
-        <label className="card row" style={{ border: !walk ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-          <input type="radio" name="deliverymode" checked={!walk} onChange={() => setWalk(false)} style={{ width: 22, height: 22 }} />
-          <div className="grow">
-            <div className="bold">{t('Taksi xizmatidan foydalanaman')}</div>
-            <div className="sub small">{t('Taksi buyurtmani manzilingizgacha olib boradi')}</div>
-          </div>
-        </label>
-        {walkingAvailable && (
-        <label className="card row" style={{ border: walk ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-          <input type="radio" name="deliverymode" checked={walk} onChange={() => setWalk(true)} style={{ width: 22, height: 22 }} />
-          <div className="grow">
-            <div className="bold">{t('Uyim yaqin — piyoda olib borsa bo‘ladi')}</div>
-            <div className="sub small">{t('Yakuniy qarorni restoran qiladi. Rozi bo‘lsa, taksi chaqirilmaydi va yetkazish uchun haq to‘lamaysiz. Rozi bo‘lmasa, taksi chaqiriladi.')}</div>
-          </div>
-        </label>
-        )}
-        <h3 style={{ fontSize: 15 }}>{walk ? t('Zaxira taksi xizmati') : t('Yetkazib beruvchi taksi')}</h3>
         {taxiOptions === null && !taxiFailed && <Spinner />}
         {taxiFailed && <div className="banner warn" role="alert">{t('Taksi xizmatlari ro‘yxatini yuklab bo‘lmadi.')} <Button small variant="secondary" onClick={loadTaxis}>{t('Qayta urinish')}</Button></div>}
         {taxiOptions !== null && taxiOptions.length === 0 && <div className="banner warn" role="alert">{t('Hozir yetkazib berish uchun taksi xizmati mavjud emas. Birozdan keyin urinib ko‘ring.')}</div>}
-        {taxiOptions !== null && taxiOptions.map(opt => (
-          <label key={opt.id} className="card row" style={{ border: taxiId === opt.id ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-            <input type="radio" name="taxi" checked={taxiId === opt.id} onChange={() => setTaxiId(opt.id)} style={{ width: 22, height: 22 }} />
-            <div className="grow">
-              <div className="bold">{opt.name}</div>
-              <div className="sub small">{t('Yetkazish haqini taksi xizmati o‘zi belgilaydi')}</div>
-            </div>
-          </label>
-        ))}
+        {taxiOptions !== null && taxiOptions.length > 0 && (
+          <div className="tiles" role="radiogroup" aria-label={t('Yetkazish usuli')}>
+            {taxiOptions.map(opt => (
+              <TaxiTile key={opt.id} name={opt.name} number={opt.phone} on={!walk && taxiId === opt.id} onPick={() => { setTaxiId(opt.id); setWalk(false); }} />
+            ))}
+            {walkingAvailable && (
+              <Tile icon={Footprints} title={t('Piyoda')} sub={t('Restoran rozi bo‘lsa, haq yo‘q')} on={walk}
+                onPick={() => { setWalk(true); if (!taxiId && taxiOptions.length > 0) setTaxiId(taxiOptions[0]!.id); }} />
+            )}
+          </div>
+        )}
         {touched && taxiMissing && <div className="err">{t('Taksi xizmatini tanlang.')}</div>}
-        </>)}
       </section>
 
       {choices.cash && (
         <section className="stack" aria-label={t('To‘lov usuli')}>
           <h2 style={{ fontSize: 17 }}>{t('Taom uchun to‘lov')}</h2>
-          {!payOpen ? (
-            <ChoiceSummary title={t('To‘lov usuli')} value={method === 'CASH' ? t('Naqd pul') : t('Kartaga o‘tkazma')} sub={method === 'CASH' ? t('Taom narxini haydovchiga berasiz') : t('Buyurtmadan keyin restoran kartasiga o‘tkazasiz')} onChange={() => setPayOpen(true)} />
-          ) : (<>
-          {choices.card && (
-            <label className="card row" style={{ border: method === 'CARD' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-              <input type="radio" name="paymethod" checked={method === 'CARD'} onChange={() => setChosen('CARD')} style={{ width: 22, height: 22 }} />
-              <div className="grow">
-                <div className="bold">{t('Kartaga o‘tkazma')}</div>
-                <div className="sub small">{choices.cardBusy ? t('To‘lov rekvizitlari hozir band — navbat kutishingiz mumkin') : t('Rekvizit ko‘rsatiladi; o‘tkazganingizdan so‘ng taom tayyorlanadi')}</div>
-              </div>
-            </label>
-          )}
-          <label className="card row" style={{ border: method === 'CASH' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-            <input type="radio" name="paymethod" checked={method === 'CASH'} onChange={() => setChosen('CASH')} style={{ width: 22, height: 22 }} />
-            <div className="grow">
-              <div className="bold">{t('Naqd pul')}</div>
-              <div className="sub small">{t('Taom narxini yetkazib berilganda haydovchiga berasiz (yetkazish haqi alohida). Restoran buyurtmani tasdiqlaydi.')}</div>
-            </div>
-          </label>
-          </>)}
+          <div className="tiles" role="radiogroup" aria-label={t('To‘lov usuli')}>
+            {choices.card && <Tile icon={CreditCard} title={t('Karta')} sub={choices.cardBusy ? t('Navbat bo‘lishi mumkin') : t('Kartaga o‘tkazma')} on={method === 'CARD'} onPick={() => setChosen('CARD')} />}
+            <Tile icon={Banknote} title={t('Naqd pul')} sub={t('Haydovchiga berasiz')} on={method === 'CASH'} onPick={() => setChosen('CASH')} />
+          </div>
         </section>
       )}
 
@@ -293,9 +242,10 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         <div className="row between"><span className="bold">{t('Taomlar')}</span><span className="bold mono">{som(view.dishesSom)}</span></div>
         <PlatformLine pricing={view.pricing} />
         {view.pricing.mode === 'LINE' && <div className="row between"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="bold mono">{som(total)}</span></div>}
-        <TaxiFareBox walk={walk && walkingAvailable} taxiName={taxiOptions?.find(o => o.id === taxiId)?.name ?? null} />
-        <DeliveryNotice />
-        <p className="sub small">{method === 'CASH' ? t('Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.') : t('Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.')}</p>
+        <Fold title={t('Qo‘shimcha')}>
+          <TaxiFareBox walk={walk && walkingAvailable} taxiName={taxiOptions?.find(o => o.id === taxiId)?.name ?? null} />
+          <p className="sub small">{method === 'CASH' ? t('Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.') : t('Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.')}</p>
+        </Fold>
       </section>
 
       {problem && (

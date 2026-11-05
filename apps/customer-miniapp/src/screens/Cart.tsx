@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Gift, ShoppingBasket } from 'lucide-react';
-import { DeliveryNotice } from '../components/DeliveryNotice';
+import { Fold } from '../components/Choice';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
 import { Button, Empty, Icon, Qty, Spinner, StickyAction } from '../components/ui';
@@ -103,8 +103,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         {view.pricing.mode !== 'FLAT' && view.pricing.mode !== 'LINE' && <p className="sub small">{t('Narxlarga xizmat haqi kiritilgan.')}</p>}
         {view.pricing.mode === 'LINE' && <div className="row between bold"><span>{t('Jami (taksidan tashqari)')}</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>}
       </div>
-      <TaxiFareBox />
-      <DeliveryNotice />
+      <Fold title={t('Taksi haqi haqida')}><TaxiFareBox /></Fold>
       {unavailable.size > 0 && (
         <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>{t('Mavjud bo‘lmaganlarni olib tashlash')}</Button>
       )}

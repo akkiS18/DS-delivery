@@ -5,6 +5,7 @@ import { PayCard } from '../components/PayCard';
 import { PaidDialog } from '../components/PaidDialog';
 import { ManualPayNote, PayWarning } from '../components/PayWarning';
 import { PlatformLineRow, TaxiFareBox } from '../components/PriceLines';
+import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { StatusHero } from '../components/StatusHero';
 import { api, ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
@@ -122,9 +123,12 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
     <div className="page">
       {paidNotice && <PaidDialog cash={cash} onClose={() => setPaidNotice(false)} />}
       <div className="row between">
-        <div>
-          <h1 className="page-title">{t('Buyurtma #{code}', { code: o.code })}</h1>
-          <p className="sub">{o.restaurantName} • {clock(o.createdAt)}</p>
+        <div className="row order-head">
+          <div className="logo-round" aria-hidden><RestaurantPhoto name={o.restaurantName} url={o.restaurantImageUrl} width={160} /></div>
+          <div>
+            <h1 className="page-title">{o.restaurantName}</h1>
+            <p className="sub">{t('Buyurtma #{code}', { code: o.code })} • {clock(o.createdAt)}</p>
+          </div>
         </div>
         {o.isTest && <span className="badge test">TEST</span>}
       </div>

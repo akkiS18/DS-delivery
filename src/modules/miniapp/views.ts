@@ -128,7 +128,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 }
 
 const orderInclude = {
-  restaurant: { select: { name: true, defaultPrepMinutes: true, pickupPhone: true } },
+  restaurant: { select: { id: true, name: true, defaultPrepMinutes: true, pickupPhone: true, image: { select: { version: true } } } },
   taxiCompany: { select: { name: true } },
   items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
@@ -212,6 +212,8 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     id: o.id, code: o.code, status: o.status, stage,
     createdAt: o.createdAt.toISOString(),
     restaurantName: o.restaurant.name,
+    /** The restaurant's photo (round logo on the order screen); null = none. */
+    restaurantImageUrl: restaurantImageUrl(o.restaurant.id, o.restaurant.image?.version),
     /** The restaurant's own number, shown where the customer must contact it (a payment that cannot be matched automatically). */
     restaurantPhone: o.restaurant.pickupPhone ?? null,
     items: o.items,
@@ -263,6 +265,6 @@ export async function listCustomerOrders(owner: CustomerOwner, limit = 20) {
   });
   return rows.map(r => {
     const v = customerOrderView(r);
-    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), itemsPreview: v.items.slice(0, 3).map(i => ({ name: i.name, quantity: i.quantity })), itemsMore: Math.max(0, v.items.length - 3), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
+    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, restaurantImageUrl: v.restaurantImageUrl, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), itemsPreview: v.items.slice(0, 3).map(i => ({ name: i.name, quantity: i.quantity })), itemsMore: Math.max(0, v.items.length - 3), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
   });
 }

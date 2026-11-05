@@ -113,7 +113,8 @@ export interface PaymentInstructions {
 }
 
 /** A taxi service the customer can pick at checkout. */
-export interface TaxiOption { id: string; name: string }
+/** `phone` = the service's short call number (e.g. 1424), shown for information only; absent from an older backend. */
+export interface TaxiOption { id: string; name: string; phone?: string | null }
 
 export interface PrepClock {
   minutes: number;
@@ -155,6 +156,8 @@ export interface OrderView {
   stage: CustomerStage;
   createdAt: string;
   restaurantName: string;
+  /** The restaurant's photo (relative URL) for the round logo; null/absent = none (an older backend omits it). */
+  restaurantImageUrl?: string | null;
   /** The restaurant's phone, for "contact the restaurant" notes (null/absent on an older backend or when not set). */
   restaurantPhone?: string | null;
   items: Array<{ name: string; unitSom: number; quantity: number; subtotalSom: number }>;
@@ -206,6 +209,7 @@ export interface OrderSummary {
   stage: CustomerStage;
   createdAt: string;
   restaurantName: string;
+  restaurantImageUrl?: string | null;
   foodTotalSom: number;
   itemsCount: number;
   /** The first dishes of the order (name and quantity) and how many more there are; an older backend omits them. */

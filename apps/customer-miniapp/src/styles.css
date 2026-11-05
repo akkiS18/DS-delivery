@@ -129,7 +129,27 @@ h1, h2, h3, p { margin: 0; }
 .actionbar > button { box-shadow: none; }
 .actionhint { margin: 0 0 8px; text-align: center; font-size: 13px; line-height: 1.35; color: var(--ink-soft); }
 .actionhint.bad { color: var(--bad, #c0392b); font-weight: 600; }
-.choice-summary { gap: 12px; }
+/* Quiet "show more" line */
+.fold { font-size: 13px; color: var(--ink-soft); }
+.fold summary { display: flex; align-items: center; gap: 4px; width: fit-content; padding: 6px 2px; cursor: pointer; list-style: none; font-weight: 600; }
+.fold summary::-webkit-details-marker { display: none; }
+.fold .fold-chev { transition: transform 0.15s; }
+.fold[open] .fold-chev { transform: rotate(180deg); }
+.fold-body { padding-top: 6px; }
+/* Square choices (payment method, walking) and taxi cards */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tile { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; aspect-ratio: 1 / 1; padding: 12px 8px; border: 2px solid var(--line); border-radius: 16px; background: #fff; color: var(--ink); text-align: center; overflow: hidden; }
+.tile.on { border-color: var(--primary); background: var(--mint-soft); box-shadow: 0 0 0 1px var(--primary); }
+.tile-ico { display: inline-flex; color: var(--primary); }
+.tile-title { font-weight: 800; font-size: 16px; line-height: 1.2; }
+.tile-sub { font-size: 12px; line-height: 1.3; color: var(--ink-soft); }
+.tile-check { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border-radius: 50%; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+/* Classic taxi: yellow body, black-and-white checker strip on top */
+.tile.taxi { background: #ffc72c; border-color: #e0a800; color: #1a1a1a; padding-top: 22px; }
+.tile.taxi::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px; background: repeating-conic-gradient(#111 0 25%, #fff 0 50%) 0 0 / 10px 10px; }
+.tile.taxi .tile-ico, .tile.taxi .tile-sub { color: #1a1a1a; }
+.tile.taxi.on { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary); background: #ffc72c; }
+.taxi-number { background: #111; color: #ffc72c; border-radius: 8px; padding: 2px 10px; font-size: 18px; font-weight: 800; letter-spacing: 1px; }
 .app-main { padding-bottom: calc(var(--nav-space) + var(--gap-end) + var(--cartbar-h, 0px)); }
 :root[data-nav='inline'] .app-main { padding-bottom: calc(var(--gap-end) + var(--cartbar-h, 0px)); }
 
@@ -252,6 +272,12 @@ h1, h2, h3, p { margin: 0; }
 /* Support chat */
 .helpbar { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: #fff; color: var(--primary-dark); font-size: 14px; font-weight: 600; text-align: left; }
 .helpbar span { flex: 1; }
+.helpbar .count { flex: none; background: var(--primary); color: #fff; border-radius: 999px; font-size: 12px; min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; }
+.helpbar .flip { transform: rotate(180deg); }
+/* Round restaurant logo on the order screen */
+.order-head { gap: 12px; align-items: center; }
+.logo-round { flex: none; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; background: #e6f1ea; border: 2px solid #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
+.logo-round .rphoto-img, .logo-round .rphoto-empty { width: 100%; height: 100%; object-fit: cover; font-size: 20px; letter-spacing: 0; }
 .ticket-snippet { display: flex; align-items: flex-start; gap: 6px; margin-top: 8px; color: var(--ink-soft); font-size: 14px; }
 .ticket-snippet span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 .chat .bubbles { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }

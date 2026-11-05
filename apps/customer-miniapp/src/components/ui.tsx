@@ -88,20 +88,6 @@ export function StickyAction({ hint, tone = 'soft', children }: { hint?: ReactNo
   );
 }
 
-/** A chosen option shown as one line with a "change" button; the full list of choices opens only when the customer wants to change it. */
-export function ChoiceSummary({ title, value, sub, onChange }: { title: string; value: string; sub?: string; onChange: () => void }) {
-  return (
-    <div className="card row between choice-summary">
-      <div className="grow">
-        <div className="sub small">{title}</div>
-        <div className="bold">{value}</div>
-        {sub ? <div className="sub small">{sub}</div> : null}
-      </div>
-      <Button small variant="ghost" onClick={onChange} aria-label={t('{title}: o‘zgartirish', { title })}>{t('O‘zgartirish')}</Button>
-    </div>
-  );
-}
-
 export function Qty({ value, onInc, onDec, max = 30 }: { value: number; onInc: () => void; onDec: () => void; max?: number }) {
   return (
     <div className="qty" role="group" aria-label={t('Miqdor')}>
