@@ -42,7 +42,7 @@ const add = (t: { count: number; amountSom: number }, e: Entry) => { t.count += 
 
 async function unsettledEntries(restaurantId?: string): Promise<Array<Entry & { held: boolean; name: string }>> {
   const rows = await db.commissionEntry.findMany({
-    where: { settlement: null, ...NOT_PLATFORM_COLLECTED, ...(restaurantId ? { restaurantId } : {}) },
+    where: { settlement: null, waiver: null, ...NOT_PLATFORM_COLLECTED, ...(restaurantId ? { restaurantId } : {}) },
     select: { id: true, restaurantId: true, amountSom: true, accruedAt: true, orderId: true, restaurant: { select: { name: true } } },
     orderBy: [{ accruedAt: 'asc' }, { id: 'asc' }],
   });
@@ -86,7 +86,7 @@ export async function settleRestaurant(
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT 1::integer AS locked FROM pg_advisory_xact_lock(7017, hashtext(${input.restaurantId}))`;
     const rows = await tx.commissionEntry.findMany({
-      where: { restaurantId: input.restaurantId, settlement: null, accruedAt: { lt: cutoff }, ...NOT_PLATFORM_COLLECTED },
+      where: { restaurantId: input.restaurantId, settlement: null, waiver: null, accruedAt: { lt: cutoff }, ...NOT_PLATFORM_COLLECTED },
       select: { id: true, amountSom: true, orderId: true }, orderBy: [{ accruedAt: 'asc' }, { id: 'asc' }],
     });
     const tickets = rows.length

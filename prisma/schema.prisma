@@ -43,6 +43,7 @@ model Restaurant {
   sessions            RestaurantSession[]
   commissionEntries   CommissionEntry[]
   commissionSettlements CommissionSettlement[]
+  commissionWaivers   CommissionWaiver[]
   payoutMarks         PayoutMark[]
   ratings             OrderRating[]
   image               RestaurantImage?
@@ -865,6 +866,7 @@ model CommissionEntry {
   accruedAt     DateTime          @default(now()) @db.Timestamptz(3)
   events        CommissionEvent[]
   settlement    CommissionSettlementEntry?
+  waiver        CommissionWaiver?
 
   @@index([restaurantId, accruedAt])
 }
@@ -893,6 +895,22 @@ model CommissionSettlementEntry {
   entry        CommissionEntry      @relation(fields: [entryId], references: [id], onDelete: Restrict)
 
   @@id([settlementId, entryId])
+}
+
+/// The administrator excuses the platform fee of one delivered order (owner decision 2026-11-05, e.g. the owner's own order). Append-only; the ledger entry is
+/// NOT changed: every balance, payout and statement skips an entry that has a waiver.
+model CommissionWaiver {
+  id           String          @id @default(cuid())
+  entryId      String          @unique
+  entry        CommissionEntry @relation(fields: [entryId], references: [id], onDelete: Restrict)
+  restaurantId String
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  amountSom    Int
+  reason       String
+  waivedBy     String
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@index([restaurantId, createdAt])
 }
 
 /// Stage 8C: append-only audit of administrator actions (restaurant suspend/resume).

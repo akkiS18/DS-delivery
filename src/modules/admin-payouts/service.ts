@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { isPaymentCleared } from '../payment/status.js';
+import { effectiveCommissionSom } from '../commission/waiver.js';
 import { isSupportAdmin } from '../support/service.js';
 
 /**
@@ -67,7 +68,7 @@ export async function payoutReport(days = 7, now = new Date(), restaurantId?: st
         orderId: true, createdAt: true,
         order: {
           select: {
-            restaurantId: true, restaurant: { select: { name: true } }, commission: { select: { amountSom: true } },
+            restaurantId: true, restaurant: { select: { name: true } }, commission: { select: { amountSom: true, waiver: { select: { id: true } } } },
             payment: { select: { status: true, amountTiyin: true } },
             supportTickets: { where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true }, take: 1 },
           },
@@ -107,7 +108,7 @@ export async function payoutReport(days = 7, now = new Date(), restaurantId?: st
     const r = slot(dateKey(e.createdAt), e.order.restaurantId, e.order.restaurant.name);
     r.orders += 1;
     r.collectedSom += som(e.order.payment.amountTiyin);
-    r.commissionSom += e.order.commission?.amountSom ?? 0;
+    r.commissionSom += effectiveCommissionSom(e.order.commission);
     if (e.order.supportTickets.length) r.withOpenTicket += 1;
   }
   for (const f of refunds) {
@@ -153,7 +154,7 @@ export async function payoutDayDetail(date: string, restaurantId: string): Promi
         orderId: true, createdAt: true,
         order: {
           select: {
-            code: true, restaurant: { select: { name: true } }, commission: { select: { amountSom: true } },
+            code: true, restaurant: { select: { name: true } }, commission: { select: { amountSom: true, waiver: { select: { id: true } } } },
             payment: { select: { status: true, amountTiyin: true } },
             supportTickets: { where: { status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true }, take: 1 },
           },
@@ -176,7 +177,7 @@ export async function payoutDayDetail(date: string, restaurantId: string): Promi
     seen.add(e.orderId);
     orders.push({
       code: e.order.code, at: e.createdAt.toISOString(), collectedSom: som(e.order.payment.amountTiyin),
-      commissionSom: e.order.commission?.amountSom ?? 0, openTicket: e.order.supportTickets.length > 0,
+      commissionSom: effectiveCommissionSom(e.order.commission), openTicket: e.order.supportTickets.length > 0,
     });
   }
   const refundLines: DayDetail['refunds'] = refunds

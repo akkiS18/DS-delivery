@@ -91,12 +91,12 @@ export async function financeSummary(restaurantId: string, q: { from?: string; t
       where: { order: { restaurantId, paymentIsTest: false }, status: { in: ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'] } },
       select: { status: true, confirmedByType: true, paidAmountTiyin: true, approvedAmountTiyin: true },
     }),
-    db.commissionEntry.aggregate({ where: { restaurantId, accruedAt: { gte: from, lt: to } }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, waiver: null, accruedAt: { gte: from, lt: to } }, _count: { _all: true }, _sum: { amountSom: true } }),
     // What the restaurant itself still owes: orders paid onto the platform's card are netted by the platform in the daily payout, never billed to the restaurant.
-    db.commissionEntry.aggregate({ where: { restaurantId, ...NOT_PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, waiver: null, ...NOT_PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
     db.order.count({ where: { restaurantId, paymentIsTest: false, status: 'COMPLETED', commission: null, payment: { is: { status: { in: ['CONFIRMED_MANUAL', 'CASH_ACCEPTED'] }, isTest: false } } } }),
     db.commissionEntry.count({ where: { restaurantId, order: { refundRequests: { some: { status: { not: 'REJECTED' } } } } } }),
-    db.commissionEntry.aggregate({ where: { restaurantId, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, waiver: null, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
     payoutSummary(restaurantId, from, to),
   ]);
 
@@ -208,7 +208,7 @@ export async function financeOrders(restaurantId: string, q: { from?: string; to
 
 export async function financeCommissions(restaurantId: string, q: { from?: string; to?: string } & PageQuery) {
   const { from, to } = range(q);
-  const where: Prisma.CommissionEntryWhereInput = { restaurantId, accruedAt: { gte: from, lt: to } };
+  const where: Prisma.CommissionEntryWhereInput = { restaurantId, waiver: null, accruedAt: { gte: from, lt: to } };
   const [rows, periodTotal, outstanding, netted] = await Promise.all([
     db.commissionEntry.findMany({
       where: { ...where, ...(q.cursor ? beforeCursor('accruedAt', q.cursor) : {}) },
@@ -220,8 +220,8 @@ export async function financeCommissions(restaurantId: string, q: { from?: strin
       },
     }),
     db.commissionEntry.aggregate({ where, _count: { _all: true }, _sum: { amountSom: true } }),
-    db.commissionEntry.aggregate({ where: { restaurantId, ...NOT_PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
-    db.commissionEntry.aggregate({ where: { restaurantId, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, waiver: null, ...NOT_PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, waiver: null, ...PLATFORM_COLLECTED }, _count: { _all: true }, _sum: { amountSom: true } }),
   ]);
   const page = rows.slice(0, q.limit);
   return {

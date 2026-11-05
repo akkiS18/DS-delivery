@@ -1,6 +1,9 @@
 import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin } from '../modules/support/service.js';
 import { commissionStatements, settleRestaurant, type RestaurantStatement } from '../modules/commission/settlement.js';
+import { waiveCommission } from '../modules/commission/waiver.js';
+import { dateKey, markPayoutPaid, payoutDayDetail } from '../modules/admin-payouts/service.js';
+import { db } from '../lib/db.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const som = (n: number): string => `${n.toLocaleString('en-US')} so‘m`;
@@ -85,5 +88,61 @@ export function registerCommissionAdminHandlers<C extends Context>(bot: Telegraf
       pending.delete(id);
       await ctx.reply(`⚠️ Bajarilmadi: ${ERR[code] ?? 'xatolik'}`);
     }
+  });
+
+  // /waive KOD sabab: excuse the platform fee of one delivered order (owner's own order etc.). The ledger is not changed; see commission/waiver.ts.
+  bot.command('waive', async ctx => {
+    const id = admin(ctx);
+    if (!id) return;
+    const m = /^\/waive(?:@\w+)?\s+([A-Za-z0-9]{3,12})\s+([\s\S]{10,300})$/.exec(ctx.message.text.trim());
+    if (!m) { await ctx.reply('Format: /waive BUYURTMA-KODI sabab (kamida 10 belgi)\nMasalan: /waive D56WB Egasining o‘z buyurtmasi, komissiya olinmaydi'); return; }
+    try {
+      const r = await waiveCommission({ adminId: id, orderCode: m[1]!, reason: m[2]! });
+      if (r.result === 'WAIVED') await ctx.reply(`✅ #${r.orderCode} (${r.restaurantName}): ${som(r.amountSom)} komissiya olib tashlandi. Hisoblar shu buyurtma uchun komissiyasiz ko‘rsatiladi.`);
+      else if (r.result === 'ALREADY_WAIVED') await ctx.reply(`ℹ️ #${r.orderCode}: komissiya allaqachon olib tashlangan.`);
+      else if (r.result === 'NO_COMMISSION') await ctx.reply(`ℹ️ #${r.orderCode}: bu buyurtmada hisoblangan komissiya yo‘q (yetkazilmagan yoki komissiyasiz).`);
+      else if (r.result === 'SETTLED') await ctx.reply(`⛔ #${r.orderCode}: komissiya haftalik hisobda to‘langan deb qayd etilgan, olib tashlab bo‘lmaydi.`);
+      else await ctx.reply('Bunday buyurtma topilmadi.');
+    } catch (err) {
+      const code = err instanceof Error ? err.message : '';
+      await ctx.reply(`⚠️ Bajarilmadi: ${ERR[code] ?? 'xatolik'}`);
+    }
+  });
+
+  // /paidout restoran-kodi [YYYY-MM-DD]: "I transferred this day's payout" (PayoutMark). Shows the amount first, one tap to record. Moves no money.
+  bot.command('paidout', async ctx => {
+    if (!admin(ctx)) return;
+    const m = /^\/paidout(?:@\w+)?\s+([a-z0-9-]{2,40})(?:\s+(\d{4}-\d{2}-\d{2}))?$/i.exec(ctx.message.text.trim());
+    if (!m) { await ctx.reply('Format: /paidout restoran-kodi [YYYY-MM-DD]\nMasalan: /paidout sifat-food (sana yozilmasa — bugun, Toshkent vaqti)'); return; }
+    const r = await db.restaurant.findUnique({ where: { slug: m[1]!.toLowerCase() }, select: { id: true, name: true } });
+    if (!r) { await ctx.reply('Bunday restoran kodi yo‘q.'); return; }
+    const date = m[2] ?? dateKey(new Date());
+    const d = await payoutDayDetail(date, r.id);
+    if (!d) { await ctx.reply(`${r.name}, ${date}: platforma kartasiga tushgan yetkazilgan buyurtma yo‘q.`); return; }
+    if (d.paid) { await ctx.reply(`ℹ️ ${r.name}, ${date}: ${som(d.paid.amountSom)} allaqachon “o‘tkazildi” deb belgilangan.`); return; }
+    if (d.payableSom <= 0) { await ctx.reply(`${r.name}, ${date}: o‘tkaziladigan summa yo‘q.`); return; }
+    await ctx.reply(
+      `${r.name}, ${date}
+Tushgan: ${som(d.collectedSom)}
+Komissiya: ${som(d.commissionSom)}
+Qaytarilgan: ${som(d.refundsSom)}
+<b>O‘tkaziladigan: ${som(d.payableSom)}</b>
+
+Shu summani restoranga o‘tkazdingizmi?`,
+      { parse_mode: 'HTML', ...Markup.inlineKeyboard([[Markup.button.callback(`✅ Ha, ${som(d.payableSom)} o‘tkazdim`, `pay:go:${r.id}:${date}:${d.payableSom}`)], [Markup.button.callback('⬅️ Yo‘q', 'com:no')]]) });
+  });
+
+  bot.action(/^pay:go:([a-zA-Z0-9_-]{1,40}):(\d{4}-\d{2}-\d{2}):(\d{1,10})$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const id = admin(ctx);
+    if (!id) return;
+    try {
+      const r = await markPayoutPaid({ adminId: id, date: ctx.match[2]!, restaurantId: ctx.match[1]!, expectedSom: Number(ctx.match[3]), note: 'Telegram /paidout' });
+      await ctx.editMessageReplyMarkup(undefined).catch(() => undefined);
+      if (r.result === 'MARKED') await ctx.reply(`✅ ${ctx.match[2]}: ${som(r.amountSom)} “o‘tkazildi” deb qayd etildi.`);
+      else if (r.result === 'ALREADY_PAID') await ctx.reply('ℹ️ Bu kun allaqachon belgilangan.');
+      else if (r.result === 'CHANGED') await ctx.reply(`ℹ️ Summa o‘zgargan (hozir ${som(r.payableSom)}). Hech narsa yozilmadi. /paidout ni qayta yuboring.`);
+      else await ctx.reply('ℹ️ Belgilanadigan summa yo‘q.');
+    } catch { await ctx.reply('⚠️ Bajarilmadi.'); }
   });
 }

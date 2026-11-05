@@ -37,7 +37,7 @@ export async function planRestaurantRemoval(adminId: string, restaurantId: strin
     db.order.count({ where: { restaurantId, status: { notIn: FINISHED } } }),
     db.refundRequest.count({ where: { order: { restaurantId }, status: { in: [...OPEN_REFUND] } } }),
     db.payment.count({ where: { restaurantId } }),
-    db.commissionEntry.aggregate({ where: { restaurantId }, _count: { _all: true }, _sum: { amountSom: true } }),
+    db.commissionEntry.aggregate({ where: { restaurantId, waiver: null }, _count: { _all: true }, _sum: { amountSom: true } }),
   ]);
   if (openOrders) return { result: 'BLOCKED', name: r.name, reason: 'OPEN_ORDERS', count: openOrders };
   if (openRefunds) return { result: 'BLOCKED', name: r.name, reason: 'OPEN_REFUNDS', count: openRefunds };
