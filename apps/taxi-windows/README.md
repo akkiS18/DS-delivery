@@ -22,6 +22,19 @@ dotnet run --project apps\taxi-windows\src\DsTaxi.App
 dotnet publish apps\taxi-windows\src\DsTaxi.App -c Release -r win-x64 --self-contained -o apps\taxi-windows\publish
 ```
 
+## Installer (Inno Setup)
+
+```powershell
+winget install Microsoft.DotNet.SDK.8
+winget install JRSoftware.InnoSetup
+powershell -ExecutionPolicy Bypass -File apps\taxi-windows\scripts\build-installer.ps1 -Version 1.0.0
+```
+
+Result: `apps\taxi-windows\dist\DsTaxi-Setup-1.0.0.exe`. The program is published self-contained, so the installer carries .NET and WPF;
+the operator's PC needs no internet and no runtime (Windows 10 1607+ 64-bit). Per-user install (no admin password), start-menu and optional
+desktop icon, optional autostart, upgrade-in-place (same AppId), uninstall asks whether to delete the saved sign-in.
+The build PC needs internet once (NuGet fetches the runtime pack) and Inno Setup 6.3+. Not code-signed: SmartScreen may warn on first run.
+
 `publish\DsTaxi.exe` is the program (copy the whole folder; it includes `Resources\new_order.mp3`, the ringtone).
 Start it with `--minimized` to begin hidden in the tray (this is what the "Windows bilan ishga tushsin" setting registers).
 
