@@ -10,20 +10,21 @@ import { db } from '../lib/db.js';
  *    the new offers are SET dishes with their own price, so the "cheaper of every pair is free" rule must not apply to them;
  *  - a menu group "AKSIYA" (first) with the four sets of the poster, each with its earlier price crossed out (Product.oldPriceSom, display only):
  *      DONAR 3+1 + 1 L COCA-COLA 109 000 (125 000), LAVASH 3+1 + 1 L COLA 109 000 (125 000), 3 TA PITSA + 1 L COLA 129 000 (163 000), LAVASH 1+1 49 000 (60 000).
- *    No photos yet: the owner puts them in later.
+ *    Each gets its poster tile as the photo (1024 px JPEG, prisma/seed-assets/sifat/aksiya-*.jpg; the server makes the small copies for the menu on request).
  * Run on the server:  docker exec ds-prod-backend-1 node dist/src/tools/seed-sifat-aksiya-2026-11-06.js --apply
  */
 const APPLY = process.argv.includes('--apply');
 const ACTOR = 'owner-aksiya-20261106';
 const BANNER_FILE = resolve(process.cwd(), 'prisma/seed-assets/banner-mahsus-takliflar.jpg');
+const PHOTOS = resolve(process.cwd(), 'prisma/seed-assets/sifat');
 const BANNER_TITLE = 'Mahsus takliflar';
 const GROUP = 'AKSIYA';
 const OLD_DISH = "LAVASH O'RTACHA 1+1";
-const SETS: Array<{ name: string; description: string; priceSom: number; oldPriceSom: number }> = [
-  { name: 'DONAR 3+1 + 1 L COCA-COLA', description: '3+1: 4 ta donar (1 tasi bonus) va 1 litrlik Coca-Cola', priceSom: 109_000, oldPriceSom: 125_000 },
-  { name: 'LAVASH 3+1 + 1 L COLA', description: '3+1: 4 ta lavash (1 tasi bonus) va 1 litrlik Cola', priceSom: 109_000, oldPriceSom: 125_000 },
-  { name: '3 TA PITSA + 1 L COLA', description: '3 ta pitsa va 1 litrlik Cola', priceSom: 129_000, oldPriceSom: 163_000 },
-  { name: 'LAVASH 1+1', description: '1+1: 2 ta lavash', priceSom: 49_000, oldPriceSom: 60_000 },
+const SETS: Array<{ name: string; description: string; priceSom: number; oldPriceSom: number; photo: string }> = [
+  { name: 'DONAR 3+1 + 1 L COCA-COLA', description: '3+1: 4 ta donar (1 tasi bonus) va 1 litrlik Coca-Cola', priceSom: 109_000, oldPriceSom: 125_000, photo: 'aksiya-donar-3plus1.jpg' },
+  { name: 'LAVASH 3+1 + 1 L COLA', description: '3+1: 4 ta lavash (1 tasi bonus) va 1 litrlik Cola', priceSom: 109_000, oldPriceSom: 125_000, photo: 'aksiya-lavash-3plus1.jpg' },
+  { name: '3 TA PITSA + 1 L COLA', description: '3 ta pitsa va 1 litrlik Cola', priceSom: 129_000, oldPriceSom: 163_000, photo: 'aksiya-pitsa-cola.jpg' },
+  { name: 'LAVASH 1+1', description: '1+1: 2 ta lavash', priceSom: 49_000, oldPriceSom: 60_000, photo: 'aksiya-lavash-1plus1.jpg' },
 ];
 const log = (msg: string): void => console.log(`${APPLY ? '[APPLY]' : '[PLAN] '} ${msg}`);
 
@@ -85,11 +86,23 @@ try {
     }
   }
   for (const [i, s] of SETS.entries()) {
-    if (await db.product.findFirst({ where: { restaurantId: r.id, name: s.name, archivedAt: null }, select: { id: true } })) { log(`${s.name}: exists, kept`); continue; }
-    log(`${s.name}: create ${s.priceSom} (was ${s.oldPriceSom}), no photo`);
-    if (APPLY && group) {
-      const p = await db.product.create({ data: { restaurantId: r.id, categoryId: group.id, name: s.name, description: s.description, priceSom: s.priceSom, oldPriceSom: s.oldPriceSom, position: i + 1 } });
-      await db.catalogEvent.create({ data: { restaurantId: r.id, entity: 'PRODUCT', entityId: p.id, action: 'PRODUCT_CREATED', actorSessionId: ACTOR, after: { name: p.name, priceSom: p.priceSom, oldPriceSom: s.oldPriceSom } } });
+    let dish = await db.product.findFirst({ where: { restaurantId: r.id, name: s.name, archivedAt: null }, select: { id: true, imageUrl: true, image: { select: { productId: true } } } });
+    if (dish) log(`${s.name}: exists, kept`);
+    else {
+      log(`${s.name}: create ${s.priceSom} (was ${s.oldPriceSom})`);
+      if (APPLY && group) {
+        const p = await db.product.create({ data: { restaurantId: r.id, categoryId: group.id, name: s.name, description: s.description, priceSom: s.priceSom, oldPriceSom: s.oldPriceSom, position: i + 1 } });
+        await db.catalogEvent.create({ data: { restaurantId: r.id, entity: 'PRODUCT', entityId: p.id, action: 'PRODUCT_CREATED', actorSessionId: ACTOR, after: { name: p.name, priceSom: p.priceSom, oldPriceSom: s.oldPriceSom } } });
+        dish = { id: p.id, imageUrl: null, image: null };
+      }
+    }
+    // The photo only while the dish has none (a photo the restaurant put in later is never replaced).
+    if (dish && (dish.image || dish.imageUrl)) { log(`${s.name}: has a photo, kept`); continue; }
+    const bytes = readFileSync(resolve(PHOTOS, s.photo));
+    log(`${s.name}: photo = ${s.photo} (${bytes.length} bytes)`);
+    if (APPLY && dish) {
+      await db.productImage.create({ data: { productId: dish.id, mime: 'image/jpeg', data: Uint8Array.from(bytes), sha256: createHash('sha256').update(bytes).digest('hex'), version: 1 } });
+      await db.catalogEvent.create({ data: { restaurantId: r.id, entity: 'PRODUCT', entityId: dish.id, action: 'PRODUCT_IMAGE_SET', actorSessionId: ACTOR, after: { source: s.photo, version: 1 } } });
     }
   }
   if (!APPLY) console.log('Nothing written. Add --apply to write.');
