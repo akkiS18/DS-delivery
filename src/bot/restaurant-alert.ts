@@ -26,7 +26,7 @@ export async function deliverPaidOrderAlerts(bot: Sender, now = new Date()): Pro
   let sent = 0;
   const orders = await db.order.findMany({
     where: {
-      createdViaBot: true, updatedAt: { gte: new Date(now.getTime() - WINDOW_MS) },
+      createdViaBot: true, isDemo: false, updatedAt: { gte: new Date(now.getTime() - WINDOW_MS) },
       status: { in: ['PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING'] },
       restaurant: { staffTelegramUserId: { not: null } },
     },

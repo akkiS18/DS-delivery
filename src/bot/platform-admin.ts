@@ -11,6 +11,8 @@ import { createTaxiCompanyByAdmin, resetTaxiAccessByAdmin } from '../modules/tax
 import { createRestaurantByAdmin, linkStaffByAdmin, resetRestaurantPasswordByAdmin } from '../modules/restaurant/provision.js';
 import { IMAGE_MAX_BYTES, setRestaurantImage } from '../modules/restaurant/image.js';
 import { listPromotionsForAdmin, setPromotionActive, setPromotionCap, setPromotionProducts } from '../modules/promotions/service.js';
+import { createDemoOrder, removeDemoOrders, DEMO_MAX_AGE_MS } from '../modules/restaurant-orders/demo.js';
+import { createTaxiDemoRequest, removeTaxiDemoRequest, DEMO_TAXI_MAX_AGE_MS } from '../modules/taxi-app/demo.js';
 import { platformRatingsOverview, REASON_LABEL, setRankingEnabled, type RatingReason } from '../modules/ratings/service.js';
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -441,6 +443,68 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     }
   });
   bot.action('rm:cancel:x:0', async ctx => { await ctx.answerCbQuery().catch(() => undefined); await ctx.editMessageText('Bekor qilindi. Hech narsa o‘zgarmadi.').catch(() => undefined); });
+
+  // ---- "sinov" (owner request 2026-11-06): a fake order in a restaurant's own app / a fake request in a taxi operator's app, to explain them. Nothing reaches history, money or a real driver. ----
+  bot.command('demo', async ctx => {
+    if (!admin(ctx)) return;
+    await ctx.reply([
+      '🧪 <b>Sinov</b>',
+      'Kimga ko‘rsatamiz? Ilovada oddiy buyurtmadek ko‘rinadi, tugmalarni bosib ko‘rish mumkin.',
+      'Pul yo‘q, haqiqiy haydovchiga so‘rov ketmaydi, tarix va hisobotga yozilmaydi.',
+    ].join('\n'), { parse_mode: 'HTML', reply_markup: Markup.inlineKeyboard([[Markup.button.callback('🍽 Restoran xodimiga', 'demo:menu:r'), Markup.button.callback('🚕 Taksi operatoriga', 'demo:menu:t')]]).reply_markup });
+  });
+  bot.action(/^demo:(menu|send|end|tsend|tend):([a-zA-Z0-9_-]+)(?::([ck]))?$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    if (!admin(ctx)) return;
+    const [, step, id, pay] = ctx.match as unknown as [string, 'menu' | 'send' | 'end' | 'tsend' | 'tend', string, 'c' | 'k' | undefined];
+    const edit = (text: string, keyboard?: ReturnType<typeof Markup.inlineKeyboard>) =>
+      ctx.editMessageText(text, { parse_mode: 'HTML', ...(keyboard ? { reply_markup: keyboard.reply_markup } : {}) }).catch(() => ctx.reply(text, { parse_mode: 'HTML' }));
+    if (step === 'menu' && id === 'r') {
+      const rows = await db.restaurant.findMany({ where: { NOT: { slug: { startsWith: 'arxiv-' } } }, orderBy: { name: 'asc' }, take: 40, select: { id: true, name: true } });
+      if (!rows.length) { await edit('Restoran yo‘q.'); return; }
+      await edit('🍽 Qaysi restoran ilovasiga sinov buyurtma yuboramiz?', Markup.inlineKeyboard(rows.map(r => [Markup.button.callback(r.name.slice(0, 60), `demo:send:${r.id}`)])));
+      return;
+    }
+    if (step === 'menu') {
+      const rows = await db.taxiCompany.findMany({ where: { NOT: { name: { contains: '[arxiv' } } }, orderBy: { name: 'asc' }, take: 40, select: { id: true, name: true } });
+      if (!rows.length) { await edit('Taksi kompaniyasi yo‘q.'); return; }
+      await edit('🚕 Qaysi taksi kompaniyasi ilovasiga sinov so‘rov yuboramiz?', Markup.inlineKeyboard(rows.map(r => [Markup.button.callback(r.name.slice(0, 60), `demo:tsend:${r.id}`)])));
+      return;
+    }
+    if (step === 'tsend' && !pay) {
+      // second question: how the fake order was paid (it changes what the operator sees: the cash line for the driver)
+      await edit('To‘lov turi qanday ko‘rsatilsin?', Markup.inlineKeyboard([[Markup.button.callback('💳 Karta (to‘langan)', `demo:tsend:${id}:k`), Markup.button.callback('💵 Naqd (haydovchi to‘laydi)', `demo:tsend:${id}:c`)]]));
+      return;
+    }
+    if (step === 'tsend') {
+      const r = await createTaxiDemoRequest(id, pay === 'c');
+      if (r.result === 'NOT_FOUND') { await edit('Taksi kompaniyasi topilmadi.'); return; }
+      if (r.result === 'BUSY') { await edit('Hozir band, yana bir marta urinib ko‘ring.'); return; }
+      await edit([
+        `🚕 <b>${escapeHtml(r.companyName)}</b> ilovasiga sinov so‘rov yuborildi: <b>${escapeHtml(r.code)}</b>.`,
+        'Operatorga ilovani ochishni ayting: so‘rov yangi buyurtmadek turadi va qo‘ng‘iroq chalinadi. «Qabul qildim» → «Taksi yuborildi» → «Yetkazildi» ni bosib ko‘rsatsin. Haydovchi bu so‘rovdan xabar topmaydi.',
+        `Oxirigacha bosilsa yoki «Taksi yo‘q» bosilsa o‘zi o‘chadi, bosilmasa ${Math.round(DEMO_TAXI_MAX_AGE_MS / 60_000)} daqiqada.`,
+      ].join('\n'), Markup.inlineKeyboard([[Markup.button.callback('🗑 Tugatish', `demo:tend:${id}`)]]));
+      return;
+    }
+    if (step === 'tend') {
+      const n = await removeTaxiDemoRequest(id);
+      await edit(n ? '🗑 Sinov so‘rov o‘chirildi.' : 'Sinov so‘rov allaqachon yo‘q.');
+      return;
+    }
+    if (step === 'end') {
+      const n = await removeDemoOrders(id);
+      await edit(n ? '🗑 Sinov buyurtma o‘chirildi.' : 'Sinov buyurtma allaqachon yo‘q.');
+      return;
+    }
+    const r = await createDemoOrder(id);
+    if (r.result === 'NOT_FOUND') { await edit('Restoran topilmadi.'); return; }
+    await edit([
+      `🧪 <b>${escapeHtml(r.restaurantName)}</b> ilovasiga sinov buyurtma yuborildi: <b>#${escapeHtml(r.code)}</b> (${r.totalSom.toLocaleString('en-US').replace(/,/g, ' ')} so‘m).`,
+      'Xodimga ilovani ochishni ayting: «Yangi» bo‘limida turibdi, qo‘ng‘iroq ham chalinadi.',
+      `Unda faqat «Qabul qildim» va «Tayyor» ishlaydi. Tayyor bosilgach 5 daqiqada, bosilmasa ${Math.round(DEMO_MAX_AGE_MS / 60_000)} daqiqada o‘zi o‘chadi.`,
+    ].join('\n'), Markup.inlineKeyboard([[Markup.button.callback('🗑 Tugatish', `demo:end:${id}`)]]));
+  });
 
   bot.command('linkstaff', async ctx => {
     const adminId = admin(ctx);

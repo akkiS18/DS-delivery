@@ -2,6 +2,7 @@ import type { Prisma, TaxiDispatchStatus } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { completeDelivery, respondToTaxi, taxiDispatchDetails } from '../taxi/service.js';
 import type { OperatorAction } from '../taxi/workflow.js';
+import { actOnTaxiDemo, demoRequestView, getTaxiDemoRequest, listTaxiDemoRequests } from './demo.js';
 
 /** What the DS Taxi app shows. Everything is scoped to the signed-in company; the dispatch id alone never grants access. */
 export const ACTIVE_STATUSES: TaxiDispatchStatus[] = ['REQUESTED', 'ACCEPTED', 'CANCELLATION_PENDING', 'NEEDS_HELP', 'ASSIGNED'];
@@ -79,12 +80,17 @@ export async function listRequests(companyId: string, now = new Date()) {
       include, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: 30,
     }),
   ]);
-  return { serverNow: now.toISOString(), active: active.map(toRequestView), history: history.map(toRequestView) };
+  // An admin "sinov" request (taxi-app/demo.ts) is shown next to the real ones, oldest first, and never reaches the history list.
+  const demo = (await listTaxiDemoRequests(companyId, now)).map(d => demoRequestView(d, now));
+  const shown = [...active.map(toRequestView), ...demo].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return { serverNow: now.toISOString(), active: shown, history: history.map(toRequestView) };
 }
 
 export async function getRequest(companyId: string, dispatchId: string): Promise<TaxiRequestView | null> {
   const row = await db.taxiDispatch.findFirst({ where: { id: dispatchId, taxiCompanyId: companyId }, include });
-  return row ? toRequestView(row) : null;
+  if (row) return toRequestView(row);
+  const demo = await getTaxiDemoRequest(companyId, dispatchId);
+  return demo ? demoRequestView(demo) : null;
 }
 
 export class TaxiAppError extends Error {
@@ -93,6 +99,12 @@ export class TaxiAppError extends Error {
 
 /** One operator answer. The same state machine as the Telegram buttons (respondToTaxi / completeDelivery), authorized by the session's company. */
 export async function act(companyId: string, dispatchId: string, action: AppAction) {
+  // An admin "sinov" request has its own tiny state machine: it never reaches respondToTaxi / completeDelivery (no order, no commission, no history).
+  const demo = await getTaxiDemoRequest(companyId, dispatchId);
+  if (demo) {
+    const r = await actOnTaxiDemo(demo, action);
+    return { changed: r.changed, finalStatus: r.finalStatus, fallbackCompany: null, request: r.request as TaxiRequestView | null };
+  }
   const known = await taxiDispatchDetails('', dispatchId, companyId);
   if (!known) throw new TaxiAppError('TAKSI_SOROVI_TOPILMADI', 404); // another company's request looks exactly like a missing one
   const actor = { actorTelegramId: `app:${companyId}`, actorCompanyId: companyId, dispatchId };

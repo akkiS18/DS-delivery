@@ -13,6 +13,7 @@ import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
 import { rescheduleTaxiForPrep } from '../taxi/service.js';
 import { completeSelfDelivery } from '../orders/self-delivery.js';
 import { autoStartPreparing } from './auto.js';
+import { applyDemoAction, demoAllowedActions } from './demo.js';
 import { CARD_MANUAL, CASH_PENDING, RESTAURANT_CHECK, isPaymentCleared } from '../payment/status.js';
 import { acceptCashOrder, rejectCashOrder } from '../restaurant/cash.js';
 import { confirmRestaurantCheckedPayment, rejectRestaurantCheckedOrder } from '../restaurant/manual-payment.js';
@@ -105,7 +106,7 @@ const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 const detailSelect = {
   id: true, code: true, status: true, totalSom: true, serviceFeeSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true, prepChosenMinutes: true,
-  addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, rejectReason: true,
+  addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, isDemo: true, rejectReason: true,
   deliveryPreference: true, deliveryMode: true, selfDeliveredAt: true, deliveryLat: true, deliveryLng: true,
   restaurantDeadlineAt: true, acceptedAt: true, paymentVerifiedAt: true, preparingStartedAt: true, readyAt: true,
   restaurantId: true,
@@ -141,6 +142,8 @@ export interface Extras {
 const NO_EXTRAS: Extras = { incoming: null, menuProblems: [] };
 
 type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'> & {
+  /** Optional so older callers keep compiling: an admin "sinov" order has its own two actions (restaurant-orders/demo.ts). */
+  isDemo?: boolean;
   paymentStatus: string | null; paymentMethod?: string | null; refund: { status: string } | null; paymentIsTest: boolean;
   /** Optional so older callers keep compiling: only 'SELF' matters. */
   deliveryMode?: string;
@@ -150,6 +153,7 @@ type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'
  *  VERIFY_PAYMENT is offered only for a matched-but-unverified payment and still needs an explicit confirmation. */
 export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblems'> = NO_EXTRAS, now = new Date()): OrderAction[] {
   if (!o.createdViaBot) return [];
+  if (o.isDemo) return demoAllowedActions(o.status);
   const actions: OrderAction[] = [];
   const openRefund = o.refund && OPEN_REFUND.includes(o.refund.status) ? o.refund.status : null;
   if (o.status === 'WAITING_RESTAURANT') {
@@ -228,10 +232,13 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
       ? { name, unitSom, quantity, subtotalSom }
       : { name, unitSom: baseUnitSom, quantity, subtotalSom: baseUnitSom * quantity })),
     serviceFeeSom: o.serviceFeeSom ?? 0,
-    payment: o.payment && {
+    payment: o.payment ? {
       status: appPaymentStatus(o.payment.status), method: o.payment.method, isTest: o.payment.isTest, amountSom: som(o.payment.amountTiyin),
       cardLast4: o.payment.card?.last4 ?? null,
-    },
+    } : o.isDemo
+      // A demo order has no payment row; the app is shown a paid test payment so the card looks like a real paid order.
+      ? { status: 'CONFIRMED_MANUAL', method: 'CARD', isTest: true, amountSom: o.totalSom, cardLast4: null }
+      : null,
     /** Cash on delivery: the taxi driver pays the restaurant `amountSom` (the food total) at pickup and collects it from the customer. */
     cash: o.payment?.method === 'CASH' ? { amountSom: o.totalSom, acceptBy: iso(o.payment.expiresAt), accepted: o.payment.status !== CASH_PENDING } : null,
     /** What the restaurant checks before confirming real money. A Gmail signal is NEVER proof of a bank credit. */
@@ -389,9 +396,19 @@ export async function performOrderAction(
 ): Promise<ActionOutcome> {
   const current = await db.order.findFirst({
     where: { id: orderId, restaurantId, createdViaBot: true },
-    select: { status: true, estimatedPrepMinutes: true, restaurant: { select: { defaultPrepMinutes: true } }, payment: { select: { method: true } } },
+    select: { status: true, isDemo: true, estimatedPrepMinutes: true, restaurant: { select: { defaultPrepMinutes: true } }, payment: { select: { method: true } } },
   });
   if (!current) return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+  if (current.isDemo) {
+    // Admin "sinov" order: handled by its own tiny state machine, never by the payment / taxi / commission services.
+    if (args.expectedStatus && args.expectedStatus !== current.status && !(action === 'MARK_READY' && current.status === 'READY')) return { ok: false, httpStatus: 409, error: 'STALE', status: current.status };
+    const r = await applyDemoAction(restaurantId, orderId, action);
+    if (r !== 'OK') {
+      return { ok: false, httpStatus: 409, error: r === 'NOT_ALLOWED' ? 'INVALID_STATE' : 'STALE', status: (await db.order.findFirst({ where: { id: orderId, restaurantId }, select: { status: true } }))?.status };
+    }
+    const demoView = await getOrderView(restaurantId, orderId);
+    return demoView ? { ok: true, order: demoView } : { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+  }
   const cash = current.payment?.method === 'CASH';
   const manual = current.payment?.method === CARD_MANUAL;
   if (args.expectedStatus && args.expectedStatus !== current.status) {

@@ -105,6 +105,7 @@ export function registerRestaurantHandlers<C extends Context>(bot: Telegraf<C>, 
       where: {
         restaurantId: restaurant.id,
         createdViaBot: true,
+        isDemo: false,
         status: { in: ['WAITING_RESTAURANT', 'PAYMENT_MATCHED_UNVERIFIED', 'PAYMENT_CONFIRMED', 'PREPARING', 'READY'] },
       },
       orderBy: { updatedAt: 'desc' },

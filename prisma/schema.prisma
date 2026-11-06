@@ -110,6 +110,22 @@ model TaxiCompany {
   invites                TaxiOperatorInvite[]
   credential             TaxiCredential?
   sessions               TaxiSession[]
+  demoRequest            TaxiDemoRequest?
+}
+
+/// Admin "sinov" taxi request (/demo in the admin bot): a fake request that only the company's own DS Taxi app shows, to explain the operator's buttons.
+/// It is NOT a TaxiDispatch and has no Order: the dispatch worker, the restaurant, the customer, commission and the admin alerts never see it. One per company.
+model TaxiDemoRequest {
+  id            String              @id @default(cuid())
+  taxiCompanyId String              @unique
+  taxiCompany   TaxiCompany        @relation(fields: [taxiCompanyId], references: [id], onDelete: Cascade)
+  code          String
+  status        TaxiDispatchStatus  @default(REQUESTED)
+  /// true = the driver pays the restaurant at pickup (shows the cash line), false = already paid by card.
+  cash          Boolean             @default(false)
+  totalSom      Int
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(3)
 }
 
 /// Taxi operator app login (one shared login per company). passwordHash is Argon2id and never returned by any API.
@@ -283,6 +299,8 @@ model Order {
   taxiCompanyId              String?
   taxiCompany                TaxiCompany?         @relation(fields: [taxiCompanyId], references: [id])
   createdViaBot              Boolean              @default(false)
+  /// Admin "sinov buyurtma" (/demo in the admin bot): a fake order shown in the restaurant app to explain it. Never paid, never reaches history, finance or the taxi; deleted by the sweep (restaurant-orders/demo.ts).
+  isDemo                     Boolean              @default(false)
   allowTaxiFallback          Boolean              @default(false)
   status                     OrderStatus          @default(PAYMENT_PENDING)
   // Stage 4B-1: restaurant acceptance happens before any payment exists.

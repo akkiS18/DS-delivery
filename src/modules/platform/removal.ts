@@ -33,8 +33,8 @@ export async function planRestaurantRemoval(adminId: string, restaurantId: strin
   const r = await db.restaurant.findUnique({ where: { id: restaurantId }, select: { id: true, name: true } });
   if (!r) return { result: 'NOT_FOUND' };
   const [orders, openOrders, openRefunds, payments, commission] = await Promise.all([
-    db.order.count({ where: { restaurantId } }),
-    db.order.count({ where: { restaurantId, status: { notIn: FINISHED } } }),
+    db.order.count({ where: { restaurantId, isDemo: false } }), // an admin "sinov" order is no history
+    db.order.count({ where: { restaurantId, isDemo: false, status: { notIn: FINISHED } } }),
     db.refundRequest.count({ where: { order: { restaurantId }, status: { in: [...OPEN_REFUND] } } }),
     db.payment.count({ where: { restaurantId } }),
     db.commissionEntry.aggregate({ where: { restaurantId, waiver: null }, _count: { _all: true }, _sum: { amountSom: true } }),
@@ -51,6 +51,7 @@ export async function removeRestaurant(input: { adminId: string; restaurantId: s
   if (plan.result === 'NOT_FOUND') return plan;
   if (plan.result === 'BLOCKED') return plan;
   const r = await db.restaurant.findUniqueOrThrow({ where: { id: input.restaurantId }, select: { id: true, slug: true, name: true } });
+  await db.order.deleteMany({ where: { restaurantId: r.id, isDemo: true } }); // the fake order must not stop (or survive) the removal
   const audit = (action: string) => db.adminAuditEvent.create({ data: { actorId: input.adminId, action, targetType: 'Restaurant', targetId: r.id, details: { slug: r.slug, name: r.name, orders: plan.orders } } });
 
   if (plan.result === 'DELETE') {

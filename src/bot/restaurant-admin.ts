@@ -53,6 +53,7 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/ratings — restoran baholari va reyting bo‘yicha tartiblash',
       '/resetpassword — restoran parolini yangilash',
       '/linkstaff — restoran xodimining Telegramini ulash',
+      '/demo — restoran ilovasiga SINOV buyurtma yuborish (tushuntirish uchun; tarixga yozilmaydi)',
       '/payments — real to‘lovni yoqish / yopish',
       '/fee — xizmat haqi rejimi (tekis / foiz / pog‘onali)',
       '/cash — naqd to‘lov variantini yoqish / yopish',

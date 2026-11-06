@@ -80,6 +80,7 @@
     "test:search:db": "node --env-file=.env --import tsx --test src/tests/search.db.test.ts",
     "test:cards:db": "node --env-file=.env --import tsx --test src/tests/restaurant-cards.db.test.ts",
     "test:checkout6f:db": "node --env-file=.env --import tsx --test src/tests/checkout.stage6f.db.test.ts",
+    "test:demo:db": "node --env-file=.env --import tsx --test src/tests/demo-order.db.test.ts src/tests/taxi-demo.db.test.ts",
     "test:orders:db": "node --env-file=.env --import tsx --test src/tests/restaurant-orders.db.test.ts",
     "test:catalog": "node --import tsx --test src/modules/restaurant-catalog/catalog.test.ts",
     "test:catalog:db": "node --env-file=.env --import tsx --test src/tests/restaurant-catalog.db.test.ts",
