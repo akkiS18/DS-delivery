@@ -3,9 +3,11 @@ package com.dsdelivery.restaurant.data.alarm
 import android.content.Context
 import android.os.SystemClock
 import com.dsdelivery.restaurant.data.model.Order
+import com.dsdelivery.restaurant.data.model.OrdersPage
 import com.dsdelivery.restaurant.data.model.Reservation
 import com.dsdelivery.restaurant.data.model.Resource
 import com.dsdelivery.restaurant.data.repository.RestaurantRepository
+import com.dsdelivery.restaurant.widget.OrdersWidget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,7 +25,7 @@ import retrofit2.HttpException
  * Silence uses the monotonic clock, so a wrong phone clock cannot keep the bell quiet for hours.
  */
 class OrderWatcher(
-    context: Context,
+    private val context: Context,
     private val repository: RestaurantRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -45,7 +47,7 @@ class OrderWatcher(
             var tick = 0
             while (isActive) {
                 when (val result = repository.getOrders("new", null)) {
-                    is Resource.Success -> onOrders(result.data.orders)
+                    is Resource.Success -> { onOrders(result.data.orders); onWidget(result.data) }
                     is Resource.Error -> if ((result.cause as? HttpException)?.code() == 401) { stop(); return@launch }
                     Resource.Loading -> {}
                 }
@@ -57,6 +59,8 @@ class OrderWatcher(
                         Resource.Loading -> {}
                     }
                 }
+                // The home-screen widget also shows the "cooking" list: load both lists again about every 30 s.
+                if (tick % WIDGET_EVERY == 0) OrdersWidget.refresh(context)
                 delay(POLL_MS)
             }
         }
@@ -89,6 +93,11 @@ class OrderWatcher(
         render()
     }
 
+    /** Gives the widget the fresh "new" list (no extra request); a failure here must never stop the bell. */
+    private fun onWidget(page: OrdersPage) {
+        try { OrdersWidget.onNewOrders(context, page) } catch (_: Exception) {}
+    }
+
     /** Reservations that are paid (or need the payment confirmed) and that nobody has opened yet. Sound only for ones not announced before. */
     @Synchronized
     private fun onReservations(upcoming: List<Reservation>) {
@@ -109,5 +118,6 @@ class OrderWatcher(
     private companion object {
         const val POLL_MS = 5_000L
         const val RESERVATION_EVERY = 3
+        const val WIDGET_EVERY = 6
     }
 }

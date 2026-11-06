@@ -17,4 +17,5 @@
     <string name="status_active">Faol</string>
     <string name="status_paused">To‘xtatilgan</string>
     <string name="som_suffix">so‘m</string>
+    <string name="widget_description">Yangi va tayyorlanayotgan buyurtmalar</string>
 </resources>

@@ -60,6 +60,23 @@
         <receiver
             android:name=".data.alarm.SilenceReceiver"
             android:exported="false" />
+
+        <!-- Home-screen widget: new / cooking orders, oldest first (see widget/). -->
+        <receiver
+            android:name=".widget.OrdersWidgetProvider"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/orders_widget_info" />
+        </receiver>
+        <service
+            android:name=".widget.OrdersWidgetService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>
 
 </manifest>
