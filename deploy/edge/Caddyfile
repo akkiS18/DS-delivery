@@ -76,8 +76,8 @@
 	}
 }
 
-# ---- app downloads (restaurant / taxi APKs for staff). Static files from /srv/apk (host /opt/ds-apk, mounted read-only), nothing else is served:
-# the two APKs and latest.json (versions for the portfolio page). Files are replaced by deploy/apk/publish.sh, never edited by hand.
+# ---- app downloads (restaurant / taxi APKs and Windows setup programs for staff). Static files from /srv/apk (host /opt/ds-apk, mounted read-only), nothing else is served:
+# the two APKs, the two Windows setups and latest.json (versions for the portfolio page). Files are replaced by deploy/apk/publish.sh, never edited by hand.
 {$APK_DOMAIN} {
 	import common
 
@@ -94,6 +94,14 @@
 	@apks path /restoran.apk /taksi.apk
 	handle @apks {
 		header Content-Type "application/vnd.android.package-archive"
+		header Content-Disposition "attachment"
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	@windows path /restoran-windows.exe /taksi-windows.exe
+	handle @windows {
+		header Content-Type "application/vnd.microsoft.portable-executable"
 		header Content-Disposition "attachment"
 		header Cache-Control "no-cache"
 		file_server
