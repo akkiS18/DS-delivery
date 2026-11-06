@@ -1,0 +1,224 @@
+<Window x:Class="DsRestaurant.App.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:tb="clr-namespace:Hardcodet.Wpf.TaskbarNotification;assembly=Hardcodet.NotifyIcon.Wpf"
+        xmlns:vm="clr-namespace:DsRestaurant.App.ViewModels"
+        xmlns:views="clr-namespace:DsRestaurant.App.Views"
+        xmlns:controls="clr-namespace:DsRestaurant.App.Controls"
+        mc:Ignorable="d"
+        Title="DS Restaurant"
+        Width="1200" Height="750"
+        MinWidth="1024" MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        Background="#0F172A"
+        UseLayoutRounding="True"
+        Icon="pack://application:,,,/Resources/app.ico">
+
+    <Grid>
+        <!-- Taskbar / Tray Icon -->
+        <tb:TaskbarIcon x:Name="TrayIcon"
+                        ToolTipText="DS Restaurant"
+                        IconSource="pack://application:,,,/Resources/app.ico"
+                        TrayMouseDoubleClick="TrayIcon_DoubleClick">
+            <tb:TaskbarIcon.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="Ochish" Click="TrayOpen_Click" FontWeight="Bold" />
+                    <MenuItem Header="Ovozni o‘chirish (30 s)" Click="TraySilence_Click" />
+                    <Separator />
+                    <MenuItem Header="Chiqish" Click="TrayExit_Click" />
+                </ContextMenu>
+            </tb:TaskbarIcon.ContextMenu>
+        </tb:TaskbarIcon>
+
+        <!-- Unauthenticated State: Fullscreen Login -->
+        <Grid Visibility="{Binding IsAuthenticated, Converter={x:Static vm:InverseBooleanToVisibilityConverter.Instance}}">
+            <views:LoginView DataContext="{Binding LoginVm}" />
+        </Grid>
+
+        <!-- Authenticated State: Shell Layout -->
+        <Grid Visibility="{Binding IsAuthenticated, Converter={x:Static vm:BooleanToVisibilityConverter.Instance}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="236" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT NAVIGATION RAIL -->
+            <Border Grid.Column="0" Background="#1E293B" BorderBrush="#334155" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Brand: the real DS Delivery logo -->
+                    <Border Grid.Row="0" Padding="18,16,18,16" BorderBrush="#334155" BorderThickness="0,0,0,1">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="pack://application:,,,/Resources/logo.png" Width="48" Height="48"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                            <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="DS Restaurant" FontSize="17" FontWeight="Bold" Foreground="#F8FAFC" />
+                                <TextBlock Text="Restoran paneli" FontSize="12" Foreground="#94A3B8" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Navigation Buttons -->
+                    <StackPanel Grid.Row="1" Margin="12,16,12,0">
+                        <!-- Buyurtmalar -->
+                        <Button Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Buyurtmalar"
+                                Command="{Binding NavigateCommand}" CommandParameter="Buyurtmalar"
+                                controls:Ui.IsActive="{Binding SelectedSection, Converter={x:Static vm:EqualsConverter.Instance}, ConverterParameter=Buyurtmalar}">
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <controls:Icon Data="{StaticResource Ic.Orders}" Margin="0,0,12,0" />
+                                    <TextBlock Text="Buyurtmalar" FontSize="15" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Border Background="#EF4444" CornerRadius="10" MinWidth="22" Height="22" Padding="6,0"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Visibility="{Binding OrdersVm.NewCount, Converter={x:Static vm:CountToVisibilityConverter.Instance}}">
+                                    <TextBlock Text="{Binding OrdersVm.NewCount}" Foreground="#FFFFFF" FontSize="12" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </Grid>
+                        </Button>
+
+                        <!-- Bronlar -->
+                        <Button Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Bronlar"
+                                Command="{Binding NavigateCommand}" CommandParameter="Bronlar" Margin="0,4,0,0"
+                                controls:Ui.IsActive="{Binding SelectedSection, Converter={x:Static vm:EqualsConverter.Instance}, ConverterParameter=Bronlar}">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:Icon Data="{StaticResource Ic.Calendar}" Margin="0,0,12,0" />
+                                <TextBlock Text="Bronlar" FontSize="15" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Menyu -->
+                        <Button Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Menyu"
+                                Command="{Binding NavigateCommand}" CommandParameter="Menyu" Margin="0,4,0,0"
+                                controls:Ui.IsActive="{Binding SelectedSection, Converter={x:Static vm:EqualsConverter.Instance}, ConverterParameter=Menyu}">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:Icon Data="{StaticResource Ic.Menu}" Margin="0,0,12,0" />
+                                <TextBlock Text="Menyu" FontSize="15" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Moliya -->
+                        <Button Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Moliya"
+                                Command="{Binding NavigateCommand}" CommandParameter="Moliya" Margin="0,4,0,0"
+                                controls:Ui.IsActive="{Binding SelectedSection, Converter={x:Static vm:EqualsConverter.Instance}, ConverterParameter=Moliya}">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:Icon Data="{StaticResource Ic.Wallet}" Margin="0,0,12,0" />
+                                <TextBlock Text="Moliya" FontSize="15" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Sozlamalar -->
+                        <Button Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Sozlamalar"
+                                Command="{Binding NavigateCommand}" CommandParameter="Sozlamalar" Margin="0,4,0,0"
+                                controls:Ui.IsActive="{Binding SelectedSection, Converter={x:Static vm:EqualsConverter.Instance}, ConverterParameter=Sozlamalar}">
+                            <StackPanel Orientation="Horizontal">
+                                <controls:Icon Data="{StaticResource Ic.Settings}" Margin="0,0,12,0" />
+                                <TextBlock Text="Sozlamalar" FontSize="15" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Restaurant Profile & Logout -->
+                    <Border Grid.Row="2" Padding="16,14" BorderBrush="#334155" BorderThickness="0,1,0,0" Background="#172033">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding RestaurantName}" FontSize="14" FontWeight="Bold"
+                                           Foreground="#F8FAFC" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding RestaurantSlug}" FontSize="12" Foreground="#94A3B8" />
+                            </StackPanel>
+
+                            <Button Grid.Column="1" Command="{Binding LogoutCommand}" Style="{StaticResource IconButtonStyle}"
+                                    ToolTip="Hisobdan chiqish" AutomationProperties.Name="Hisobdan chiqish"
+                                    Background="Transparent" BorderBrush="Transparent" Foreground="#94A3B8">
+                                <controls:Icon Data="{StaticResource Ic.LogOut}" />
+                            </Button>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- RIGHT MAIN WORK AREA -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="64" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Top Bar -->
+                <Border Grid.Row="0" Background="#1E293B" BorderBrush="#334155" BorderThickness="0,0,0,1" Padding="24,0">
+                    <Grid>
+                        <!-- Active Section Title -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding SelectedSection}" FontSize="20" FontWeight="Bold" Foreground="#F8FAFC" />
+                        </StackPanel>
+
+                        <!-- Right Status: Silence bell, Connection Dot & Actions -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <!-- Ringing Alert Strip -->
+                            <Button Command="{Binding OrdersVm.SilenceCommand}" Height="38" Padding="14,0" Margin="0,0,16,0"
+                                    Background="#DC2626" BorderThickness="0" Cursor="Hand" Foreground="#FFFFFF"
+                                    Visibility="{Binding OrdersVm.IsRinging, Converter={x:Static vm:BooleanToVisibilityConverter.Instance}}">
+                                <Button.Resources>
+                                    <Style TargetType="Border">
+                                        <Setter Property="CornerRadius" Value="8" />
+                                    </Style>
+                                </Button.Resources>
+                                <StackPanel Orientation="Horizontal">
+                                    <controls:Icon Data="{StaticResource Ic.BellOff}" Width="18" Height="18" Margin="0,0,8,0" />
+                                    <TextBlock Text="Ovozni o‘chirish" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Connection Status -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse Width="10" Height="10" Fill="{Binding ConnectionDotColor}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding ConnectionStatusText}" Foreground="#CBD5E1" FontSize="13" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Content Area Switcher -->
+                <Grid Grid.Row="1" Background="#0F172A">
+                    <!-- Buyurtmalar View -->
+                    <Grid Visibility="{Binding SelectedSection, Converter={x:Static vm:SectionMatchToVisibilityConverter.OrdersInstance}}">
+                        <views:OrdersView DataContext="{Binding OrdersVm}" />
+                    </Grid>
+
+                    <!-- Sozlamalar View -->
+                    <Grid Visibility="{Binding SelectedSection, Converter={x:Static vm:SectionMatchToVisibilityConverter.SettingsInstance}}">
+                        <views:SettingsView DataContext="{Binding SettingsVm}" />
+                    </Grid>
+
+                    <!-- Bronlar View -->
+                    <Grid Visibility="{Binding SelectedSection, Converter={x:Static vm:SectionMatchToVisibilityConverter.ReservationsInstance}}">
+                        <views:ReservationsView DataContext="{Binding ReservationsVm}" />
+                    </Grid>
+
+                    <!-- Menyu View -->
+                    <Grid Visibility="{Binding SelectedSection, Converter={x:Static vm:SectionMatchToVisibilityConverter.MenuInstance}}">
+                        <views:MenuView DataContext="{Binding MenuVm}" />
+                    </Grid>
+
+                    <!-- Moliya View -->
+                    <Grid Visibility="{Binding SelectedSection, Converter={x:Static vm:SectionMatchToVisibilityConverter.FinanceInstance}}">
+                        <views:FinanceView DataContext="{Binding FinanceVm}" />
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

@@ -1,0 +1,146 @@
+<UserControl x:Class="DsRestaurant.App.Views.MenuView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:DsRestaurant.App.ViewModels"
+        xmlns:controls="clr-namespace:DsRestaurant.App.Controls"
+             mc:Ignorable="d" 
+             d:DataContext="{d:DesignInstance vm:MenuViewModel}"
+             Background="#0F172A">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- TOP BAR: ACTIONS & SEARCH -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Menyu va Taomlar" FontSize="22" FontWeight="Bold" Foreground="#F8FAFC" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- Search Box -->
+                <Grid Margin="0,0,12,0">
+                    <TextBox x:Name="SearchBox" Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" Width="240" Height="38"
+                             Background="#1E293B" Foreground="#F8FAFC" BorderBrush="#475569" BorderThickness="1" CaretBrush="#F8FAFC"
+                             Padding="10,6" VerticalContentAlignment="Center" FontSize="14" AutomationProperties.Name="Taom qidirish" />
+                    <TextBlock Text="Taom qidirish..." Foreground="#64748B" FontSize="14" IsHitTestVisible="False" VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+
+                <!-- Add Category Button -->
+                <Button Content="+ Toifa" Click="AddCategory_Click" Height="38" Padding="14,0" Margin="0,0,8,0"
+                        Background="#334155" BorderThickness="0" Foreground="#F8FAFC" FontWeight="SemiBold" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="8" />
+                        </Style>
+                    </Button.Resources>
+                </Button>
+
+                <!-- Add Product Button -->
+                <Button Content="+ Yangi taom" Click="AddProduct_Click" Height="38" Padding="14,0"
+                        Background="#16A34A" BorderThickness="0" Foreground="#FFFFFF" FontWeight="Bold" Cursor="Hand">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="8" />
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- CATEGORIES FILTER CHIPS -->
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="0,0,0,16">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Hammasi" Click="CategoryAll_Click" Style="{StaticResource ChipStyle}" />
+                <ItemsControl ItemsSource="{Binding Categories}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Content="{Binding Name}" Click="CategoryChip_Click" Style="{StaticResource ChipStyle}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- PRODUCTS LIST -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding FilteredProducts}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:ProductItemViewModel}">
+                        <Border Width="340" Background="#1E293B" BorderBrush="#334155" BorderThickness="1" CornerRadius="12"
+                                Padding="16" Margin="0,0,16,16">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Top: Name & Price -->
+                                <Grid Grid.Row="0">
+                                    <TextBlock Text="{Binding Name}" Foreground="#F8FAFC" FontSize="15" FontWeight="Bold"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="200" />
+                                    <TextBlock Text="{Binding PriceFormatted}" Foreground="#22C55E" FontSize="15" FontWeight="Bold"
+                                               HorizontalAlignment="Right" />
+                                </Grid>
+
+                                <!-- Description -->
+                                <TextBlock Grid.Row="1" Text="{Binding Description}" Foreground="#94A3B8" FontSize="12"
+                                           TextWrapping="Wrap" MaxHeight="36" Margin="0,6,0,12" />
+
+                                <!-- Actions Bar: Availability Toggle & Edit/Delete -->
+                                <Grid Grid.Row="2">
+                                    <!-- Toggle Availability Switch (Green when available, Red/Gray when paused) -->
+                                    <Button Command="{Binding DataContext.ToggleAvailabilityCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Height="32" Padding="10,0" HorizontalAlignment="Left" Cursor="Hand" BorderThickness="0"
+                                            Background="{Binding IsAvailable, Converter={x:Static vm:AvailabilityToColorConverter.Instance}}">
+                                        <Button.Resources>
+                                            <Style TargetType="Border">
+                                                <Setter Property="CornerRadius" Value="6" />
+                                            </Style>
+                                        </Button.Resources>
+                                        <TextBlock Text="{Binding IsAvailable, Converter={x:Static vm:AvailabilityToTextConverter.Instance}}"
+                                                   Foreground="#FFFFFF" FontSize="11" FontWeight="Bold" />
+                                    </Button>
+
+                                    <!-- Edit & Delete -->
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Click="EditProduct_Click" Style="{StaticResource IconButtonStyle}" Width="34" Height="34" Background="Transparent" BorderBrush="Transparent" ToolTip="Tahrirlash" AutomationProperties.Name="Tahrirlash" Margin="0,0,4,0"><controls:Icon Data="{StaticResource Ic.Pencil}" Width="18" Height="18" /></Button>
+                                        <Button Click="DeleteProduct_Click" Style="{StaticResource IconButtonStyle}" Width="34" Height="34" Background="Transparent" BorderBrush="Transparent" Foreground="#F87171" ToolTip="O‘chirish" AutomationProperties.Name="O‘chirish"><controls:Icon Data="{StaticResource Ic.Trash}" Width="18" Height="18" /></Button>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
