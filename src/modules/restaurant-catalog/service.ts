@@ -125,6 +125,8 @@ export async function updateProduct(restaurantId: string, sessionId: string, pro
     await assertCategory(tx, restaurantId, input.categoryId);
     const after = await tx.product.update({ where: { id: productId }, data: {
       name: input.name, description: input.description, priceSom: input.priceSom, categoryId: input.categoryId,
+      // a new menu price ends a "was X" offer: the crossed-out earlier price would be stale
+      ...(input.priceSom !== before.priceSom ? { oldPriceSom: null } : {}),
       version: { increment: 1 },
     } });
     await event(tx, restaurantId, sessionId, 'PRODUCT', productId, 'PRODUCT_UPDATED', snap(before), snap(after));

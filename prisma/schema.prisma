@@ -93,6 +93,8 @@ model Product {
   isPackaging  Boolean     @default(false)
   /// Order on the customer menu inside a category (small first); equal positions fall back to the name. Set by an administrator; 0 = no preference.
   position     Int         @default(0)
+  /// Display only: the earlier price, shown crossed out next to priceSom (a set offer, 2026-11-06). Never used to charge; cleared when the restaurant changes priceSom.
+  oldPriceSom  Int?
   promotionProducts PromotionProduct[]
 
   @@index([restaurantId, isAvailable])

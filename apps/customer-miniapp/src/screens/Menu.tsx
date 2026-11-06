@@ -126,7 +126,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
               {p.description && <div className="desc">{p.description}</div>}
               {p.packaging && <div className="sub small">{t('+ {name} {sum} (har bir dona uchun)', { name: p.packaging.name.toLowerCase(), sum: som(p.packaging.priceSom) })}</div>}
               <div className="row between" style={{ marginTop: 'auto' }}>
-                <PriceTag unitSom={unit} referenceSom={Math.max(first, unit)} />
+                <PriceTag unitSom={unit} referenceSom={Math.max(first, unit, p.oldPriceSom && p.oldPriceSom > p.priceSom ? referenceUnitPrice(p.oldPriceSom, pricing) : 0)} />
                 {!p.isAvailable ? <span className="badge closed">{t('Mavjud emas')}</span>
                   : q > 0 ? <Qty value={q} onInc={() => dispatch({ type: 'inc', productId: p.id })} onDec={() => dispatch({ type: 'dec', productId: p.id })} />
                   : <Button small disabled={!orderable} onClick={() => { void add(p); if (!r.isOpen) toast(t('Restoran hozir yopiq')); }}>{t('Qo‘shish')}</Button>}

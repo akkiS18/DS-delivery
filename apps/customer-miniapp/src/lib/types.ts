@@ -33,6 +33,8 @@ export interface Product {
   name: string;
   description: string | null;
   priceSom: number;
+  /** The earlier price of a set offer, shown crossed out (display only; absent from an older backend). */
+  oldPriceSom?: number | null;
   isAvailable: boolean;
   categoryId: string | null;
   imageUrl: string | null;

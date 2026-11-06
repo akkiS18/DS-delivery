@@ -177,6 +177,16 @@ test('concurrent updates: optimistic version lets exactly one writer win; the lo
   assert.equal(await db.catalogEvent.count({ where: { entityId: p.id, action: 'PRODUCT_UPDATED' } }), 2);
 });
 
+test('a "was X" earlier price survives an edit that keeps the price, and is cleared when the restaurant changes the price', async () => {
+  const p = await mkProduct(ta, { priceSom: 49_000 });
+  await db.product.update({ where: { id: p.id }, data: { oldPriceSom: 60_000 } });
+  const put = (price: number, name: string, v: number) => call('PUT', `/products/${p.id}`, ta, { name, description: null, priceSom: price, categoryId: null, version: v });
+  assert.equal((await put(49_000, `${p.name} yangi`, 0)).statusCode, 200);
+  assert.equal((await db.product.findUniqueOrThrow({ where: { id: p.id } })).oldPriceSom, 60_000, 'same price: the offer stays');
+  assert.equal((await put(52_000, `${p.name} yangi`, 1)).statusCode, 200);
+  assert.equal((await db.product.findUniqueOrThrow({ where: { id: p.id } })).oldPriceSom, null, 'new price: the crossed-out price is gone');
+});
+
 test('availability is an idempotent set: repeats change nothing and write no audit row; stale version is 409', async () => {
   const p = await mkProduct(ta);
   const set = (isAvailable: boolean, version?: number) => call('PATCH', `/products/${p.id}/availability`, ta, { isAvailable, ...(version !== undefined ? { version } : {}) });

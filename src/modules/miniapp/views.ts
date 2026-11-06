@@ -64,7 +64,7 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
     db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true, image: { select: { version: true } } } }),
     db.product.findMany({
       where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ position: 'asc' }, { name: 'asc' }],
-      select: { id: true, name: true, description: true, priceSom: true, isAvailable: true, categoryId: true, imageUrl: true, isPackaging: true, packagingProductId: true, image: { select: { version: true } } },
+      select: { id: true, name: true, description: true, priceSom: true, oldPriceSom: true, isAvailable: true, categoryId: true, imageUrl: true, isPackaging: true, packagingProductId: true, image: { select: { version: true } } },
     }),
   ]);
   // Packaging ("soboy idishi") is not a menu item: each dish that has it says so, and the server adds one per unit at checkout.
