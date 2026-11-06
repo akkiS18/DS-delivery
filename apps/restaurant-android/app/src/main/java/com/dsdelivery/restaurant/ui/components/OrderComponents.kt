@@ -274,6 +274,53 @@ fun ReadyChoiceDialog(order: Order, onSelf: () -> Unit, onTaxi: () -> Unit, onDi
     )
 }
 
+/**
+ * The part of an order the kitchen reads first: every dish with its quantity (large, on a green panel) and the total sum underneath.
+ * Shared by the list card; the detail screen has its own, longer version with unit prices.
+ */
+@Composable
+fun OrderItemsAndTotal(order: Order) {
+    Surface(shape = RoundedCornerShape(12.dp), color = BrandPrimary.copy(alpha = 0.10f), modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            if (order.items.isEmpty()) {
+                Text("${order.itemsCount} ta mahsulot", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            } else {
+                order.items.forEachIndexed { index, item ->
+                    if (index > 0) Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(shape = RoundedCornerShape(8.dp), color = BrandPrimary) {
+                            Text(
+                                text = "${item.quantity}×",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = item.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(BrandPrimary.copy(alpha = 0.25f)))
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Jami", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(order.formattedTotal, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = BrandPrimary)
+            }
+        }
+    }
+}
+
 @Composable
 fun OrderCard(
     order: Order,
@@ -329,7 +376,11 @@ fun OrderCard(
                     }
                     OrderStatusBadge(status = order.status)
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 1b. what to cook and how much it costs: the first thing the kitchen needs, so it is big and green
+                OrderItemsAndTotal(order)
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // 2. payment, always visible
                 PaymentPill(order)
@@ -388,16 +439,6 @@ fun OrderCard(
                             )
                         }
                     }
-                }
-
-                // 6. what and how much
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    val itemsSummary = if (order.items.isNotEmpty()) order.items.joinToString(", ") { "${it.quantity}x ${it.name}" } else "${order.itemsCount} ta mahsulot"
-                    Text(itemsSummary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(order.formattedTotal, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = BrandPrimary)
-                    Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 }
 
                 // 7. the one next step, right here: cooked and the time is chosen -> "Tayyor"
