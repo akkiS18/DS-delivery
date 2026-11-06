@@ -24,6 +24,19 @@ public partial class ProductItemViewModel : ViewModelBase
     public int Version => Product.Version;
     public string? ImageUrl => Product.ImageUrl;
 
+    /// <summary>The dish photo: the server sends a relative link (/api/v1/miniapp/products/..); it is public, no login needed.</summary>
+    public Uri? ImageUri
+    {
+        get
+        {
+            var url = Product.ImageUrl;
+            if (string.IsNullOrWhiteSpace(url)) return null;
+            if (Uri.TryCreate(url, UriKind.Absolute, out var absolute) && (absolute.Scheme == Uri.UriSchemeHttps || absolute.Scheme == Uri.UriSchemeHttp)) return absolute;
+            return Uri.TryCreate(new Uri(DsRestaurant.Core.Api.ApiConfig.DefaultBaseUrl), url.TrimStart('/'), out var joined) ? joined : null;
+        }
+    }
+    public bool HasImage => ImageUri is not null;
+
     public ProductItemViewModel(ProductDto product)
     {
         Product = product;

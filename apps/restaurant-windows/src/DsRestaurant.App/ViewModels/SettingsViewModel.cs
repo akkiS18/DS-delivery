@@ -51,7 +51,9 @@ public partial class SettingsViewModel : ViewModelBase
     private bool _isAutostartEnabled;
 
     [ObservableProperty]
-    private bool _hideToTrayOnClose = true;
+    private bool _hideToTrayOnClose = DsRestaurant.App.AppSettings.HideToTrayOnClose;
+
+    partial void OnHideToTrayOnCloseChanged(bool value) => DsRestaurant.App.AppSettings.HideToTrayOnClose = value;
 
     [ObservableProperty]
     private string _version = "1.0.0";
@@ -258,27 +260,6 @@ public partial class SettingsViewModel : ViewModelBase
     {
         IsAutostartEnabled = !IsAutostartEnabled;
         AutostartHelper.SetAutostart(IsAutostartEnabled);
-    }
-
-    [RelayCommand]
-    public void OpenLogsFolder()
-    {
-        try
-        {
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var logDir = Path.Combine(localAppData, "DsRestaurant", "logs");
-            Directory.CreateDirectory(logDir);
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = logDir,
-                UseShellExecute = true,
-                Verb = "open"
-            });
-        }
-        catch
-        {
-            // Ignore
-        }
     }
 
     [RelayCommand]

@@ -238,21 +238,9 @@
 
                     <!-- Tray minimize Checkbox -->
                     <CheckBox IsChecked="{Binding HideToTrayOnClose}"
-                              Foreground="#E2E8F0" FontSize="13" Margin="0,0,0,16" Cursor="Hand">
+                              Foreground="#E2E8F0" FontSize="13" Margin="0,0,0,4" Cursor="Hand">
                         <TextBlock Text="Dastur yopilganda (X) to‘xtamasdan trayga yashirilsin" Foreground="#F8FAFC" />
                     </CheckBox>
-
-                    <!-- Open Logs Folder -->
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="Log fayllari papkasini ochish" Command="{Binding OpenLogsFolderCommand}"
-                                Height="36" Padding="14,0" Background="#334155" BorderThickness="0" Foreground="#F8FAFC" Cursor="Hand">
-                            <Button.Resources>
-                                <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="8" />
-                                </Style>
-                            </Button.Resources>
-                        </Button>
-                    </StackPanel>
                 </StackPanel>
             </Border>
 

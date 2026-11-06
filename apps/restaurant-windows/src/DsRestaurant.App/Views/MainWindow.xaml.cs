@@ -80,6 +80,14 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
+        if (!_isExplicitExit && !AppSettings.HideToTrayOnClose)
+        {
+            // The owner switched "hide to tray" off: X really closes the program, after the same warning as the tray "Chiqish".
+            e.Cancel = true;
+            ConfirmAndExit();
+            return;
+        }
+
         if (!_isExplicitExit)
         {
             // Plan section 138: Closing the window (X) hides it to the tray; process keeps running.
@@ -118,7 +126,9 @@ public partial class MainWindow : Window
         Focus();
     }
 
-    private void TrayExit_Click(object sender, RoutedEventArgs e)
+    private void TrayExit_Click(object sender, RoutedEventArgs e) => ConfirmAndExit();
+
+    private void ConfirmAndExit()
     {
         // Plan section 138: Exiting asks "Yangi buyurtmalar eshitilmaydi. Chiqilsinmi?"
         var answer = MessageBox.Show(
