@@ -113,6 +113,7 @@ export const RU: Record<string, string> = {
   'Rasmiylashtirish • {sum}': 'Оформить • {sum}',
   'Platforma xizmati': 'Услуга платформы',
   'Chegirma': 'Скидка',
+  'Platforma xizmati {sum}, hozir chegirma bo‘lgani uchun olinmaydi.': 'Услуга платформы {sum}, сейчас действует скидка — платформа ничего не берёт.',
   'Yetkazish: restoran o‘zi olib boradi — haq yo‘q.': 'Доставка: ресторан привезёт сам — бесплатно.',
   'Taksi haqi alohida — taom narxiga kirmaydi.': 'Такси оплачивается отдельно — в цену блюд не входит.',
   'Restoran piyoda olib borishga rozi bo‘lsa, taksi haqi to‘lanmaydi. Rozi bo‘lmasa,': 'Если ресторан согласится донести заказ пешком, за такси платить не нужно. Если нет,',

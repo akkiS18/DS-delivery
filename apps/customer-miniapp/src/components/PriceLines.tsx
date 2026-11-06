@@ -21,12 +21,15 @@ export function PlatformLine({ pricing }: { pricing: PublicPricing }) {
 export function PlatformLineRow({ chargedSom, waivedSom }: { chargedSom: number; waivedSom: number }) {
   if (chargedSom <= 0 && waivedSom <= 0) return null;
   return (
-    <div className="row between">
-      <span>{t('Platforma xizmati')}</span>
-      {waivedSom > 0
-        ? <span><span className="mono sub" style={strike}>{som(waivedSom)}</span> <span className="saved">{t('Chegirma')}</span></span>
-        : <span className="bold mono">{som(chargedSom)}</span>}
-    </div>
+    <>
+      <div className="row between">
+        <span>{t('Platforma xizmati')}</span>
+        {waivedSom > 0
+          ? <span><span className="mono sub" style={strike}>{som(waivedSom)}</span> <span className="saved">{t('Chegirma')}</span></span>
+          : <span className="bold mono">{som(chargedSom)}</span>}
+      </div>
+      {waivedSom > 0 && <div className="sub small">{t('Platforma xizmati {sum}, hozir chegirma bo‘lgani uchun olinmaydi.', { sum: som(waivedSom) })}</div>}
+    </>
   );
 }
 

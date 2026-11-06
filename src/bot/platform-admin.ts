@@ -36,24 +36,34 @@ export async function renderPayments(): Promise<{ text: string; keyboard: Return
 }
 
 const FEE_LABEL: Record<FeeMode, string> = {
-  FLAT: 'Tekis 5 000 (restorandan)', PERCENT: 'Foiz', TIERED: 'Pog‘onali (50 000 gacha 10%, keyin 3%)', LINE: 'Alohida qator (mijozdan)',
+  FLAT: 'Eski rejim (xizmat haqi ko‘rsatilmaydi)', PERCENT: 'Foiz', TIERED: 'Pog‘onali (50 000 gacha 10%, keyin 3%)', LINE: 'Alohida qator «Platforma xizmati»',
 };
+const somText = (n: number): string => n.toLocaleString('en-US').replace(/,/g, ' ');
+/** Owner request 2026-11-06: "Tekis" = the platform line is shown crossed out as a discount and nobody pays it; "5 000 so‘m" = the same line, charged to the customer. */
 export async function renderFee(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
   const c: FeeConfig = await loadFeeConfig();
+  const free = c.mode === 'LINE' && c.lineWaived;
+  const paid = c.mode === 'LINE' && !c.lineWaived;
+  const now = free ? `<b>Tekis — chegirma</b>: mijoz «Platforma xizmati ${somText(c.lineSom)}» qatorini ustidan chizilgan holda ko‘radi, hech kim to‘lamaydi (na mijoz, na restoran).`
+    : paid ? `<b>${somText(c.lineSom)} so‘m</b>: taomlardan keyin alohida qator «Platforma xizmati ${somText(c.lineSom)}», mijoz to‘laydi.`
+    : `<b>${FEE_LABEL[c.mode]}</b>${c.mode === 'PERCENT' ? ` — ${c.percentBp / 100}%` : ''}`;
   const text = [
     '🧾 <b>Xizmat haqi</b>',
-    `Hozir: <b>${FEE_LABEL[c.mode]}</b>${c.mode === 'PERCENT' ? ` — ${c.percentBp / 100}%` : ''}`,
+    `Hozir: ${now}`,
+    ...(c.mode === 'FLAT' ? ['', '⚠️ Bu eski rejim: mijoz hech narsa ko‘rmaydi, har yetkazilgan buyurtma uchun restoran hisobiga 5 000 yoziladi. «Tekis — chegirma»ni tanlang.'] : []),
     '',
-    'Tekis: mijoz restoran narxini to‘laydi, platforma 5 000 ni restorandan oladi.',
-    'Foiz / pog‘onali: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi; platforma ulushi buyurtmada qotiriladi va restoran bilan hisob-kitobda yuritiladi.',
+    '<b>Tekis — chegirma</b>: taomlardan keyin «Platforma xizmati 5 000» ustidan chizilib, «Chegirma» deb ko‘rsatiladi. Hech kimdan haq olinmaydi.',
+    `<b>${somText(c.lineSom)} so‘m</b>: shu qator chizilmaydi, mijoz to‘laydi (Yandexdagi servis haqiga o‘xshash). Summa: <code>/fee som 5000</code> (1 000–50 000).`,
+    '<b>Foiz / pog‘onali</b>: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi; platforma ulushi restoran bilan hisob-kitobda yuritiladi.',
     'Rejim faqat YANGI buyurtmalarga ta’sir qiladi.',
     '',
     'Foiz: <code>/fee 8</code> (1–25).',
   ].join('\n');
-  const mark = (m: FeeMode) => (c.mode === m ? '● ' : '');
-  return { text, keyboard: Markup.inlineKeyboard([[
-    Markup.button.callback(`${mark('FLAT')}Tekis`, 'fee:set:FLAT'), Markup.button.callback(`${mark('PERCENT')}Foiz`, 'fee:set:PERCENT'), Markup.button.callback(`${mark('TIERED')}Pog‘onali`, 'fee:set:TIERED'),
-  ]]) };
+  const mark = (on: boolean) => (on ? '● ' : '');
+  return { text, keyboard: Markup.inlineKeyboard([
+    [Markup.button.callback(`${mark(free)}Tekis (chegirma)`, 'fee:set:FREE'), Markup.button.callback(`${mark(paid)}${somText(c.lineSom)} so‘m`, 'fee:set:LINE')],
+    [Markup.button.callback(`${mark(c.mode === 'PERCENT')}Foiz`, 'fee:set:PERCENT'), Markup.button.callback(`${mark(c.mode === 'TIERED')}Pog‘onali`, 'fee:set:TIERED')],
+  ]) };
 }
 
 export async function renderCash(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
@@ -146,7 +156,11 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     const adminId = admin(ctx);
     if (!adminId) return;
     const arg = argsOf(ctx).replace(',', '.');
-    if (arg) {
+    const amount = /^som\s+(\d{4,5})$/i.exec(arg);
+    if (amount) {
+      // /fee som 5000: the amount of the separate platform line (it keeps whatever "chegirma" state it has)
+      try { await setFeeMode({ adminId, mode: 'LINE', lineSom: Number(amount[1]) }); } catch { await ctx.reply('Summa 1 000 dan 50 000 gacha bo‘lsin: <code>/fee som 5000</code>', { parse_mode: 'HTML' }); return; }
+    } else if (arg) {
       const pct = Number(arg);
       if (!/^\d{1,2}(\.\d{1,2})?$/.test(arg) || !(pct >= 1 && pct <= 25)) { await ctx.reply('Foizni 1 dan 25 gacha yozing: <code>/fee 8</code>', { parse_mode: 'HTML' }); return; }
       await setFeeMode({ adminId, mode: 'PERCENT', percentBp: Math.round(pct * 100) });
@@ -241,12 +255,15 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });
 
-  bot.action(/^fee:set:(FLAT|PERCENT|TIERED)$/, async ctx => {
+  bot.action(/^fee:set:(FREE|FLAT|LINE|PERCENT|TIERED)$/, async ctx => {
     await ctx.answerCbQuery().catch(() => undefined);
     const adminId = admin(ctx);
     if (!adminId) return;
-    const mode = (ctx.match as unknown as [string, FeeMode])[1];
-    await setFeeMode({ adminId, mode });
+    const pick = (ctx.match as unknown as [string, string])[1];
+    // FREE (and an old FLAT button still sitting in an earlier chat message) = the platform line crossed out as a discount: nobody is charged.
+    if (pick === 'FREE' || pick === 'FLAT') await setFeeMode({ adminId, mode: 'LINE', lineWaived: true });
+    else if (pick === 'LINE') await setFeeMode({ adminId, mode: 'LINE', lineWaived: false });
+    else await setFeeMode({ adminId, mode: pick as FeeMode });
     const v = await renderFee();
     await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });

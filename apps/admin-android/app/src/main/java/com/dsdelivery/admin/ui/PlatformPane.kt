@@ -39,11 +39,13 @@ import com.dsdelivery.admin.data.SettingsDto
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+// FREE and LINE are both the backend mode LINE ("Platforma xizmati" row after the dishes): FREE = crossed out as a discount, nobody pays; LINE = the customer pays.
+// FLAT (old: the customer sees nothing, the restaurant is charged 5 000) is offered only while it is the current mode.
 private val FEE_MODES = listOf(
-    "FLAT" to "Tekis 5 000 (restorandan)",
+    "FREE" to "Tekis — chegirma (hech kim to‘lamaydi)",
+    "LINE" to "Mijoz to‘laydi: alohida qator «Platforma xizmati»",
     "PERCENT" to "Foiz",
     "TIERED" to "Pog‘onali (50 000 gacha 10%, keyin 3%)",
-    "LINE" to "Alohida qator: «Platforma xizmati» (mijozdan)",
 )
 
 private enum class Pending { PAYMENTS_OPEN, PAYMENTS_CLOSE, CASH_ON, CASH_OFF }
@@ -198,55 +200,53 @@ private fun PaymentsCard(s: SettingsDto, saving: Boolean, onToggle: () -> Unit) 
 
 @Composable
 private fun FeeCard(s: SettingsDto, saving: Boolean, onSave: (mode: String, percent: Double?, lineSom: Int?, lineWaived: Boolean?) -> Unit) {
-    var mode by remember(s.fee) { mutableStateOf(s.fee.mode) }
+    val currentPick = if (s.fee.mode == "LINE") (if (s.fee.lineWaived) "FREE" else "LINE") else s.fee.mode
+    var pick by remember(s.fee) { mutableStateOf(currentPick) }
+    val isLine = pick == "FREE" || pick == "LINE"
     val currentLine = if (s.fee.lineSom > 0) s.fee.lineSom else 5000L
     var lineText by remember(s.fee) { mutableStateOf(currentLine.toString()) }
-    var waived by remember(s.fee) { mutableStateOf(s.fee.lineWaived) }
     val line = lineText.filter { it.isDigit() }.toLongOrNull()
-    val lineOk = mode != "LINE" || (line != null && line in 1000L..50_000L)
+    val lineOk = !isLine || (line != null && line in 1000L..50_000L)
     var percentText by remember(s.fee) { mutableStateOf(trimPercent(s.fee.percentBp / 100.0)) }
     val percent = percentText.replace(',', '.').toDoubleOrNull()
-    val percentOk = mode != "PERCENT" || (percent != null && percent in 1.0..25.0 && Math.round(percent * 100) / 100.0 == percent)
-    val unchanged = mode == s.fee.mode && (mode != "PERCENT" || percent == s.fee.percentBp / 100.0) &&
-        (mode != "LINE" || (line == currentLine && waived == s.fee.lineWaived))
+    val percentOk = pick != "PERCENT" || (percent != null && percent in 1.0..25.0 && Math.round(percent * 100) / 100.0 == percent)
+    val unchanged = pick == currentPick && (pick != "PERCENT" || percent == s.fee.percentBp / 100.0) && (!isLine || line == currentLine)
     Card {
         Text("🧾 Xizmat haqi", style = MaterialTheme.typography.titleMedium)
-        FEE_MODES.forEach { (code, label) ->
-            Row(Modifier.fillMaxWidth().clickable { mode = code }, verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(selected = mode == code, onClick = { mode = code })
-                Text(label + if (code == s.fee.mode) "  ● hozir" else "", style = MaterialTheme.typography.bodyLarge)
+        val modes = if (s.fee.mode == "FLAT") listOf("FLAT" to "Eski tekis: mijoz hech narsa ko‘rmaydi, restoran hisobiga 5 000 yoziladi") + FEE_MODES else FEE_MODES
+        modes.forEach { (code, label) ->
+            Row(Modifier.fillMaxWidth().clickable { pick = code }, verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = pick == code, onClick = { pick = code })
+                Text(label + if (code == currentPick) "  ● hozir" else "", style = MaterialTheme.typography.bodyLarge)
             }
         }
-        if (mode == "PERCENT") {
+        if (pick == "PERCENT") {
             OutlinedTextField(
                 value = percentText, onValueChange = { if (it.length <= 5) percentText = it },
                 label = { Text("Foiz (1–25)") }, singleLine = true, isError = !percentOk,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
             )
         }
-        if (mode == "LINE") {
+        if (isLine) {
             OutlinedTextField(
                 value = lineText, onValueChange = { if (it.length <= 6) lineText = it },
                 label = { Text("Platforma xizmati, so‘m (1 000–50 000)") }, singleLine = true, isError = !lineOk,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Chegirma (xizmat haqini bekor qilish)", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        if (waived) "Yoqilgan: mijoz summani ustidan chizilgan holda ko‘radi, to‘lamaydi." else "O‘chirilgan: mijoz summani to‘laydi.",
-                        style = MaterialTheme.typography.bodyMedium, color = if (waived) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = waived, enabled = !saving, onCheckedChange = { waived = it })
-            }
         }
         Text(
-            "Tekis: mijoz restoran narxini to‘laydi, platforma 5 000 ni restorandan oladi. Foiz / pog‘onali: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi. Alohida qator: taom narxlari o‘zgarmaydi, mijozga «Platforma xizmati» alohida satrda ko‘rsatiladi (chegirma yoqilsa — ustidan chizilgan, 0 so‘m). Rejim faqat YANGI buyurtmalarga ta’sir qiladi.",
+            "Tekis — chegirma: taomlardan keyin «Platforma xizmati» ustidan chizilib «Chegirma» deb ko‘rsatiladi, hech kimdan haq olinmaydi. " +
+                "Mijoz to‘laydi: shu qator chizilmaydi, summa jamiga qo‘shiladi. " +
+                "Foiz / pog‘onali: xizmat haqi taom narxlariga kiritilgan, mijoz yaxlit narx ko‘radi. Rejim faqat YANGI buyurtmalarga ta’sir qiladi.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        PrimaryButton("Saqlash", enabled = !saving && percentOk && lineOk && !unchanged) {
-            onSave(mode, if (mode == "PERCENT") percent else null, if (mode == "LINE") line?.toInt() else null, if (mode == "LINE") waived else null)
+        PrimaryButton("Saqlash", enabled = !saving && percentOk && lineOk && !unchanged && pick != "FLAT") {
+            onSave(
+                if (isLine) "LINE" else pick,
+                if (pick == "PERCENT") percent else null,
+                if (isLine) line?.toInt() else null,
+                if (isLine) pick == "FREE" else null,
+            )
         }
     }
 }
