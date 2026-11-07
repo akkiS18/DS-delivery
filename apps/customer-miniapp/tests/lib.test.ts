@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/lib/api';
-import { cartCount, cartReducer, cartTotal, emptyCart, loadCart, MAX_QTY, saveCart, STORAGE_KEY } from '../src/lib/cart';
+import { cartCount, cartReducer, cartTotal, cartView, emptyCart, loadCart, MAX_QTY, saveCart, STORAGE_KEY } from '../src/lib/cart';
 import { describeCheckoutError } from '../src/lib/checkoutErrors';
 import { mmss, opensText, som } from '../src/lib/format';
 import { isTerminal, pollIntervalMs, timeline } from '../src/lib/order';
@@ -31,6 +31,24 @@ describe('cart', () => {
     expect(cartTotal(s)).toBe(17000);
     s = cartReducer(s, { type: 'drop', productIds: ['p1', 'p2'] });
     expect(s).toEqual(emptyCart());
+  });
+  it('carries a dish description and earlier price into the cart and shows the deal saving (display only: the total is unchanged)', () => {
+    const set = { id: 'set', name: 'DONAR 3+1', priceSom: 109000, description: '3+1: 4 ta donar (1 tasi bonus) va 1 litrlik Coca-Cola', oldPriceSom: 125000 };
+    let s = cartReducer(emptyCart(), { type: 'add', restaurantId: 'r1', restaurantName: 'R', product: set });
+    s = cartReducer(s, { type: 'inc', productId: 'set' });
+    expect(s.lines[0]!.description).toBe(set.description);
+    const v = cartView(s);
+    expect(v.totalSom).toBe(218000);
+    expect(v.lines[0]!.wasSom).toBe(125000);
+    expect(v.dealSavedSom).toBe(32000);
+    // an older saved cart has neither; the menu fills them in (and a second identical fill changes nothing)
+    const old = add(add(), 'p2', 5000);
+    expect(old.lines[0]!.description).toBeUndefined();
+    const filled = cartReducer(old, { type: 'catalog', restaurantId: 'r1', promos: [], packaging: {}, details: { p1: { description: 'Tavsif', oldPriceSom: 12000 }, p2: { description: null, oldPriceSom: null } } });
+    expect(filled.lines.map(l => l.description)).toEqual(['Tavsif', null]);
+    expect(cartView(filled).dealSavedSom).toBe(2000);
+    expect(cartReducer(filled, { type: 'catalog', restaurantId: 'r1', promos: [], packaging: {}, details: { p1: { description: 'Tavsif', oldPriceSom: 12000 }, p2: { description: null, oldPriceSom: null } } })).toBe(filled);
+    expect(cartView(old).dealSavedSom).toBe(0);
   });
   it('survives corrupted, hostile and missing storage', () => {
     const mk = (v: string | null) => ({ getItem: () => v });

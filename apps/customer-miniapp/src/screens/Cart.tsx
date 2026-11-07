@@ -5,7 +5,7 @@ import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
 import { Button, Empty, Icon, Qty, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError } from '../lib/api';
-import { cartBase, cartView } from '../lib/cart';
+import { cartBase, cartView, catalogAction } from '../lib/cart';
 import { describeCheckoutError } from '../lib/checkoutErrors';
 import { lineCharge } from '../lib/fee';
 import { opensText, som } from '../lib/format';
@@ -47,6 +47,16 @@ export function Cart({ go }: { go: (r: Route) => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, cart.restaurantId]);
 
+  // A cart saved before dishes carried their description / earlier price: read them from the menu once (display only; nothing is charged from them).
+  const needsDetails = cart.lines.some(l => l.description === undefined);
+  useEffect(() => {
+    if (!cart.restaurantId || !needsDetails) return;
+    const ac = new AbortController();
+    api.menu(cart.restaurantId, ac.signal).then(m => dispatch(catalogAction(m)), () => { /* the lines simply stay without a description */ });
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.restaurantId, needsDetails]);
+
   const view = cartView(cart);
   const issues: CheckoutIssue[] = quote && !quote.ok ? quote.issues : [];
   const unavailable = useMemo(() => new Set(issues.flatMap(i => (i.kind === 'PRODUCT_UNAVAILABLE' ? [i.productId] : []))), [issues]);
@@ -71,7 +81,8 @@ export function Cart({ go }: { go: (r: Route) => void }) {
           <div className="row between">
             <div className="grow">
               <div className="bold">{l.name}</div>
-              <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.referenceSom} />{unavailable.has(l.productId) ? ` • ${t('hozir mavjud emas')}` : ''}</div>
+              {l.description && <div className="sub small line-desc">{l.description}</div>}
+              <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.wasSom} />{unavailable.has(l.productId) ? ` • ${t('hozir mavjud emas')}` : ''}</div>
             </div>
             <div className="bold mono">{som(l.subtotalSom)}</div>
           </div>
@@ -97,6 +108,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
       <div className="card stack">
         <div className="row between"><span>{t('Taomlar')}</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(view.pricing) : view.dishesSom)}</span></div>
         {view.savedSom > 0 && <div className="row between saved"><span>{t('Tejadingiz')}</span><span className="mono">−{som(view.savedSom)}</span></div>}
+        {view.dealSavedSom > 0 && <div className="row between saved"><span>{t('Aksiya chegirmasi')}</span><span className="mono">−{som(view.dealSavedSom)}</span></div>}
         {view.promoSavedSom > 0 && <div className="row between saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
         <PlatformLine pricing={view.pricing} />
         <FeeProgress base={cartBase(cart)} pricing={view.pricing} />

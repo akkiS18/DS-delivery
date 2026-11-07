@@ -4,7 +4,7 @@ import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
-import { cartBase, qtyOf } from '../lib/cart';
+import { cartBase, catalogAction, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
 import { opensText, som } from '../lib/format';
 import { mediaUrl } from '../lib/platform';
@@ -31,11 +31,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
   // ...and so are the restaurant's 1+1 offers and the packaging of each dish (the cart shows them as lines of their own).
   useEffect(() => {
     if (!data || cart.restaurantId !== data.restaurant.id) return;
-    dispatch({
-      type: 'catalog', restaurantId: data.restaurant.id,
-      promos: (data.promotions ?? []).map(p => ({ id: p.id, maxFreePerOrder: p.maxFreePerOrder, productIds: p.productIds })),
-      packaging: Object.fromEntries(data.products.map(p => [p.id, p.packaging ?? null])),
-    });
+    dispatch(catalogAction(data));
   }, [data, cart.restaurantId, dispatch]);
   const promoIds = useMemo(() => new Set((data?.promotions ?? []).flatMap(p => p.productIds)), [data]);
 
@@ -71,7 +67,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       const ok = await confirmDialog(t('Savatda boshqa restorandan mahsulotlar bor. Savatni tozalab, bu restorandan boshlaymizmi?'));
       if (!ok) return;
     }
-    dispatch({ type: 'add', restaurantId: r.id, restaurantName: r.name, product: { id: p.id, name: p.name, priceSom: p.priceSom, packaging: p.packaging ?? null } });
+    dispatch({ type: 'add', restaurantId: r.id, restaurantName: r.name, product: { id: p.id, name: p.name, priceSom: p.priceSom, packaging: p.packaging ?? null, description: p.description, oldPriceSom: p.oldPriceSom ?? null } });
   };
   const inThisCart = cart.restaurantId === r.id;
   const pricing = data.pricing ?? cart.pricing ?? FLAT_PRICING;

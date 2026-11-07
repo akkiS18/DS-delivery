@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Banknote, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket } from 'lucide-react';
+import { Banknote, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket, Truck } from 'lucide-react';
 import { Fold, TaxiTile, Tile } from '../components/Choice';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
-import { Button, Empty, Icon, Spinner, StickyAction } from '../components/ui';
+import { Button, Empty, Icon, Sheet, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartCount, cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
@@ -45,6 +45,8 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [touched, setTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Described | null>(null);
+  // The "taxi fare is separate" question that comes before every order (card and cash alike): open = waiting for "Ha" or "Ortga".
+  const [asking, setAsking] = useState(false);
   const busy = useRef(false);
   // The taxi services that can be booked now (null = still loading). With several of them the customer chooses; the delivery price is theirs.
   const [taxiOptions, setTaxiOptions] = useState<TaxiOption[] | null>(null);
@@ -127,6 +129,12 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       if (target) window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
+    setAsking(true); // the order is placed by place(), after the customer has seen that the taxi fare is separate and said "Ha"
+  };
+
+  const place = async () => {
+    setAsking(false);
+    if (busy.current) return;
     busy.current = true; setSubmitting(true); setProblem(null);
     const body: CheckoutBody = {
       checkoutKey: keyFor(signature),
@@ -237,6 +245,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         <div className="sub small">{cart.restaurantName} • {t('{n} ta', { n: cartCount(cart) })}</div>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}{l.freeQty > 0 ? ` (${t('{n} ta bepul', { n: l.freeQty })})` : ''}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         {view.extras.map(x => <div key={x.productId} className="row between small"><span className="grow">{x.quantity} × {x.name}</span><span className="mono">{som(x.subtotalSom)}</span></div>)}
+        {view.dealSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya chegirmasi')}</span><span className="mono">−{som(view.dealSavedSom)}</span></div>}
         {view.promoSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
         <div className="divider" />
         <div className="row between"><span className="bold">{t('Taomlar')}</span><span className="bold mono">{som(view.dishesSom)}</span></div>
@@ -255,6 +264,24 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
           {problem.kind === 'CASH' && <div style={{ marginTop: 8 }}><Button small variant="secondary" onClick={() => { setChosen('CARD'); setProblem(null); }}>{t('Karta bilan to‘lash')}</Button></div>}
           {problem.kind === 'UNAVAILABLE' && <div style={{ marginTop: 8 }}><Button small variant="secondary" onClick={() => go({ name: 'cart' })}>{t('Savatga qaytish')}</Button></div>}
         </div>
+      )}
+
+      {asking && (
+        <Sheet title={t('Taksi haqi alohida')} onClose={() => setAsking(false)}>
+          <div className="stack">
+            <div className="banner warn notice" role="note">
+              <Icon as={Truck} size={22} />
+              <div>
+                <strong>{t('Taom narxi {sum}. Yetkazib berish (taksi) haqi bunga kirmaydi.', { sum: som(total) })}</strong>
+                <div>{t('Taomni olgach, {who} xizmatiga taksi haqini alohida to‘laysiz. Narxni xizmatning o‘zi aytadi.', { who: taxiOptions?.find(o => o.id === taxiId)?.name ? `«${taxiOptions.find(o => o.id === taxiId)!.name}»` : t('taksi xizmati') })}</div>
+                {walk && walkingAvailable && <div>{t('Restoran piyoda olib borishga rozi bo‘lsa, taksi haqi olinmaydi; rozi bo‘lmasa, taksi olib boradi va haq to‘lanadi.')}</div>}
+                {method === 'CASH' && <div>{t('Taom pulini ({sum}) esa naqd holda haydovchiga berasiz.', { sum: som(total) })}</div>}
+              </div>
+            </div>
+            <Button onClick={() => void place()}>{t('Ha, tushundim')}</Button>
+            <Button variant="secondary" onClick={() => setAsking(false)}>{t('Ortga')}</Button>
+          </div>
+        </Sheet>
       )}
 
       <StickyAction tone={touched && !canSubmit && taxiOptions !== null ? 'bad' : 'soft'} hint={stickyHint}>

@@ -476,4 +476,12 @@ export const RU: Record<string, string> = {
   'Amalni bajarib bo‘lmadi.': 'Не удалось выполнить действие.',
   'Internet bilan aloqa yo‘q. Qayta urinib ko‘ring.': 'Нет связи с интернетом. Попробуйте ещё раз.',
 
+  'Aksiya chegirmasi': 'Скидка по акции',
+  'Taksi haqi alohida': 'Плата за такси отдельно',
+  'Taom narxi {sum}. Yetkazib berish (taksi) haqi bunga kirmaydi.': 'Цена блюд {sum}. Плата за доставку (такси) сюда не входит.',
+  'Taomni olgach, {who} xizmatiga taksi haqini alohida to‘laysiz. Narxni xizmatning o‘zi aytadi.': 'Получив блюда, вы отдельно оплатите такси службе {who}. Цену назовёт сама служба.',
+  'Restoran piyoda olib borishga rozi bo‘lsa, taksi haqi olinmaydi; rozi bo‘lmasa, taksi olib boradi va haq to‘lanadi.': 'Если ресторан согласится отнести пешком, плата за такси не взимается; если нет — привезёт такси, и это оплачивается отдельно.',
+  'Taom pulini ({sum}) esa naqd holda haydovchiga berasiz.': 'А деньги за блюда ({sum}) вы отдадите водителю наличными.',
+  'Ha, tushundim': 'Да, понятно',
+  'Ortga': 'Назад',
 };
