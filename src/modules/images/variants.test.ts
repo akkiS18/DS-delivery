@@ -40,6 +40,32 @@ test('a big photo becomes a much smaller JPEG of the asked width; the same reque
   assert.strictEqual(a, b, 'two simultaneous requests share one conversion');
 });
 
+test('WebP is a separate, smaller copy with its own ETag; only a caller that accepts image/webp gets it', async () => {
+  const original = await photo(1200, 900);
+  const img = { mime: 'image/jpeg', data: original, sha256: sha(original) };
+  const jpeg = await imageVariant(img, 320);
+  const webp = await imageVariant(img, 320, 'webp');
+  assert.ok(jpeg && webp);
+  assert.equal(webp.mime, 'image/webp');
+  assert.equal((await sharp(webp.data).metadata()).format, 'webp');
+  assert.notEqual(webp.etag, jpeg.etag);
+  assert.equal(webp.etag, variantEtag(img.sha256, 320, 'webp'));
+  assert.equal(variantEtag(img.sha256, 320), `"${img.sha256}-w320"`, 'the JPEG ETag is unchanged');
+  const app = Fastify();
+  app.get('/i', async (request, reply) => sendImage(request, reply, img));
+  try {
+    const w = await app.inject({ url: '/i?w=300', headers: { accept: 'image/avif,image/webp,image/apng,*/*;q=0.8' } });
+    assert.equal(w.headers['content-type'], 'image/webp');
+    assert.equal(w.headers.etag, webp.etag);
+    assert.equal(w.headers.vary, 'Accept');
+    assert.equal((await app.inject({ url: '/i?w=300', headers: { accept: 'image/webp', 'if-none-match': webp.etag } })).statusCode, 304);
+    const j = await app.inject({ url: '/i?w=300', headers: { accept: 'image/png,*/*' } });
+    assert.equal(j.headers['content-type'], 'image/jpeg');
+    assert.equal(j.headers.etag, jpeg.etag);
+    assert.equal((await app.inject({ url: '/i?w=300', headers: { accept: 'image/png,*/*', 'if-none-match': webp.etag } })).statusCode, 200, 'a WebP ETag never validates the JPEG answer');
+  } finally { await app.close(); }
+});
+
 test('never enlarged and never sent when not smaller: a small image gets null (the caller sends the original)', async () => {
   const small = await sharp({ create: { width: 100, height: 100, channels: 3, background: '#336699' } }).jpeg({ quality: 40 }).toBuffer();
   assert.equal(await imageVariant({ data: small, sha256: sha(small) }, 320), null);

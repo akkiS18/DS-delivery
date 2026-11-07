@@ -10,7 +10,8 @@ export const IMAGE_WIDTHS = [160, 320, 640, 1024] as const;
 export const MAX_INPUT_PIXELS = 50_000_000; // a 7000 x 7000 photo; anything bigger is refused by sharp itself (decompression-bomb guard)
 const CACHE_BYTES = 48 * 1024 * 1024;
 const MAX_PARALLEL = 2;
-const QUALITY = 78;
+const QUALITY = 78; // JPEG
+const WEBP_QUALITY = 70; // looks like JPEG 78 and is about a third smaller (measured on the Sifat AKSIYA posters)
 
 sharp.cache(false); // libvips keeps no file/operation cache of its own: ours is the only one
 sharp.concurrency(1);
@@ -23,7 +24,8 @@ export function parseWidth(raw: unknown): number | null {
   return IMAGE_WIDTHS.find(w => w >= n) ?? IMAGE_WIDTHS[IMAGE_WIDTHS.length - 1]!;
 }
 
-export interface Variant { mime: 'image/jpeg'; data: Buffer; etag: string }
+export type ImageFormat = 'jpeg' | 'webp';
+export interface Variant { mime: 'image/jpeg' | 'image/webp'; data: Buffer; etag: string }
 
 const cache = new Map<string, Variant>(); // insertion order = least recently used first
 let cacheBytes = 0;
@@ -49,14 +51,14 @@ function remember(key: string, v: Variant): void {
 }
 
 /** The ETag of a copy; also what the 304 check compares against, so a cached copy needs no work at all. */
-export const variantEtag = (sha256: string, width: number): string => `"${sha256}-w${width}"`;
+export const variantEtag = (sha256: string, width: number, format: ImageFormat = 'jpeg'): string => `"${sha256}-w${width}${format === 'webp' ? '-webp' : ''}"`;
 
 /**
  * A JPEG copy of at most `width` pixels (never enlarged), turned upright by its EXIF orientation, transparency flattened to white.
  * Returns null when it is not worth sending (the copy is not smaller than the original) or when the image cannot be processed.
  */
-export async function imageVariant(img: { data: Buffer; sha256: string }, width: number): Promise<Variant | null> {
-  const key = `${img.sha256}:${width}`;
+export async function imageVariant(img: { data: Buffer; sha256: string }, width: number, format: ImageFormat = 'jpeg'): Promise<Variant | null> {
+  const key = `${img.sha256}:${width}:${format}`;
   if (useOriginal.has(key)) return null;
   const hit = cache.get(key);
   if (hit) { cache.delete(key); cache.set(key, hit); return hit; }
@@ -64,14 +66,13 @@ export async function imageVariant(img: { data: Buffer; sha256: string }, width:
   if (pending) return pending;
   const job = slot(async (): Promise<Variant | null> => {
     try {
-      const out = await sharp(img.data, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' })
+      const base = sharp(img.data, { limitInputPixels: MAX_INPUT_PIXELS, failOn: 'error' })
         .rotate()
         .resize({ width, withoutEnlargement: true })
-        .flatten({ background: '#ffffff' })
-        .jpeg({ quality: QUALITY, mozjpeg: true })
-        .toBuffer();
+        .flatten({ background: '#ffffff' });
+      const out = await (format === 'webp' ? base.webp({ quality: WEBP_QUALITY, effort: 4 }) : base.jpeg({ quality: QUALITY, mozjpeg: true })).toBuffer();
       if (out.length >= img.data.length) { if (useOriginal.size > 5000) useOriginal.clear(); useOriginal.add(key); return null; }
-      const v: Variant = { mime: 'image/jpeg', data: out, etag: variantEtag(img.sha256, width) };
+      const v: Variant = { mime: format === 'webp' ? 'image/webp' : 'image/jpeg', data: out, etag: variantEtag(img.sha256, width, format) };
       remember(key, v);
       return v;
     } catch {

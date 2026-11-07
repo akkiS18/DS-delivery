@@ -46,7 +46,7 @@ export interface Product {
 export interface Promotion { id: string; title: string; kind: 'BUY1_GET1'; maxFreePerOrder: number | null; productIds: string[] }
 
 /** A slide of the home carousel. `target` null = not clickable; promo = open that restaurant's "Chegirmalar" group. */
-export interface Banner { id: string; title: string; imageUrl: string; target: { restaurantId: string; promo: boolean } | null }
+export interface Banner { id: string; title: string; imageUrl: string; target: { restaurantId: string; promo: boolean; categoryId?: string } | null }
 
 /** The platform service fee model (src/modules/pricing/fee.ts). Dish prices shown to the customer already contain it; `Product.priceSom` is the restaurant's own price. */
 export interface PublicPricing { mode: 'FLAT' | 'PERCENT' | 'TIERED' | 'LINE'; percentBp: number; kneeSom: number; lowBp: number; highBp: number; milestonesSom: number[]; lineSom?: number; lineWaived?: boolean }

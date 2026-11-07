@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react';
-import { CalendarClock, ChevronLeft, ChevronRight, Gift, Star, UtensilsCrossed } from 'lucide-react';
+import { BadgePercent, CalendarClock, ChevronLeft, ChevronRight, Gift, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
@@ -19,6 +19,8 @@ import { t } from '../i18n';
 export const OTHER_CATEGORY = 'other';
 /** The virtual first group of a restaurant that has a 1+1 offer on (owner decision 2026-11-01): the offer's dishes, whatever category they sit in. */
 export const PROMO_CATEGORY = 'promo';
+/** A restaurant's own group of special offers ("AKSIYA"): without a photo it gets a discount badge instead of the first letter. */
+export const isDealGroup = (name: string): boolean => /^\s*(aksiya|акция|акции)/i.test(name);
 
 export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route) => void }) {
   const { cart, dispatch, toast } = useApp();
@@ -94,10 +96,12 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       {showGrid && !active && (
         <div className="cat-grid" role="list" aria-label={t('Toifalar')}>
           {groups.map(g => (
-            <button key={g.id} role="listitem" className={`cat-card ${g.id === PROMO_CATEGORY ? 'promo' : ''}`} onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
+            <button key={g.id} role="listitem" className={`cat-card ${g.id === PROMO_CATEGORY || (!g.imageUrl && isDealGroup(g.name)) ? 'promo' : ''}`} onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
               {g.id === PROMO_CATEGORY
                 ? <span className="promo-art" aria-hidden><Icon as={Gift} size={34} /><b>1+1</b></span>
-                : <RestaurantPhoto name={g.name} url={g.imageUrl} />}
+                : !g.imageUrl && isDealGroup(g.name)
+                  ? <span className="promo-art" aria-hidden><Icon as={BadgePercent} size={56} /></span>
+                  : <RestaurantPhoto name={g.name} url={g.imageUrl} />}
               <span className="cat-label"><span className="cat-name">{g.name}</span><span className="cat-count">{t('{n} ta taom', { n: g.count })}</span></span>
             </button>
           ))}

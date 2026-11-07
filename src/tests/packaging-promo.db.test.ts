@@ -83,6 +83,7 @@ after(async () => {
   await db.customer.deleteMany({ where: { telegramUserId: customerTg } });
   await db.product.updateMany({ where: { restaurantId }, data: { packagingProductId: null } });
   await db.product.deleteMany({ where: { restaurantId } });
+  await db.category.deleteMany({ where: { restaurantId } });
   await db.taxiCompany.deleteMany({ where: { id: taxiId } });
   await db.restaurant.deleteMany({ where: { id: restaurantId } });
   await db.$disconnect();
@@ -223,4 +224,18 @@ test('banners: a slide of a promotion shows only while the promotion is on and h
   await db.banner.update({ where: { id: plain.id }, data: { endsAt: new Date(Date.now() - 1000) } });
   assert.deepEqual((await mine()).map(b => b.id), [promoBanner.id]);
   await assert.rejects(() => setBannerImage(plain.id, Buffer.from('not an image'.repeat(200))), /RASM_NOTOGRI/);
+});
+
+test('banners: a plain slide opens the restaurant\'s AKSIYA group once it has a dish; a 1+1 slide still opens Chegirmalar', async () => {
+  const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(1500, 9)]);
+  const slide = await db.banner.create({ data: { title: 'Mahsus takliflar', restaurantId, position: 6 } });
+  const promoSlide = await db.banner.create({ data: { title: 'Lavash 1+1 (kategoriya)', promotionId: promoId, restaurantId, position: 7 } });
+  await setBannerImage(slide.id, png);
+  await setBannerImage(promoSlide.id, png);
+  const target = async (id: string) => (await publicBanners()).find(b => b.id === id)?.target;
+  const group = await db.category.create({ data: { restaurantId, name: 'Aksiya' } });
+  assert.deepEqual(await target(slide.id), { restaurantId, promo: false }, 'an empty group is not offered');
+  await db.product.create({ data: { restaurantId, categoryId: group.id, name: `aksiya-${nonce}`, priceSom: 9_000 } });
+  assert.deepEqual(await target(slide.id), { restaurantId, promo: false, categoryId: group.id });
+  assert.deepEqual(await target(promoSlide.id), { restaurantId, promo: true }, 'a promotion slide keeps opening Chegirmalar');
 });

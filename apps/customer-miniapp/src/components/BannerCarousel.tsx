@@ -8,9 +8,12 @@ import { t } from '../i18n';
 
 const SLIDE_MS = 4500;
 
-/** Where a tap on a slide goes: the restaurant's menu, on its "Chegirmalar" group for an offer. A slide without a target is not clickable. */
+/**
+ * Where a tap on a slide goes: the restaurant's menu, on its "Chegirmalar" group for a 1+1 offer, on its "AKSIYA" group when the server names one
+ * (`categoryId`). A slide without a target is not clickable.
+ */
 export const bannerRoute = (b: Banner): Route | null =>
-  b.target ? { name: 'menu', id: b.target.restaurantId, ...(b.target.promo ? { cat: PROMO_CATEGORY } : {}) } : null;
+  b.target ? { name: 'menu', id: b.target.restaurantId, ...(b.target.promo ? { cat: PROMO_CATEGORY } : b.target.categoryId ? { cat: b.target.categoryId } : {}) } : null;
 
 /**
  * News and offers above the restaurant search (owner decision 2026-11-01). Slides move by themselves every few seconds and by swipe; a touch pauses

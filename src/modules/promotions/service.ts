@@ -24,13 +24,25 @@ export async function publicBanners(now = new Date()) {
       restaurant: { select: { isActive: true } },
     },
   });
+  // A plain slide of a restaurant (not a 1+1 promotion) opens that restaurant's offers group when it has one (owner request 2026-11-07).
+  const plainRestaurants = [...new Set(rows.filter(b => !b.promotionId && b.restaurantId).map(b => b.restaurantId!))];
+  const dealGroups = plainRestaurants.length === 0 ? [] : await db.category.findMany({
+    where: { restaurantId: { in: plainRestaurants }, name: { in: DEAL_GROUP_NAMES, mode: 'insensitive' }, products: { some: { archivedAt: null } } },
+    orderBy: [{ position: 'asc' }, { id: 'asc' }], select: { id: true, restaurantId: true },
+  });
+  const dealGroupOf = new Map<string, string>();
+  for (const g of dealGroups) if (!dealGroupOf.has(g.restaurantId)) dealGroupOf.set(g.restaurantId, g.id);
   return rows.flatMap(b => {
     if (b.promotionId && (!b.promotion?.isActive || !b.promotion.restaurant.isActive || b.promotion.products.length === 0)) return [];
     if (!b.promotionId && b.restaurantId && !b.restaurant?.isActive) return [];
     const restaurantId = b.promotion?.restaurantId ?? b.restaurantId ?? null;
-    return [{ id: b.id, title: b.title, imageUrl: bannerImageUrl(b.id, b.image!.version), target: restaurantId ? { restaurantId, promo: b.promotionId !== null } : null }];
+    const categoryId = !b.promotionId && restaurantId ? dealGroupOf.get(restaurantId) : undefined;
+    return [{ id: b.id, title: b.title, imageUrl: bannerImageUrl(b.id, b.image!.version), target: restaurantId ? { restaurantId, promo: b.promotionId !== null, ...(categoryId ? { categoryId } : {}) } : null }];
   });
 }
+
+/** The names a restaurant gives its group of special offers (the Sifat Food one is "AKSIYA"). */
+const DEAL_GROUP_NAMES = ['AKSIYA', 'AKSIYALAR', 'Акция', 'Акции'];
 
 export async function readBannerImage(bannerId: string): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
   const row = await db.bannerImage.findFirst({ where: { bannerId, banner: { isActive: true } }, select: { mime: true, data: true, sha256: true } });
