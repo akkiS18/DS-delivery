@@ -68,7 +68,6 @@ export const RU: Record<string, string> = {
   'Hozircha restoranlar yo‘q': 'Пока нет ресторанов',
   'Boshqa so‘z bilan qidirib ko‘ring.': 'Попробуйте поискать по другому слову.',
   'Keyinroq qaytib keling.': 'Загляните позже.',
-  'Hozircha buyurtma qabul qilmaydi': 'Пока не принимает заказы',
   'Boshqa taomlar': 'Другие блюда',
   'Taomlar': 'Блюда',
   'Chegirmalar': 'Скидки',

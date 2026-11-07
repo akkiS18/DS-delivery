@@ -302,6 +302,10 @@ h1, h2, h3, p { margin: 0; }
 .rcard { padding: 0; overflow: hidden; min-width: 0; }
 .rphoto { position: relative; aspect-ratio: 2 / 1; width: 100%; background: #e6f1ea; overflow: hidden; }
 .rphoto-img, .rphoto-empty { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* a whole picture (logo): fitted inside the frame, the rest filled with a blurred copy of it */
+.rphoto-whole { position: relative; object-fit: contain; }
+.rphoto-bg { position: absolute; top: -14px; left: -14px; width: calc(100% + 28px); height: calc(100% + 28px); max-width: none; object-fit: cover; filter: blur(14px) saturate(1.1); opacity: 0.9; }
+.rcard.closed .rphoto-bg, .rphoto.closed .rphoto-bg, .sres.closed .rphoto-bg { filter: blur(14px) grayscale(0.75); }
 .rphoto-empty { display: flex; align-items: center; justify-content: center; color: #fff; font-size: 32px; font-weight: 800; letter-spacing: 2px; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
 .rstate { position: absolute; top: 6px; right: 6px; background: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); font-size: 11px; padding: 3px 8px; }
 .rstate.open { color: var(--primary-dark); }

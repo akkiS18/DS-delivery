@@ -76,7 +76,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
   return (
     <div className="page">
       <div>
-        <div className={`rphoto banner-photo ${r.isOpen ? '' : 'closed'}`}><RestaurantPhoto name={r.name} url={r.imageUrl} /></div>
+        <div className={`rphoto banner-photo ${r.isOpen ? '' : 'closed'}`}><RestaurantPhoto name={r.name} url={r.imageUrl} whole /></div>
         <h1 className="page-title">{r.name}</h1>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? t('Vaqtincha yopiq') : t('Yopiq')}</span>

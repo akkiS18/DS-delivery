@@ -3,7 +3,11 @@ import { apiOrigin, sizedUrl } from '../lib/platform';
 import { initials, nameHue } from '../lib/rating';
 
 /** The restaurant's photo, or (no photo / it failed to load) a coloured tile with its initials, so a card never looks broken. */
-export function RestaurantPhoto({ name, url, className = '', width = 640 }: { name: string; url: string | null | undefined; className?: string; width?: number }) {
+/**
+ * `whole`: the picture is shown complete (a logo must not lose its edges to the frame), the rest of the frame is filled with a blurred copy of it.
+ * Without it the picture fills the frame and is cropped (category tiles, where a photo is wanted edge to edge).
+ */
+export function RestaurantPhoto({ name, url, className = '', width = 640, whole = false }: { name: string; url: string | null | undefined; className?: string; width?: number; whole?: boolean }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed) {
     const hue = nameHue(name);
@@ -13,5 +17,12 @@ export function RestaurantPhoto({ name, url, className = '', width = 640 }: { na
       </div>
     );
   }
-  return <img className={`rphoto-img ${className}`} src={`${apiOrigin()}${sizedUrl(url, width)}`} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+  const src = `${apiOrigin()}${sizedUrl(url, width)}`;
+  if (!whole) return <img className={`rphoto-img ${className}`} src={src} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} />;
+  return (
+    <>
+      <img className="rphoto-bg" src={src} alt="" aria-hidden loading="lazy" decoding="async" />
+      <img className={`rphoto-img rphoto-whole ${className}`} src={src} alt={name} loading="lazy" decoding="async" onError={() => setFailed(true)} />
+    </>
+  );
 }

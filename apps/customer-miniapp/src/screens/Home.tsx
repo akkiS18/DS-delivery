@@ -34,21 +34,22 @@ async function searchCached(q: string, signal: AbortSignal): Promise<SearchRespo
   return value;
 }
 
-const stateText = (r: { isOpen: boolean; closedReason: 'PAUSED' | 'HOURS' | null }) => (r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? t('Vaqtincha yopiq') : t('Yopiq'));
+/** The badge on a restaurant card. A restaurant that is switched off for now carries no text at all (owner 2026-11-07): its card is only greyed. */
+const stateText = (r: { isOpen: boolean; closedReason: 'PAUSED' | 'HOURS' | null }) => (r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? '' : t('Yopiq'));
 
 const RestaurantCard = memo(function RestaurantCard({ r, go }: { r: Restaurant; go: (r: Route) => void }) {
   return (
     <div className={`card tap rcard ${r.isOpen ? '' : 'closed'}`} role="button" tabIndex={0} aria-label={`${r.name}, ${r.isOpen ? t('ochiq') : t('yopiq')}`}
       onClick={() => go({ name: 'menu', id: r.id })} onKeyDown={e => { if (e.key === 'Enter') go({ name: 'menu', id: r.id }); }}>
       <div className="rphoto">
-        <RestaurantPhoto name={r.name} url={r.imageUrl} />
-        <span className={`badge rstate ${r.isOpen ? 'open' : 'closed'}`}>{stateText(r)}</span>
+        <RestaurantPhoto name={r.name} url={r.imageUrl} whole />
+        {stateText(r) && <span className={`badge rstate ${r.isOpen ? 'open' : 'closed'}`}>{stateText(r)}</span>}
       </div>
       <div className="rbody">
         <h3 className="rname">{r.name}</h3>
         <div className="rmeta">
           {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
-          {!r.isOpen && <span className="sub">{r.closedReason === 'HOURS' ? opensText(r.opensNext) : t('Hozircha buyurtma qabul qilmaydi')}</span>}
+          {!r.isOpen && r.closedReason === 'HOURS' && <span className="sub">{opensText(r.opensNext)}</span>}
         </div>
       </div>
     </div>
@@ -60,11 +61,11 @@ const RestaurantRow = memo(function RestaurantRow({ r, go }: { r: Restaurant; go
   return (
     <div className={`card tap sres ${r.isOpen ? '' : 'closed'}`} role="button" tabIndex={0} aria-label={`${r.name}, ${r.isOpen ? t('ochiq') : t('yopiq')}`}
       onClick={() => go({ name: 'menu', id: r.id })} onKeyDown={e => { if (e.key === 'Enter') go({ name: 'menu', id: r.id }); }}>
-      <div className="sres-photo"><RestaurantPhoto name={r.name} url={r.imageUrl} width={160} /></div>
+      <div className="sres-photo"><RestaurantPhoto name={r.name} url={r.imageUrl} width={160} whole /></div>
       <div className="grow stack" style={{ gap: 3, minWidth: 0 }}>
         <div className="bold sres-name">{r.name}</div>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{stateText(r)}</span>
+          {stateText(r) && <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{stateText(r)}</span>}
           {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={14} className="star on" />{ratingText(r.rating)}</span>}
         </div>
       </div>
