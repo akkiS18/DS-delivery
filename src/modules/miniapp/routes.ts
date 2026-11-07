@@ -436,6 +436,16 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     if (r.result === 'LIMIT') throw httpError(429, 'KOP_OCHIQ_MUROJAAT');
     return reply.code(r.result === 'CREATED' ? 201 : 200).send({ ticketId: r.ticketId, number: r.number, created: r.result === 'CREATED' });
   });
+  // Opens a general conversation that is about no order (owner 2026-11-07). One unresolved one per customer: a second request returns the open one.
+  app.post('/support', async (request, reply) => {
+    strict(request, 'supportnew', 10, 3_600_000);
+    const body = ticketBody.parse(request.body);
+    const r = await createAppTicket({ customerId: (await customerRow(request)).id, message: body.message });
+    if (r.result === 'NOT_FOUND') throw httpError(404, 'NOT_FOUND');
+    if (r.result === 'UNAVAILABLE') throw httpError(503, 'SUPPORT_UNAVAILABLE');
+    if (r.result === 'LIMIT') throw httpError(429, 'KOP_OCHIQ_MUROJAAT');
+    return reply.code(r.result === 'CREATED' ? 201 : 200).send({ ticketId: r.ticketId, number: r.number, created: r.result === 'CREATED' });
+  });
   app.post<{ Params: { id: string } }>('/support/:id/messages', async (request, reply) => {
     strict(request, 'supportmsg', 20);
     const body = messageBody.parse(request.body);

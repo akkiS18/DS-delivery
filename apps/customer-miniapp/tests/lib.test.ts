@@ -96,6 +96,14 @@ describe('router', () => {
     expect(parseRoute('#/menu/<script>')).toEqual({ name: 'home' });
     expect(parseRoute('#/cart/extra')).toEqual({ name: 'home' });
   });
+  it('a support conversation can be about no order (#/support/new) or about one (#/support/new/<order>)', () => {
+    expect(parseRoute('#/support/new')).toEqual({ name: 'supportNew' });
+    expect(routeToHash({ name: 'supportNew' })).toBe('#/support/new');
+    expect(parseRoute('#/support/new/o-9')).toEqual({ name: 'supportNew', orderId: 'o-9' });
+    expect(routeToHash({ name: 'supportNew', orderId: 'o-9' })).toBe('#/support/new/o-9');
+    expect(parseRoute('#/support/abc')).toEqual({ name: 'ticket', id: 'abc' });
+    expect(parseRoute('#/support/new/a/b')).toEqual({ name: 'home' });
+  });
   it('back never loops', () => {
     expect(parentOf({ name: 'home' })).toBeNull();
     expect(parentOf({ name: 'checkout' })).toEqual({ name: 'cart' });

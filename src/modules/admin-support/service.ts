@@ -18,6 +18,10 @@ export interface TicketRow {
   waiting: boolean;
 }
 
+/** A general question (no order) keeps the same JSON shape for the admin app: these stand in for the order code and the restaurant. */
+const NO_ORDER_CODE = "—";
+const NO_ORDER_NAME = "Buyurtmasiz";
+
 const rowSelect = {
   id: true, number: true, status: true, message: true, createdAt: true, resolvedAt: true,
   assignedAdminTelegramId: true, assignedAdminName: true,
@@ -29,7 +33,7 @@ const rowSelect = {
 type RowSource = {
   id: string; number: number; status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED'; message: string; createdAt: Date;
   assignedAdminTelegramId: string | null; assignedAdminName: string | null;
-  order: { code: string; restaurant: { name: string } }; customer: { displayName: string | null };
+  order: { code: string; restaurant: { name: string } } | null; customer: { displayName: string | null };
   messages: Array<{ senderType: string; text: string; createdAt: Date }>;
 };
 
@@ -40,7 +44,7 @@ export function toRow(t: RowSource, adminId: string): TicketRow {
   return {
     id: t.id, number: t.number, status: t.status, assignedAdminName: t.assignedAdminName,
     mine: t.status === 'IN_PROGRESS' && t.assignedAdminTelegramId === adminId,
-    orderCode: t.order.code, restaurantName: t.order.restaurant.name, customerName: t.customer.displayName,
+    orderCode: t.order?.code ?? NO_ORDER_CODE, restaurantName: t.order?.restaurant.name ?? NO_ORDER_NAME, customerName: t.customer.displayName,
     createdAt: t.createdAt.toISOString(), lastAt: (last?.createdAt ?? t.createdAt).toISOString(),
     lastFrom, lastText: (last?.text ?? t.message).slice(0, PREVIEW),
     waiting: t.status !== 'RESOLVED' && lastFrom === 'CUSTOMER',
@@ -92,7 +96,7 @@ export async function ticketThread(adminId: string, ticketId: string): Promise<T
   const others = await Promise.all(supportAdminIds().filter(id => id !== adminId).map(async id => ({ telegramId: id, name: await adminDisplayName(id) })));
   return {
     ticket: { ...row, resolvedAt: t.resolvedAt?.toISOString() ?? null },
-    order: { code: t.order.code, status: t.order.status, totalSom: t.order.totalSom, restaurantName: t.order.restaurant.name },
+    order: t.order ? { code: t.order.code, status: t.order.status, totalSom: t.order.totalSom, restaurantName: t.order.restaurant.name } : { code: NO_ORDER_CODE, status: "", totalSom: 0, restaurantName: NO_ORDER_NAME },
     customer: { name: t.customer.displayName, phone: t.customer.phone, viaApp: t.customer.telegramUserId === null },
     messages: [
       { id: `first-${t.id}`, from: 'CUSTOMER', text: t.message, at: t.createdAt.toISOString(), byName: null, failed: false },

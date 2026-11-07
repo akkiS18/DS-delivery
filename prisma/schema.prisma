@@ -651,8 +651,9 @@ enum SupportTicketStatus {
 model SupportTicket {
   id                      String                      @id @default(cuid())
   number                  Int                         @unique @default(autoincrement())
-  orderId                 String
-  order                   Order                       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // null = a general question that is about no order (owner 2026-11-07); at most one unresolved of those per customer (partial unique index)
+  orderId                 String?
+  order                   Order?                      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   customerId              String
   customer                Customer                    @relation(fields: [customerId], references: [id])
   message                 String

@@ -122,6 +122,8 @@ export const api = {
   ticketsUnread: (signal?: AbortSignal) => request<{ unread: number }>('/support/unread', { signal }),
   ticket: (id: string, signal?: AbortSignal) => request<TicketThread>(`/support/${encodeURIComponent(id)}`, { signal }),
   openTicket: (orderId: string, message: string) => request<{ ticketId: string; number: number; created: boolean }>(`/orders/${encodeURIComponent(orderId)}/support`, { method: 'POST', body: { message } }),
+  /** A general question that is about no order (the server keeps one unresolved of these per customer and returns it when it already exists). */
+  openGeneralTicket: (message: string) => request<{ ticketId: string; number: number; created: boolean }>('/support', { method: 'POST', body: { message } }),
   sendTicketMessage: (id: string, text: string, clientKey: string) => request<{ sent: boolean }>(`/support/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { text, clientKey } }),
   /** Rate the food of a delivered order (1-5; reasons and a short note only matter for 1-3). */
   rateOrder: (id: string, body: { stars: number; reasons?: string[]; note?: string }) => request<{ order: OrderView }>(`/orders/${encodeURIComponent(id)}/rating`, { method: 'PUT', body }),

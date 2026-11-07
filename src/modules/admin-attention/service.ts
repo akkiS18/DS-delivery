@@ -311,8 +311,8 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
   }
   for (const t of tickets) {
     raw.push({ key: `SUPPORT_TICKET:${t.id}`, kind: 'SUPPORT_TICKET', title: 'Mijoz murojaati javobsiz',
-      detail: `Murojaat #${t.number} · buyurtma #${t.order.code}`, restaurant: { id: t.order.restaurant.id, name: t.order.restaurant.name, phone: t.order.restaurant.pickupPhone },
-      orderCode: t.order.code, since: t.createdAt });
+      detail: `Murojaat #${t.number}${t.order ? ` · buyurtma #${t.order.code}` : " · buyurtmasiz"}`, restaurant: t.order ? { id: t.order.restaurant.id, name: t.order.restaurant.name, phone: t.order.restaurant.pickupPhone } : null,
+      orderCode: t.order?.code ?? null, since: t.createdAt });
   }
   for (const d of disputes) {
     raw.push({ key: `REFUND_DISPUTED:${d.id}`, kind: 'REFUND_DISPUTED', title: 'Qaytarish: mijoz pul KELMADI dedi',

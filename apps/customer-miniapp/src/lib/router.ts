@@ -11,7 +11,8 @@ export type Route =
   | { name: 'profile' }
   | { name: 'support' }
   | { name: 'ticket'; id: string }
-  | { name: 'supportNew'; orderId: string };
+  /** No orderId = a general question (the help tab); with one, the conversation is about that order. */
+  | { name: 'supportNew'; orderId?: string | undefined };
 
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -26,6 +27,7 @@ export function parseRoute(hash: string): Route {
   if (a === 'reserve' && b && ID.test(b) && parts.length === 2) return { name: 'reserve', id: b };
   if (a === 'reservation' && b && ID.test(b) && parts.length === 2) return { name: 'reservation', id: b };
   if (a === 'support' && b === 'new' && parts[2] && ID.test(parts[2]) && parts.length === 3) return { name: 'supportNew', orderId: parts[2] };
+  if (a === 'support' && b === 'new' && parts.length === 2) return { name: 'supportNew' };
   if (a === 'support' && b && b !== 'new' && ID.test(b) && parts.length === 2) return { name: 'ticket', id: b };
   if (parts.length === 1) {
     if (a === 'cart') return { name: 'cart' };
@@ -52,7 +54,7 @@ export function routeToHash(r: Route): string {
     case 'profile': return '#/profile';
     case 'support': return '#/support';
     case 'ticket': return `#/support/${r.id}`;
-    case 'supportNew': return `#/support/new/${r.orderId}`;
+    case 'supportNew': return r.orderId ? `#/support/new/${r.orderId}` : '#/support/new';
   }
 }
 

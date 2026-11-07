@@ -48,28 +48,33 @@ export async function createTicket(input: {
   return createTicketFor({ customer: { telegramUserId: input.telegramUserId } }, input.telegramUserId, input.orderId, input.message, Infinity);
 }
 
-/** Same as createTicket for a customer written in an app (Mini App or Android guest): the customer row id comes from the authenticated session. */
+/** Same as createTicket for a customer written in an app (Mini App or Android guest): the customer row id comes from the authenticated session.
+ *  No orderId = a general question (owner 2026-11-07): one unresolved of those per customer, a second request gets the open one back. */
 export async function createAppTicket(input: {
-  customerId: string; orderId: string; message: string;
+  customerId: string; orderId?: string | null; message: string;
 }): Promise<CreateTicketResult> {
-  return createTicketFor({ customerId: input.customerId }, `app:${input.customerId}`, input.orderId, input.message, MAX_OPEN_TICKETS_PER_CUSTOMER);
+  return createTicketFor({ customerId: input.customerId }, `app:${input.customerId}`, input.orderId ?? null, input.message, MAX_OPEN_TICKETS_PER_CUSTOMER);
 }
 
 async function createTicketFor(
-  owner: { customer: { telegramUserId: string } } | { customerId: string }, actor: string, orderId: string, rawMessage: string, maxOpen: number,
+  owner: { customer: { telegramUserId: string } } | { customerId: string }, actor: string, orderId: string | null, rawMessage: string, maxOpen: number,
 ): Promise<CreateTicketResult> {
   const message = rawMessage.trim();
   if (message.length < MIN_MESSAGE || message.length > MAX_MESSAGE) throw new Error('SUPPORT_XABAR_UZUNLIGI');
   if (!supportAdminIds().length) return { result: 'UNAVAILABLE' };
-  const order = await db.order.findFirst({ where: { id: orderId, ...owner }, select: { id: true, customerId: true } });
+  const order = orderId === null
+    ? await db.customer.findFirst({ where: 'customerId' in owner ? { id: owner.customerId } : owner.customer, select: { id: true } }).then(c => (c ? { id: null, customerId: c.id } : null))
+    : await db.order.findFirst({ where: { id: orderId, ...owner }, select: { id: true, customerId: true } });
   if (!order) return { result: 'NOT_FOUND' };
-  const existing = await db.supportTicket.findFirst({ where: { orderId: order.id, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true, number: true } });
+  // one unresolved ticket per order; for a general question, one per customer (null must never match another customer's)
+  const activeScope = order.id === null ? { customerId: order.customerId, orderId: null } : { orderId: order.id };
+  const existing = await db.supportTicket.findFirst({ where: { ...activeScope, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true, number: true } });
   if (existing) return { result: 'ALREADY_OPEN', number: existing.number, ticketId: existing.id };
   if (await db.supportTicket.count({ where: { customerId: order.customerId, status: { in: ['OPEN', 'IN_PROGRESS'] } } }) >= maxOpen) return { result: 'LIMIT' };
   try {
     return await db.$transaction(async tx => {
       const ticket = await tx.supportTicket.create({
-        data: { orderId: order.id, customerId: order.customerId, message },
+        data: { ...(order.id === null ? {} : { orderId: order.id }), customerId: order.customerId, message },
       });
       await tx.supportTicketEvent.create({
         data: { ticketId: ticket.id, actorTelegramId: actor, actorType: 'CUSTOMER',
@@ -81,7 +86,7 @@ async function createTicketFor(
     // Partial unique index: one unresolved ticket per order.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       const existing = await db.supportTicket.findFirst({
-        where: { orderId: order.id, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true, number: true },
+        where: { ...activeScope, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { id: true, number: true },
       });
       if (existing) return { result: 'ALREADY_OPEN', number: existing.number, ticketId: existing.id };
     }

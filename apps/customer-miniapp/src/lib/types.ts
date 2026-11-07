@@ -235,11 +235,12 @@ export interface CartState { restaurantId: string | null; restaurantName: string
 /** Support chat (the customer's side; the admins answer in Telegram). `lastFrom` tells whose message is newest. */
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 export interface TicketSummary {
-  id: string; number: number; orderId: string; orderCode: string; restaurantName: string; status: TicketStatus;
+  /** orderId null = a general question about no order (orderCode and restaurantName are then empty). */
+  id: string; number: number; orderId: string | null; orderCode: string; restaurantName: string; status: TicketStatus;
   createdAt: string; lastAt: string; lastFrom: 'CUSTOMER' | 'ADMIN'; lastText: string; unread: boolean;
 }
 export interface TicketThread {
-  ticket: { id: string; number: number; orderId: string; orderCode: string; restaurantName: string; status: TicketStatus; createdAt: string };
+  ticket: { id: string; number: number; orderId: string | null; orderCode: string; restaurantName: string; status: TicketStatus; createdAt: string };
   messages: Array<{ id: string; from: 'CUSTOMER' | 'ADMIN'; text: string; at: string }>;
 }
 

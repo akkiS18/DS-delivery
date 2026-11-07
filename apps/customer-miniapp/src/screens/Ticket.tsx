@@ -69,7 +69,7 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
     <div className="page chat">
       <div>
         <h1 className="page-title">{t('Murojaat #{number}', { number: tk.number })}</h1>
-        <p className="sub"><a href={`#/order/${tk.orderId}`}>{t('Buyurtma #{code}', { code: tk.orderCode })}</a> • {tk.restaurantName} • <span className={`badge ${resolved ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span></p>
+        <p className="sub">{tk.orderId ? <><a href={`#/order/${tk.orderId}`}>{t('Buyurtma #{code}', { code: tk.orderCode })}</a> • {tk.restaurantName} • </> : <>{t('Umumiy murojaat')} • </>}<span className={`badge ${resolved ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span></p>
       </div>
       {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
       <div className="bubbles" role="log" aria-live="polite" aria-label={t('Yozishma')}>
@@ -87,7 +87,7 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
         ? (
           <div className="stack">
             <div className="banner" role="status">{t('Murojaat hal qilingan. Muammo davom etsa, yangi murojaat yozing.')}</div>
-            <Button onClick={() => go({ name: 'supportNew', orderId: tk.orderId })}>{t('Yangi murojaat')}</Button>
+            <Button onClick={() => go(tk.orderId ? { name: 'supportNew', orderId: tk.orderId } : { name: 'supportNew' })}>{t('Yangi murojaat')}</Button>
           </div>
         )
         : (

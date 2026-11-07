@@ -72,7 +72,7 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     const rows = await listCustomerTickets(String(ctx.from.id));
     const active = await listCustomerActiveTickets(String(ctx.from.id));
     await ctx.reply(rows.length
-      ? '🎫 Murojaatlaringiz:\n' + rows.map(t => `#${t.number} (buyurtma #${t.order.code}) — ${statusLabel(t.status)}`).join('\n')
+      ? '🎫 Murojaatlaringiz:\n' + rows.map(t => `#${t.number}${t.order ? ` (buyurtma #${t.order.code})` : " (umumiy)"} — ${statusLabel(t.status)}`).join('\n')
       : 'Murojaatlaringiz yo‘q.', active.length ? Markup.inlineKeyboard(active.map(t => [
       Markup.button.callback(`✍️ #${t.number} ga yozish`, `sup:cw:${t.id}`)])) : undefined);
   });
@@ -197,7 +197,7 @@ export function registerSupportHandlers<C extends Context>(bot: Telegraf<C>): vo
     const rows = await listActiveTickets(String(ctx.from.id));
     if (!rows.length) { await ctx.reply('Ochiq murojaatlar yo‘q.'); return; }
     await ctx.reply('🎫 Faol murojaatlar:', Markup.inlineKeyboard(rows.map(t => [Markup.button.callback(
-      `#${t.number} • buyurtma #${t.order.code} • ${t.status === 'OPEN' ? 'ochiq' : t.assignedAdminName ?? ''}`.slice(0, 60),
+      `#${t.number} • ${t.order ? `buyurtma #${t.order.code}` : "umumiy"} • ${t.status === 'OPEN' ? 'ochiq' : t.assignedAdminName ?? ''}`.slice(0, 60),
       `sup:view:${t.id}`)])));
   });
 

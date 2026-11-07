@@ -258,3 +258,51 @@ test('Telegram reply of an admin to a ticket message answers that customer in th
   assert.equal(await db.supportTicketMessage.count({ where: { ticketId, senderType: 'ADMIN' } }), 2);
   api.close();
 });
+
+test('a general question (no order): opens a ticket, one unresolved per customer, other customers are never mixed in, admins see it as order-less', async () => {
+  const a = await newGuest();
+  const b = await newGuest();
+  const first = await call('POST', '/support', a.auth, { message: 'Ilova haqida savolim bor' });
+  assert.equal(first.statusCode, 201, first.body);
+  const ticketId = first.json().ticketId as string;
+  const row = await db.supportTicket.findUniqueOrThrow({ where: { id: ticketId } });
+  assert.equal(row.orderId, null);
+  assert.equal(row.customerId, a.id);
+
+  // a second request (and a race of several) returns the same open ticket and creates nothing new
+  const again = await call('POST', '/support', a.auth, { message: 'Yana bir savol' });
+  assert.equal(again.statusCode, 200);
+  assert.equal(again.json().ticketId, ticketId);
+  assert.equal(again.json().created, false);
+  const race = await Promise.all([1, 2, 3, 4].map(() => call('POST', '/support', a.auth, { message: 'Bir vaqtda yozilgan savol' })));
+  assert.ok(race.every(r => r.json().ticketId === ticketId));
+  assert.equal(await db.supportTicket.count({ where: { customerId: a.id, orderId: null } }), 1);
+
+  // another customer gets a ticket of their own, never a's
+  const other = await call('POST', '/support', b.auth, { message: 'Men boshqa mijozman' });
+  assert.equal(other.statusCode, 201);
+  assert.notEqual(other.json().ticketId, ticketId);
+  assert.equal((await call('GET', `/support/${ticketId}`, b.auth)).statusCode, 404);
+
+  // it is listed and readable with empty order fields, and the chat works like any other
+  const list = (await call('GET', '/support', a.auth)).json().tickets as Array<{ id: string; orderId: string | null; orderCode: string; restaurantName: string }>;
+  assert.deepEqual(list.map(t => [t.id, t.orderId, t.orderCode, t.restaurantName]), [[ticketId, null, '', '']]);
+  const thread = (await call('GET', `/support/${ticketId}`, a.auth)).json();
+  assert.equal(thread.ticket.orderId, null);
+  assert.equal((await call('POST', `/support/${ticketId}/messages`, a.auth, { text: 'Davomi', clientKey: clientKey() })).statusCode, 201);
+
+  // the admin side shows it without an order; the database refuses a second unresolved one even if the code did not
+  const { listInbox } = await import('../modules/admin-support/service.js');
+  const inbox = await listInbox(ADMIN_A);
+  const mine = inbox.active.find(t => t.id === ticketId);
+  assert.ok(mine);
+  assert.deepEqual([mine.orderCode, mine.restaurantName], ['—', 'Buyurtmasiz']);
+  await assert.rejects(() => db.supportTicket.create({ data: { customerId: a.id, message: 'ikkinchi ochiq' } }), (e: unknown) => (e as { code?: string }).code === 'P2002');
+
+  // once resolved, the same customer may open a new one; reopening the old one is then refused (one unresolved at a time)
+  assert.equal((await claimTicket({ actorTelegramId: ADMIN_A, actorName: 'A', ticketId, callbackQueryId: randomUUID() })).result, 'DONE');
+  assert.equal((await resolveTicket({ actorTelegramId: ADMIN_A, ticketId, callbackQueryId: randomUUID() })).result, 'DONE');
+  const next = await call('POST', '/support', a.auth, { message: 'Yangi savol, avvalgisi hal bo‘ldi' });
+  assert.equal(next.statusCode, 201);
+  assert.notEqual(next.json().ticketId, ticketId);
+});

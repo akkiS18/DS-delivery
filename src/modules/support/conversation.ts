@@ -20,7 +20,7 @@ export function validateText(raw: string): string {
 }
 
 interface LockedTicket {
-  id: string; number: number; orderId: string; customerId: string;
+  id: string; number: number; orderId: string | null; customerId: string;
   status: SupportTicketStatus; assignedAdminTelegramId: string | null; assignedAdminName: string | null;
 }
 /** Row lock: concurrent state changes on one ticket are serialized and always see the committed state. */
@@ -200,8 +200,9 @@ export async function reopenTicket(input: {
           action: 'REOPEN_REJECTED', fromStatus: t.status, toStatus: t.status, details },
       });
       if (t.status !== 'RESOLVED') { await reject({ reason: 'NOT_RESOLVED' }); return { result: 'NOT_RESOLVED' }; }
+      // an order-less ticket is compared within its own customer only (a bare null would match everybody's general tickets)
       const active = await tx.supportTicket.findFirst({
-        where: { orderId: t.orderId, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { number: true },
+        where: { orderId: t.orderId, ...(t.orderId === null ? { customerId: t.customerId } : {}), status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { number: true },
       });
       if (active) { await reject({ reason: 'ALREADY_ACTIVE', number: active.number }); return { result: 'ALREADY_ACTIVE', number: active.number }; }
       await tx.supportTicket.update({
@@ -218,9 +219,9 @@ export async function reopenTicket(input: {
   } catch (err) {
     // Partial unique index lost a race with a newly created ticket for the same order.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      const t = await db.supportTicket.findUnique({ where: { id: input.ticketId }, select: { orderId: true } });
+      const t = await db.supportTicket.findUnique({ where: { id: input.ticketId }, select: { orderId: true, customerId: true } });
       const active = t && await db.supportTicket.findFirst({
-        where: { orderId: t.orderId, status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { number: true },
+        where: { orderId: t.orderId, ...(t.orderId === null ? { customerId: t.customerId } : {}), status: { in: ['OPEN', 'IN_PROGRESS'] } }, select: { number: true },
       });
       if (active) return { result: 'ALREADY_ACTIVE', number: active.number };
     }

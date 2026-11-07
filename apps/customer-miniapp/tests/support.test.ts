@@ -32,7 +32,8 @@ describe('support routes', () => {
     for (const r of [{ name: 'support' }, { name: 'ticket', id: 'abc_1' }, { name: 'supportNew', orderId: 'o-9' }] as const) {
       expect(parseRoute(routeToHash(r))).toEqual(r);
     }
-    expect(parseRoute('#/support/new')).toEqual({ name: 'home' });
+    expect(parseRoute('#/support/new')).toEqual({ name: 'supportNew' }); // a general question (no order)
+    expect(routeToHash({ name: 'supportNew' })).toBe('#/support/new');
     expect(parseRoute('#/support/a/b')).toEqual({ name: 'home' });
     expect(parseRoute('#/support/bad id')).toEqual({ name: 'home' });
   });

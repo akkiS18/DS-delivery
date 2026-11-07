@@ -7,7 +7,8 @@ import { db } from '../../lib/db.js';
 export type AppTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
 
 export interface AppTicketSummary {
-  id: string; number: number; orderId: string; orderCode: string; restaurantName: string;
+  /** orderId null = a general question about no order (then orderCode and restaurantName are empty). */
+  id: string; number: number; orderId: string | null; orderCode: string; restaurantName: string;
   status: AppTicketStatus; createdAt: string; lastAt: string; lastFrom: 'CUSTOMER' | 'ADMIN'; lastText: string; unread: boolean;
 }
 
@@ -39,7 +40,7 @@ export async function listAppTickets(customerId: string): Promise<AppTicketSumma
     const last = t.messages[0];
     const status = t.status as AppTicketStatus;
     return {
-      id: t.id, number: t.number, orderId: t.orderId, orderCode: t.order.code, restaurantName: t.order.restaurant.name, status,
+      id: t.id, number: t.number, orderId: t.orderId, orderCode: t.order?.code ?? "", restaurantName: t.order?.restaurant.name ?? "", status,
       createdAt: t.createdAt.toISOString(),
       lastAt: (last?.createdAt ?? t.createdAt).toISOString(),
       lastFrom: (last?.senderType === 'ADMIN' ? 'ADMIN' : 'CUSTOMER') as 'ADMIN' | 'CUSTOMER',
@@ -54,7 +55,7 @@ export async function countUnreadAppTickets(customerId: string): Promise<number>
 }
 
 export interface AppThread {
-  ticket: { id: string; number: number; orderId: string; orderCode: string; restaurantName: string; status: AppTicketStatus; createdAt: string };
+  ticket: { id: string; number: number; orderId: string | null; orderCode: string; restaurantName: string; status: AppTicketStatus; createdAt: string };
   messages: Array<{ id: string; from: 'CUSTOMER' | 'ADMIN'; text: string; at: string }>;
 }
 
@@ -71,7 +72,7 @@ export async function appTicketThread(customerId: string, ticketId: string): Pro
   if (!t) return null;
   await db.supportTicket.updateMany({ where: { id: t.id, customerId }, data: { customerSeenAt: new Date() } });
   return {
-    ticket: { id: t.id, number: t.number, orderId: t.orderId, orderCode: t.order.code, restaurantName: t.order.restaurant.name, status: t.status as AppTicketStatus, createdAt: t.createdAt.toISOString() },
+    ticket: { id: t.id, number: t.number, orderId: t.orderId, orderCode: t.order?.code ?? "", restaurantName: t.order?.restaurant.name ?? "", status: t.status as AppTicketStatus, createdAt: t.createdAt.toISOString() },
     messages: [
       { id: `first-${t.id}`, from: 'CUSTOMER', text: t.message, at: t.createdAt.toISOString() },
       ...t.messages.map(m => ({ id: m.id, from: (m.senderType === 'ADMIN' ? 'ADMIN' : 'CUSTOMER') as 'ADMIN' | 'CUSTOMER', text: m.text, at: m.createdAt.toISOString() })),

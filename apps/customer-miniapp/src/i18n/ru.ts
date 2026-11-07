@@ -389,10 +389,8 @@ export const RU: Record<string, string> = {
   'Manzil 500 belgidan oshmasin': 'Адрес не длиннее 500 символов',
 
   // ---- support
-  'Buyurtma bo‘yicha muammo yoki savol bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.': 'Если есть проблема или вопрос по заказу, напишите здесь. Ответ вы тоже увидите здесь.',
   'Yangi murojaat yozish': 'Написать новое обращение',
   'Murojaatlar yo‘q': 'Обращений нет',
-  'Muammo bo‘lsa, yuqoridagi tugma orqali yozing.': 'Если возникнет проблема, напишите через кнопку выше.',
   'Murojaatlarim': 'Мои обращения',
   'Murojaat {number}, buyurtma {code}, {status}': 'Обращение {number}, заказ {code}, {status}',
   'yangi javob': 'новый ответ',
@@ -484,4 +482,11 @@ export const RU: Record<string, string> = {
   'Taom pulini ({sum}) esa naqd holda haydovchiga berasiz.': 'А деньги за блюда ({sum}) вы отдадите водителю наличными.',
   'Ha, tushundim': 'Да, понятно',
   'Ortga': 'Назад',
+  'Savol yoki muammo bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.': 'Если есть вопрос или проблема, напишите сюда. Ответ вы тоже увидите здесь.',
+  'Buyurtma haqida yozish': 'Написать о заказе',
+  'Murojaat {number}, umumiy, {status}': 'Обращение {number}, общее, {status}',
+  'Umumiy murojaat': 'Общее обращение',
+  'Savol yoki muammo bo‘lsa, yuqoridagi tugma orqali yozing.': 'Если есть вопрос или проблема, напишите через кнопку выше.',
+  'Javobni shu yerda ko‘rasiz.': 'Ответ вы увидите здесь.',
+  'Salom! Qanday yordam bera olamiz? Savol yoki muammoingizni yozing.': 'Здравствуйте! Чем мы можем помочь? Напишите свой вопрос или проблему.',
 };

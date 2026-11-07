@@ -44,21 +44,22 @@ export function Support({ go }: { go: (r: Route) => void }) {
   return (
     <div className="page">
       <h1 className="page-title">{t('Yordam')}</h1>
-      <div className="banner" role="note">{t('Buyurtma bo‘yicha muammo yoki savol bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.')}</div>
-      <Button onClick={() => void choose()}>{t('Yangi murojaat yozish')}</Button>
+      <div className="banner" role="note">{t('Savol yoki muammo bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.')}</div>
+      <Button onClick={() => go({ name: 'supportNew' })}>{t('Yangi murojaat yozish')}</Button>
+      <Button variant="secondary" onClick={() => void choose()}>{t('Buyurtma haqida yozish')}</Button>
       {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
 
       {tickets.length === 0
-        ? <Empty icon={<Icon as={MessageCircle} size={44} />} title={t('Murojaatlar yo‘q')} hint={t('Muammo bo‘lsa, yuqoridagi tugma orqali yozing.')} />
+        ? <Empty icon={<Icon as={MessageCircle} size={44} />} title={t('Murojaatlar yo‘q')} hint={t('Savol yoki muammo bo‘lsa, yuqoridagi tugma orqali yozing.')} />
         : (
           <section className="stack" aria-label={t('Murojaatlarim')}>
             <h2 className="sec-title">{t('Murojaatlarim')}</h2>
             {tickets.map(tk => (
               <div key={tk.id} className={`card tap ${tk.unread ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => go({ name: 'ticket', id: tk.id })}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go({ name: 'ticket', id: tk.id }); } }}
-                aria-label={t('Murojaat {number}, buyurtma {code}, {status}', { number: tk.number, code: tk.orderCode, status: t(TICKET_LABEL[tk.status]) }) + (tk.unread ? `, ${t('yangi javob')}` : '')}>
+                aria-label={(tk.orderId ? t('Murojaat {number}, buyurtma {code}, {status}', { number: tk.number, code: tk.orderCode, status: t(TICKET_LABEL[tk.status]) }) : t('Murojaat {number}, umumiy, {status}', { number: tk.number, status: t(TICKET_LABEL[tk.status]) })) + (tk.unread ? `, ${t('yangi javob')}` : '')}>
                 <div className="row between">
-                  <span className="bold">#{tk.orderCode} • {tk.restaurantName}</span>
+                  <span className="bold">{tk.orderId ? `#${tk.orderCode} • ${tk.restaurantName}` : t('Umumiy murojaat')}</span>
                   {tk.unread ? <span className="badge warn">{t('Yangi javob')}</span> : <span className={`badge ${tk.status === 'RESOLVED' ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span>}
                 </div>
                 <div className="ticket-snippet"><Icon as={MessageCircle} size={16} className="shrink" /><span>{tk.lastFrom === 'ADMIN' ? t('Yordam:') : t('Siz:')} {tk.lastText}</span></div>
