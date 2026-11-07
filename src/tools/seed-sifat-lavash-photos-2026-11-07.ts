@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { db } from '../lib/db.js';
 
 /**
- * Owner request 2026-11-07: two new Sifat Food pictures (files "lavash-oddiy" and "lavash-tandir", 1024 px JPEG in prisma/seed-assets/sifat).
+ * Owner request 2026-11-07: two new Sifat Food pictures (files "lavash-oddiy" and "lavash-tandir", 1024 px WebP in prisma/seed-assets/sifat).
  *  - Every dish of the menu group LAVASH gets "lavash-oddiy"; every dish of the group TANDIR LAVASH gets "lavash-tandir".
  *    The AKSIYA sets (their own poster tiles) are in another group and are not touched.
  *  - The two groups themselves (their category pictures) show the same pictures.
@@ -19,8 +19,8 @@ const DIR = resolve(process.cwd(), 'prisma/seed-assets/sifat');
 const log = (msg: string): void => console.log(`${APPLY ? '[APPLY]' : '[PLAN] '} ${msg}`);
 
 const GROUPS = [
-  { category: 'LAVASH', file: 'lavash-oddiy.jpg' },
-  { category: 'TANDIR LAVASH', file: 'lavash-tandir.jpg' },
+  { category: 'LAVASH', file: 'lavash-oddiy.webp' },
+  { category: 'TANDIR LAVASH', file: 'lavash-tandir.webp' },
 ] as const;
 
 try {
@@ -28,7 +28,7 @@ try {
   if (!r) throw new Error('sifat-food not found');
   for (const g of GROUPS) {
     const bytes = readFileSync(resolve(DIR, g.file));
-    const img = { mime: 'image/jpeg', data: Uint8Array.from(bytes) as Uint8Array<ArrayBuffer>, sha256: createHash('sha256').update(bytes).digest('hex') };
+    const img = { mime: 'image/webp', data: Uint8Array.from(bytes) as Uint8Array<ArrayBuffer>, sha256: createHash('sha256').update(bytes).digest('hex') };
     const cat = await db.category.findFirst({
       where: { restaurantId: r.id, name: g.category },
       select: { id: true, image: { select: { version: true, sha256: true } }, products: { where: { archivedAt: null }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true, image: { select: { version: true, sha256: true } } } } },
