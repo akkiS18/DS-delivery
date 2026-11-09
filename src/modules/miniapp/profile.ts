@@ -2,6 +2,7 @@ import { Prisma, type CustomerAddress } from '@prisma/client';
 import { z } from 'zod';
 import { db } from '../../lib/db.js';
 import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
+import { nextAutoLabel } from './address-label.js';
 
 /** Customer profile for the Mini App: phone and saved delivery addresses, owned by the authenticated Telegram user. */
 export class ProfileError extends Error {
@@ -12,14 +13,15 @@ export const MAX_ADDRESSES = 10;
 export const phoneSchema = z.string().trim().regex(/^\+998\d{9}$/, 'phone');
 const coords = { lat: z.number().min(-90).max(90).optional(), lng: z.number().min(-180).max(180).optional() };
 const withPairedCoords = <T extends z.ZodTypeAny>(schema: T) => schema.refine((x: { lat?: number; lng?: number }) => (x.lat === undefined) === (x.lng === undefined), { message: 'lat/lng together' });
+// The label is optional (owner decision 2026-11-09: one address field; the name is numbered automatically). Older apps still send one.
 export const addressInputSchema = withPairedCoords(z.object({
-  label: z.string().trim().min(1).max(30),
+  label: z.string().trim().min(1).max(30).optional(),
   addressText: z.string().trim().min(3).max(500),
   ...coords,
   makeDefault: z.boolean().optional(),
 }).strict());
 export const addressUpdateSchema = withPairedCoords(z.object({
-  label: z.string().trim().min(1).max(30),
+  label: z.string().trim().min(1).max(30).optional(),
   addressText: z.string().trim().min(3).max(500),
   ...coords,
 }).strict());
@@ -69,12 +71,13 @@ async function lockCustomer(tx: Prisma.TransactionClient, customerId: string) {
 export async function createAddress(customerId: string, input: AddressInput) {
   return db.$transaction(async tx => {
     await lockCustomer(tx, customerId);
-    const count = await tx.customerAddress.count({ where: { customerId } });
+    const existing = await tx.customerAddress.findMany({ where: { customerId }, select: { label: true } });
+    const count = existing.length;
     if (count >= MAX_ADDRESSES) throw new ProfileError(409, 'ADDRESS_LIMIT');
     const makeDefault = input.makeDefault === true || count === 0;
     if (makeDefault) await tx.customerAddress.updateMany({ where: { customerId, isDefault: true }, data: { isDefault: false } });
     const created = await tx.customerAddress.create({ data: {
-      customerId, label: input.label, addressText: input.addressText, lat: input.lat ?? null, lng: input.lng ?? null, isDefault: makeDefault,
+      customerId, label: input.label ?? nextAutoLabel(existing.map(e => e.label)), addressText: input.addressText, lat: input.lat ?? null, lng: input.lng ?? null, isDefault: makeDefault,
     } });
     return addressView(created);
   });
@@ -86,7 +89,7 @@ export async function updateAddress(customerId: string, addressId: string, input
     const found = await tx.customerAddress.findFirst({ where: { id: addressId, customerId } }); // another customer's id = not found
     if (!found) throw new ProfileError(404, 'NOT_FOUND');
     const updated = await tx.customerAddress.update({ where: { id: found.id }, data: {
-      label: input.label, addressText: input.addressText, lat: input.lat ?? null, lng: input.lng ?? null,
+      ...(input.label !== undefined ? { label: input.label } : {}), addressText: input.addressText, lat: input.lat ?? null, lng: input.lng ?? null,
     } });
     return addressView(updated);
   });

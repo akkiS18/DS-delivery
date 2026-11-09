@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { MapPin } from 'lucide-react';
+import { LocationPicker } from '../components/LocationPicker';
 import { Button, Empty, Icon, Sheet, Spinner } from '../components/ui';
+import type { MapState } from '../lib/mapConfig';
 import { api, ApiError } from '../lib/api';
 import { deletionErrorText } from '../lib/accountDeletion';
 import { forgetGuestToken } from '../lib/session';
@@ -22,7 +24,8 @@ export function Profile() {
   const { profile, refreshProfile, toast, dispatch } = useApp();
   const [phone, setPhone] = useState('');
   const [editPhone, setEditPhone] = useState(false);
-  const [form, setForm] = useState<{ id: string | null; label: string; addressText: string } | null>(null);
+  const [form, setForm] = useState<{ id: string | null; label: string; addressText: string; lat: number | null; lng: number | null } | null>(null);
+  const [mapState, setMapState] = useState<MapState>('loading');
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -56,11 +59,11 @@ export function Profile() {
     if (!normalized) return;
     if (await run(() => api.setPhone(normalized), t('Telefon saqlandi'))) { setEditPhone(false); setPhone(''); setTouched(false); }
   };
-  const errors = form ? validateAddress({ label: form.label, addressText: form.addressText, lat: null, lng: null }) : {};
+  const errors = form ? validateAddress({ addressText: form.addressText, lat: null, lng: null }) : {};
   const saveAddress = async () => {
     setTouched(true);
     if (!form || hasErrors(errors)) return;
-    const body = { label: form.label.trim(), addressText: form.addressText.trim() };
+    const body = { addressText: form.addressText.trim(), ...(form.lat !== null && form.lng !== null ? { lat: form.lat, lng: form.lng } : {}) }; // no name: a new address is numbered by the server, an edited one keeps its name
     if (await run(() => (form.id ? api.updateAddress(form.id, body) : api.addAddress(body)), t('Manzil saqlandi'))) { setForm(null); setTouched(false); }
   };
   const remove = async (a: Address) => {
@@ -87,7 +90,7 @@ export function Profile() {
       </section>
 
       <section className="stack" aria-label={t('Manzillar')}>
-        <div className="row between"><h2 style={{ fontSize: 17 }}>{t('Manzillarim')}</h2><Button small variant="secondary" onClick={() => { setForm({ id: null, label: '', addressText: '' }); setTouched(false); }}>{t('+ Qo‘shish')}</Button></div>
+        <div className="row between"><h2 style={{ fontSize: 17 }}>{t('Manzillarim')}</h2><Button small variant="secondary" onClick={() => { setForm({ id: null, label: '', addressText: '', lat: null, lng: null }); setTouched(false); }}>{t('+ Qo‘shish')}</Button></div>
         {profile.addresses.length === 0 && <Empty icon={<Icon as={MapPin} size={44} />} title={t('Manzil saqlanmagan')} hint={t('Buyurtma paytida ham saqlashingiz mumkin.')} />}
         {profile.addresses.map(a => (
           <div key={a.id} className="card stack">
@@ -95,7 +98,7 @@ export function Profile() {
             <div className="sub small">{a.addressText}</div>
             <div className="row" style={{ flexWrap: 'wrap' }}>
               {!a.isDefault && <Button small variant="secondary" disabled={busy} onClick={() => void run(() => api.setDefaultAddress(a.id), t('Asosiy manzil o‘zgardi'))}>{t('Asosiy qilish')}</Button>}
-              <Button small variant="ghost" onClick={() => { setForm({ id: a.id, label: a.label, addressText: a.addressText }); setTouched(false); }}>{t('Tahrirlash')}</Button>
+              <Button small variant="ghost" onClick={() => { setForm({ id: a.id, label: a.label, addressText: a.addressText, lat: a.lat, lng: a.lng }); setTouched(false); }}>{t('Tahrirlash')}</Button>
               <Button small variant="ghost" onClick={() => void remove(a)}>{t('O‘chirish')}</Button>
             </div>
           </div>
@@ -117,12 +120,13 @@ export function Profile() {
       {form && (
         <Sheet title={form.id ? t('Manzilni tahrirlash') : t('Yangi manzil')} onClose={() => setForm(null)}>
           <div className="stack">
-            <div className="field"><label htmlFor="pl">{t('Nomi')}</label>
-              <input id="pl" className={`input ${touched && errors.label ? 'invalid' : ''}`} maxLength={30} value={form.label} onChange={e => setForm({ ...form, label: e.target.value })} placeholder={t('Uy, Ish...')} />
-              {touched && errors.label && <div className="err">{errors.label}</div>}</div>
             <div className="field"><label htmlFor="pa">{t('Manzil')}</label>
               <textarea id="pa" className={`input ${touched && errors.addressText ? 'invalid' : ''}`} rows={3} maxLength={500} value={form.addressText} onChange={e => setForm({ ...form, addressText: e.target.value })} />
               {touched && errors.addressText && <div className="err">{errors.addressText}</div>}</div>
+            {mapState !== 'failed' && (
+              <LocationPicker value={form.lat !== null && form.lng !== null ? { lat: form.lat, lng: form.lng } : null}
+                onPick={p => setForm(f => (f ? { ...f, lat: p.lat, lng: p.lng } : f))} onState={setMapState} />
+            )}
             <Button loading={busy} onClick={() => void saveAddress()}>{t('Saqlash')}</Button>
             <Button variant="secondary" onClick={() => setForm(null)}>{t('Bekor qilish')}</Button>
           </div>

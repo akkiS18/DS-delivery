@@ -39,7 +39,7 @@
     "taxi:link": "node --env-file=.env --import tsx src/tools/link-taxi.ts",
     "restaurant:pickup": "node --env-file=.env --import tsx src/tools/set-pickup.ts",
     "customer:delete": "node --env-file=.env --import tsx src/tools/delete-customer.ts",
-    "test:taxi": "node --import tsx --test src/modules/taxi/workflow.test.ts",
+    "test:taxi": "node --import tsx --test src/modules/taxi/workflow.test.ts src/modules/taxi/map-links.test.ts src/modules/miniapp/address-label.test.ts src/modules/miniapp/byte-range.test.ts",
     "smoke:taxi": "node --env-file=.env --import tsx src/tools/smoke-taxi.ts",
     "test:support": "node --import tsx --test src/modules/support/service.test.ts",
     "test:support:db": "node --env-file=.env --import tsx --test src/tests/support.db.test.ts",

@@ -367,3 +367,9 @@ h1, h2, h3, p { margin: 0; }
 .sdish { align-items: stretch; content-visibility: auto; contain-intrinsic-size: auto 96px; }
 .sdish .img { width: 72px; height: 72px; }
 .sdish-where { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Map picker (address form): the map moves under a fixed pin; the pin's tip is the map centre. */
+.map-box { position: relative; height: 300px; border-radius: 12px; overflow: hidden; background: var(--mint-soft); display: flex; align-items: center; justify-content: center; }
+.map-box .map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; } /* beats .maplibregl-map { position: relative } */
+.map-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); color: var(--bad); pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3)); }
+.map-locate { position: absolute; right: 10px; bottom: 28px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: #fff; color: var(--primary); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; }

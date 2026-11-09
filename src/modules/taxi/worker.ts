@@ -5,6 +5,7 @@ import { isDelivered, notificationKey, sendOnce } from '../../lib/notify-once.js
 import { restaurantTelegramEnabled, taxiTelegramEnabled } from '../../lib/features.js';
 import { needsCancellationAcknowledgement } from './workflow.js';
 import { escalateSilentDispatch } from './recovery.js';
+import { mapLinks } from './map-links.js';
 import { autoCompleteDeliveries } from './service.js';
 import { supportAdminIds } from '../support/service.js';
 
@@ -26,8 +27,10 @@ const currency = new Intl.NumberFormat('uz-UZ');
 
 type Bot = Telegraf<any>;
 
-function requestKeyboard(dispatchId: string) {
+function requestKeyboard(dispatchId: string, lat?: number | null, lng?: number | null) {
+  const links = mapLinks(lat, lng);
   return Markup.inlineKeyboard([
+    ...(links ? [[Markup.button.url('🗺 Yandex xarita', links.yandex), Markup.button.url('🗺 Google xarita', links.google)]] : []),
     [Markup.button.callback('✅ Qabul qilish', callback('acc', dispatchId))],
     [Markup.button.callback('🚫 Rad etish', callback('none', dispatchId))],
   ]);
@@ -132,7 +135,7 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     let telegramFailed = false;
     if (viaTelegram) {
       try {
-        telegramMessageId = (await bot.telegram.sendMessage(operator!, message, requestKeyboard(item.id))).message_id;
+        telegramMessageId = (await bot.telegram.sendMessage(operator!, message, requestKeyboard(item.id, item.order.deliveryLat, item.order.deliveryLng))).message_id;
       } catch (err) {
         telegramFailed = true;
         console.error(`[TAXI REQUEST] #${item.order.code}:`, err instanceof Error ? err.message : err);

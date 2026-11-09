@@ -234,6 +234,12 @@ test('profile: phone and addresses persist per Telegram user; one default; edit/
   const edited = await call('PUT', `/me/addresses/${home.id}`, userA, { label: 'Uy (yangi)', addressText: 'Chilonzor 9' });
   assert.equal(edited.json().label, 'Uy (yangi)');
   assert.equal(edited.json().lat, null, 'a full replace: omitted coordinates are cleared');
+  // one address field: without a name the server numbers it, and an edit without a name keeps the old one
+  const auto = await call('POST', '/me/addresses', userA, { addressText: 'Address without a name' });
+  assert.equal(auto.statusCode, 201);
+  assert.equal(auto.json().label, 'Manzil 3', 'two addresses exist, so the next automatic name is Manzil 3');
+  assert.equal((await call('PUT', `/me/addresses/${home.id}`, userA, { addressText: 'Chilonzor 9' })).json().label, 'Uy (yangi)');
+  assert.equal((await call('DELETE', `/me/addresses/${auto.json().id}`, userA)).statusCode, 204);
   // another customer: invisible and untouchable
   await call('PUT', '/me/phone', userB, { phone: '+998900000002' });
   assert.deepEqual((await call('GET', '/me', userB)).json().addresses, []);
@@ -550,11 +556,26 @@ test('static hosting: SPA fallback, hashed assets cached, traversal and missing 
   await writeFile(path.join(dir, 'index.html'), '<!doctype html><title>x</title>');
   await writeFile(path.join(dir, 'assets', 'app-abc123.js'), 'console.log(1)');
   await writeFile(path.join(os.tmpdir(), 'ds-secret.txt'), 'top secret');
+  await mkdir(path.join(dir, 'map'));
+  await writeFile(path.join(dir, 'map', 'x.pmtiles'), Buffer.from('0123456789abcdefghij')); // 20 bytes
   const web = Fastify();
   await registerMiniAppStatic(web, dir);
   try {
+    // the offline map is read in pieces (HTTP Range) and never marked immutable
+    const piece = await web.inject({ method: 'GET', url: '/app/map/x.pmtiles', headers: { range: 'bytes=2-5' } });
+    assert.equal(piece.statusCode, 206);
+    assert.equal(piece.body, '2345');
+    assert.equal(piece.headers['content-range'], 'bytes 2-5/20');
+    assert.equal(piece.headers['accept-ranges'], 'bytes');
+    assert.ok(!String(piece.headers['cache-control']).includes('immutable'));
+    assert.equal((await web.inject({ method: 'GET', url: '/app/map/x.pmtiles', headers: { range: 'bytes=15-' } })).body, 'fghij');
+    assert.equal((await web.inject({ method: 'GET', url: '/app/map/x.pmtiles', headers: { range: 'bytes=99-' } })).statusCode, 416);
+    const whole = await web.inject({ method: 'GET', url: '/app/map/x.pmtiles' });
+    assert.equal(whole.statusCode, 200);
+    assert.equal(whole.body, '0123456789abcdefghij');
     const root = await web.inject({ method: 'GET', url: '/app/' });
     assert.equal(root.statusCode, 200);
+    assert.match(String(root.headers['content-security-policy']), /worker-src 'self' blob:/, 'the map decoder worker is allowed');
     assert.match(String(root.headers['content-type']), /text\/html/);
     assert.match(String(root.headers['content-security-policy']), /frame-ancestors https:\/\/web\.telegram\.org/);
     assert.equal(root.headers['cache-control'], 'no-store');

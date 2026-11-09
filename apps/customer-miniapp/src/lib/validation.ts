@@ -17,15 +17,18 @@ export const formatPhone = (phone: string): string => {
   return m ? `+998 ${m[1]} ${m[2]} ${m[3]} ${m[4]}` : phone;
 };
 
-export interface AddressForm { label: string; addressText: string; lat: number | null; lng: number | null }
+/** The name is optional: the server numbers it ("Manzil 1", "Manzil 2"). When one is given it is still checked. */
+export interface AddressForm { label?: string; addressText: string; lat: number | null; lng: number | null }
 export type FieldErrors<K extends string> = Partial<Record<K, string>>;
 
 export function validateAddress(f: AddressForm): FieldErrors<'label' | 'addressText'> {
   const errors: FieldErrors<'label' | 'addressText'> = {};
-  const label = f.label.trim();
   const text = f.addressText.trim();
-  if (label.length < 1) errors.label = t('Nom kiriting (masalan: Uy)');
-  else if (label.length > 30) errors.label = t('Nom 30 belgidan oshmasin');
+  if (f.label !== undefined) {
+    const label = f.label.trim();
+    if (label.length < 1) errors.label = t('Nom kiriting (masalan: Uy)');
+    else if (label.length > 30) errors.label = t('Nom 30 belgidan oshmasin');
+  }
   if (text.length < 3) errors.addressText = t('Manzilni to‘liqroq yozing (kamida 3 belgi)');
   else if (text.length > 500) errors.addressText = t('Manzil 500 belgidan oshmasin');
   return errors;

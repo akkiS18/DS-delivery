@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Banknote, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket, Truck } from 'lucide-react';
 import { Fold, TaxiTile, Tile } from '../components/Choice';
+import { LocationPicker } from '../components/LocationPicker';
+import type { MapState } from '../lib/mapConfig';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
 import { Button, Empty, Icon, Sheet, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
@@ -33,9 +35,9 @@ const forgetKey = () => { try { window.sessionStorage.removeItem(KEY_STORAGE); }
 export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => void }) {
   const { cart, dispatch, profile, refreshProfile, toast } = useApp();
   const [selected, setSelected] = useState<string | 'new' | null>(null);
-  const [label, setLabel] = useState(t('Uy'));
   const [text, setText] = useState('');
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapState, setMapState] = useState<MapState>('loading');
   const [save, setSave] = useState(true);
   const [phoneInput, setPhoneInput] = useState('');
   const phoneEdited = useRef(false);
@@ -95,17 +97,20 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   if (!profile) return <div className="page"><Spinner /></div>;
 
   const savedAddress = addresses.find(a => a.id === selected) ?? null;
-  const newErrors = selected === 'new' ? validateAddress({ label, addressText: text, lat: coords?.lat ?? null, lng: coords?.lng ?? null }) : {};
+  const newErrors = selected === 'new' ? validateAddress({ addressText: text, lat: coords?.lat ?? null, lng: coords?.lng ?? null }) : {};
   const phone = normalizePhone(phoneInput);
   const ready = checkoutReady({ addressText: selected === 'new' ? text : savedAddress?.addressText ?? null, phone });
   // Several services and none picked yet: the customer must choose. No services at all (or the list failed): the server answers with the reason.
   const taxiMissing = taxiOptions !== null && taxiOptions.length > 1 && taxiId === null;
-  const canSubmit = ready.ok && !hasErrors(newErrors) && !submitting && taxiOptions !== null && !taxiMissing;
+  // A new address needs a spot on the map (the taxi navigates to it). Only when the map itself cannot be shown does the text address stand alone.
+  const needPin = selected === 'new' && mapState !== 'failed' && !coords;
+  const canSubmit = ready.ok && !hasErrors(newErrors) && !needPin && !submitting && taxiOptions !== null && !taxiMissing;
   const view = cartView(cart);
   const total = view.totalSom;
 
   const missingText = [
     ready.missing.includes('address') || (selected === 'new' && hasErrors(newErrors)) ? t('Manzilni kiriting') : '',
+    needPin ? t('Xaritada joyni belgilang') : '',
     ready.missing.includes('phone') ? t('Telefon raqamini kiriting') : '',
     taxiMissing ? t('Taksi xizmatini tanlang') : '',
   ].filter(Boolean).join(' • ');
@@ -125,7 +130,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     if (busy.current) return;   // a ref, not just state: two taps in the same frame still send one request
     if (!canSubmit) {
       // Not silently disabled: say what is missing and take the customer to it.
-      const target = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') ? 'co-address' : ready.missing.includes('phone') ? 'co-phone' : taxiMissing ? 'co-delivery' : null;
+      const target = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') || needPin ? 'co-address' : ready.missing.includes('phone') ? 'co-phone' : taxiMissing ? 'co-delivery' : null;
       if (target) window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
@@ -143,7 +148,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       expectedTotalSom: total,
       expectedUnitPrices: Object.fromEntries(view.lines.map(l => [l.productId, l.unitSom])),
       ...(selected === 'new'
-        ? { address: { label: label.trim(), addressText: text.trim(), ...(coords ?? {}), save } }
+        ? { address: { addressText: text.trim(), ...(coords ?? {}), save } }
         : { addressId: selected! }),
       ...(phone && phone !== profile.phone ? { phone } : {}),
       ...(taxiId ? { taxiCompanyId: taxiId } : {}),
@@ -190,13 +195,12 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         </label>
         {selected === 'new' && (
           <div className="card stack">
-            <div className="field"><label htmlFor="lbl">{t('Nomi')}</label>
-              <input id="lbl" className={`input ${touched && newErrors.label ? 'invalid' : ''}`} value={label} maxLength={30} onChange={e => setLabel(e.target.value)} placeholder={t('Uy, Ish...')} />
-              {touched && newErrors.label && <div className="err">{newErrors.label}</div>}</div>
             <div className="field"><label htmlFor="adr">{t('Manzil')}</label>
               <textarea id="adr" className={`input ${touched && newErrors.addressText ? 'invalid' : ''}`} rows={3} value={text} maxLength={500} onChange={e => setText(e.target.value)} placeholder={t('Ko‘cha, uy, kvartira, mo‘ljal')} />
               {touched && newErrors.addressText && <div className="err">{newErrors.addressText}</div>}</div>
-            <Button variant="secondary" onClick={locate}><Icon as={coords ? CircleCheck : MapPin} />{coords ? t('Joylashuv qo‘shildi') : t('Joylashuvni qo‘shish (ixtiyoriy)')}</Button>
+            {mapState !== 'failed'
+              ? <LocationPicker value={coords} onPick={setCoords} onState={setMapState} />
+              : <Button variant="secondary" onClick={locate}><Icon as={coords ? CircleCheck : MapPin} />{coords ? t('Joylashuv qo‘shildi') : t('Joylashuvni qo‘shish (ixtiyoriy)')}</Button>}
             <label className="row"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('Keyingi buyurtmalar uchun saqlash')}</label>
           </div>
         )}

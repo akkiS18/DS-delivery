@@ -80,6 +80,9 @@ describe('validation', () => {
     expect(validateAddress({ label: 'Uy', addressText: 'Chilonzor 5', lat: null, lng: null })).toEqual({});
     expect(Object.keys(validateAddress({ label: ' ', addressText: 'a', lat: null, lng: null })).sort()).toEqual(['addressText', 'label']);
     expect(validateAddress({ label: 'x'.repeat(31), addressText: 'abc', lat: null, lng: null }).label).toBeDefined();
+    // the name is optional (the server numbers it): only the address text is required
+    expect(validateAddress({ addressText: 'Chilonzor 5', lat: null, lng: null })).toEqual({});
+    expect(Object.keys(validateAddress({ addressText: 'a', lat: null, lng: null }))).toEqual(['addressText']);
   });
   it('gates checkout on address and phone', () => {
     expect(checkoutReady({ addressText: 'Chilonzor', phone: '+998901234567' }).ok).toBe(true);

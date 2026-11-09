@@ -316,7 +316,7 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     if (body.phone && body.phone !== customer.phone) await setPhone(customer.id, body.phone);
     if (body.addressId) await touchAddress(customer.id, body.addressId);
     else if (body.address?.save) {
-      await createAddress(customer.id, { label: body.address.label ?? 'Manzil', addressText, ...(lat !== null ? { lat, lng: lng! } : {}) }).catch(err => {
+      await createAddress(customer.id, { ...(body.address.label ? { label: body.address.label } : {}), addressText, ...(lat !== null ? { lat, lng: lng! } : {}) }).catch(err => {
         if (!(err instanceof ProfileError)) throw err; // the address limit must not fail an order that already exists
       });
     }
