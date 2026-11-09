@@ -13,6 +13,7 @@ import { buildApp } from '../app.js';
 import { createClientBot } from '../bot/client.js';
 import { initDataFromHeader, signInitData, verifyInitData } from '../modules/miniapp/auth.js';
 import { registerMiniAppStatic } from '../modules/miniapp/static.js';
+import { clearLandmarkCache } from '../modules/landmarks/service.js';
 import { PaymentEngineV3, defaultOptions } from '../modules/payment/engine.js';
 import { RateLimiter } from '../lib/rate-limit.js';
 import { localTime, openState } from '../modules/restaurant-operations/hours.js';
@@ -546,6 +547,26 @@ test('unpaid cancellation needs no refund and is idempotent', async () => {
   assert.equal(await db.refundRequest.count({ where: { orderId: id } }), 0);
   assert.equal((await call('POST', `/orders/${id}/cancel`, userA, {})).statusCode, 200, 'repeat is harmless');
   assert.equal((await call('POST', `/orders/${id}/mock-payment`, userA)).statusCode, 409, 'a cancelled order cannot be paid');
+});
+
+// ------------------------------------------------------------------------------------------------ landmarks for the address map
+test('landmarks: the map list needs a signed-in customer and shows only active places', async () => {
+  const mk = (n: string, isActive: boolean) => db.landmark.create({ data: { name: `${n} ${nonce}`, kind: 'MARKET', lat: 40.03, lng: 65.667, isActive, createdBy: 'miniapp-test' } });
+  const on = await mk('Yoqiq', true);
+  const off = await mk('Ochiq emas', false);
+  try {
+    clearLandmarkCache();
+    assert.equal((await app.inject({ method: 'GET', url: '/api/v1/miniapp/landmarks' })).statusCode, 401, 'no credential');
+    const res = await call('GET', '/landmarks', userA);
+    assert.equal(res.statusCode, 200);
+    const list = res.json().landmarks as Array<{ id: string; name: string; lat: number; lng: number; kind: string; createdBy?: unknown }>;
+    assert.ok(list.some(l => l.id === on.id), 'an active place is listed');
+    assert.ok(!list.some(l => l.id === off.id), 'a switched-off place is not');
+    assert.deepEqual(Object.keys(list.find(l => l.id === on.id)!).sort(), ['id', 'kind', 'lat', 'lng', 'name'], 'nothing internal leaks');
+  } finally {
+    await db.landmark.deleteMany({ where: { id: { in: [on.id, off.id] } } });
+    clearLandmarkCache();
+  }
 });
 
 // ------------------------------------------------------------------------------------------------ serving the app + the bot launcher

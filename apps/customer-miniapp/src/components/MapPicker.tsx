@@ -6,8 +6,10 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { layers, namedFlavor } from '@protomaps/basemaps';
 import { PMTiles, Protocol } from 'pmtiles';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n';
+import { api } from '../lib/api';
+import { CHIP_COUNT, CHIP_RADIUS_METERS, NOTE_RADIUS_METERS, nearbyLandmarks, roundedMeters, type Landmark } from '../lib/landmarks';
 import { insideBounds, MAP_BOUNDS, MAP_FILE, roundPoint, TOWN_CENTER, type LatLng, type MapState } from '../lib/mapConfig';
 import { BufferSource, loadWholeFile } from '../lib/mapSource';
 import { isAndroidApp } from '../lib/platform';
@@ -51,6 +53,24 @@ export default function MapPicker({ value, onPick, onState }: Props) {
   const report = useRef(onState); report.current = onState;
   const [note, setNote] = useState('');
   const [chosen, setChosen] = useState(value !== null);
+  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
+  const [center, setCenter] = useState<LatLng>(value ?? TOWN_CENTER);
+  const [mapReady, setMapReady] = useState(false);
+
+  // The administrator's places (market, mosque...). Without them (offline, error) the map simply works without names.
+  useEffect(() => {
+    const ac = new AbortController();
+    api.landmarks(ac.signal).then(r => setLandmarks(r.landmarks)).catch(() => { /* optional */ });
+    return () => ac.abort();
+  }, []);
+
+  /** Puts the pin on a landmark (a tap on its chip or its marker); the customer can still move the map from there. */
+  const chooseLandmark = (l: Landmark) => {
+    const map = mapRef.current;
+    map?.easeTo({ center: [l.lng, l.lat], zoom: Math.max(map.getZoom(), 17), duration: 400 });
+    pick.current(roundPoint(l)); setChosen(true); setNote('');
+  };
+  const chooseRef = useRef(chooseLandmark); chooseRef.current = chooseLandmark;
 
   useEffect(() => {
     let cancelled = false;
@@ -75,13 +95,18 @@ export default function MapPicker({ value, onPick, onState }: Props) {
         });
         map.touchZoomRotate.disableRotation();
         mapRef.current = map;
-        map.on('load', () => { ready = true; window.clearTimeout(timer); report.current('ready'); });
+        // Names show only when zoomed in; farther out the places are plain dots (and very far out, hidden) so they never pile up.
+        const syncZoom = () => { if (box.current) box.current.dataset.lm = map!.getZoom() >= 16 ? 'label' : map!.getZoom() >= 14 ? 'dot' : 'none'; };
+        map.on('zoom', syncZoom);
+        map.on('load', () => { ready = true; window.clearTimeout(timer); syncZoom(); setMapReady(true); report.current('ready'); });
         map.on('error', e => console.warn('[map] error', e.error)); // a bad tile or style layer shows up in the console instead of a silent empty map
         // Only the customer's own gesture picks a place (originalEvent is absent when the code moves the map), so opening the map never
         // silently "chooses" the default centre.
         map.on('moveend', e => {
-          if (!(e as { originalEvent?: unknown }).originalEvent || !map) return;
+          if (!map) return;
           const c = map.getCenter();
+          setCenter({ lat: c.lat, lng: c.lng }); // every move updates the "near here" list; only the customer's own gesture picks
+          if (!(e as { originalEvent?: unknown }).originalEvent) return;
           pick.current(roundPoint({ lat: c.lat, lng: c.lng }));
           setChosen(true); setNote('');
         });
@@ -93,6 +118,25 @@ export default function MapPicker({ value, onPick, onState }: Props) {
     return () => { cancelled = true; window.clearTimeout(timer); map?.remove(); mapRef.current = null; };
     // The starting point (`value`) is read once on purpose; later moves come from the map itself.
   }, []);
+
+  // One marker per landmark (a plain element: the name is set as text, never as HTML).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const markers = landmarks.map(l => {
+      const el = document.createElement('button');
+      el.type = 'button'; el.className = 'lm'; el.setAttribute('aria-label', l.name);
+      const dot = document.createElement('i');
+      const label = document.createElement('span'); label.textContent = l.name;
+      el.append(dot, label);
+      el.addEventListener('click', ev => { ev.stopPropagation(); chooseRef.current(l); });
+      return new maplibregl.Marker({ element: el, anchor: 'top' }).setLngLat([l.lng, l.lat]).addTo(map);
+    });
+    return () => markers.forEach(m => m.remove());
+  }, [landmarks, mapReady]);
+
+  const chips = useMemo(() => nearbyLandmarks(landmarks, center, CHIP_RADIUS_METERS, CHIP_COUNT), [landmarks, center]);
+  const nearest = chosen ? nearbyLandmarks(landmarks, center, NOTE_RADIUS_METERS, 1)[0] : undefined;
 
   const locate = () => {
     if (!navigator.geolocation) { setNote(t('Joylashuvni aniqlab bo‘lmadi')); return; }
@@ -114,8 +158,17 @@ export default function MapPicker({ value, onPick, onState }: Props) {
         <button type="button" className="map-locate" onClick={locate} aria-label={t('Joylashuvim')}><Icon as={LocateFixed} size={22} /></button>
       </div>
       <div className={`small ${note ? 'err' : 'sub'}`} role="status">
-        {note || (chosen ? t('Joy belgilandi') : t('Xaritani suring: belgi uyingiz ustida tursin'))}
+        {note || (nearest ? t('Mo‘ljal: {name} (~{m} m)', { name: nearest.name, m: roundedMeters(nearest.meters) })
+          : chosen ? t('Joy belgilandi') : t('Xaritani suring: belgi uyingiz ustida tursin'))}
       </div>
+      {chips.length > 0 && (
+        <div className="stack" style={{ gap: 6 }}>
+          <div className="small sub">{t('Yaqin joylar')}</div>
+          <div className="chips wrap">
+            {chips.map(l => <button key={l.id} type="button" className="chip" onClick={() => chooseLandmark(l)}>{l.name} · {t('{n} m', { n: roundedMeters(l.meters) })}</button>)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1203,3 +1203,20 @@ model BannerImage {
   version   Int      @default(1)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
+
+/// A named place on the map that customers and taxi drivers orient by (market, mosque, school...). Added by the administrator in the DS Admin app
+/// from the spot (phone GPS) or by pasted coordinates. Orders never reference it: the taxi gets the nearest one as text at the time it is shown.
+model Landmark {
+  id        String   @id @default(cuid())
+  name      String
+  /// One of src/modules/landmarks/geo.ts KINDS (kept as text so a new kind needs no migration).
+  kind      String   @default("OTHER")
+  lat       Float
+  lng       Float
+  isActive  Boolean  @default(true)
+  createdBy String
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([isActive])
+}

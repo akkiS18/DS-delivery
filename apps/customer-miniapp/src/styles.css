@@ -373,3 +373,9 @@ h1, h2, h3, p { margin: 0; }
 .map-box .map-canvas { position: absolute; inset: 0; width: 100%; height: 100%; } /* beats .maplibregl-map { position: relative } */
 .map-pin { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -100%); color: var(--bad); pointer-events: none; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3)); }
 .map-locate { position: absolute; right: 10px; bottom: 28px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: #fff; color: var(--primary); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); display: flex; align-items: center; justify-content: center; }
+/* Landmark markers on the address map: a dot, and the name once zoomed in. */
+.lm { background: none; border: 0; padding: 0; display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+.lm i { width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; background: var(--primary); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); }
+.lm span { margin-top: 2px; max-width: 130px; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--ink); background: rgba(255, 255, 255, 0.88); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.map-canvas[data-lm='none'] .lm { display: none; }
+.map-canvas[data-lm='dot'] .lm span { display: none; }

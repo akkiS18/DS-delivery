@@ -29,6 +29,7 @@ import {
   ProfileError, setDefaultAddress, setPhone, touchAddress, updateAddress,
 } from './profile.js';
 import { eligibleCompanyWhere } from '../taxi/assignment.js';
+import { activeLandmarks } from '../landmarks/service.js';
 import { searchCatalog } from './search.js';
 import { customerOrderView, listCustomerOrders, listRestaurants, listTaxiOptions, loadCustomerOrder, restaurantMenu } from './views.js';
 
@@ -235,6 +236,8 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   });
 
   // ------------------------------------------------------------------ catalog & quote
+  // Landmarks for the address map (active ones; names and points are not secret, the list is short).
+  app.get('/landmarks', async () => ({ landmarks: (await activeLandmarks()).map(l => ({ id: l.id, name: l.name, kind: l.kind, lat: l.lat, lng: l.lng })) }));
   app.get('/restaurants', async request => ({ restaurants: await listRestaurants(z.object({ q: z.string().trim().max(60).optional() }).parse(request.query).q) }));
   // Search over restaurants and dishes (names; Latin or Cyrillic; tolerant of typing mistakes). Cheap by design (in-memory index), still rate limited per customer.
   app.get('/search', async request => {

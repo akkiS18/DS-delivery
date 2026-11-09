@@ -57,6 +57,10 @@ fun failText(f: ApiResult.Failed): String = when (f.error) {
     "PROMO_NO_DISHES" -> "Avval aksiya taomlarini tanlang."
     "NUMBER_INVALID" -> "Son 1 dan 100 gacha bo‘lsin."
     "BANNER_NO_IMAGE" -> "Avval slaydga rasm qo‘ying."
+    "KIND_INVALID" -> "Joyning turini tanlang."
+    "OUT_OF_AREA" -> "Bu nuqta xarita hududidan tashqarida. Kenglik va uzunlik almashib qolmadimi? Ziyovuddin uchun taxminan 40.03, 65.67."
+    "LANDMARK_EXISTS" -> "Shu nomli joy yaqin atrofda (150 m ichida) allaqachon bor."
+    "LANDMARK_LIMIT" -> "Joylar soni chegaraga yetdi (1000 ta)."
     "PERCENT_INVALID" ->"Foiz 1 dan 25 gacha bo‘lsin (ikki xonagacha kasr)."
     else -> if (f.code in 500..599) "Server xatosi. Birozdan keyin qayta urinib ko‘ring." else "Bajarilmadi."
 }

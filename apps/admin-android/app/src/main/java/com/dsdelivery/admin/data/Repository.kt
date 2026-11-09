@@ -88,6 +88,10 @@ interface AdminApi {
     @GET("api/v1/admin/commission") suspend fun commission(): Response<StatementsResponse>
     @POST("api/v1/admin/commission/{id}/settle") suspend fun settle(@Path("id") id: String, @Body body: SettleRequest): Response<SettleResponse>
 
+    @GET("api/v1/admin/landmarks") suspend fun landmarks(): Response<LandmarksResponse>
+    @POST("api/v1/admin/landmarks") suspend fun createLandmark(@Body body: CreateLandmarkRequest): Response<CreatedResponse>
+    @PUT("api/v1/admin/landmarks/{id}") suspend fun updateLandmark(@Path("id") id: String, @Body body: PatchLandmarkRequest): Response<OkResponse>
+    @DELETE("api/v1/admin/landmarks/{id}") suspend fun deleteLandmark(@Path("id") id: String): Response<OkResponse>
     @GET("api/v1/admin/promo") suspend fun promo(): Response<PromoOverviewDto>
     @POST("api/v1/admin/promo/promotions") suspend fun createPromotion(@Body body: CreatePromoRequest): Response<CreatedResponse>
     @PUT("api/v1/admin/promo/promotions/{id}") suspend fun updatePromotion(@Path("id") id: String, @Body body: PatchPromoRequest): Response<OkResponse>
@@ -248,6 +252,11 @@ class Repository(private val session: SessionStore) {
     suspend fun commission(): ApiResult<StatementsResponse> = call { api.commission() }
     suspend fun settle(id: String, count: Int, som: Long, note: String): ApiResult<SettleResponse> = call { api.settle(id, SettleRequest(count, som, note.trim())) }
 
+    suspend fun landmarks(): ApiResult<LandmarksResponse> = call { api.landmarks() }
+    suspend fun createLandmark(name: String, kind: String, lat: Double, lng: Double): ApiResult<CreatedResponse> = call { api.createLandmark(CreateLandmarkRequest(name.trim(), kind, lat, lng)) }
+    suspend fun updateLandmark(id: String, patch: PatchLandmarkRequest): ApiResult<OkResponse> = call { api.updateLandmark(id, patch) }
+    suspend fun setLandmarkActive(id: String, active: Boolean): ApiResult<OkResponse> = call { api.updateLandmark(id, PatchLandmarkRequest(isActive = active)) }
+    suspend fun deleteLandmark(id: String): ApiResult<OkResponse> = call { api.deleteLandmark(id) }
     suspend fun promo(): ApiResult<PromoOverviewDto> = call { api.promo() }
     suspend fun createPromotion(restaurantId: String, title: String): ApiResult<CreatedResponse> = call { api.createPromotion(CreatePromoRequest(restaurantId, title.trim())) }
     suspend fun setPromotionActive(id: String, active: Boolean): ApiResult<OkResponse> = call { api.updatePromotion(id, PatchPromoRequest(isActive = active)) }

@@ -28,8 +28,19 @@ the APK size and the Mini App download: rebuild and release both. Keep the `@pro
 - maplibre-gl 6 starts its tile decoder from a separate file. It is imported with `?url` and given to `setWorkerUrl`, so it ships as an asset of the app
   (same origin; the server CSP allows `worker-src 'self' blob:`).
 - maplibre's own CSS sets `.maplibregl-map { position: relative }`; `.map-box .map-canvas` in `styles.css` is written to win over it. Without it the map has height 0 and never loads.
-- The map draws roads, buildings and land only: no text labels (that needs font files). Place names are stage 3 (landmarks).
+- The map draws roads, buildings and land only: no text labels (that needs font files). Place names come from our own landmarks layer (stage 3, below).
 - If the file is missing, WebGL fails or the map does not load in 15 seconds, the form falls back to the text address and the old "add location" button.
+
+## Landmarks (stage 3): named places on top of the map
+
+- Table `Landmark` (migration `20261117000100_landmarks`, additive; **not applied to production yet**). Orders never reference it, so deleting a place cannot hurt an order.
+- The administrator adds places in DS Admin: **Boshqaruv → Joylar**. Standing at the spot: "📍 Hozirgi joyim" (phone GPS, warns when accuracy is worse than ~40 m); or paste
+  coordinates copied from Google/Yandex Maps ("40.0304, 65.6672"; the order latitude, longitude is checked, a swapped pair is refused). The server also refuses points outside
+  the map area (`AREA` in `src/modules/landmarks/geo.ts`), a same-name place within 150 m, and more than 1000 places. Every change is written to `AdminAuditEvent`.
+- Customers: the Mini App/APK address map shows the active places as small labelled markers; the 3 nearest (within 800 m) are chips under the map; tapping one moves the pin there.
+- Taxi: the nearest active place within 700 m is added under the delivery address ("Mo‘ljal: Markaziy bozor (~120 m)") in the Telegram taxi message and in the taxi app's request view,
+  so installed taxi apps need no update.
+- The list is cached on the server for 30 s and the cache is cleared on every change.
 
 ## Checks done on 2026-11-09 (desktop Chrome, headless)
 
@@ -41,4 +52,6 @@ the APK size and the Mini App download: rebuild and release both. Keep the `@pro
 
 - A real phone: the APK itself (Capacitor serving the local `.pmtiles` and the `.mjs` worker, `fetch` with CapacitorHttp enabled), the Telegram Mini App on a phone, speed on a weak phone.
 - At zoom 17 in the middle of Ziyovuddin OpenStreetMap shows only a few roads and no buildings: the town is thinly mapped. That is why stage 3 adds our own landmarks layer.
+- Stage 3: the "Joylar" screen of DS Admin has been compiled and its coordinate parser unit-tested, but never run on a phone (GPS permission dialog, accuracy, the dialog layout).
+  The migration is applied only to the local test database. Real taxi operators have not seen the new "Mo‘ljal" line.
 - `npm run test:qa:ui` has 12 failing checks (basket button, orders list) that fail identically without these changes.

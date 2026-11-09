@@ -6,6 +6,7 @@ import { restaurantTelegramEnabled, taxiTelegramEnabled } from '../../lib/featur
 import { needsCancellationAcknowledgement } from './workflow.js';
 import { escalateSilentDispatch } from './recovery.js';
 import { mapLinks } from './map-links.js';
+import { activeLandmarks, landmarkNote } from '../landmarks/service.js';
 import { autoCompleteDeliveries } from './service.js';
 import { supportAdminIds } from '../support/service.js';
 
@@ -113,6 +114,8 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
     const pickup = item.order.restaurant.pickupAddress?.trim() || 'TEST: olib ketish manzili kiritilmagan';
     const loc = item.order.deliveryLat !== null && item.order.deliveryLng !== null
       ? `\nGPS: ${item.order.deliveryLat}, ${item.order.deliveryLng}` : '';
+    // The nearest landmark helps the driver find the house; a failure to read the list must never stop the request.
+    const landmark = await activeLandmarks().then(list => landmarkNote(item.order.deliveryLat, item.order.deliveryLng, list)).catch(() => null);
     const message = [
       item.order.payment?.isTest ? '🧪 MOCK SINOV — haqiqiy haydovchi yubormang!' : '🚕 DS Delivery: yangi yetkazish so‘rovi',
       `Buyurtma: #${item.order.code}`,
@@ -121,6 +124,7 @@ async function dispatchDue(bot: Bot, onlyOrderId?: string): Promise<void> {
       `Olib ketish: ${pickup}`,
       ...(item.order.restaurant.pickupPhone ? [`Restoran telefoni: ${item.order.restaurant.pickupPhone}`] : []),
       `Yetkazish manzili: ${item.order.addressText}${loc}`,
+      ...(landmark ? [landmark] : []),
       `Mijoz telefoni: ${item.order.phoneSnapshot ?? 'kiritilmagan'}`,
       `Ovqat: ${item.order.status === 'READY' ? 'TAYYOR' : 'Tayyorlanmoqda'}`,
       `Ovqat qiymati: ${currency.format(item.order.totalSom)} so‘m (taksi haqi emas)`,

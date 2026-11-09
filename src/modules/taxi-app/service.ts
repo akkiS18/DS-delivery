@@ -1,5 +1,7 @@
 import type { Prisma, TaxiDispatchStatus } from '@prisma/client';
 import { db } from '../../lib/db.js';
+import type { LandmarkPoint } from '../landmarks/geo.js';
+import { activeLandmarks, landmarkNote } from '../landmarks/service.js';
 import { completeDelivery, respondToTaxi, taxiDispatchDetails } from '../taxi/service.js';
 import type { OperatorAction } from '../taxi/workflow.js';
 import { actOnTaxiDemo, demoRequestView, getTaxiDemoRequest, listTaxiDemoRequests } from './demo.js';
@@ -43,8 +45,10 @@ type Row = Prisma.TaxiDispatchGetPayload<{ include: typeof include }>;
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 
-export function toRequestView(d: Row) {
+export function toRequestView(d: Row, landmarks?: readonly LandmarkPoint[]) {
   const o = d.order;
+  // The nearest landmark is added to the address text, so the installed taxi apps show it without any change.
+  const note = landmarkNote(o.deliveryLat, o.deliveryLng, landmarks);
   const estimatedReadyAt: Date | null = null; // no preparation time is promised any more (2026-10-27): the driver goes by the "Tayyor" signal
   const ready = o.status === 'READY';
   return {
@@ -60,7 +64,7 @@ export function toRequestView(d: Row) {
     deliveredAt: iso(d.deliveredAt),
     isTest: o.paymentIsTest,
     restaurant: { name: o.restaurant.name, address: o.restaurant.pickupAddress ?? null, phone: o.restaurant.pickupPhone ?? null },
-    delivery: { address: o.addressText, lat: o.deliveryLat, lng: o.deliveryLng, customerPhone: o.phoneSnapshot ?? null },
+    delivery: { address: note ? `${o.addressText}\n${note}` : o.addressText, lat: o.deliveryLat, lng: o.deliveryLng, customerPhone: o.phoneSnapshot ?? null },
     food: { ready, status: o.status, prepMinutes: null, estimatedReadyAt: iso(estimatedReadyAt), readyAt: iso(o.readyAt), totalSom: o.totalSom },
     // CASH: the driver pays the restaurant `payRestaurantSom` at pickup and collects it from the customer; CARD: already paid, nothing to pay.
     payment: o.payment?.method === 'CASH'
@@ -82,13 +86,14 @@ export async function listRequests(companyId: string, now = new Date()) {
   ]);
   // An admin "sinov" request (taxi-app/demo.ts) is shown next to the real ones, oldest first, and never reaches the history list.
   const demo = (await listTaxiDemoRequests(companyId, now)).map(d => demoRequestView(d, now));
-  const shown = [...active.map(toRequestView), ...demo].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  return { serverNow: now.toISOString(), active: shown, history: history.map(toRequestView) };
+  const landmarks = await activeLandmarks().catch(() => []); // a failure to read landmarks must never hide the requests
+  const shown = [...active.map(d => toRequestView(d, landmarks)), ...demo].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  return { serverNow: now.toISOString(), active: shown, history: history.map(d => toRequestView(d, landmarks)) };
 }
 
 export async function getRequest(companyId: string, dispatchId: string): Promise<TaxiRequestView | null> {
   const row = await db.taxiDispatch.findFirst({ where: { id: dispatchId, taxiCompanyId: companyId }, include });
-  if (row) return toRequestView(row);
+  if (row) return toRequestView(row, await activeLandmarks().catch(() => []));
   const demo = await getTaxiDemoRequest(companyId, dispatchId);
   return demo ? demoRequestView(demo) : null;
 }

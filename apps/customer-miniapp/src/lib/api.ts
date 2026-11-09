@@ -3,6 +3,7 @@ import { apiOrigin, isAndroidApp } from './platform';
 import { dropGuestToken, getGuestToken } from './session';
 import { getInitData } from './telegram';
 import type { Address, AppConfig, Banner, LinkStatus, MenuResponse, OrderSummary, OrderView, Profile, QuoteResponse, ReservationView, Restaurant, SearchResponse, TaxiOption, TicketSummary, TicketThread } from './types';
+import type { Landmark } from './landmarks';
 
 export { ApiError };
 
@@ -97,6 +98,7 @@ export const api = {
   updateAddress: (id: string, a: { label?: string; addressText: string; lat?: number; lng?: number }) => request<Address>(`/me/addresses/${id}`, { method: 'PUT', body: a }),
   deleteAddress: (id: string) => request<void>(`/me/addresses/${id}`, { method: 'DELETE' }),
   setDefaultAddress: (id: string) => request<Address>(`/me/addresses/${id}/default`, { method: 'POST' }),
+  landmarks: (signal?: AbortSignal) => request<{ landmarks: Landmark[] }>('/landmarks', { signal }),
   restaurants: (q: string, signal?: AbortSignal) => request<{ restaurants: Restaurant[] }>(`/restaurants${q ? `?q=${encodeURIComponent(q)}` : ''}`, { signal }),
   banners: (signal?: AbortSignal) => request<{ banners: Banner[] }>('/banners', { signal }),
   search: (q: string, signal?: AbortSignal) => request<SearchResponse>(`/search?q=${encodeURIComponent(q)}`, { signal }),

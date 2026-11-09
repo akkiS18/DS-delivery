@@ -567,3 +567,19 @@ object Severity {
     const val HIGH = "HIGH"
     const val MEDIUM = "MEDIUM"
 }
+
+/** Landmarks (Boshqaruv > Joylar): named places customers and taxi drivers orient by. */
+data class LandmarkDto(
+    @SerializedName("id") val id: String, @SerializedName("name") val name: String, @SerializedName("kind") val kind: String,
+    @SerializedName("lat") val lat: Double, @SerializedName("lng") val lng: Double, @SerializedName("isActive") val isActive: Boolean,
+    @SerializedName("createdAt") val createdAt: String,
+)
+data class LandmarksResponse(@SerializedName("landmarks") val landmarks: List<LandmarkDto>, @SerializedName("kinds") val kinds: List<String>)
+data class CreateLandmarkRequest(
+    @SerializedName("name") val name: String, @SerializedName("kind") val kind: String,
+    @SerializedName("lat") val lat: Double, @SerializedName("lng") val lng: Double,
+)
+data class PatchLandmarkRequest(
+    @SerializedName("name") val name: String? = null, @SerializedName("kind") val kind: String? = null,
+    @SerializedName("lat") val lat: Double? = null, @SerializedName("lng") val lng: Double? = null, @SerializedName("isActive") val isActive: Boolean? = null,
+)
