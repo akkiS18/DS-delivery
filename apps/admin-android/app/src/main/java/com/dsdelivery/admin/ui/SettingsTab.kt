@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.admin.AdminApp
 import com.dsdelivery.admin.BuildConfig
+import com.dsdelivery.admin.core.Biometric
 import com.dsdelivery.admin.service.WatchService
 import kotlinx.coroutines.launch
 
@@ -47,6 +48,8 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
     val state by app.watcher.state.collectAsState()
     val account by app.session.account.collectAsState()
     var confirmLogout by remember { mutableStateOf(false) }
+    val bioAvailable = remember { Biometric.available(context) }
+    var bioOn by remember { mutableStateOf(app.session.biometricEnabled) }
     var confirmLogoutAll by remember { mutableStateOf(false) }
 
     fun open(intent: Intent) {
@@ -134,6 +137,25 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             OutlinedButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }) { Text("Ilova sozlamalarini oçiş") }
+        }
+
+        if (bioAvailable || bioOn) Section("Qulf") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Barmoq izi bilan oçiş", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (bioAvailable) "Ilova qulflangan paytda avval barmoq izi (yoki yüz) söraladi, tanilmasa PIN. PIN baribir saqlanadi."
+                        else "Bu telefonda barmoq izi röyxatdan ötmagan: hozirça faqat PIN söraladi.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = bioOn, enabled = bioAvailable || bioOn, onCheckedChange = { on ->
+                    if (!on) { app.session.setBiometricEnabled(false); bioOn = false }
+                    else Biometric.prompt(context, "Barmoq izini tasdiqlang", "Şu telefonda röyxatdan ötgan barmoq izi", "Bekor qiliş") { ok ->
+                        if (ok) { app.session.setBiometricEnabled(true); bioOn = true } else onMessage("Tasdiqlanmadi, barmoq izi yoqilmadi.")
+                    }
+                })
+            }
         }
 
         Section("Hisob") {

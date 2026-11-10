@@ -75,12 +75,27 @@ class SessionStore(private val context: Context) {
     val pinSalt: String get() = prefs.getString(KEY_PIN_SALT, null).orEmpty()
     val pinHash: String get() = prefs.getString(KEY_PIN_HASH, null).orEmpty()
 
-    fun savePin(salt: String, hash: String) {
-        prefs.edit().putString(KEY_PIN_SALT, salt).putString(KEY_PIN_HASH, hash).putInt(KEY_PIN_FAILS, 0).putLong(KEY_PIN_LOCKED_UNTIL, 0L).apply()
+    /** [length] is remembered so the keypad can open the app the moment the last digit is typed (0 = unknown: a PIN made by an older version). */
+    fun savePin(salt: String, hash: String, length: Int = 0) {
+        prefs.edit().putString(KEY_PIN_SALT, salt).putString(KEY_PIN_HASH, hash).putInt(KEY_PIN_LEN, length).putInt(KEY_PIN_FAILS, 0).putLong(KEY_PIN_LOCKED_UNTIL, 0L).apply()
+    }
+
+    val pinLength: Int get() = prefs.getInt(KEY_PIN_LEN, 0)
+
+    /** Learned after a correct manual unlock for a PIN that was saved without its length. */
+    fun rememberPinLength(length: Int) {
+        prefs.edit().putInt(KEY_PIN_LEN, length).apply()
+    }
+
+    /** Fingerprint / face unlock chosen by the administrator on this phone (asked when the PIN is created, or switched in Sozlamalar). */
+    val biometricEnabled: Boolean get() = prefs.getBoolean(KEY_BIOMETRIC, false)
+
+    fun setBiometricEnabled(on: Boolean) {
+        prefs.edit().putBoolean(KEY_BIOMETRIC, on).apply()
     }
 
     private fun clearPin() {
-        prefs.edit().remove(KEY_PIN_SALT).remove(KEY_PIN_HASH).remove(KEY_PIN_FAILS).remove(KEY_PIN_LOCKED_UNTIL).apply()
+        prefs.edit().remove(KEY_PIN_SALT).remove(KEY_PIN_HASH).remove(KEY_PIN_LEN).remove(KEY_BIOMETRIC).remove(KEY_PIN_FAILS).remove(KEY_PIN_LOCKED_UNTIL).apply()
     }
 
     val pinFails: Int get() = prefs.getInt(KEY_PIN_FAILS, 0)
@@ -103,6 +118,8 @@ class SessionStore(private val context: Context) {
         const val KEY_DUTY = "duty"
         const val KEY_PIN_SALT = "pin_salt"
         const val KEY_PIN_HASH = "pin_hash"
+        const val KEY_PIN_LEN = "pin_len"
+        const val KEY_BIOMETRIC = "biometric"
         const val KEY_PIN_FAILS = "pin_fails"
         const val KEY_PIN_LOCKED_UNTIL = "pin_locked_until"
     }

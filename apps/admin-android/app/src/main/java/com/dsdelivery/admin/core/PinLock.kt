@@ -54,6 +54,9 @@ object PinLock {
 
     fun shouldWipe(fails: Int): Boolean = fails >= WIPE_AFTER
 
+    /** The keypad opens by itself when exactly as many digits as the saved PIN were typed (never for an unknown length). */
+    fun autoSubmit(typedLength: Int, savedLength: Int): Boolean = savedLength in MIN_LEN..MAX_LEN && typedLength == savedLength
+
     /** Cold start (never was in the background) or away for at least the grace time. */
     fun needsUnlock(lastBackgroundAtMs: Long?, nowMs: Long, graceMs: Long = GRACE_MS): Boolean =
         lastBackgroundAtMs == null || nowMs - lastBackgroundAtMs >= graceMs

@@ -53,4 +53,13 @@ class PinLockTest {
         assertFalse(PinLock.needsUnlock(10_000, 69_999))
         assertTrue(PinLock.needsUnlock(10_000, 70_000))
     }
+
+    @Test fun `the keypad opens by itself only at the saved length`() {
+        assertTrue(PinLock.autoSubmit(4, 4))
+        assertTrue(PinLock.autoSubmit(8, 8))
+        assertFalse(PinLock.autoSubmit(3, 4))
+        assertFalse(PinLock.autoSubmit(5, 4))
+        assertFalse(PinLock.autoSubmit(4, 0)) // length unknown (PIN from an older version): never guess
+        assertFalse(PinLock.autoSubmit(9, 9)) // outside the allowed range
+    }
 }
