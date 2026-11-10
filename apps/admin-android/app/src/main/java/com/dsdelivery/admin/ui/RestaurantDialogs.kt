@@ -40,19 +40,19 @@ fun NewRestaurantDialog(busy: Boolean, onDismiss: () -> Unit, onCreate: (name: S
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { if (it.length <= 80) name = it }, label = { Text("Nomi") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = address, onValueChange = { if (it.length <= 200) address = it }, label = { Text("Olib ketish manzili (taksi shu yerga keladi)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = address, onValueChange = { if (it.length <= 200) address = it }, label = { Text("Olib ketiş manzili (taksi şu yerga keladi)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(
                     value = phone, onValueChange = { if (it.length <= 16) phone = it }, label = { Text("Telefon (ixtiyoriy)") }, singleLine = true, isError = !phoneOk,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Restoran «pauza»da boshlanadi: xodimlari kirib, menyu va karta qo‘shgach o‘zlari «Buyurtma qabul qilish»ni yoqadi. Kirish paroli keyingi oynada BIR MARTA ko‘rsatiladi.",
+                    "Restoran «pauza»da boşlanadi: xodimlari kirib, menyu va karta qöşgaç özlari «Buyurtma qabul qiliş»ni yoqadi. Kiriş paroli keyingi oynada BIR MARTA körsatiladi.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && ready, onClick = { onCreate(name, address, phone) }) { Text("Qo‘shish") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && ready, onClick = { onCreate(name, address, phone) }) { Text("Qöşiş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -76,9 +76,9 @@ fun SecretDialog(credential: CredentialResponse, onDone: () -> Unit) {
                 OutlinedButton(onClick = {
                     clipboard.setText(AnnotatedString("Login: ${credential.slug}\nParol: ${credential.password}"))
                     copied = true
-                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalash") }
+                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalaş") }
                 Text(
-                    "Parol faqat shu yerda va faqat hozir ko‘rinadi: tizim uni saqlamaydi. Restoranga xavfsiz yo‘l bilan yuboring (masalan, shaxsiy Telegram). Yuborgach, boshqa narsani nusxalab qo‘ying.",
+                    "Parol faqat şu yerda va faqat hozir körinadi: tizim uni saqlamaydi. Restoranga xavfsiz yöl bilan yuboring (masalan, şaxsiy Telegram). Yuborgaç, boşqa narsani nusxalab qöying.",
                     style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                 )
             }
@@ -95,12 +95,12 @@ fun IssueFinancePinDialog(name: String, hasPin: Boolean, busy: Boolean, onDismis
         title = { Text(if (hasPin) "$name: yangi moliya kodi berilsinmi?" else "$name: moliya kodi berilsinmi?") },
         text = {
             Text(
-                (if (hasPin) "Eski kod ishlamaydi va ochiq turgan Moliya sahifalari yopiladi. " else "") +
-                    "4 xonali kod keyingi oynada bir marta ko‘rsatiladi. Uni faqat restoran egasiga o‘zingiz ayting; kassirlarga bermang."
+                (if (hasPin) "Eski kod işlamaydi va oçiq turgan Moliya sahifalari yopiladi. " else "") +
+                    "4 xonali kod keyingi oynada bir marta körsatiladi. Uni faqat restoran egasiga özingiz ayting; kassirlarga bermang."
             )
         },
-        confirmButton = { TextButton(enabled = !busy, onClick = onConfirm) { Text("Ha, kod berish") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Yo‘q") } },
+        confirmButton = { TextButton(enabled = !busy, onClick = onConfirm) { Text("Ha, kod beriş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Yöq") } },
     )
 }
 
@@ -119,9 +119,9 @@ fun FinancePinDialog(result: FinancePinResponse, onDone: () -> Unit) {
                 OutlinedButton(onClick = {
                     clipboard.setText(AnnotatedString(result.pin))
                     copied = true
-                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalash") }
+                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalaş") }
                 Text(
-                    "Kod faqat shu yerda va faqat hozir ko‘rinadi: tizim uni saqlamaydi. Restoran egasiga o‘zingiz ayting; kassirlarga bermang. Yozib olgach, boshqa narsani nusxalab qo‘ying.",
+                    "Kod faqat şu yerda va faqat hozir körinadi: tizim uni saqlamaydi. Restoran egasiga özingiz ayting; kassirlarga bermang. Yozib olgaç, boşqa narsani nusxalab qöying.",
                     style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                 )
             }
@@ -135,9 +135,9 @@ fun ResetPasswordDialog(name: String, busy: Boolean, onDismiss: () -> Unit, onCo
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
         title = { Text("$name: yangi parol berilsinmi?") },
-        text = { Text("Eski parol ishlamaydi va $owner barcha qurilmalari ilovadan chiqarib yuboriladi. Yangi parol keyingi oynada bir marta ko‘rsatiladi.") },
+        text = { Text("Eski parol işlamaydi va $owner barça qurilmalari ilovadan çiqarib yuboriladi. Yangi parol keyingi oynada bir marta körsatiladi.") },
         confirmButton = { TextButton(enabled = !busy, onClick = onConfirm) { Text("Ha, yangi parol") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Yo‘q") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Yöq") } },
     )
 }
 
@@ -156,13 +156,13 @@ fun LinkStaffDialog(name: String, busy: Boolean, onDismiss: () -> Unit, onLink: 
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Xodim botga /start yozgan bo‘lishi kerak, aks holda xabar bora olmaydi. Telegram ID ni u @userinfobot orqali bilib oladi.",
+                    "Xodim botga /start yozgan bölişi kerak, aks holda xabar bora olmaydi. Telegram ID ni u @userinfobot orqali bilib oladi.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onLink(id.trim()) }) { Text("Ulash") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onLink(id.trim()) }) { Text("Ulaş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -172,31 +172,31 @@ fun RemovalDialog(name: String, plan: RemovalPlanDto, busy: Boolean, onDismiss: 
     val blocked = plan.result == "BLOCKED"
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(if (plan.result == "DELETE") "$name: butunlay o‘chirilsinmi?" else if (blocked) "$name: hozir olib bo‘lmaydi" else "$name: arxivlansinmi?") },
+        title = { Text(if (plan.result == "DELETE") "$name: butunlay öçirilsinmi?" else if (blocked) "$name: hozir olib bölmaydi" else "$name: arxivlansinmi?") },
         text = {
             Text(
                 when (plan.result) {
                     "DELETE" ->
-                        if (taxi) "Bu kompaniyada hech qanday taksi buyurtmasi yo‘q. Kompaniya va kirish logini butunlay o‘chadi. Qaytarib bo‘lmaydi."
-                        else "Bu restoranda hech qanday buyurtma, to‘lov yoki komissiya yo‘q. Restoran, menyusi va kartalari butunlay o‘chadi. Qaytarib bo‘lmaydi."
+                        if (taxi) "Bu kompaniyada heç qanday taksi buyurtmasi yöq. Kompaniya va kiriş logini butunlay öçadi. Qaytarib bölmaydi."
+                        else "Bu restoranda heç qanday buyurtma, tölov yoki komissiya yöq. Restoran, menyusi va kartalari butunlay öçadi. Qaytarib bölmaydi."
                     "ARCHIVE" ->
-                        if (taxi) "Tarixi bor (${plan.orders ?: 0} ta yozuv). Yozuvlar o‘chmaydi: kompaniya o‘chiriladi, kirishi yopiladi, nomi bo‘shatiladi."
-                        else "Tarixi bor (${plan.orders ?: 0} ta buyurtma" + (if ((plan.dueSom ?: 0) > 0) ", to‘lanmagan komissiya ${somText(plan.dueSom ?: 0)}" else "") +
-                            "). Pul va yetkazib berish yozuvlari o‘chmaydi: restoran o‘chiriladi, mijozlarga ko‘rinmaydi, kirishi yopiladi, kartalari o‘chiriladi, nomi bo‘shatiladi."
+                        if (taxi) "Tarixi bor (${plan.orders ?: 0} ta yozuv). Yozuvlar öçmaydi: kompaniya öçiriladi, kirişi yopiladi, nomi böşatiladi."
+                        else "Tarixi bor (${plan.orders ?: 0} ta buyurtma" + (if ((plan.dueSom ?: 0) > 0) ", tölanmagan komissiya ${somText(plan.dueSom ?: 0)}" else "") +
+                            "). Pul va yetkazib beriş yozuvlari öçmaydi: restoran öçiriladi, mijozlarga körinmaydi, kirişi yopiladi, kartalari öçiriladi, nomi böşatiladi."
                     else -> when (plan.reason) {
                         "OPEN_ORDERS" -> "Tugallanmagan ${plan.count ?: ""} ta buyurtma bor. Avval ularni yakunlang yoki bekor qiling."
                         "OPEN_DISPATCHES" -> "Tugallanmagan ${plan.count ?: ""} ta taksi buyurtmasi bor. Avval ularni yakunlang."
-                        "OPEN_REFUNDS" -> "Hal qilinmagan ${plan.count ?: ""} ta qaytarish so‘rovi bor."
-                        else -> "Tugallanmagan ish bor."
+                        "OPEN_REFUNDS" -> "Hal qilinmagan ${plan.count ?: ""} ta qaytariş sörovi bor."
+                        else -> "Tugallanmagan iş bor."
                     }
                 },
             )
         },
         confirmButton = {
             if (!blocked) TextButton(enabled = !busy, onClick = { onConfirm(plan.result) }) {
-                Text(if (plan.result == "DELETE") "Ha, o‘chirish" else "Ha, arxivlash", color = UrgentColor)
+                Text(if (plan.result == "DELETE") "Ha, öçiriş" else "Ha, arxivlaş", color = UrgentColor)
             }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(if (blocked) "Yopish" else "Yo‘q") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text(if (blocked) "Yopiş" else "Yöq") } },
     )
 }

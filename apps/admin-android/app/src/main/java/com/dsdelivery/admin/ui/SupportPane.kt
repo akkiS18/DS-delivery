@@ -54,7 +54,7 @@ private const val MAX_REPLY = 1000
 private fun newKey(): String = UUID.randomUUID().toString().replace("-", "")
 
 private fun statusLabel(t: TicketRowDto): String = when (t.status) {
-    "OPEN" -> "🆕 Ochiq"
+    "OPEN" -> "🆕 Oçiq"
     "IN_PROGRESS" -> if (t.mine) "🛠 Sizda" else "🛠 ${t.assignedAdminName ?: "Jarayonda"}"
     else -> "✅ Hal qilindi"
 }
@@ -97,12 +97,12 @@ private fun InboxList(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ro‘yxat eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
             val data = inbox
             if (data == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
-                if (data.active.isEmpty()) item { Text("Ochiq murojaat yo‘q.", style = MaterialTheme.typography.titleMedium) }
+                if (data.active.isEmpty()) item { Text("Oçiq murojaat yöq.", style = MaterialTheme.typography.titleMedium) }
                 items(data.active.size) { i -> TicketCard(data.active[i]) { onOpen(data.active[i].id) } }
                 if (data.resolved.isNotEmpty()) {
                     item { Text("Hal qilingan (oxirgi 7 kun)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -200,9 +200,9 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
             TextButton(onClick = onBack) { Text("← Orqaga") }
             if (t != null) Text("#${t.ticket.number} • ${statusLabel(t.ticket)}", style = MaterialTheme.typography.titleMedium)
         }
-        if (offline) Banner("Ulanish yo‘q — suhbat eskirgan bo‘lishi mumkin", UrgentColor)
+        if (offline) Banner("Ulaniş yöq — suhbat eskirgan bölişi mumkin", UrgentColor)
         if (t == null) {
-            Text(if (offline) "Yuklab bo‘lmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Card(Modifier.padding(horizontal = 16.dp)) {
                 Text("Buyurtma #${t.order.code} • ${t.order.restaurantName} • ${somText(t.order.totalSom)} (${t.order.status})", style = MaterialTheme.typography.bodyMedium)
@@ -240,13 +240,13 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
             val canWrite = status == "OPEN" || (status == "IN_PROGRESS" && t.ticket.mine)
             Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (canWrite) {
-                    if (status == "OPEN") Text("Javob yozsangiz, murojaat sizga o‘tadi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (status == "OPEN") Text("Javob yozsangiz, murojaat sizga ötadi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = draft, onValueChange = { if (it.length <= MAX_REPLY) draft = it }, label = { Text("Mijozga javob") },
                             maxLines = 4, modifier = Modifier.weight(1f),
                         )
-                        Button(enabled = !busy && draft.isNotBlank(), onClick = { send() }) { Text("Yuborish") }
+                        Button(enabled = !busy && draft.isNotBlank(), onClick = { send() }) { Text("Yuboriş") }
                     }
                 } else if (status == "IN_PROGRESS") {
                     Text("Bu murojaat ${t.ticket.assignedAdminName ?: "boshqa administrator"} da. Javobni faqat egasi yozadi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -260,14 +260,14 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                             }) { Text("✅ Hal qilindi") }
                             t.others.forEach { o ->
                                 OutlinedButton(enabled = !busy, onClick = {
-                                    confirm = Confirm("O‘tkazilsinmi?", "Murojaat ${o.name} ga o‘tadi; unga xabar boradi.", "Ha, o‘tkazish") { act("🔁 ${o.name} ga o‘tkazildi.") { k -> app.repository.reassignTicket(id, k, o.telegramId) } }
+                                    confirm = Confirm("Ötkazilsinmi?", "Murojaat ${o.name} ga ötadi; unga xabar boradi.", "Ha, ötkaziş") { act("🔁 ${o.name} ga ötkazildi.") { k -> app.repository.reassignTicket(id, k, o.telegramId) } }
                                 }) { Text("🔁 ${o.name} ga") }
                             }
                         }
                         status == "IN_PROGRESS" && me != null -> OutlinedButton(enabled = !busy, onClick = {
-                            confirm = Confirm("Menga o‘tkazilsinmi?", "Murojaat ${t.ticket.assignedAdminName ?: "boshqa administrator"} dan sizga o‘tadi.", "Ha, menga") { act("🔁 Murojaat sizga o‘tdi.") { k -> app.repository.reassignTicket(id, k, me) } }
-                        }) { Text("🔁 Menga o‘tkazish") }
-                        status == "RESOLVED" -> OutlinedButton(enabled = !busy, onClick = { act("♻️ Murojaat qayta ochildi.") { app.repository.reopenTicket(id, it) } }) { Text("♻️ Qayta ochish") }
+                            confirm = Confirm("Menga ötkazilsinmi?", "Murojaat ${t.ticket.assignedAdminName ?: "boshqa administrator"} dan sizga ötadi.", "Ha, menga") { act("🔁 Murojaat sizga ötdi.") { k -> app.repository.reassignTicket(id, k, me) } }
+                        }) { Text("🔁 Menga ötkaziş") }
+                        status == "RESOLVED" -> OutlinedButton(enabled = !busy, onClick = { act("♻️ Murojaat qayta oçildi.") { app.repository.reopenTicket(id, it) } }) { Text("♻️ Qayta oçiş") }
                     }
                 }
             }
@@ -279,7 +279,7 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
             onDismissRequest = { confirm = null },
             title = { Text(c.title) }, text = { Text(c.text) },
             confirmButton = { TextButton(onClick = { confirm = null; c.run() }) { Text(c.button) } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Yöq") } },
         )
     }
 }

@@ -72,14 +72,14 @@ fun AttentionCard(
 
         if (item.acked) {
             Text(
-                "Jim turibdi" + (clockOf(item.snoozeUntil)?.let { " ($it gacha)" } ?: ""),
+                "Jim turibdi" + (clockOf(item.snoozeUntil)?.let { " ($it gaça)" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium, color = NeutralColor, fontWeight = FontWeight.SemiBold,
             )
         }
 
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             if (phone != null) {
-                Button(onClick = { onCall(phone) }, enabled = !busy, colors = ButtonDefaults.buttonColors(containerColor = color)) { Text("📞 Qo‘ng‘iroq") }
+                Button(onClick = { onCall(phone) }, enabled = !busy, colors = ButtonDefaults.buttonColors(containerColor = color)) { Text("📞 Qönğiroq") }
             }
             if (openLabel != null) {
                 OutlinedButton(onClick = onOpen, border = BorderStroke(1.dp, color)) { Text(openLabel) }
@@ -92,7 +92,7 @@ fun AttentionCard(
                     OutlinedButton(onClick = { onAck(720) }, enabled = !busy, border = BorderStroke(1.dp, color)) { Text("Jim: 12 soat") }
                 }
             }
-            if (ringing) TextButton(onClick = onSilence) { Text("Ovozni o‘chirish") }
+            if (ringing) TextButton(onClick = onSilence) { Text("Ovozni öçiriş") }
         }
     }
 }

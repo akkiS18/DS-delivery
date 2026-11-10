@@ -77,23 +77,23 @@ fun MoneyTab(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ro‘yxat eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
             val d = data
             if (d == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 if (d.reviews.isEmpty() && d.stale.isEmpty()) {
                     item {
                         Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Mos kelmagan yoki kutayotgan pul yo‘q", style = MaterialTheme.typography.titleMedium)
+                            Text("Mos kelmagan yoki kutayotgan pul yöq", style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
                 if (d.stale.isNotEmpty()) {
                     item {
-                        Text("Restoran tasdiqlamagan to‘lovlar (10+ daqiqa)", style = MaterialTheme.typography.titleMedium)
+                        Text("Restoran tasdiqlamagan tölovlar (10+ daqiqa)", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Mijoz to‘lagan, avtomatik tasdiq ishlamadi, hech kim pishirmayapti. Restoranga qo‘ng‘iroq qiling.",
+                            "Mijoz tölagan, avtomatik tasdiq işlamadi, heç kim pişirmayapti. Restoranga qönğiroq qiling.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -109,7 +109,7 @@ fun MoneyTab(onMessage: (String) -> Unit) {
                     item {
                         Text("Mos kelmagan pul", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Bank ilovasida tekshiring. Ilova pulni hech narsaga bog‘lamaydi: faqat qaror va izohingiz saqlanadi.",
+                            "Bank ilovasida tekşiring. Ilova pulni heç narsaga boğlamaydi: faqat qaror va izohingiz saqlanadi.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -119,7 +119,7 @@ fun MoneyTab(onMessage: (String) -> Unit) {
                             Text("Karta ***${r.cardLast4}${r.restaurantName?.let { " · $it" } ?: ""}", style = MaterialTheme.typography.bodyLarge)
                             Text("Bank amali: ${clockOf(r.occurredAt) ?: ""}${r.emailReceivedAt?.let { e -> clockOf(e)?.let { " · xat: $it" } } ?: ""}", style = MaterialTheme.typography.bodyMedium)
                             Text(r.reasonText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Qaror yozish ›", color = AdminBlue, fontWeight = FontWeight.SemiBold)
+                            Text("Qaror yoziş ›", color = AdminBlue, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -138,7 +138,7 @@ fun MoneyTab(onMessage: (String) -> Unit) {
                     saving = false
                     if (res != null) {
                         selected = null
-                        onMessage(if (res.result == "HANDLED") "Qaror va izoh saqlandi." else "Bu element allaqachon yopilgan.")
+                        onMessage(if (res.result == "HANDLED") "Qaror va izoh saqlandi." else "Bu element allaqaçon yopilgan.")
                         load()
                     }
                 }
@@ -167,15 +167,15 @@ private fun ReviewDialog(item: ReviewDto, actions: List<Pair<String, String>>, b
                 OutlinedTextField(
                     value = note, onValueChange = { if (it.length <= NOTE_MAX) note = it },
                     label = { Text("Izoh (kamida $NOTE_MIN belgi)") },
-                    supportingText = { Text("Nima tekshirildi, buyurtma raqami yoki pul qaytarilgan hisob. ${note.trim().length}/$NOTE_MAX") },
+                    supportingText = { Text("Nima tekşirildi, buyurtma raqami yoki pul qaytarilgan hisob. ${note.trim().length}/$NOTE_MAX") },
                     modifier = Modifier.fillMaxWidth(), minLines = 3,
                 )
             }
         },
         confirmButton = {
-            TextButton(enabled = ready, onClick = { onSubmit(action!!, note) }) { Text("Saqlash") }
+            TextButton(enabled = ready, onClick = { onSubmit(action!!, note) }) { Text("Saqlaş") }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 

@@ -46,9 +46,9 @@ import com.dsdelivery.admin.data.PatchLandmarkRequest
 import kotlinx.coroutines.launch
 
 private val KIND_LABEL = mapOf(
-    "MARKET" to "Bozor", "MOSQUE" to "Masjid", "SCHOOL" to "Maktab", "KINDERGARTEN" to "Bog‘cha", "PHARMACY" to "Dorixona",
-    "HOSPITAL" to "Shifoxona", "BANK" to "Bank", "SHOP" to "Do‘kon", "CAFE" to "Kafe / choyxona", "GAS_STATION" to "Yoqilg‘i quyish",
-    "BUS_STOP" to "Bekat", "OFFICE" to "Idora", "OTHER" to "Boshqa",
+    "MARKET" to "Bozor", "MOSQUE" to "Masjid", "SCHOOL" to "Maktab", "KINDERGARTEN" to "Boğça", "PHARMACY" to "Dorixona",
+    "HOSPITAL" to "Şifoxona", "BANK" to "Bank", "SHOP" to "Dökon", "CAFE" to "Kafe / çoyxona", "GAS_STATION" to "Yoqilği quyiş",
+    "BUS_STOP" to "Bekat", "OFFICE" to "Idora", "OTHER" to "Boşqa",
 )
 internal fun kindLabel(kind: String): String = KIND_LABEL[kind] ?: kind
 
@@ -108,16 +108,16 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ro‘yxat eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
             val d = data
             if (d == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 item { Text("Joylar (${d.landmarks.size})", style = MaterialTheme.typography.titleLarge) }
                 item {
                     Text(
-                        "Mijoz xaritada shu joylarni ko‘radi va ular orqali mo‘ljal oladi; taksi haydovchisi yetkazish manzili tagida eng yaqin joyni o‘qiydi. " +
-                            "Joyning o‘zida turib «Hozirgi joyim»ni bosing yoki xaritadan nusxalangan koordinatani qo‘ying.",
+                        "Mijoz xaritada şu joylarni köradi va ular orqali möljal oladi; taksi haydovçisi yetkaziş manzili tagida eng yaqin joyni öqiydi. " +
+                            "Joyning özida turib «Hozirgi joyim»ni bosing yoki xaritadan nusxalangan koordinatani qöying.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -125,13 +125,13 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
                 if (d.landmarks.size > 6) {
                     item {
                         OutlinedTextField(
-                            value = filter, onValueChange = { filter = it.take(60) }, label = { Text("Qidirish") },
+                            value = filter, onValueChange = { filter = it.take(60) }, label = { Text("Qidiriş") },
                             singleLine = true, modifier = Modifier.fillMaxWidth(),
                         )
                     }
                 }
                 val shown = d.landmarks.filter { filter.isBlank() || it.name.contains(filter.trim(), ignoreCase = true) }
-                if (shown.isEmpty()) item { Text(if (d.landmarks.isEmpty()) "Hali joy qo‘shilmagan." else "Topilmadi.") }
+                if (shown.isEmpty()) item { Text(if (d.landmarks.isEmpty()) "Hali joy qöşilmagan." else "Topilmadi.") }
                 items(shown.size) { i ->
                     val l = shown[i]
                     Card {
@@ -143,15 +143,15 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
                             Switch(checked = l.isActive, enabled = !saving, onCheckedChange = { on -> run(null) { app.repository.setLandmarkActive(l.id, on) } })
                         }
                         Text(
-                            if (l.isActive) "🟢 Mijozlarga ko‘rinadi" else "⚪ O‘chiq (mijozga ko‘rinmaydi)",
+                            if (l.isActive) "🟢 Mijozlarga körinadi" else "⚪ Öçiq (mijozga körinmaydi)",
                             style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
                             color = if (l.isActive) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(CoordText.format(GeoPoint(l.lat, l.lng)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { editing = l }) { Text("✏️ Tahrirlash") }
+                            OutlinedButton(enabled = !saving, onClick = { editing = l }) { Text("✏️ Tahrirlaş") }
                             OutlinedButton(onClick = { showOnMap(l) }) { Text("🗺 Xaritada") }
-                            OutlinedButton(enabled = !saving, onClick = { deleting = l }) { Text("🗑 O‘chirish", color = UrgentColor) }
+                            OutlinedButton(enabled = !saving, onClick = { deleting = l }) { Text("🗑 Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -164,7 +164,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
             initial = null, kinds = data?.kinds.orEmpty(), busy = saving, onDismiss = { adding = false },
             onSave = { name, kind, p ->
                 adding = false
-                run("✅ «$name» qo‘shildi.") { app.repository.createLandmark(name, kind, p.lat, p.lng) }
+                run("✅ «$name» qöşildi.") { app.repository.createLandmark(name, kind, p.lat, p.lng) }
             },
         )
     }
@@ -182,15 +182,15 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
     deleting?.let { l ->
         AlertDialog(
             onDismissRequest = { if (!saving) deleting = null },
-            title = { Text("«${l.name}» o‘chirilsinmi?") },
-            text = { Text("Joy xaritadan va taksi matnidan yo‘qoladi. Berilgan buyurtmalarga ta’sir qilmaydi. Vaqtincha yashirish uchun o‘chirmasdan, tugmani o‘chiring.") },
+            title = { Text("«${l.name}» öçirilsinmi?") },
+            text = { Text("Joy xaritadan va taksi matnidan yöqoladi. Berilgan buyurtmalarga ta’sir qilmaydi. Vaqtinça yaşiriş uçun öçirmasdan, tugmani öçiring.") },
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     deleting = null
-                    run("🗑 «${l.name}» o‘chirildi.") { app.repository.deleteLandmark(l.id) }
-                }) { Text("Ha, o‘chirish", color = UrgentColor) }
+                    run("🗑 «${l.name}» öçirildi.") { app.repository.deleteLandmark(l.id) }
+                }) { Text("Ha, öçiriş", color = UrgentColor) }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { deleting = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { deleting = null }) { Text("Yöq") } },
         )
     }
 }
@@ -218,24 +218,24 @@ private fun LandmarkDialog(
             finding = false
             if (fix != null) {
                 coords = CoordText.format(GeoPoint(fix.lat, fix.lng))
-                gpsNote = if (fix.accuracyM > 40f) "⚠️ Aniqlik past (±${if (fix.accuracyM < 10_000f) fix.accuracyM.toInt() else 0} m). Ochiq joyda qayta bosing."
-                else "📍 Joylashuv olindi (±${fix.accuracyM.toInt()} m)."
+                gpsNote = if (fix.accuracyM > 40f) "⚠️ Aniqlik past (±${if (fix.accuracyM < 10_000f) fix.accuracyM.toInt() else 0} m). Oçiq joyda qayta bosing."
+                else "📍 Joylaşuv olindi (±${fix.accuracyM.toInt()} m)."
             } else {
                 gpsNote = when (problem) {
-                    FixProblem.NO_PERMISSION -> "Joylashuvga ruxsat berilmadi."
-                    FixProblem.NO_PROVIDER -> "Telefonda joylashuv (GPS) o‘chiq. Uni yoqing."
-                    else -> "Joylashuv aniqlanmadi. Ochiq joyda qayta urining."
+                    FixProblem.NO_PERMISSION -> "Joylaşuvga ruxsat berilmadi."
+                    FixProblem.NO_PROVIDER -> "Telefonda joylaşuv (GPS) öçiq. Uni yoqing."
+                    else -> "Joylaşuv aniqlanmadi. Oçiq joyda qayta urining."
                 }
             }
         }
     }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) findHere() else gpsNote = "Joylashuvga ruxsat berilmadi."
+        if (granted.values.any { it }) findHere() else gpsNote = "Joylaşuvga ruxsat berilmadi."
     }
 
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(if (initial == null) "Yangi joy" else "Joyni tahrirlash") },
+        title = { Text(if (initial == null) "Yangi joy" else "Joyni tahrirlaş") },
         text = {
             Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -249,12 +249,12 @@ private fun LandmarkDialog(
                         else OutlinedButton(onClick = { kind = k }) { Text(kindLabel(k)) }
                     }
                 }
-                Text("Joylashuvi", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
+                Text("Joylaşuvi", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
                 Button(
                     enabled = !busy && !finding,
                     onClick = { if (LocationFinder.hasPermission(context)) findHere() else askPermission.launch(LocationFinder.permissions) },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (finding) "Aniqlanmoqda…" else "📍 Hozirgi joyim (shu yerda turibman)") }
+                ) { Text(if (finding) "Aniqlanmoqda…" else "📍 Hozirgi joyim (şu yerda turibman)") }
                 if (gpsNote.isNotEmpty()) Text(gpsNote, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = coords, onValueChange = { if (it.length <= 200) coords = it }, label = { Text("Koordinata: 40.0304, 65.6672") },
@@ -262,17 +262,17 @@ private fun LandmarkDialog(
                 )
                 if (coords.isNotBlank()) {
                     Text(
-                        if (point != null) "✅ ${CoordText.format(point)}" else "❌ Koordinata o‘qilmadi (kenglik va uzunlik: 40.0304, 65.6672)",
+                        if (point != null) "✅ ${CoordText.format(point)}" else "❌ Koordinata öqilmadi (kenglik va uzunlik: 40.0304, 65.6672)",
                         style = MaterialTheme.typography.bodyMedium, color = if (point != null) OkColor else UrgentColor,
                     )
                 }
                 Text(
-                    "Google yoki Yandex xaritada joyni bosib turing va chiqqan koordinatani nusxalab shu yerga qo‘ying. Avval kenglik (40 atrofida), keyin uzunlik (65 atrofida).",
+                    "Google yoki Yandex xaritada joyni bosib turing va çiqqan koordinatani nusxalab şu yerga qöying. Avval kenglik (40 atrofida), keyin uzunlik (65 atrofida).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && ready, onClick = { onSave(name.trim(), kind!!, point!!) }) { Text("Saqlash") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && ready, onClick = { onSave(name.trim(), kind!!, point!!) }) { Text("Saqlaş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }

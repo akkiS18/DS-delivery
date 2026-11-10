@@ -15,11 +15,11 @@ class FormatTest {
     }
 
     @Test fun `money is grouped by thousands`() {
-        assertEquals("0 so‘m", somText(0))
-        assertEquals("950 so‘m", somText(950))
-        assertEquals("12 300 000 so‘m", somText(12_300_000))
-        assertEquals("40 000 000 so‘m", somText(40_000_000))
-        assertEquals("−1 500 so‘m", somText(-1500))
+        assertEquals("0 söm", somText(0))
+        assertEquals("950 söm", somText(950))
+        assertEquals("12 300 000 söm", somText(12_300_000))
+        assertEquals("40 000 000 söm", somText(40_000_000))
+        assertEquals("−1 500 söm", somText(-1500))
     }
 
     @Test fun `phone numbers are dialled without spaces and dashes`() {
@@ -46,7 +46,7 @@ class FormatTest {
     @Test fun `payout days read as today, yesterday or dd_MM`() {
         val now = java.time.LocalDate.of(2026, 10, 30)
         assertEquals("Bugun", dayLabel("2026-10-30", now))
-        assertEquals("Kecha", dayLabel("2026-10-29", now))
+        assertEquals("Keça", dayLabel("2026-10-29", now))
         assertEquals("28.10", dayLabel("2026-10-28", now))
         assertEquals("garbage", dayLabel("garbage", now))
     }

@@ -72,13 +72,13 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Section("Navbatchilik") {
+        Section("Navbatçilik") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (duty) "Yoqilgan" else "O‘chirilgan", style = MaterialTheme.typography.titleMedium)
+                    Text(if (duty) "Yoqilgan" else "Öçirilgan", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (duty) "Ilova fonda ishlaydi va muammo bo‘lsa signal beradi (ekran o‘chiq bo‘lsa ham)."
-                        else "Ilova yopiq bo‘lsa hech qanday signal chalinmaydi. Ochiq paytda ro‘yxat ko‘rinadi.",
+                        if (duty) "Ilova fonda işlaydi va muammo bölsa signal beradi (ekran öçiq bölsa ham)."
+                        else "Ilova yopiq bölsa heç qanday signal çalinmaydi. Oçiq paytda röyxat körinadi.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -93,55 +93,55 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
         Section("Jim soatlar") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (quietOn) "${quiet!!.from} – ${quiet.to}" else "O‘chirilgan", style = MaterialTheme.typography.titleMedium)
+                    Text(if (quietOn) "${quiet!!.from} – ${quiet.to}" else "Öçirilgan", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Bu vaqtda faqat shoshilinch holatlar (mijoz to‘lagan, hech kim javob bermayapti) signal beradi. Qolganlari ro‘yxatda ko‘rinadi, lekin jim.",
+                        "Bu vaqtda faqat şoşilinç holatlar (mijoz tölagan, heç kim javob bermayapti) signal beradi. Qolganlari röyxatda körinadi, lekin jim.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(checked = quietOn, enabled = !quietBusy, onCheckedChange = { on -> saveQuiet(off = !on) })
             }
             if (quietOn) {
-                HourStepper("Boshlanishi", fromH) { fromH = it }
-                HourStepper("Tugashi", toH) { toH = it }
+                HourStepper("Boşlanişi", fromH) { fromH = it }
+                HourStepper("Tugaşi", toH) { toH = it }
                 if (state.quietActive) Text("Hozir jim soat davom etyapti.", style = MaterialTheme.typography.bodyMedium, color = NeutralColor)
-                Button(onClick = { saveQuiet(off = false) }, enabled = changed && fromH != toH && !quietBusy) { Text("Saqlash") }
+                Button(onClick = { saveQuiet(off = false) }, enabled = changed && fromH != toH && !quietBusy) { Text("Saqlaş") }
             }
         }
 
         Section("Signal") {
-            Text("Signal telefonning „Budilnik“ ovozida chalinadi. Jim rejim uni o‘chirmaydi.", style = MaterialTheme.typography.bodyMedium)
+            Text("Signal telefonning „Budilnik“ ovozida çalinadi. Jim rejim uni öçirmaydi.", style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { app.alarm.beepOnce() }) { Text("Ovozni sinash") }
+                Button(onClick = { app.alarm.beepOnce() }) { Text("Ovozni sinaş") }
                 OutlinedButton(onClick = { app.alarm.setVolumeFraction(1f); onReadinessChanged() }) { Text("Maksimal ovoz") }
             }
         }
 
         Section("Tayyorlik") {
-            Check("Bildirishnomalar", readiness.notifications, "Yoqish") {
+            Check("Bildirişnomalar", readiness.notifications, "Yoqiş") {
                 open(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
             }
-            Check("Signal ovozi yetarli", readiness.volume, "Maksimal qilish") { app.alarm.setVolumeFraction(1f); onReadinessChanged() }
-            Check("Batareya tejash o‘chirilgan (ilova uxlab qolmasin)", readiness.battery, "Ruxsat berish") {
+            Check("Signal ovozi yetarli", readiness.volume, "Maksimal qiliş") { app.alarm.setVolumeFraction(1f); onReadinessChanged() }
+            Check("Batareya tejaş öçirilgan (ilova uxlab qolmasin)", readiness.battery, "Ruxsat beriş") {
                 open(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${context.packageName}")))
             }
-            Check("Qulflangan ekranda to‘liq ochilish", readiness.fullScreen, "Ruxsat berish") {
+            Check("Qulflangan ekranda töliq oçiliş", readiness.fullScreen, "Ruxsat beriş") {
                 if (Build.VERSION.SDK_INT >= 34) open(Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:${context.packageName}")))
             }
             Text(
                 "Maslahat: telefonni zaryadkada va internetga ulangan holda qoldiring. Ba’zi telefonlarda (Xiaomi, Huawei, Samsung) " +
-                    "Sozlamalar → Ilovalar → DS Admin bo‘limida „Avtoyuklash“ni yoqing va „Batareya: cheklovsiz“ni tanlang.",
+                    "Sozlamalar → Ilovalar → DS Admin bölimida „Avtoyuklaş“ni yoqing va „Batareya: çeklovsiz“ni tanlang.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }) { Text("Ilova sozlamalarini ochish") }
+            OutlinedButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }) { Text("Ilova sozlamalarini oçiş") }
         }
 
         Section("Hisob") {
             Text("Telegram ID: ${account?.telegramUserId ?: ""}", style = MaterialTheme.typography.bodyLarge)
-            OutlinedButton(onClick = { confirmLogout = true }) { Text("Chiqish") }
-            OutlinedButton(onClick = { confirmLogoutAll = true }) { Text("Barcha qurilmalarni yopish") }
+            OutlinedButton(onClick = { confirmLogout = true }) { Text("Çiqiş") }
+            OutlinedButton(onClick = { confirmLogoutAll = true }) { Text("Barça qurilmalarni yopiş") }
             Text(
-                "Telefon yo‘qolsa yoki o‘g‘irlansa: „Barcha qurilmalarni yopish“ni bosing (yoki botda /logoutall yozing).",
+                "Telefon yöqolsa yoki öğirlansa: „Barça qurilmalarni yopiş“ni bosing (yoki botda /logoutall yozing).",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -152,8 +152,8 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
     if (confirmLogout) {
         AlertDialog(
             onDismissRequest = { confirmLogout = false },
-            title = { Text("Chiqasizmi?") },
-            text = { Text("Chiqsangiz bu telefon signal bermaydi. Qayta kirish uchun Telegram kodi kerak bo‘ladi.") },
+            title = { Text("Çiqasizmi?") },
+            text = { Text("Çiqsangiz bu telefon signal bermaydi. Qayta kiriş uçun Telegram kodi kerak böladi.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmLogout = false
@@ -161,17 +161,17 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
                         app.repository.logout()
                         app.watcher.signOutLocally()
                     }
-                }) { Text("Ha, chiqaman") }
+                }) { Text("Ha, çiqaman") }
             },
-            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Yöq") } },
         )
     }
 
     if (confirmLogoutAll) {
         AlertDialog(
             onDismissRequest = { confirmLogoutAll = false },
-            title = { Text("Barcha qurilmalarni yopasizmi?") },
-            text = { Text("Bu telefon ham, boshqa telefonlar ham chiqib ketadi. Har birida Telegram kodi bilan qayta kirish kerak bo‘ladi.") },
+            title = { Text("Barça qurilmalarni yopasizmi?") },
+            text = { Text("Bu telefon ham, boşqa telefonlar ham çiqib ketadi. Har birida Telegram kodi bilan qayta kiriş kerak böladi.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmLogoutAll = false
@@ -180,13 +180,13 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
                         when (app.repository.logoutAll()) {
                             is com.dsdelivery.admin.data.ApiResult.Ok -> app.watcher.signOutLocally()
                             is com.dsdelivery.admin.data.ApiResult.Unauthorized -> app.watcher.signOutLocally()
-                            is com.dsdelivery.admin.data.ApiResult.Offline -> onMessage("Internet yo‘q. Qayta urinib ko‘ring.")
-                            else -> onMessage("Bajarilmadi. Qayta urinib ko‘ring.")
+                            is com.dsdelivery.admin.data.ApiResult.Offline -> onMessage("Internet yöq. Qayta urinib köring.")
+                            else -> onMessage("Bajarilmadi. Qayta urinib köring.")
                         }
                     }
                 }) { Text("Ha, hammasini yopaman") }
             },
-            dismissButton = { TextButton(onClick = { confirmLogoutAll = false }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(onClick = { confirmLogoutAll = false }) { Text("Yöq") } },
         )
     }
 }

@@ -49,8 +49,8 @@ private fun who(name: String?, phone: String?, tg: String?): String =
 private fun standingText(blocked: Boolean, manual: Boolean, strikes: Int, cashAllowed: Boolean): String = when {
     manual -> "⛔ Administrator bloklagan"
     blocked -> "⛔ Bloklangan ($strikes ta strike)"
-    !cashAllowed -> "⚠️ $strikes ta strike — naqd to‘lov yopiq"
-    else -> "✅ Cheklov yo‘q"
+    !cashAllowed -> "⚠️ $strikes ta strike — naqd tölov yopiq"
+    else -> "✅ Çeklov yöq"
 }
 
 private fun standingColor(blocked: Boolean, cashAllowed: Boolean) = when {
@@ -110,7 +110,7 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
@@ -119,7 +119,7 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { applied = typed.trim() }),
                     )
-                    OutlinedButton(onClick = { applied = typed.trim() }) { Text("Qidirish") }
+                    OutlinedButton(onClick = { applied = typed.trim() }) { Text("Qidiriş") }
                 }
             }
             item {
@@ -129,11 +129,11 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
                 )
             }
             val rows = list
-            if (rows == null) item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (rows == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             else {
                 if (rows.isEmpty()) item {
                     Text(
-                        if (applied.isEmpty()) "✅ Hozir strike yoki bloki bor mijoz yo‘q." else "Hech kim topilmadi (telefon uchun kamida 5 raqam).",
+                        if (applied.isEmpty()) "✅ Hozir strike yoki bloki bor mijoz yöq." else "Heç kim topilmadi (telefon uçun kamida 5 raqam).",
                         style = MaterialTheme.typography.bodyLarge, color = if (applied.isEmpty()) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -163,10 +163,10 @@ private fun StrikeDialog(orders: List<String>, busy: Boolean, onDismiss: () -> U
     var code by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Strike berish") },
+        title = { Text("Strike beriş") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Qaysi buyurtmani mijoz olmadi va kim xabar berdi? Strike mijozning naqd to‘lovini yopadi (5 ta bo‘lsa — butunlay blok).", style = MaterialTheme.typography.bodyMedium)
+                Text("Qaysi buyurtmani mijoz olmadi va kim xabar berdi? Strike mijozning naqd tölovini yopadi (5 ta bölsa — butunlay blok).", style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = code, onValueChange = { if (it.length <= 12) code = it.uppercase() }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     label = { Text("Buyurtma raqami (tavsiya etiladi)") },
@@ -179,9 +179,9 @@ private fun StrikeDialog(orders: List<String>, busy: Boolean, onDismiss: () -> U
             }
         },
         confirmButton = {
-            TextButton(enabled = !busy && note.trim().length in NOTE_MIN..NOTE_MAX, onClick = { onSubmit(note, code.trim().ifEmpty { null }) }) { Text("Strike berish") }
+            TextButton(enabled = !busy && note.trim().length in NOTE_MIN..NOTE_MAX, onClick = { onSubmit(note, code.trim().ifEmpty { null }) }) { Text("Strike beriş") }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -227,10 +227,10 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("← Orqaga") }
         }
-        if (offline) Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor)
+        if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor)
         val d = detail
         if (d == null) {
-            Text(if (offline) "Yuklab bo‘lmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
@@ -239,22 +239,22 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
                         Text(standingText(d.blocked, d.manuallyBlocked, d.strikes, d.cashAllowed), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = standingColor(d.blocked, d.cashAllowed))
                         if (d.manuallyBlocked && d.blockNote != null) Text("Blok izohi: ${d.blockNote}", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "1 ta strike — naqd to‘lov yopiladi, 5 ta strike yoki blok — buyurtma berolmaydi. Karta orqali to‘lash 1–4 strikeda ochiq.",
+                            "1 ta strike — naqd tölov yopiladi, 5 ta strike yoki blok — buyurtma berolmaydi. Karta orqali tölaş 1–4 strikeda oçiq.",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             val phone = d.phone?.takeIf { dialable(it).isNotEmpty() }
                             if (phone != null) OutlinedButton(onClick = {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${dialable(phone)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                            }) { Text("📞 Qo‘ng‘iroq") }
-                            OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Strike }) { Text("⚠️ Strike berish") }
-                            if (d.manuallyBlocked) OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Unblock }) { Text("✅ Blokdan chiqarish") }
-                            else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Block }) { Text("⛔ Bloklash", color = UrgentColor) }
+                            }) { Text("📞 Qönğiroq") }
+                            OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Strike }) { Text("⚠️ Strike beriş") }
+                            if (d.manuallyBlocked) OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Unblock }) { Text("✅ Blokdan çiqariş") }
+                            else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Block }) { Text("⛔ Bloklaş", color = UrgentColor) }
                         }
                     }
                 }
                 item { Text("Strikelar", style = MaterialTheme.typography.titleMedium) }
-                if (d.strikeLines.isEmpty()) item { Text("Strike yo‘q.", style = MaterialTheme.typography.bodyMedium) }
+                if (d.strikeLines.isEmpty()) item { Text("Strike yöq.", style = MaterialTheme.typography.bodyMedium) }
                 items(d.strikeLines.size) { i ->
                     val s = d.strikeLines[i]
                     val active = s.revokedAt == null
@@ -265,12 +265,12 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
                             color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(s.note, style = MaterialTheme.typography.bodyMedium)
-                        if (!active) Text("Bekor qilish izohi: ${s.revokeNote ?: ""}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Revoke(s.id) }) { Text("↩️ Strikeni bekor qilish") }
+                        if (!active) Text("Bekor qiliş izohi: ${s.revokeNote ?: ""}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Revoke(s.id) }) { Text("↩️ Strikeni bekor qiliş") }
                     }
                 }
                 item { Text("Oxirgi buyurtmalar", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
-                if (d.recentOrders.isEmpty()) item { Text("Buyurtma yo‘q.", style = MaterialTheme.typography.bodyMedium) }
+                if (d.recentOrders.isEmpty()) item { Text("Buyurtma yöq.", style = MaterialTheme.typography.bodyMedium) }
                 items(d.recentOrders.size) { i ->
                     val o = d.recentOrders[i]
                     Text(
@@ -300,12 +300,12 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
 
     pending?.takeIf { it != CustomerAction.Strike }?.let { p ->
         NoteDialog(
-            title = when (p) { CustomerAction.Strike -> "Strike berish"; CustomerAction.Block -> "Mijozni bloklash"; CustomerAction.Unblock -> "Blokdan chiqarish"; is CustomerAction.Revoke -> "Strikeni bekor qilish" },
+            title = when (p) { CustomerAction.Strike -> "Strike beriş"; CustomerAction.Block -> "Mijozni bloklaş"; CustomerAction.Unblock -> "Blokdan çiqariş"; is CustomerAction.Revoke -> "Strikeni bekor qiliş" },
             hint = when (p) {
-                CustomerAction.Strike -> "Nima bo‘lganini yozing: qaysi buyurtma, kim tasdiqladi. Strike mijozning naqd to‘lovini yopadi."
-                CustomerAction.Block -> "Sababini yozing (masalan, soxta buyurtmalar). Bloklangan mijoz hech narsa buyurtma qila olmaydi."
-                CustomerAction.Unblock -> "Nima uchun blok olib tashlanayotganini yozing."
-                is CustomerAction.Revoke -> "Strike nima uchun bekor qilinayotganini yozing. Strike o‘chirilmaydi, «bekor qilingan» deb qoladi."
+                CustomerAction.Strike -> "Nima bölganini yozing: qaysi buyurtma, kim tasdiqladi. Strike mijozning naqd tölovini yopadi."
+                CustomerAction.Block -> "Sababini yozing (masalan, soxta buyurtmalar). Bloklangan mijoz heç narsa buyurtma qila olmaydi."
+                CustomerAction.Unblock -> "Nima uçun blok olib taşlanayotganini yozing."
+                is CustomerAction.Revoke -> "Strike nima uçun bekor qilinayotganini yozing. Strike öçirilmaydi, «bekor qilingan» deb qoladi."
             },
             busy = busy, onDismiss = { pending = null },
             onSubmit = { note ->

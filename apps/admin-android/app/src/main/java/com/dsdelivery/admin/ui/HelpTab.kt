@@ -9,7 +9,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-private val SECTIONS = listOf("Murojaatlar", "Taksi", "Qaytarish", "Mijozlar")
+private val SECTIONS = listOf("Murojaatlar", "Taksi", "Qaytariş", "Mijozlar")
 
 /**
  * "Yordam": what the Telegram commands /tickets, /taxiadmin, /newtaxi, /taxiapp, /deletetaxi and the refund buttons did, plus customer strikes and blocks.

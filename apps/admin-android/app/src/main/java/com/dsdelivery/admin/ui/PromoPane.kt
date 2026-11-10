@@ -126,7 +126,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
         scope.launch {
             val jpeg = withContext(Dispatchers.IO) { ImagePrep.prepare(context, uri) }
             if (jpeg == null) {
-                onMessage("Rasmni o‘qib bo‘lmadi. Boshqa rasm tanlang.")
+                onMessage("Rasmni öqib bölmadi. Boşqa rasm tanlang.")
             } else if (unwrap(app.repository.setSlideImage(id, jpeg), onMessage) != null) {
                 onMessage("🖼 Slayd rasmi saqlandi.")
             }
@@ -153,19 +153,19 @@ fun PromoPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ro‘yxat eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
             val d = data
             if (d == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 item { Text("Aksiyalar (1+1)", style = MaterialTheme.typography.titleLarge) }
                 item {
                     Text(
-                        "Har ikki donadan arzonrog‘i bepul, puli restoran hisobidan. Aksiyali buyurtmada platforma xizmati olinmaydi (chizilib ko‘rsatiladi).",
+                        "Har ikki donadan arzonroği bepul, puli restoran hisobidan. Aksiyali buyurtmada platforma xizmati olinmaydi (çizilib körsatiladi).",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (d.promotions.isEmpty()) item { Text("Aksiya yo‘q.") }
+                if (d.promotions.isEmpty()) item { Text("Aksiya yöq.") }
                 items(d.promotions.size) { i ->
                     val p = d.promotions[i]
                     val chosen = p.dishes.filter { it.id in p.productIds }
@@ -178,7 +178,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
                             Switch(checked = p.isActive, enabled = !saving, onCheckedChange = { confirmToggle = p to it })
                         }
                         Text(
-                            if (p.isActive) "🟢 Yoqilgan" else "⚪ O‘chiq", fontWeight = FontWeight.SemiBold,
+                            if (p.isActive) "🟢 Yoqilgan" else "⚪ Öçiq", fontWeight = FontWeight.SemiBold,
                             color = if (p.isActive) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
@@ -186,26 +186,26 @@ fun PromoPane(onMessage: (String) -> Unit) {
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
-                            p.maxFreePerOrder?.let { "Bitta buyurtmada eng ko‘pi bilan $it ta bepul" } ?: "Bitta buyurtmadagi bepul donalar cheklanmagan",
+                            p.maxFreePerOrder?.let { "Bitta buyurtmada eng köpi bilan $it ta bepul" } ?: "Bitta buyurtmadagi bepul donalar çeklanmagan",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { dishesFor = p }) { Text("🍽 Taomlarni tanlash") }
+                            OutlinedButton(enabled = !saving, onClick = { dishesFor = p }) { Text("🍽 Taomlarni tanlaş") }
                             OutlinedButton(enabled = !saving, onClick = { capFor = p }) { Text("🔢 Limit") }
-                            OutlinedButton(enabled = !saving, onClick = { deletePromo = p }) { Text("🗑 O‘chirish", color = UrgentColor) }
+                            OutlinedButton(enabled = !saving, onClick = { deletePromo = p }) { Text("🗑 Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
                 item { PrimaryButton("➕ Yangi aksiya", enabled = !saving) { newPromo = true } }
 
-                item { Text("Slaydlar (bosh sahifa)", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp)) }
+                item { Text("Slaydlar (boş sahifa)", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp)) }
                 item {
                     Text(
-                        "Yangilik va chegirmalar qidiruv ustida aylanib turadi. Rasm 2:1 (masalan 1024×512) bo‘lsa, to‘liq ko‘rinadi.",
+                        "Yangilik va çegirmalar qidiruv ustida aylanib turadi. Rasm 2:1 (masalan 1024×512) bölsa, töliq körinadi.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (d.banners.isEmpty()) item { Text("Slayd yo‘q.") }
+                if (d.banners.isEmpty()) item { Text("Slayd yöq.") }
                 items(d.banners.size) { i ->
                     val s = d.banners[i]
                     Card {
@@ -214,7 +214,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
                             Column(Modifier.weight(1f)) {
                                 Text(s.title, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    s.promotionTitle?.let { "Aksiya: $it" } ?: s.restaurantName?.let { "Restoran: $it" } ?: "Hech qayerga o‘tmaydi",
+                                    s.promotionTitle?.let { "Aksiya: $it" } ?: s.restaurantName?.let { "Restoran: $it" } ?: "Heç qayerga ötmaydi",
                                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -222,10 +222,10 @@ fun PromoPane(onMessage: (String) -> Unit) {
                         }
                         Text(
                             when {
-                                !s.hasImage -> "⚠️ Rasm yo‘q"
-                                s.live -> "✅ Mijozlarga ko‘rinmoqda"
-                                s.isActive -> "⏳ Yoqilgan, lekin hozir ko‘rinmaydi (aksiyasi o‘chiq yoki taomi yo‘q)"
-                                else -> "⛔ O‘chiq"
+                                !s.hasImage -> "⚠️ Rasm yöq"
+                                s.live -> "✅ Mijozlarga körinmoqda"
+                                s.isActive -> "⏳ Yoqilgan, lekin hozir körinmaydi (aksiyasi öçiq yoki taomi yöq)"
+                                else -> "⛔ Öçiq"
                             },
                             fontWeight = FontWeight.SemiBold,
                             color = if (s.live) OkColor else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
@@ -234,7 +234,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
                             OutlinedButton(enabled = !saving, onClick = { photoFor = s.id; picker.launch("image/*") }) { Text("🖼 Rasm") }
                             OutlinedButton(enabled = !saving && i > 0, onClick = { move(d.banners, i, -1) }) { Text("⬆") }
                             OutlinedButton(enabled = !saving && i < d.banners.size - 1, onClick = { move(d.banners, i, 1) }) { Text("⬇") }
-                            OutlinedButton(enabled = !saving, onClick = { deleteSlide = s }) { Text("🗑 O‘chirish", color = UrgentColor) }
+                            OutlinedButton(enabled = !saving, onClick = { deleteSlide = s }) { Text("🗑 Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -246,20 +246,20 @@ fun PromoPane(onMessage: (String) -> Unit) {
     confirmToggle?.let { (p, on) ->
         AlertDialog(
             onDismissRequest = { if (!saving) confirmToggle = null },
-            title = { Text(if (on) "${p.title}: yoqilsinmi?" else "${p.title}: o‘chirilsinmi?") },
+            title = { Text(if (on) "${p.title}: yoqilsinmi?" else "${p.title}: öçirilsinmi?") },
             text = {
                 Text(
-                    if (on) "Mijozlar ${p.restaurantName} menyusida «Chegirmalar» toifasini ko‘radi va har ikki donadan arzonrog‘i bepul bo‘ladi (puli restoran hisobidan)."
-                    else "«Chegirmalar» toifasi va aksiya slaydi yo‘qoladi, savatdagi bepul donalar narxga qaytadi.",
+                    if (on) "Mijozlar ${p.restaurantName} menyusida «Çegirmalar» toifasini köradi va har ikki donadan arzonroği bepul böladi (puli restoran hisobidan)."
+                    else "«Çegirmalar» toifasi va aksiya slaydi yöqoladi, savatdagi bepul donalar narxga qaytadi.",
                 )
             },
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     confirmToggle = null
-                    run(if (on) "🟢 ${p.title} yoqildi." else "⚪ ${p.title} o‘chirildi.") { app.repository.setPromotionActive(p.id, on) }
-                }) { Text(if (on) "Ha, yoqish" else "Ha, o‘chirish") }
+                    run(if (on) "🟢 ${p.title} yoqildi." else "⚪ ${p.title} öçirildi.") { app.repository.setPromotionActive(p.id, on) }
+                }) { Text(if (on) "Ha, yoqiş" else "Ha, öçiriş") }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { confirmToggle = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { confirmToggle = null }) { Text("Yöq") } },
         )
     }
 
@@ -278,7 +278,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             promo = p, busy = saving, onDismiss = { capFor = null },
             onSave = { cap ->
                 capFor = null
-                run(if (cap == 0) "✅ Limit olib tashlandi." else "✅ Limit: $cap ta.") { app.repository.setPromotionCap(p.id, cap) }
+                run(if (cap == 0) "✅ Limit olib taşlandi." else "✅ Limit: $cap ta.") { app.repository.setPromotionCap(p.id, cap) }
             },
         )
     }
@@ -286,30 +286,30 @@ fun PromoPane(onMessage: (String) -> Unit) {
     deletePromo?.let { p ->
         AlertDialog(
             onDismissRequest = { if (!saving) deletePromo = null },
-            title = { Text("${p.title}: o‘chirilsinmi?") },
-            text = { Text("Aksiya butunlay o‘chadi, uning slaydi ham o‘chiriladi. Berilgan buyurtmalarga ta’sir qilmaydi.") },
+            title = { Text("${p.title}: öçirilsinmi?") },
+            text = { Text("Aksiya butunlay öçadi, uning slaydi ham öçiriladi. Berilgan buyurtmalarga ta’sir qilmaydi.") },
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     deletePromo = null
-                    run("🗑 ${p.title} o‘chirildi.") { app.repository.deletePromotion(p.id) }
-                }) { Text("Ha, o‘chirish", color = UrgentColor) }
+                    run("🗑 ${p.title} öçirildi.") { app.repository.deletePromotion(p.id) }
+                }) { Text("Ha, öçiriş", color = UrgentColor) }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { deletePromo = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { deletePromo = null }) { Text("Yöq") } },
         )
     }
 
     deleteSlide?.let { s ->
         AlertDialog(
             onDismissRequest = { if (!saving) deleteSlide = null },
-            title = { Text("«${s.title}» slaydi o‘chirilsinmi?") },
-            text = { Text("Slayd va uning rasmi o‘chadi.") },
+            title = { Text("«${s.title}» slaydi öçirilsinmi?") },
+            text = { Text("Slayd va uning rasmi öçadi.") },
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     deleteSlide = null
-                    run("🗑 Slayd o‘chirildi.") { app.repository.deleteSlide(s.id) }
-                }) { Text("Ha, o‘chirish", color = UrgentColor) }
+                    run("🗑 Slayd öçirildi.") { app.repository.deleteSlide(s.id) }
+                }) { Text("Ha, öçiriş", color = UrgentColor) }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { deleteSlide = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { deleteSlide = null }) { Text("Yöq") } },
         )
     }
 
@@ -318,7 +318,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             restaurants = data?.restaurants.orEmpty(), busy = saving, onDismiss = { newPromo = false },
             onCreate = { restaurantId, title ->
                 newPromo = false
-                run("✅ Aksiya qo‘shildi (o‘chiq). Taomlarini tanlang.") { app.repository.createPromotion(restaurantId, title) }
+                run("✅ Aksiya qöşildi (öçiq). Taomlarini tanlang.") { app.repository.createPromotion(restaurantId, title) }
             },
         )
     }
@@ -334,7 +334,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
                     saving = false
                     load()
                     if (res != null) {
-                        onMessage("Slayd qo‘shildi (o‘chiq). Endi rasm tanlang.")
+                        onMessage("Slayd qöşildi (öçiq). Endi rasm tanlang.")
                         photoFor = res.id
                         picker.launch("image/*")
                     }
@@ -361,7 +361,7 @@ private fun SlidePreview(slide: SlideDto) {
         Image(bitmap = b, contentDescription = slide.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().aspectRatio(2f).clip(shape))
     } else {
         Box(Modifier.fillMaxWidth().aspectRatio(2f).clip(shape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-            Text(if (slide.hasImage) "Rasm yuklanmoqda…" else "Rasm yo‘q", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (slide.hasImage) "Rasm yuklanmoqda…" else "Rasm yöq", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -375,7 +375,7 @@ private fun DishesDialog(promo: PromoDto, busy: Boolean, onDismiss: () -> Unit, 
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
                 Text(
-                    "1+1 faqat shu taomlarga amal qiladi. Ikki xil taom birga olinsa, arzonrog‘i bepul bo‘ladi.",
+                    "1+1 faqat şu taomlarga amal qiladi. Ikki xil taom birga olinsa, arzonroği bepul böladi.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 var lastCategory: String? = "\u0000"
@@ -396,8 +396,8 @@ private fun DishesDialog(promo: PromoDto, busy: Boolean, onDismiss: () -> Unit, 
                 }
             }
         },
-        confirmButton = { TextButton(enabled = !busy && chosen.isNotEmpty(), onClick = { onSave(promo.dishes.map { it.id }.filter { it in chosen }) }) { Text("Saqlash") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && chosen.isNotEmpty(), onClick = { onSave(promo.dishes.map { it.id }.filter { it in chosen }) }) { Text("Saqlaş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -411,15 +411,15 @@ private fun CapDialog(promo: PromoDto, busy: Boolean, onDismiss: () -> Unit, onS
         title = { Text("${promo.title}: limit") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Bitta buyurtmada eng ko‘pi bilan nechta bepul dona berilsin? Bo‘sh yoki 0 = cheklovsiz.", style = MaterialTheme.typography.bodyMedium)
+                Text("Bitta buyurtmada eng köpi bilan neçta bepul dona berilsin? Böş yoki 0 = çeklovsiz.", style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = text, onValueChange = { if (it.length <= 3 && it.all(Char::isDigit)) text = it }, label = { Text("Bepul donalar soni") },
                     singleLine = true, isError = !ok, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onSave(value ?: 0) }) { Text("Saqlash") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onSave(value ?: 0) }) { Text("Saqlaş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -433,7 +433,7 @@ private fun NewPromoDialog(restaurants: List<RestaurantRefDto>, busy: Boolean, o
         title = { Text("Yangi aksiya (1+1)") },
         text = {
             Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { if (it.length <= 60) title = it }, label = { Text("Nomi (masalan: Lavash)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = title, onValueChange = { if (it.length <= 60) title = it }, label = { Text("Nomi (masalan: Lavaş)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text("Qaysi restoranda?", fontWeight = FontWeight.SemiBold)
                 restaurants.forEach { r ->
                     Row(Modifier.fillMaxWidth().clickable { restaurantId = r.id }, verticalAlignment = Alignment.CenterVertically) {
@@ -441,11 +441,11 @@ private fun NewPromoDialog(restaurants: List<RestaurantRefDto>, busy: Boolean, o
                         Text(r.name)
                     }
                 }
-                Text("Aksiya o‘chiq holda qo‘shiladi: avval taomlarini tanlang, keyin yoqing.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Aksiya öçiq holda qöşiladi: avval taomlarini tanlang, keyin yoqing.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(enabled = !busy && ready, onClick = { onCreate(restaurantId!!, title) }) { Text("Qo‘shish") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && ready, onClick = { onCreate(restaurantId!!, title) }) { Text("Qöşiş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -463,11 +463,11 @@ private fun NewSlideDialog(
         title = { Text("Yangi slayd") },
         text = {
             Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedTextField(value = title, onValueChange = { if (it.length <= 60) title = it }, label = { Text("Sarlavha (mijozga ko‘rinmaydi)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                Text("Bosilganda nima ochilsin?", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                OutlinedTextField(value = title, onValueChange = { if (it.length <= 60) title = it }, label = { Text("Sarlavha (mijozga körinmaydi)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text("Bosilganda nima oçilsin?", fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
                 Row(Modifier.fillMaxWidth().clickable { target = "none" }, verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected = target == "none", onClick = { target = "none" })
-                    Text("Hech narsa (faqat yangilik)")
+                    Text("Heç narsa (faqat yangilik)")
                 }
                 promos.forEach { p ->
                     Row(Modifier.fillMaxWidth().clickable { target = "p:${p.id}" }, verticalAlignment = Alignment.CenterVertically) {
@@ -482,7 +482,7 @@ private fun NewSlideDialog(
                     }
                 }
                 Text(
-                    "Slayd o‘chiq holda qo‘shiladi. Rasm tanlagach, uni yoqing.",
+                    "Slayd öçiq holda qöşiladi. Rasm tanlagaç, uni yoqing.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -494,8 +494,8 @@ private fun NewSlideDialog(
                     if (target.startsWith("r:")) target.removePrefix("r:") else null,
                     if (target.startsWith("p:")) target.removePrefix("p:") else null,
                 )
-            }) { Text("Rasm tanlash") }
+            }) { Text("Rasm tanlaş") }
         },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }

@@ -66,7 +66,7 @@ fun PinScreen(create: Boolean, onDone: () -> Unit) {
     fun submitCreate() {
         if (busy) return
         when {
-            !PinLock.isValidPin(pin) -> error = "PIN ${PinLock.MIN_LEN}–${PinLock.MAX_LEN} ta raqamdan iborat bo‘lishi kerak."
+            !PinLock.isValidPin(pin) -> error = "PIN ${PinLock.MIN_LEN}–${PinLock.MAX_LEN} ta raqamdan iborat bölişi kerak."
             pin != again -> error = "PIN lar bir xil emas."
             else -> {
                 busy = true
@@ -105,8 +105,8 @@ fun PinScreen(create: Boolean, onDone: () -> Unit) {
             val until = if (wait > 0) System.currentTimeMillis() + wait * 1000L else 0L
             app.session.recordPinFailure(fails, until)
             lockedUntil = until
-            error = if (wait > 0) "PIN noto‘g‘ri. $wait soniya kuting."
-            else "PIN noto‘g‘ri. Qolgan urinish: ${PinLock.WIPE_AFTER - fails}."
+            error = if (wait > 0) "PIN notöğri. $wait soniya kuting."
+            else "PIN notöğri. Qolgan uriniş: ${PinLock.WIPE_AFTER - fails}."
             busy = false
         }
     }
@@ -115,10 +115,10 @@ fun PinScreen(create: Boolean, onDone: () -> Unit) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 48.dp),
         verticalArrangement = Arrangement.Center,
     ) {
-        Text(if (create) "PIN o‘rnating" else "PIN kiriting", style = MaterialTheme.typography.titleLarge)
+        Text(if (create) "PIN örnating" else "PIN kiriting", style = MaterialTheme.typography.titleLarge)
         Text(
-            if (create) "Telefon boshqa birovning qo‘liga tushsa, ilovani PIN himoya qiladi. Signal PIN siz ham chalinaveradi."
-            else "Ilova bir daqiqadan ko‘p fonda turdi.",
+            if (create) "Telefon boşqa birovning qöliga tuşsa, ilovani PIN himoya qiladi. Signal PIN siz ham çalinaveradi."
+            else "Ilova bir daqiqadan köp fonda turdi.",
             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge,
         )
         Spacer(Modifier.height(28.dp))
@@ -156,7 +156,7 @@ fun PinScreen(create: Boolean, onDone: () -> Unit) {
             modifier = Modifier.fillMaxWidth().height(56.dp),
         ) {
             if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-            else Text(if (create) "Saqlash" else "Ochish")
+            else Text(if (create) "Saqlaş" else "Oçiş")
         }
         if (!create) {
             Spacer(Modifier.height(12.dp))
@@ -168,7 +168,7 @@ fun PinScreen(create: Boolean, onDone: () -> Unit) {
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("PIN ni unutdim — Telegram kodi bilan qayta kirish") }
+            ) { Text("PIN ni unutdim — Telegram kodi bilan qayta kiriş") }
         }
     }
 }

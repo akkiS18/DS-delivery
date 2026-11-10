@@ -41,8 +41,8 @@ import kotlinx.coroutines.launch
 
 private fun statusText(status: String, byPlatform: Boolean = false): String = when (status) {
     "REQUESTED" -> "restoran javobi kutilmoqda"
-    "APPROVED" -> if (byPlatform) "pul platforma kartasida — SIZ qaytarasiz" else "restoran pulni qaytarishi kerak"
-    "SENT" -> if (byPlatform) "siz yubordingiz — mijoz tasdig‘i kutilmoqda" else "restoran yubordi — mijoz tasdig‘i kutilmoqda"
+    "APPROVED" -> if (byPlatform) "pul platforma kartasida — SIZ qaytarasiz" else "restoran pulni qaytarişi kerak"
+    "SENT" -> if (byPlatform) "siz yubordingiz — mijoz tasdiği kutilmoqda" else "restoran yubordi — mijoz tasdiği kutilmoqda"
     "DISPUTED" -> "mijoz: «pul KELMADI»"
     "CONFIRMED" -> "yopilgan (pul kelgani tasdiqlangan)"
     "REJECTED" -> "restoran rad etdi"
@@ -57,7 +57,7 @@ private fun statusColor(status: String): Color = when (status) {
 }
 
 private fun actionText(action: String): String = when (action) {
-    "REQUESTED" -> "so‘rov yuborildi"
+    "REQUESTED" -> "sörov yuborildi"
     "APPROVED" -> "restoran qabul qildi"
     "REJECTED" -> "rad etildi"
     "SENT" -> "pul yuborildi deb belgilandi"
@@ -75,7 +75,7 @@ private fun actorText(actor: String): String = when (actor) {
 }
 
 private fun amountLine(r: RefundRowDto): String =
-    "To‘langan: ${somText(r.paidSom)}" + (r.approvedSom?.let { " • qaytariladi: ${somText(it)}" } ?: "")
+    "Tölangan: ${somText(r.paidSom)}" + (r.approvedSom?.let { " • qaytariladi: ${somText(it)}" } ?: "")
 
 /** Refunds (the bot's /refunds list and "Izoh bilan tasdiqlash"). The platform never moves money; only the restaurant does. */
 @Composable
@@ -116,12 +116,12 @@ private fun RefundsHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor) }
-            item { Text("💸 Ochiq qaytarishlar", style = MaterialTheme.typography.titleMedium) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
+            item { Text("💸 Oçiq qaytarişlar", style = MaterialTheme.typography.titleMedium) }
             val list = open
-            if (list == null) item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (list == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             else {
-                if (list.isEmpty()) item { Text("✅ Ochiq qaytarish so‘rovi yo‘q.", style = MaterialTheme.typography.bodyLarge, color = OkColor) }
+                if (list.isEmpty()) item { Text("✅ Oçiq qaytariş sörovi yöq.", style = MaterialTheme.typography.bodyLarge, color = OkColor) }
                 items(list.size) { i -> RefundCard(list[i], onOpen) }
             }
             if (recent.isNotEmpty()) {
@@ -183,34 +183,34 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("← Orqaga") }
         }
-        if (offline) Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor)
+        if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor)
         val d = detail
         if (d == null) {
-            Text(if (offline) "Yuklab bo‘lmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
                     Card {
-                        Text("💸 Qaytarish #${d.number} • buyurtma #${d.orderCode}", style = MaterialTheme.typography.titleMedium)
+                        Text("💸 Qaytariş #${d.number} • buyurtma #${d.orderCode}", style = MaterialTheme.typography.titleMedium)
                         Text(d.restaurantName, style = MaterialTheme.typography.bodyLarge)
                         Text(statusText(d.status, d.byPlatform), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (d.canSend) UrgentColor else statusColor(d.status))
-                        Text("To‘langan: ${somText(d.paidSom)}", style = MaterialTheme.typography.bodyMedium)
+                        Text("Tölangan: ${somText(d.paidSom)}", style = MaterialTheme.typography.bodyMedium)
                         if (d.approvedSom != null) Text("Qaytariladi: ${somText(d.approvedSom)}", style = MaterialTheme.typography.bodyMedium)
                         if (d.reason != null) Text("Sabab: ${d.reason}", style = MaterialTheme.typography.bodyMedium)
-                        if (d.rejectReason != null) Text("Rad etish sababi: ${d.rejectReason}", style = MaterialTheme.typography.bodyMedium)
-                        if (d.hasReceipt) Text("Restoran chek/bank raqamini ko‘rsatgan.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (d.rejectReason != null) Text("Rad etiş sababi: ${d.rejectReason}", style = MaterialTheme.typography.bodyMedium)
+                        if (d.hasReceipt) Text("Restoran çek/bank raqamini körsatgan.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         if (d.confirmNote != null) Text("Izoh (${actorText(d.confirmedByType ?: "")}): ${d.confirmNote}", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
                 item {
                     Card {
-                        Text("Mustaqil tekshirish uchun", style = MaterialTheme.typography.titleMedium)
+                        Text("Mustaqil tekşiriş uçun", style = MaterialTheme.typography.titleMedium)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             val rp = d.restaurantPhone?.takeIf { dialable(it).isNotEmpty() }
                             val cp = d.customerPhone?.takeIf { dialable(it).isNotEmpty() }
                             if (rp != null) OutlinedButton(onClick = { dial(rp) }) { Text("📞 ${d.restaurantName}") }
                             if (cp != null) OutlinedButton(onClick = { dial(cp) }) { Text("📞 Mijoz${d.customerName?.let { " ($it)" } ?: ""}") }
-                            if (rp == null && cp == null) Text("Telefon raqami yo‘q.", style = MaterialTheme.typography.bodyMedium)
+                            if (rp == null && cp == null) Text("Telefon raqami yöq.", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -218,9 +218,9 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                     Card {
                         Text("Pul platforma kartasida", style = MaterialTheme.typography.titleMedium, color = UrgentColor)
                         Text(
-                            "Mijoz restoranga emas, platforma kartasiga to‘lagan, shuning uchun qaytarishni SIZ yuborasiz: mijoz bilan bog‘lanib karta raqamini so‘rang, " +
-                                "${somText(d.approvedSom ?: d.paidSom)} ni platforma kartasidan o‘tkazing, so‘ng bank ma’lumotini (kvitansiya raqami) yozing. " +
-                                "Ilova pul o‘tkazmaydi.",
+                            "Mijoz restoranga emas, platforma kartasiga tölagan, şuning uçun qaytarişni SIZ yuborasiz: mijoz bilan boğlanib karta raqamini sörang, " +
+                                "${somText(d.approvedSom ?: d.paidSom)} ni platforma kartasidan ötkazing, söng bank ma’lumotini (kvitansiya raqami) yozing. " +
+                                "Ilova pul ötkazmaydi.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         PrimaryButton(if (d.status == "DISPUTED") "💸 Qayta yubordim" else "💸 Qaytardim", enabled = !busy) { sending = true }
@@ -230,13 +230,13 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                     if (d.canConfirm) {
                         Card {
                             Text(
-                                "Pul mijozga yetib borganini restoran hisobi va mijoz bilan gaplashib tekshiring. Tasdiqlash yozma izoh bilan qayd etiladi. DS pul o‘tkazmaydi.",
+                                "Pul mijozga yetib borganini restoran hisobi va mijoz bilan gaplaşib tekşiring. Tasdiqlaş yozma izoh bilan qayd etiladi. DS pul ötkazmaydi.",
                                 style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                             )
-                            PrimaryButton("✅ Izoh bilan tasdiqlash", enabled = !busy) { confirming = true }
+                            PrimaryButton("✅ Izoh bilan tasdiqlaş", enabled = !busy) { confirming = true }
                         }
                     } else if (d.status == "CONFIRMED" || d.status == "REJECTED") {
-                        Text("Bu so‘rov yopilgan.", style = MaterialTheme.typography.bodyLarge, color = OkColor)
+                        Text("Bu sörov yopilgan.", style = MaterialTheme.typography.bodyLarge, color = OkColor)
                     } else if (!d.canSend) {
                         Text("Restoran hali pulni yubormagan — administrator tasdiqlay olmaydi.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -258,14 +258,14 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                 val res = unwrap(app.repository.sentRefund(id, reference), onMessage)
                 busy = false
                 sending = false
-                if (res != null) onMessage("✅ Qaytarish belgilandi. Mijozdan tasdiq so‘raladi.")
+                if (res != null) onMessage("✅ Qaytariş belgilandi. Mijozdan tasdiq söraladi.")
                 load()
             }
         },
     )
     if (confirming) NoteDialog(
-        title = "Qaytarishni tasdiqlash",
-        hint = "Nima tekshirilganini yozing: restoran hisobi ko‘chirmasi, mijoz bilan telefon orqali gaplashuv va hokazo.",
+        title = "Qaytarişni tasdiqlaş",
+        hint = "Nima tekşirilganini yozing: restoran hisobi köçirmasi, mijoz bilan telefon orqali gaplaşuv va hokazo.",
         busy = busy, onDismiss = { confirming = false },
         onSubmit = { note ->
             busy = true
@@ -273,7 +273,7 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                 val res = unwrap(app.repository.confirmRefund(id, note), onMessage)
                 busy = false
                 confirming = false
-                if (res != null) onMessage("✅ Qaytarish tasdiqlandi.")
+                if (res != null) onMessage("✅ Qaytariş tasdiqlandi.")
                 load() // a refusal (CHANGED) also means someone else moved it on: show the current state
             }
         },
@@ -286,17 +286,17 @@ private fun SendRefundDialog(amountSom: Long, busy: Boolean, onDismiss: () -> Un
     val ok = reference.trim().length in 4..64 && reference.any { it.isDigit() }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Qaytarishni belgilash") },
+        title = { Text("Qaytarişni belgilaş") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("${somText(amountSom)} ni mijozga bankdan o‘zingiz o‘tkazib bo‘lgach bosing. Bank ma’lumoti (kvitansiya yoki tranzaksiya raqami) shart; bitta o‘tkazma faqat bitta qaytarishga yoziladi.", style = MaterialTheme.typography.bodyLarge)
+                Text("${somText(amountSom)} ni mijozga bankdan özingiz ötkazib bölgaç bosing. Bank ma’lumoti (kvitansiya yoki tranzaksiya raqami) şart; bitta ötkazma faqat bitta qaytarişga yoziladi.", style = MaterialTheme.typography.bodyLarge)
                 androidx.compose.material3.OutlinedTextField(
                     value = reference, onValueChange = { if (it.length <= 64) reference = it }, label = { Text("Bank ma’lumoti") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onSubmit(reference) }) { Text("Ha, o‘tkazdim") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && ok, onClick = { onSubmit(reference) }) { Text("Ha, ötkazdim") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }

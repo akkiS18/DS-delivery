@@ -45,8 +45,8 @@ private const val NOTE_MIN = 10
 private const val NOTE_MAX = 300
 
 private val STATUS_LABEL = mapOf(
-    "SCHEDULED" to "rejalashtirilgan", "REQUESTED" to "javob kutilmoqda", "ACCEPTED" to "qabul qilingan", "ASSIGNED" to "haydovchi yuborilgan",
-    "DELIVERED" to "yetkazilgan", "DECLINED" to "rad etilgan", "NEEDS_HELP" to "yordam kerak", "CANCELLATION_PENDING" to "javob kechikdi",
+    "SCHEDULED" to "rejalaştirilgan", "REQUESTED" to "javob kutilmoqda", "ACCEPTED" to "qabul qilingan", "ASSIGNED" to "haydovçi yuborilgan",
+    "DELIVERED" to "yetkazilgan", "DECLINED" to "rad etilgan", "NEEDS_HELP" to "yordam kerak", "CANCELLATION_PENDING" to "javob keçikdi",
     "CANCELLED" to "bekor qilingan (tarix)",
 )
 private fun label(status: String): String = STATUS_LABEL[status] ?: status
@@ -96,17 +96,17 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
             item { Text("🛠 Taksi muammolari", style = MaterialTheme.typography.titleMedium) }
             val ps = problems
-            if (ps == null) item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (ps == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             else {
-                if (ps.isEmpty()) item { Text("✅ Hal qilinishi kerak bo‘lgan taksi buyurtmasi yo‘q.", style = MaterialTheme.typography.bodyLarge, color = OkColor) }
+                if (ps.isEmpty()) item { Text("✅ Hal qilinişi kerak bölgan taksi buyurtmasi yöq.", style = MaterialTheme.typography.bodyLarge, color = OkColor) }
                 items(ps.size) { i ->
                     val p = ps[i]
                     Card(Modifier.clickable { onOpen(p.id) }) {
                         Text("#${p.orderCode} • ${p.restaurantName}", style = MaterialTheme.typography.titleMedium)
-                        Text("${p.companyName} — ${label(p.status)} (urinish #${p.attemptNo})", style = MaterialTheme.typography.bodyMedium, color = WarnColor, fontWeight = FontWeight.SemiBold)
+                        Text("${p.companyName} — ${label(p.status)} (uriniş #${p.attemptNo})", style = MaterialTheme.typography.bodyMedium, color = WarnColor, fontWeight = FontWeight.SemiBold)
                         Text(stampOf(p.updatedAt), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -115,16 +115,16 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
             item { PrimaryButton("➕ Yangi kompaniya", enabled = !saving) { newOpen = true } }
             val cs = companies
             if (cs != null) {
-                if (cs.isEmpty()) item { Text("Kompaniyalar yo‘q.") }
+                if (cs.isEmpty()) item { Text("Kompaniyalar yöq.") }
                 items(cs.size) { i ->
                     val c = cs[i]
                     Card {
                         Text(c.name, style = MaterialTheme.typography.titleMedium)
                         Text(
                             when {
-                                !c.isActive -> "⛔ o‘chirilgan"
-                                c.reachable -> "✅ buyurtma olishi mumkin"
-                                else -> "⚠️ ilova logini yo‘q — buyurtma olmaydi"
+                                !c.isActive -> "⛔ öçirilgan"
+                                c.reachable -> "✅ buyurtma olişi mumkin"
+                                else -> "⚠️ ilova logini yöq — buyurtma olmaydi"
                             },
                             style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
                             color = if (c.isActive && c.reachable) OkColor else WarnColor,
@@ -139,7 +139,7 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
                                     saving = false
                                     if (res != null) removal = c to res.plan
                                 }
-                            }) { Text("🗑 O‘chirish", color = UrgentColor) }
+                            }) { Text("🗑 Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -187,7 +187,7 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
                     val res = unwrap(app.repository.removeTaxiCompany(c.id, expected), onMessage)
                     saving = false
                     removal = null
-                    if (res != null) onMessage(if (res.result == "DELETED") "🗑 ${c.name} o‘chirildi." else "🗄 ${c.name} arxivlandi.")
+                    if (res != null) onMessage(if (res.result == "DELETED") "🗑 ${c.name} öçirildi." else "🗄 ${c.name} arxivlandi.")
                     load()
                 }
             },
@@ -205,13 +205,13 @@ private fun NewCompanyDialog(busy: Boolean, onDismiss: () -> Unit, onCreate: (St
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { if (it.length <= 80) name = it }, label = { Text("Kompaniya nomi") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text(
-                    "DS Taxi ilovasiga kirish uchun login va parol beriladi. Parol keyingi oynada BIR MARTA ko‘rsatiladi.",
+                    "DS Taxi ilovasiga kiriş uçun login va parol beriladi. Parol keyingi oynada BIR MARTA körsatiladi.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && name.trim().length >= 2, onClick = { onCreate(name) }) { Text("Qo‘shish") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && name.trim().length >= 2, onClick = { onCreate(name) }) { Text("Qöşiş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -232,7 +232,7 @@ internal fun NoteDialog(title: String, hint: String, busy: Boolean, onDismiss: (
             }
         },
         confirmButton = { TextButton(enabled = !busy && note.trim().length in NOTE_MIN..NOTE_MAX, onClick = { onSubmit(note) }) { Text("Tasdiqlayman") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }
 
@@ -273,10 +273,10 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("← Orqaga") }
         }
-        if (offline) Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor)
+        if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor)
         val d = detail
         if (d == null) {
-            Text(if (offline) "Yuklab bo‘lmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
@@ -284,7 +284,7 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                         Text("🚕 #${d.orderCode} • ${d.restaurantName}", style = MaterialTheme.typography.titleMedium)
                         Text("Manzil: ${d.addressText}", style = MaterialTheme.typography.bodyMedium)
                         Text("Buyurtma: ${d.orderStatus}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Joriy urinish #${d.attemptNo}: ${d.companyName} — ${label(d.status)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Text("Joriy uriniş #${d.attemptNo}: ${d.companyName} — ${label(d.status)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                         Text("Tarix:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         d.history.forEach { Text("  ${it.attemptNo}. ${it.companyName} — ${label(it.status)}", style = MaterialTheme.typography.bodyMedium) }
                     }
@@ -293,17 +293,17 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                     if (d.open) {
                         Card {
                             Text(
-                                "⚠️ Qayta yuborishdan oldin haydovchi YUBORILMAGANINI operator bilan telefon orqali aniqlang. Yuborilgan bo‘lsa — «Haydovchi allaqachon yuborilgan»ni bosing: yangi buyurtma yaratilmaydi.",
+                                "⚠️ Qayta yuborişdan oldin haydovçi YUBORILMAGANINI operator bilan telefon orqali aniqlang. Yuborilgan bölsa — «Haydovçi allaqaçon yuborilgan»ni bosing: yangi buyurtma yaratilmaydi.",
                                 style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                             )
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("RETRY_SAME") }) { Text("🔁 Shu kompaniyaga qayta yuborish") }
-                                OutlinedButton(enabled = !busy, onClick = { picking = true }) { Text("🔀 Boshqa kompaniyaga o‘tkazish") }
-                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("DRIVER_SENT") }) { Text("🚕 Haydovchi allaqachon yuborilgan") }
+                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("RETRY_SAME") }) { Text("🔁 Şu kompaniyaga qayta yuboriş") }
+                                OutlinedButton(enabled = !busy, onClick = { picking = true }) { Text("🔀 Boşqa kompaniyaga ötkaziş") }
+                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("DRIVER_SENT") }) { Text("🚕 Haydovçi allaqaçon yuborilgan") }
                             }
                         }
                     } else {
-                        Text("Holat o‘zgargan — qo‘lda amal kerak emas.", style = MaterialTheme.typography.bodyLarge, color = OkColor)
+                        Text("Holat özgargan — qölda amal kerak emas.", style = MaterialTheme.typography.bodyLarge, color = OkColor)
                     }
                 }
             }
@@ -314,10 +314,10 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
         val d = detail
         AlertDialog(
             onDismissRequest = { picking = false },
-            title = { Text("Qaysi kompaniyaga o‘tkazamiz?") },
+            title = { Text("Qaysi kompaniyaga ötkazamiz?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (d == null || d.companies.isEmpty()) Text("Mos faol kompaniya yo‘q.")
+                    if (d == null || d.companies.isEmpty()) Text("Mos faol kompaniya yöq.")
                     d?.companies?.forEach { c ->
                         OutlinedButton(modifier = Modifier.fillMaxWidth(), onClick = { picking = false; pending = RecoverAction("REASSIGN", c.id, c.name) }) { Text(c.name) }
                     }
@@ -331,9 +331,9 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
     pending?.let { p ->
         val driverSent = p.action == "DRIVER_SENT"
         NoteDialog(
-            title = when (p.action) { "RETRY_SAME" -> "Qayta yuborish"; "REASSIGN" -> "${p.companyName} ga o‘tkazish"; else -> "Haydovchi yuborilgan" },
-            hint = if (driverSent) "Haydovchi qaysi kompaniya/operator orqali yuborilganini yozing."
-            else "Operator bilan gaplashib, bu urinish uchun haydovchi YUBORILMAGANINI yozma tasdiqlang.",
+            title = when (p.action) { "RETRY_SAME" -> "Qayta yuboriş"; "REASSIGN" -> "${p.companyName} ga ötkaziş"; else -> "Haydovçi yuborilgan" },
+            hint = if (driverSent) "Haydovçi qaysi kompaniya/operator orqali yuborilganini yozing."
+            else "Operator bilan gaplaşib, bu uriniş uçun haydovçi YUBORILMAGANINI yozma tasdiqlang.",
             busy = busy, onDismiss = { pending = null },
             onSubmit = { note ->
                 busy = true
@@ -343,8 +343,8 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                     pending = null
                     if (res != null) {
                         onMessage(
-                            if (res.action == "DRIVER_SENT") "✅ Haydovchi yuborilgani qayd etildi."
-                            else "✅ Yangi so‘rov ${res.companyName ?: ""} operatoriga navbatga qo‘yildi (bir necha soniyada yuboriladi).",
+                            if (res.action == "DRIVER_SENT") "✅ Haydovçi yuborilgani qayd etildi."
+                            else "✅ Yangi sörov ${res.companyName ?: ""} operatoriga navbatga qöyildi (bir neça soniyada yuboriladi).",
                         )
                     }
                     load() // a refusal (CHANGED) also means the situation moved on: show the current state

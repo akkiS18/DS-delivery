@@ -96,7 +96,7 @@ class Watcher(
     private suspend fun <T> handle(r: ApiResult<T>): String? = when (r) {
         is ApiResult.Ok -> { pollOnce(); null }
         is ApiResult.Unauthorized -> { signedOut(); "Sessiya tugagan. Qayta kiring." }
-        is ApiResult.Offline -> "Internet yo‘q. Qayta urinib ko‘ring."
+        is ApiResult.Offline -> "Internet yöq. Qayta urinib köring."
         is ApiResult.Locked -> "Biroz kuting."
         is ApiResult.Failed -> { pollOnce(); r.message ?: "Amal bajarilmadi." }
     }
@@ -138,7 +138,7 @@ class Watcher(
 
     private fun dutyText(open: Int, ringing: Int): String = when {
         ringing > 0 -> "$ringing ta holat diqqat talab qiladi"
-        open > 0 -> "$open ta ochiq holat (jiringlamaydi)"
+        open > 0 -> "$open ta oçiq holat (jiringlamaydi)"
         else -> "Hammasi joyida"
     }
 

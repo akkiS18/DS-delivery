@@ -23,12 +23,12 @@ class Notifier(private val context: Context) {
 
     init {
         if (Build.VERSION.SDK_INT >= 26) {
-            manager.createNotificationChannel(NotificationChannel(CHANNEL_DUTY, "Navbatchilik", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Ilova ochiq turganini ko‘rsatadi"
+            manager.createNotificationChannel(NotificationChannel(CHANNEL_DUTY, "Navbatçilik", NotificationManager.IMPORTANCE_LOW).apply {
+                description = "Ilova oçiq turganini körsatadi"
                 setShowBadge(false)
             })
             manager.createNotificationChannel(NotificationChannel(CHANNEL_NOTICE, "Xabarlar", NotificationManager.IMPORTANCE_DEFAULT).apply {
-                description = "Shubhali pul, murojaatlar, kartalar: bir marta xabar, jiringlamaydi"
+                description = "Şubhali pul, murojaatlar, kartalar: bir marta xabar, jiringlamaydi"
                 lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             })
             manager.createNotificationChannel(NotificationChannel(CHANNEL_NOTICE_QUIET, "Xabarlar (jim soatlarda)", NotificationManager.IMPORTANCE_LOW).apply {
@@ -86,7 +86,7 @@ class Notifier(private val context: Context) {
             .setOnlyAlertOnce(true)
             .setContentIntent(openApp())
             .setFullScreenIntent(openApp(), true)
-        if (ringing) b.addAction(0, "Ovozni o‘chirish", silence)
+        if (ringing) b.addAction(0, "Ovozni öçiriş", silence)
         manager.notify(ID_ALERT, b.build())
     }
 

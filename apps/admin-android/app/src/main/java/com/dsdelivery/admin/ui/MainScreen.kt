@@ -78,7 +78,7 @@ data class Readiness(val notifications: Boolean, val battery: Boolean, val volum
 }
 
 /** SETTINGS is not in the bottom bar (the gear icon in the top bar opens it): five tabs is the most a bottom bar should hold. */
-private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), MANAGE("Boshqaruv"), HELP("Yordam"), SETTINGS("Sozlamalar") }
+private enum class Tab(val label: String) { ATTENTION("Diqqat"), MONEY("Pul"), CARDS("Kartalar"), MANAGE("Boşqaruv"), HELP("Yordam"), SETTINGS("Sozlamalar") }
 
 /** Which tab deals with an attention item (null = the card itself is all there is to it). */
 private fun tabFor(kind: String): Tab? = when (kind) {
@@ -210,7 +210,7 @@ private fun AttentionTab(
                             Text("Hammasi joyida", style = MaterialTheme.typography.titleMedium)
                             Spacer(Modifier.size(6.dp))
                             Text(
-                                if (duty) "Biror narsa osilib qolsa, telefon signal beradi." else "Navbatchilik o‘chirilgan: ilova yopiq bo‘lsa signal chalinmaydi.",
+                                if (duty) "Biror narsa osilib qolsa, telefon signal beradi." else "Navbatçilik öçirilgan: ilova yopiq bölsa signal çalinmaydi.",
                                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -225,7 +225,7 @@ private fun AttentionTab(
                     onCall = { onCall(item.key, it) },
                     onAck = { onAck(item.key, it) },
                     onSilence = onSilence,
-                    openLabel = tabFor(item.kind)?.let { "${it.label}ni ochish" },
+                    openLabel = tabFor(item.kind)?.let { "${it.label}ni oçiş" },
                     onOpen = { tabFor(item.kind)?.let { onOpen(it, helpSectionFor(item.kind)) } },
                 )
             }
@@ -236,10 +236,10 @@ private fun AttentionTab(
 @Composable
 private fun StatusStrip(state: WatchState, duty: Boolean) {
     val (text, color) = when {
-        state.offline -> "Ulanish yo‘q — yangi holatlar kelmayapti" to UrgentColor
-        !duty -> "Navbatchilik o‘chirilgan" to NeutralColor
-        state.quietActive -> "Jim soat: faqat shoshilinch holatlar signal beradi" to NeutralColor
-        else -> "Ulangan • navbatchilik yoqilgan" to OkColor
+        state.offline -> "Ulaniş yöq — yangi holatlar kelmayapti" to UrgentColor
+        !duty -> "Navbatçilik öçirilgan" to NeutralColor
+        state.quietActive -> "Jim soat: faqat şoşilinç holatlar signal beradi" to NeutralColor
+        else -> "Ulangan • navbatçilik yoqilgan" to OkColor
     }
     Row(
         Modifier.fillMaxWidth().background(color.copy(alpha = 0.12f), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
@@ -254,17 +254,17 @@ private fun StatusStrip(state: WatchState, duty: Boolean) {
 @Composable
 private fun ReadinessBanner(r: Readiness, onFix: () -> Unit) {
     val problems = listOfNotNull(
-        if (!r.notifications) "bildirishnomalar o‘chirilgan" else null,
+        if (!r.notifications) "bildirişnomalar öçirilgan" else null,
         if (!r.volume) "signal ovozi past" else null,
-        if (!r.battery) "batareya tejash yoqilgan" else null,
-        if (!r.fullScreen) "to‘liq ekran ruxsati yo‘q" else null,
+        if (!r.battery) "batareya tejaş yoqilgan" else null,
+        if (!r.fullScreen) "töliq ekran ruxsati yöq" else null,
     )
     Column(
         Modifier.fillMaxWidth().background(WarnColor.copy(alpha = 0.12f), RoundedCornerShape(12.dp)).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Signal ishonchli ishlamasligi mumkin", color = WarnColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
+        Text("Signal işonçli işlamasligi mumkin", color = WarnColor, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge)
         Text(problems.joinToString(", ").replaceFirstChar { it.uppercase() } + ".", style = MaterialTheme.typography.bodyMedium)
-        Button(onClick = onFix, colors = ButtonDefaults.buttonColors(containerColor = WarnColor)) { Text("Tuzatish") }
+        Button(onClick = onFix, colors = ButtonDefaults.buttonColors(containerColor = WarnColor)) { Text("Tuzatiş") }
     }
 }

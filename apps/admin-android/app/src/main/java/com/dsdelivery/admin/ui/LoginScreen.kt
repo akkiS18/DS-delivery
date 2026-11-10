@@ -68,9 +68,9 @@ fun LoginScreen(onSignedIn: () -> Unit) {
                     code = ""
                     resendIn = 60
                 }
-                is ApiResult.Locked -> error = "Juda ko‘p urinish. ${minutes(r.retryAfterSeconds)} daqiqadan keyin qayta urinib ko‘ring."
-                is ApiResult.Offline -> error = "Internet yo‘q. Ulanishni tekshiring."
-                is ApiResult.Unauthorized, is ApiResult.Failed -> error = "So‘rov bajarilmadi. Telegram ID ni tekshirib, qayta urinib ko‘ring."
+                is ApiResult.Locked -> error = "Juda köp uriniş. ${minutes(r.retryAfterSeconds)} daqiqadan keyin qayta urinib köring."
+                is ApiResult.Offline -> error = "Internet yöq. Ulanişni tekşiring."
+                is ApiResult.Unauthorized, is ApiResult.Failed -> error = "Sörov bajarilmadi. Telegram ID ni tekşirib, qayta urinib köring."
             }
             busy = false
         }
@@ -88,10 +88,10 @@ fun LoginScreen(onSignedIn: () -> Unit) {
                     code = ""
                     onSignedIn()
                 }
-                is ApiResult.Locked -> error = "Juda ko‘p noto‘g‘ri urinish. ${minutes(r.retryAfterSeconds)} daqiqadan keyin qayta urinib ko‘ring."
-                is ApiResult.Offline -> error = "Internet yo‘q. Ulanishni tekshiring."
-                is ApiResult.Unauthorized -> error = "Kod noto‘g‘ri yoki muddati o‘tgan."
-                is ApiResult.Failed -> error = if (r.code == 401) "Kod noto‘g‘ri yoki muddati o‘tgan." else "Kirib bo‘lmadi. Birozdan keyin qayta urinib ko‘ring."
+                is ApiResult.Locked -> error = "Juda köp notöğri uriniş. ${minutes(r.retryAfterSeconds)} daqiqadan keyin qayta urinib köring."
+                is ApiResult.Offline -> error = "Internet yöq. Ulanişni tekşiring."
+                is ApiResult.Unauthorized -> error = "Kod notöğri yoki muddati ötgan."
+                is ApiResult.Failed -> error = if (r.code == 401) "Kod notöğri yoki muddati ötgan." else "Kirib bölmadi. Birozdan keyin qayta urinib köring."
             }
             busy = false
         }
@@ -102,7 +102,7 @@ fun LoginScreen(onSignedIn: () -> Unit) {
         verticalArrangement = Arrangement.Center,
     ) {
         Text("DS Admin", style = MaterialTheme.typography.titleLarge)
-        Text("Administrator uchun", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
+        Text("Administrator uçun", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.height(32.dp))
 
         if (!codeSent) {
@@ -120,11 +120,11 @@ fun LoginScreen(onSignedIn: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Button(onClick = { requestCode() }, enabled = !busy && telegramId.isNotBlank(), modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                else Text("Kod yuborish")
+                else Text("Kod yuboriş")
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                "Kod DS Delivery botidagi Telegram chatingizga keladi. Bot bilan avval „/start“ bosilgan bo‘lishi kerak.",
+                "Kod DS Delivery botidagi Telegram çatingizga keladi. Bot bilan avval „/start“ bosilgan bölişi kerak.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
             )
         } else {
@@ -144,13 +144,13 @@ fun LoginScreen(onSignedIn: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Button(onClick = { verify() }, enabled = !busy && code.length == 6, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                else Text("Kirish")
+                else Text("Kiriş")
             }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = { requestCode() }, enabled = !busy && resendIn == 0, modifier = Modifier.fillMaxWidth()) {
-                Text(if (resendIn > 0) "Kodni qayta yuborish ($resendIn)" else "Kodni qayta yuborish")
+                Text(if (resendIn > 0) "Kodni qayta yuboriş ($resendIn)" else "Kodni qayta yuboriş")
             }
-            TextButton(onClick = { codeSent = false; code = ""; error = null }, modifier = Modifier.fillMaxWidth()) { Text("Telegram ID ni o‘zgartirish") }
+            TextButton(onClick = { codeSent = false; code = ""; error = null }, modifier = Modifier.fillMaxWidth()) { Text("Telegram ID ni özgartiriş") }
         }
     }
 }

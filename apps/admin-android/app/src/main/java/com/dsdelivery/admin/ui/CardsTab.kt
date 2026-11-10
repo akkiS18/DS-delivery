@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 private fun statusText(status: String): String = when (status) {
     "PENDING" -> "⏳ tasdiq kutmoqda"
     "ACTIVE" -> "✅ faol"
-    "DISABLED" -> "⏸ o‘chirilgan"
+    "DISABLED" -> "⏸ öçirilgan"
     "REJECTED" -> "❌ rad etilgan"
     else -> status
 }
@@ -94,11 +94,11 @@ fun CardsTab(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
             val cs = cards
             val ps = pool
             if (cs == null || ps == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
                 val pending = cs.cards.filter { it.status == "PENDING" }
                 item { Text("Tasdiq kutayotgan kartalar", style = MaterialTheme.typography.titleMedium) }
@@ -118,19 +118,19 @@ fun CardsTab(onMessage: (String) -> Unit) {
                     Spacer(Modifier.height(4.dp))
                     Text("Platforma kartalari", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (ps.capSom == 0L) "Chegara yo‘q (cheklanmagan)." else "Har bir karta uchun ${ps.days} kunda ${somText(ps.capSom)} chegara. 90% dan oshganda yangi to‘lovlar boshqa kartaga o‘tadi.",
+                        if (ps.capSom == 0L) "Çegara yöq (çeklanmagan)." else "Har bir karta uçun ${ps.days} kunda ${somText(ps.capSom)} çegara. 90% dan oşganda yangi tölovlar boşqa kartaga ötadi.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (ps.cards.isEmpty()) item { Text("Platforma kartasi yo‘q.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (ps.cards.isEmpty()) item { Text("Platforma kartasi yöq.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(ps.cards.size) { i -> PoolCardRow(ps.cards[i]) }
-                item { OutlinedButton(onClick = { addOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Platforma kartasi qo‘shish") } }
+                item { OutlinedButton(onClick = { addOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Platforma kartasi qöşiş") } }
 
                 item {
                     Spacer(Modifier.height(4.dp))
-                    Text("Pul qayerga tushadi", style = MaterialTheme.typography.titleMedium)
+                    Text("Pul qayerga tuşadi", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Yoqilgan restoranning mijoz to‘lovlari platforma kartalariga tushadi, o‘chirilgan bo‘lsa restoranning o‘z kartalariga.",
+                        "Yoqilgan restoranning mijoz tölovlari platforma kartalariga tuşadi, öçirilgan bölsa restoranning öz kartalariga.",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -140,7 +140,7 @@ fun CardsTab(onMessage: (String) -> Unit) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(r.name, style = MaterialTheme.typography.titleMedium)
-                                Text(if (r.collectsToPlatform) "Platforma kartalariga" else "Restoranning o‘z kartalariga", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(if (r.collectsToPlatform) "Platforma kartalariga" else "Restoranning öz kartalariga", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Switch(checked = r.collectsToPlatform, enabled = !saving, onCheckedChange = { collect = r to it })
                         }
@@ -189,7 +189,7 @@ fun CardsTab(onMessage: (String) -> Unit) {
                     saving = false
                     if (r != null) {
                         addOpen = false
-                        onMessage("Karta ***${r.last4} qo‘shildi. Pastdagi „Tasdiq kutayotgan kartalar“ ro‘yxatida tasdiqlang.")
+                        onMessage("Karta ***${r.last4} qöşildi. Pastdagi „Tasdiq kutayotgan kartalar“ röyxatida tasdiqlang.")
                         load()
                     }
                 }
@@ -200,11 +200,11 @@ fun CardsTab(onMessage: (String) -> Unit) {
     collect?.let { (r, on) ->
         AlertDialog(
             onDismissRequest = { if (!saving) collect = null },
-            title = { Text(if (on) "${r.name}: platforma kartalariga o‘tkazasizmi?" else "${r.name}: o‘z kartalariga qaytarasizmi?") },
+            title = { Text(if (on) "${r.name}: platforma kartalariga ötkazasizmi?" else "${r.name}: öz kartalariga qaytarasizmi?") },
             text = {
                 Text(
-                    if (on) "Bu restoranning mijoz to‘lovlari platforma kartalariga tushadi. Restoranga pul alohida o‘tkaziladi. Hozir to‘lanmagan karta to‘lovi bo‘lsa, o‘tkazib bo‘lmaydi."
-                    else "Bu restoranning mijoz to‘lovlari yana restoranning o‘z kartalariga tushadi.",
+                    if (on) "Bu restoranning mijoz tölovlari platforma kartalariga tuşadi. Restoranga pul alohida ötkaziladi. Hozir tölanmagan karta tölovi bölsa, ötkazib bölmaydi."
+                    else "Bu restoranning mijoz tölovlari yana restoranning öz kartalariga tuşadi.",
                 )
             },
             confirmButton = {
@@ -214,12 +214,12 @@ fun CardsTab(onMessage: (String) -> Unit) {
                         val res = unwrap(app.repository.collect(r.slug, on), onMessage)
                         saving = false
                         collect = null
-                        if (res != null) onMessage(if (res.result == "UNCHANGED") "${res.name}: o‘zgarmadi (allaqachon shunday)." else if (on) "${res.name}: endi pul platforma kartalariga tushadi." else "${res.name}: endi pul restoranning o‘z kartalariga tushadi.")
+                        if (res != null) onMessage(if (res.result == "UNCHANGED") "${res.name}: özgarmadi (allaqaçon şunday)." else if (on) "${res.name}: endi pul platforma kartalariga tuşadi." else "${res.name}: endi pul restoranning öz kartalariga tuşadi.")
                         load()
                     }
                 }) { Text("Ha") }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { collect = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { collect = null }) { Text("Yöq") } },
         )
     }
 }
@@ -229,7 +229,7 @@ private fun PendingRow(c: CardRowDto, busy: Boolean, onOpen: () -> Unit) {
     Card {
         Text(if (c.platform) "Platforma kartasi" else c.restaurant, style = MaterialTheme.typography.titleMedium)
         Text("***${c.last4} · ${statusText(c.status)}", style = MaterialTheme.typography.bodyLarge)
-        PrimaryButton(if (busy) "Ochilmoqda…" else "Ko‘rish va tasdiqlash", enabled = !busy, onClick = onOpen)
+        PrimaryButton(if (busy) "Oçilmoqda…" else "Köriş va tasdiqlaş", enabled = !busy, onClick = onOpen)
     }
 }
 
@@ -259,32 +259,32 @@ private fun CardDecisionDialog(card: CardDetailDto, busy: Boolean, onDismiss: ()
     val phone = card.restaurant?.phone?.takeIf { dialable(it).isNotEmpty() }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Yangi to‘lov kartasi") },
+        title = { Text("Yangi tölov kartasi") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(card.restaurant?.let { "Restoran: ${it.name}" } ?: "Platforma kartasi (administrator qo‘shdi)", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(card.restaurant?.let { "Restoran: ${it.name}" } ?: "Platforma kartasi (administrator qöşdi)", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                 Text(card.number ?: "•••• •••• •••• ${card.last4}", fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 card.holderName?.let { Text("Karta egasi: $it", style = MaterialTheme.typography.bodyLarge) }
                 Text(
-                    if (card.restaurant != null) "⚠️ Mijozlarning puli shu kartaga tushadi. Restoran egasiga qo‘ng‘iroq qilib, karta aynan restoranniki ekanini tasdiqlang. Ishonchingiz komil bo‘lmasa rad eting."
-                    else "⚠️ Mijozlarning puli shu kartaga tushadi. Raqam va egasining ismi o‘zingiz yozganiga mosligini tekshiring. Noto‘g‘ri bo‘lsa rad eting.",
+                    if (card.restaurant != null) "⚠️ Mijozlarning puli şu kartaga tuşadi. Restoran egasiga qönğiroq qilib, karta aynan restoranniki ekanini tasdiqlang. Işonçingiz komil bölmasa rad eting."
+                    else "⚠️ Mijozlarning puli şu kartaga tuşadi. Raqam va egasining ismi özingiz yozganiga mosligini tekşiring. Notöğri bölsa rad eting.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (phone != null) {
-                    OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${dialable(phone)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }) { Text("📞 ${card.restaurant?.name}ga qo‘ng‘iroq") }
+                    OutlinedButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${dialable(phone)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }) { Text("📞 ${card.restaurant?.name}ga qönğiroq") }
                 }
-                if (confirming) Text("Aniq tasdiqlaysizmi? Bundan keyin mijozlar shu kartaga to‘laydi.", color = UrgentColor, fontWeight = FontWeight.SemiBold)
+                if (confirming) Text("Aniq tasdiqlaysizmi? Bundan keyin mijozlar şu kartaga tölaydi.", color = UrgentColor, fontWeight = FontWeight.SemiBold)
             }
         },
         confirmButton = {
             if (confirming) TextButton(enabled = !busy, onClick = { onDecide(true) }) { Text("Ha, aniq tasdiqlayman") }
-            else TextButton(enabled = !busy, onClick = { confirming = true }) { Text("Tasdiqlash") }
+            else TextButton(enabled = !busy, onClick = { confirming = true }) { Text("Tasdiqlaş") }
         },
         dismissButton = {
             Row {
                 if (confirming) TextButton(enabled = !busy, onClick = { confirming = false }) { Text("Orqaga") }
-                else TextButton(enabled = !busy, onClick = { onDecide(false) }) { Text("Rad etish", color = UrgentColor) }
-                TextButton(enabled = !busy, onClick = onDismiss) { Text("Yopish") }
+                else TextButton(enabled = !busy, onClick = { onDecide(false) }) { Text("Rad etiş", color = UrgentColor) }
+                TextButton(enabled = !busy, onClick = onDismiss) { Text("Yopiş") }
             }
         },
     )
@@ -297,7 +297,7 @@ private fun AddPlatformCardDialog(busy: Boolean, onDismiss: () -> Unit, onSubmit
     val digits = number.filter { it.isDigit() }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("Platforma kartasini qo‘shish") },
+        title = { Text("Platforma kartasini qöşiş") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -311,12 +311,12 @@ private fun AddPlatformCardDialog(busy: Boolean, onDismiss: () -> Unit, onSubmit
                     label = { Text("Karta egasining ismi") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    "Karta darhol ishlatilmaydi: u „Tasdiq kutayotgan kartalar“ ro‘yxatiga tushadi va siz uni alohida tasdiqlaysiz.",
+                    "Karta darhol işlatilmaydi: u „Tasdiq kutayotgan kartalar“ röyxatiga tuşadi va siz uni alohida tasdiqlaysiz.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy && digits.length == 16 && holder.trim().length >= 3, onClick = { onSubmit(digits, holder) }) { Text("Qo‘shish") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy && digits.length == 16 && holder.trim().length >= 3, onClick = { onSubmit(digits, holder) }) { Text("Qöşiş") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }

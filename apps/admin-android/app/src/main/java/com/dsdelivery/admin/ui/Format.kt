@@ -25,7 +25,7 @@ fun dayLabel(key: String, today: java.time.LocalDate = java.time.LocalDate.now()
     val day = runCatching { java.time.LocalDate.parse(key) }.getOrNull() ?: return key
     return when (day) {
         today -> "Bugun"
-        today.minusDays(1) -> "Kecha"
+        today.minusDays(1) -> "Keça"
         else -> DateTimeFormatter.ofPattern("dd.MM").format(day)
     }
 }
@@ -48,7 +48,7 @@ fun ageText(seconds: Long?): String {
 fun somText(amount: Long): String {
     val digits = kotlin.math.abs(amount).toString()
     val grouped = digits.reversed().chunked(3).joinToString(" ").reversed()
-    return (if (amount < 0) "−" else "") + grouped + " so‘m"
+    return (if (amount < 0) "−" else "") + grouped + " söm"
 }
 
 /** Phone numbers are dialled as typed; spaces and dashes are dropped. */
@@ -78,9 +78,9 @@ fun toneColor(t: Tone): Color = when (t) {
 }
 
 fun severityLabel(severity: String): String = when (severity) {
-    Severity.CRITICAL -> "Shoshilinch"
+    Severity.CRITICAL -> "Şoşilinç"
     Severity.HIGH -> "Muhim"
-    Severity.MEDIUM -> "Ma’lumot uchun"
+    Severity.MEDIUM -> "Ma’lumot uçun"
     else -> severity
 }
 

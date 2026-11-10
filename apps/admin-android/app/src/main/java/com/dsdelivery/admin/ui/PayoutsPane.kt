@@ -39,7 +39,7 @@ import com.dsdelivery.admin.data.PayoutDetailDto
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val SECTIONS = listOf("Tekshiruv", "To‘lov hisoboti")
+private val SECTIONS = listOf("Tekşiruv", "Tölov hisoboti")
 
 /** "Pul": mismatched money to check (the bot's /money) and the daily payout report. */
 @Composable
@@ -100,23 +100,23 @@ private fun PayoutsHome(onOpen: (String, String, String) -> Unit, onMessage: (St
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
             item {
                 Text(
-                    "Faqat platforma kartasiga tushgan, yetkazilgan buyurtmalar. Beriladi = yig‘ilgan − komissiya − restoran yuborgan qaytarishlar. Taksi haqi kirmaydi. DS pul o‘tkazmaydi: summani bankda o‘zingiz o‘tkazasiz.",
+                    "Faqat platforma kartasiga tuşgan, yetkazilgan buyurtmalar. Beriladi = yiğilgan − komissiya − restoran yuborgan qaytarişlar. Taksi haqi kirmaydi. DS pul ötkazmaydi: summani bankda özingiz ötkazasiz.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             val list = days
-            if (list == null) item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (list == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             else {
                 if (inProgress.isNotEmpty()) item {
                     Card {
-                        Text("⏳ Yo‘lda (hali yetkazilmagan — hozir berilmaydi)", style = MaterialTheme.typography.titleMedium)
+                        Text("⏳ Yölda (hali yetkazilmagan — hozir berilmaydi)", style = MaterialTheme.typography.titleMedium)
                         inProgress.forEach { Text("${it.name}: ${it.orders} ta, ${somText(it.amountSom)}", style = MaterialTheme.typography.bodyMedium) }
                     }
                 }
-                if (list.all { it.restaurants.isEmpty() }) item { Text("Oxirgi 7 kunda to‘lanadigan buyurtma yo‘q.", style = MaterialTheme.typography.bodyLarge) }
+                if (list.all { it.restaurants.isEmpty() }) item { Text("Oxirgi 7 kunda tölanadigan buyurtma yöq.", style = MaterialTheme.typography.bodyLarge) }
                 list.filter { it.restaurants.isNotEmpty() }.forEach { day ->
                     item {
                         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -133,12 +133,12 @@ private fun PayoutsHome(onOpen: (String, String, String) -> Unit, onMessage: (St
                                 color = if (r.payableSom < 0) UrgentColor else OkColor,
                             )
                             Text(
-                                "${r.orders} ta buyurtma • yig‘ilgan ${somText(r.collectedSom)} − komissiya ${somText(r.commissionSom)}" +
-                                    (if (r.refundsSom > 0) " − qaytarish ${somText(r.refundsSom)}" else ""),
+                                "${r.orders} ta buyurtma • yiğilgan ${somText(r.collectedSom)} − komissiya ${somText(r.commissionSom)}" +
+                                    (if (r.refundsSom > 0) " − qaytariş ${somText(r.refundsSom)}" else ""),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             PaidLine(r.paid, r.payableSom)
-                            if (r.withOpenTicket > 0) Text("⚠️ ${r.withOpenTicket} ta buyurtmada ochiq murojaat bor — to‘lashdan oldin tekshiring", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
+                            if (r.withOpenTicket > 0) Text("⚠️ ${r.withOpenTicket} ta buyurtmada oçiq murojaat bor — tölaşdan oldin tekşiring", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
                         }
                     }
                 }
@@ -178,7 +178,7 @@ private fun PayoutDayScreen(date: String, restaurantId: String, name: String, on
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text("← Orqaga") }
         }
-        if (offline) Banner("Ulanish yo‘q — ma’lumot eskirgan bo‘lishi mumkin", UrgentColor)
+        if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor)
         val d = detail
         when {
             d != null -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -187,39 +187,39 @@ private fun PayoutDayScreen(date: String, restaurantId: String, name: String, on
                     Card {
                         Text("Beriladi: ${somText(d.payableSom)}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = if (d.payableSom < 0) UrgentColor else OkColor)
                         Text(
-                            "yig‘ilgan ${somText(d.collectedSom)} − komissiya ${somText(d.commissionSom)}" + (if (d.refundsSom > 0) " − qaytarish ${somText(d.refundsSom)}" else ""),
+                            "yiğilgan ${somText(d.collectedSom)} − komissiya ${somText(d.commissionSom)}" + (if (d.refundsSom > 0) " − qaytariş ${somText(d.refundsSom)}" else ""),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         PaidLine(d.paid, d.payableSom)
                         if (d.paid == null) {
-                            if (d.payableSom > 0) PrimaryButton("💸 O‘tkazdim", enabled = !busy) { marking = true }
-                            else Text("O‘tkaziladigan summa yo‘q.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (d.payableSom > 0) PrimaryButton("💸 Ötkazdim", enabled = !busy) { marking = true }
+                            else Text("Ötkaziladigan summa yöq.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
-                            TextButton(enabled = !busy, onClick = { unmarking = true }) { Text("↩️ Belgini bekor qilish") }
+                            TextButton(enabled = !busy, onClick = { unmarking = true }) { Text("↩️ Belgini bekor qiliş") }
                         }
                     }
                 }
                 item { Text("Yetkazilgan buyurtmalar", style = MaterialTheme.typography.titleMedium) }
-                if (d.orders.isEmpty()) item { Text("Bu kuni yetkazilgan buyurtma yo‘q.", style = MaterialTheme.typography.bodyMedium) }
+                if (d.orders.isEmpty()) item { Text("Bu kuni yetkazilgan buyurtma yöq.", style = MaterialTheme.typography.bodyMedium) }
                 items(d.orders.size) { i ->
                     val o = d.orders[i]
                     Card {
                         Text("#${o.code} • ${stampOf(o.at)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                        Text("Yig‘ilgan ${somText(o.collectedSom)} − komissiya ${somText(o.commissionSom)} = ${somText(o.collectedSom - o.commissionSom)}", style = MaterialTheme.typography.bodyMedium)
-                        if (o.openTicket) Text("⚠️ ochiq murojaat bor", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
+                        Text("Yiğilgan ${somText(o.collectedSom)} − komissiya ${somText(o.commissionSom)} = ${somText(o.collectedSom - o.commissionSom)}", style = MaterialTheme.typography.bodyMedium)
+                        if (o.openTicket) Text("⚠️ oçiq murojaat bor", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
                     }
                 }
-                if (d.refunds.isNotEmpty()) item { Text("Restoran yuborgan qaytarishlar", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+                if (d.refunds.isNotEmpty()) item { Text("Restoran yuborgan qaytarişlar", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
                 items(d.refunds.size) { i ->
                     val f = d.refunds[i]
                     Card {
-                        Text("Qaytarish #${f.number} • buyurtma #${f.orderCode} • ${stampOf(f.at)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Text("Qaytariş #${f.number} • buyurtma #${f.orderCode} • ${stampOf(f.at)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                         Text("− ${somText(f.amountSom)}", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
-            empty -> Text("Bu kun uchun yozuv yo‘q.", modifier = Modifier.padding(16.dp))
-            else -> Text(if (offline) "Yuklab bo‘lmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            empty -> Text("Bu kun uçun yozuv yöq.", modifier = Modifier.padding(16.dp))
+            else -> Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 
@@ -233,14 +233,14 @@ private fun PayoutDayScreen(date: String, restaurantId: String, name: String, on
                 val res = unwrap(app.repository.markPaid(date, restaurantId, shown.payableSom, note), onMessage)
                 busy = false
                 marking = false
-                if (res != null) onMessage("✅ O‘tkazma belgilandi: ${somText(res.amountSom)}.")
+                if (res != null) onMessage("✅ Ötkazma belgilandi: ${somText(res.amountSom)}.")
                 load()
             }
         },
     )
     if (unmarking) NoteDialog(
-        title = "Belgini bekor qilish",
-        hint = "Nima uchun bekor qilinayotganini yozing (masalan: adashib bosildi, pul hali o‘tkazilmagan).",
+        title = "Belgini bekor qiliş",
+        hint = "Nima uçun bekor qilinayotganini yozing (masalan: adaşib bosildi, pul hali ötkazilmagan).",
         busy = busy, onDismiss = { unmarking = false },
         onSubmit = { note ->
             busy = true
@@ -259,9 +259,9 @@ private fun PayoutDayScreen(date: String, restaurantId: String, name: String, on
 @Composable
 private fun PaidLine(paid: PaidDto?, payableSom: Long) {
     if (paid == null) return
-    if (paid.amountSom == payableSom) Text("✅ O‘tkazilgan: ${somText(paid.amountSom)} (${stampOf(paid.at)})", style = MaterialTheme.typography.bodyMedium, color = OkColor)
+    if (paid.amountSom == payableSom) Text("✅ Ötkazilgan: ${somText(paid.amountSom)} (${stampOf(paid.at)})", style = MaterialTheme.typography.bodyMedium, color = OkColor)
     else Text(
-        "⚠️ ${stampOf(paid.at)} da ${somText(paid.amountSom)} o‘tkazilgan deb belgilangan, hozir esa beriladigan summa ${somText(payableSom)} — farqni tekshiring.",
+        "⚠️ ${stampOf(paid.at)} da ${somText(paid.amountSom)} ötkazilgan deb belgilangan, hozir esa beriladigan summa ${somText(payableSom)} — farqni tekşiring.",
         style = MaterialTheme.typography.bodyMedium, color = WarnColor,
     )
 }
@@ -271,11 +271,11 @@ private fun MarkPaidDialog(name: String, date: String, amountSom: Long, busy: Bo
     var note by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text("O‘tkazdingizmi?") },
+        title = { Text("Ötkazdingizmi?") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "$name — ${dayLabel(date)} kuni uchun ${somText(amountSom)}. Faqat bankda o‘zingiz o‘tkazib bo‘lgach bosing: ilova pul o‘tkazmaydi, faqat belgilab qo‘yadi.",
+                    "$name — ${dayLabel(date)} kuni uçun ${somText(amountSom)}. Faqat bankda özingiz ötkazib bölgaç bosing: ilova pul ötkazmaydi, faqat belgilab qöyadi.",
                     style = MaterialTheme.typography.bodyLarge,
                 )
                 OutlinedTextField(
@@ -284,7 +284,7 @@ private fun MarkPaidDialog(name: String, date: String, amountSom: Long, busy: Bo
                 )
             }
         },
-        confirmButton = { TextButton(enabled = !busy, onClick = { onSubmit(note) }) { Text("Ha, o‘tkazdim") } },
-        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qilish") } },
+        confirmButton = { TextButton(enabled = !busy, onClick = { onSubmit(note) }) { Text("Ha, ötkazdim") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("Bekor qiliş") } },
     )
 }

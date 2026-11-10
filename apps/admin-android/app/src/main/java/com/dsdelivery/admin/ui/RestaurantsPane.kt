@@ -90,7 +90,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
         scope.launch {
             val jpeg = withContext(Dispatchers.IO) { ImagePrep.prepare(context, uri) }
             if (jpeg == null) {
-                onMessage("Rasmni o‘qib bo‘lmadi. Boshqa rasm tanlang.")
+                onMessage("Rasmni öqib bölmadi. Boşqa rasm tanlang.")
             } else {
                 val res = unwrap(app.repository.setRestaurantImage(r.id, jpeg), onMessage)
                 if (res != null) onMessage("🖼 ${r.name}: rasm saqlandi.")
@@ -101,13 +101,13 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — ro‘yxat eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
             item { PrimaryButton("➕ Yangi restoran", enabled = !saving) { newOpen = true } }
             val list = rows
             if (list == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
-                if (list.isEmpty()) item { Text("Restoranlar yo‘q.") }
+                if (list.isEmpty()) item { Text("Restoranlar yöq.") }
                 items(list.size) { i ->
                     val r = list[i]
                     Card {
@@ -119,12 +119,12 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                             Switch(checked = r.isActive, enabled = !saving, onCheckedChange = { target = r to it })
                         }
                         Text(
-                            if (r.isActive) "✅ faol" else "⛔ to‘xtatilgan", fontWeight = FontWeight.SemiBold,
+                            if (r.isActive) "✅ faol" else "⛔ töxtatilgan", fontWeight = FontWeight.SemiBold,
                             color = if (r.isActive) OkColor else UrgentColor, style = MaterialTheme.typography.bodyMedium,
                         )
                         val notes = listOfNotNull(
                             if (r.isPaused) "⏸ pauzada" else null,
-                            if (!r.hasPassword) "⚠️ parol yo‘q" else null,
+                            if (!r.hasPassword) "⚠️ parol yöq" else null,
                             if (!r.hasFinancePin) "moliya kodi berilmagan" else null,
                             if (!r.staffLinked) "Telegram xodimi ulanmagan" else null,
                             "kartalar: ${r.enabledCards} faol" + if (r.pendingCards > 0) ", ${r.pendingCards} kutmoqda" else "",
@@ -142,7 +142,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                                     saving = false
                                     if (res != null) removal = r to res.plan
                                 }
-                            }) { Text("🗑 O‘chirish", color = UrgentColor) }
+                            }) { Text("🗑 Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -153,11 +153,11 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
     target?.let { (r, active) ->
         AlertDialog(
             onDismissRequest = { if (!saving) target = null },
-            title = { Text(if (active) "${r.name}: qayta yoqilsinmi?" else "${r.name}: to‘xtatilsinmi?") },
+            title = { Text(if (active) "${r.name}: qayta yoqilsinmi?" else "${r.name}: töxtatilsinmi?") },
             text = {
                 Text(
                     if (active) "Restoran yana buyurtma qabul qila oladi."
-                    else "Yangi buyurtmalar qabul qilinmaydi va restoran ilovadan chiqarib yuboriladi. Mavjud buyurtmalar o‘zgarmaydi.",
+                    else "Yangi buyurtmalar qabul qilinmaydi va restoran ilovadan çiqarib yuboriladi. Mavjud buyurtmalar özgarmaydi.",
                 )
             },
             confirmButton = {
@@ -170,16 +170,16 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                         if (res != null) {
                             onMessage(
                                 when (res.result) {
-                                    "CHANGED" -> if (active) "✅ ${r.name} yoqildi." else "⛔ ${r.name} to‘xtatildi (${res.signedOut} ta seans yopildi)."
-                                    else -> "Holat allaqachon shunday."
+                                    "CHANGED" -> if (active) "✅ ${r.name} yoqildi." else "⛔ ${r.name} töxtatildi (${res.signedOut} ta seans yopildi)."
+                                    else -> "Holat allaqaçon şunday."
                                 },
                             )
                         }
                         load()
                     }
-                }) { Text(if (active) "Ha, yoqish" else "Ha, to‘xtatish") }
+                }) { Text(if (active) "Ha, yoqiş" else "Ha, töxtatiş") }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { target = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { target = null }) { Text("Yöq") } },
         )
     }
 
@@ -258,7 +258,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                     val res = unwrap(app.repository.removeRestaurant(r.id, expected), onMessage)
                     saving = false
                     removal = null
-                    if (res != null) onMessage(if (res.result == "DELETED") "🗑 ${r.name} o‘chirildi." else "🗄 ${r.name} arxivlandi.")
+                    if (res != null) onMessage(if (res.result == "DELETED") "🗑 ${r.name} öçirildi." else "🗄 ${r.name} arxivlandi.")
                     load()
                 }
             },

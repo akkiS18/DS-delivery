@@ -64,20 +64,20 @@ fun CommissionPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulanish yo‘q — hisob eskirgan bo‘lishi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — hisob eskirgan bölişi mumkin", UrgentColor) }
             val list = rows
             if (list == null) {
-                item { Text(if (offline) "Yuklab bo‘lmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             } else {
-                if (list.isEmpty()) item { Text("To‘lanmagan komissiya yo‘q.", style = MaterialTheme.typography.titleMedium) }
+                if (list.isEmpty()) item { Text("Tölanmagan komissiya yöq.", style = MaterialTheme.typography.titleMedium) }
                 items(list.size) { i ->
                     val s = list[i]
                     Card {
                         Text(s.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Hozir to‘lanishi kerak: ${s.due.count} ta · ${somText(s.due.amountSom)}", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
-                        if (s.held.count > 0) Text("Ushlab turilgan (ochiq murojaat): ${s.held.count} ta · ${somText(s.held.amountSom)}", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
-                        if (s.current.count > 0) Text("Joriy hafta (hafta yopilgach): ${s.current.count} ta · ${somText(s.current.amountSom)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (s.due.count > 0) PrimaryButton("✅ ${somText(s.due.amountSom)} to‘landi") { settle = s }
+                        Text("Hozir tölanişi kerak: ${s.due.count} ta · ${somText(s.due.amountSom)}", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+                        if (s.held.count > 0) Text("Uşlab turilgan (oçiq murojaat): ${s.held.count} ta · ${somText(s.held.amountSom)}", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
+                        if (s.current.count > 0) Text("Joriy hafta (hafta yopilgaç): ${s.current.count} ta · ${somText(s.current.amountSom)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (s.due.count > 0) PrimaryButton("✅ ${somText(s.due.amountSom)} tölandi") { settle = s }
                     }
                 }
             }
@@ -91,7 +91,7 @@ fun CommissionPane(onMessage: (String) -> Unit) {
             title = { Text("${s.name}: ${somText(s.due.amountSom)}") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("${s.due.count} ta buyurtma. Bank hisobida aynan shu summa restorandan kelganini tekshirdingizmi?", style = MaterialTheme.typography.bodyLarge)
+                    Text("${s.due.count} ta buyurtma. Bank hisobida aynan şu summa restorandan kelganini tekşirdingizmi?", style = MaterialTheme.typography.bodyLarge)
                     OutlinedTextField(
                         value = note, onValueChange = { if (it.length <= NOTE_MAX) note = it },
                         label = { Text("Izoh (kamida $NOTE_MIN belgi)") },
@@ -112,9 +112,9 @@ fun CommissionPane(onMessage: (String) -> Unit) {
                         }
                         load() // a refusal (CHANGED / NOTHING_DUE) also means the numbers on screen are stale
                     }
-                }) { Text("Ha, bankda ko‘rdim") }
+                }) { Text("Ha, bankda kördim") }
             },
-            dismissButton = { TextButton(enabled = !saving, onClick = { settle = null }) { Text("Yo‘q") } },
+            dismissButton = { TextButton(enabled = !saving, onClick = { settle = null }) { Text("Yöq") } },
         )
     }
 }
