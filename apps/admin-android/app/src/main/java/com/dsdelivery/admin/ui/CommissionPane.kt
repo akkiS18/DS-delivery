@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -19,11 +21,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.admin.AdminApp
 import com.dsdelivery.admin.data.ApiResult
 import com.dsdelivery.admin.data.StatementDto
+import com.dsdelivery.admin.ui.kit.AdminCard
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.PrimaryButton as KitPrimaryButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -64,20 +70,21 @@ fun CommissionPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — hisob eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — hisob eskirgan bölişi mumkin") }
             val list = rows
             if (list == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
-                if (list.isEmpty()) item { Text("Tölanmagan komissiya yöq.", style = MaterialTheme.typography.titleMedium) }
+                if (list.isEmpty()) item { EmptyState(title = "Tölanmagan komissiya yöq", hint = "Hafta yopilgaç, restoranlar qarzi şu yerda körinadi.", icon = Icons.Filled.CheckCircle) }
                 items(list.size) { i ->
                     val s = list[i]
-                    Card {
+                    AdminCard {
                         Text(s.name, style = MaterialTheme.typography.titleMedium)
-                        Text("Hozir tölanişi kerak: ${s.due.count} ta · ${somText(s.due.amountSom)}", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
-                        if (s.held.count > 0) Text("Uşlab turilgan (oçiq murojaat): ${s.held.count} ta · ${somText(s.held.amountSom)}", style = MaterialTheme.typography.bodyMedium, color = WarnColor)
-                        if (s.current.count > 0) Text("Joriy hafta (hafta yopilgaç): ${s.current.count} ta · ${somText(s.current.amountSom)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        if (s.due.count > 0) PrimaryButton("✅ ${somText(s.due.amountSom)} tölandi") { settle = s }
+                        Text(somText(s.due.amountSom), style = MaterialTheme.typography.titleLarge.merge(AmountStyle))
+                        Text("Hozir tölanişi kerak: ${s.due.count} ta buyurtma", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (s.held.count > 0) StatusChip("Uşlab turilgan (oçiq murojaat): ${s.held.count} ta · ${somText(s.held.amountSom)}", Tone.WARN)
+                        if (s.current.count > 0) Text("Joriy hafta (hafta yopilgaç): ${s.current.count} ta · ${somText(s.current.amountSom)}", style = MaterialTheme.typography.bodyMedium.merge(AmountStyle), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (s.due.count > 0) KitPrimaryButton("${somText(s.due.amountSom)} tölandi", { settle = s })
                     }
                 }
             }

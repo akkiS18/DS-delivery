@@ -33,7 +33,8 @@ export function convertText(s) {
 /** Converts a literal body but leaves ${...} and $name alone. */
 export function convertLiteral(body) {
   if (body.includes('://')) return body;
-  if (!/\s/.test(body)) { // a single token: code or a one-word label
+  // A one-word label that still has an old sign ("Yo‘q.") is text, never a key: codes and keys do not contain U+2018.
+  if (!/\s/.test(body) && !/[oOgG][‘ʻ]/.test(body)) { // a single token: code or a one-word label
     if (/^[A-Z0-9_]+$/.test(body)) return body;          // OPEN_DISPATCHES
     if (/[._/:@#\\]/.test(body.replace(/…$/, ''))) return body; // keys, paths, ids
     if (/[a-z][A-Z]/.test(body)) return body;             // camelCase

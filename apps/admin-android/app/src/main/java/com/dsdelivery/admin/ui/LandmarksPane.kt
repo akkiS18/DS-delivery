@@ -108,7 +108,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             val d = data
             if (d == null) {
                 item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }

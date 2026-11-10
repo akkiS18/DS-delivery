@@ -1,6 +1,5 @@
 package com.dsdelivery.admin.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,10 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -36,6 +35,13 @@ import com.dsdelivery.admin.AdminApp
 import com.dsdelivery.admin.data.ApiResult
 import com.dsdelivery.admin.data.MoneyResponse
 import com.dsdelivery.admin.data.ReviewDto
+import com.dsdelivery.admin.ui.kit.AdminCard
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.Notice
+import com.dsdelivery.admin.ui.kit.SectionHeader
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.PrimaryButton as KitPrimaryButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -77,49 +83,56 @@ fun MoneyTab(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             val d = data
             if (d == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
                 if (d.reviews.isEmpty() && d.stale.isEmpty()) {
                     item {
-                        Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Mos kelmagan yoki kutayotgan pul yöq", style = MaterialTheme.typography.titleMedium)
-                        }
+                        EmptyState(
+                            title = "Mos kelmagan yoki kutayotgan pul yöq",
+                            hint = "Yangi pul kelsa, şu yerda körinadi.",
+                            icon = Icons.Filled.CheckCircle,
+                        )
                     }
                 }
                 if (d.stale.isNotEmpty()) {
                     item {
-                        Text("Restoran tasdiqlamagan tölovlar (10+ daqiqa)", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Mijoz tölagan, avtomatik tasdiq işlamadi, heç kim pişirmayapti. Restoranga qönğiroq qiling.",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            SectionHeader("Restoran tasdiqlamagan tölovlar (10+ daqiqa)")
+                            Text(
+                                "Mijoz tölagan, avtomatik tasdiq işlamadi, heç kim pişirmayapti. Restoranga qönğiroq qiling.",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     items(d.stale.size) { i ->
                         val s = d.stale[i]
-                        Card {
+                        AdminCard {
+                            StatusChip("Tasdiq kutilmoqda", Tone.URGENT)
                             Text("#${s.orderCode ?: "?"} · ${s.restaurantName}", style = MaterialTheme.typography.titleMedium)
-                            Text("${somText(s.amountSom)} · ${clockOf(s.matchedAt) ?: ""} dan beri", style = MaterialTheme.typography.bodyMedium)
+                            Text("${somText(s.amountSom)} · ${clockOf(s.matchedAt) ?: ""} dan beri", style = MaterialTheme.typography.bodyMedium.merge(AmountStyle), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
                 if (d.reviews.isNotEmpty()) {
                     item {
-                        Text("Mos kelmagan pul", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Bank ilovasida tekşiring. Ilova pulni heç narsaga boğlamaydi: faqat qaror va izohingiz saqlanadi.",
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            SectionHeader("Mos kelmagan pul")
+                            Text(
+                                "Bank ilovasida tekşiring. Ilova pulni heç narsaga boğlamaydi: faqat qaror va izohingiz saqlanadi.",
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     items(d.reviews, key = { it.id }) { r ->
-                        Card(Modifier.clickable { selected = r }) {
-                            Text(somText(r.amountSom), style = MaterialTheme.typography.titleMedium, color = UrgentColor)
-                            Text("Karta ***${r.cardLast4}${r.restaurantName?.let { " · $it" } ?: ""}", style = MaterialTheme.typography.bodyLarge)
-                            Text("Bank amali: ${clockOf(r.occurredAt) ?: ""}${r.emailReceivedAt?.let { e -> clockOf(e)?.let { " · xat: $it" } } ?: ""}", style = MaterialTheme.typography.bodyMedium)
+                        AdminCard(onClick = { selected = r }) {
+                            Text(somText(r.amountSom), style = MaterialTheme.typography.titleLarge.merge(AmountStyle), color = UrgentColor)
+                            Text("Karta ***${r.cardLast4}${r.restaurantName?.let { " · $it" } ?: ""}", style = MaterialTheme.typography.titleSmall)
+                            Text("Bank amali: ${clockOf(r.occurredAt) ?: ""}${r.emailReceivedAt?.let { e -> clockOf(e)?.let { " · xat: $it" } } ?: ""}", style = MaterialTheme.typography.bodyMedium.merge(AmountStyle))
                             Text(r.reasonText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Qaror yoziş ›", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                            Text("Qaror yoziş", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -179,24 +192,20 @@ private fun ReviewDialog(item: ReviewDto, actions: List<Pair<String, String>>, b
     )
 }
 
+/** Shared by the panes that are not restyled yet: same look as the kit (docs/ADMIN_UI_PLAN.md, stage 4 moves them to the kit directly). */
 @Composable
-internal fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(
-        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) { content() }
+internal fun Card(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
+    AdminCard(modifier, onClick = onClick) { content() }
 }
 
+/** The "no connection" strip at the top of a list. */
 @Composable
-internal fun Banner(text: String, color: androidx.compose.ui.graphics.Color) {
-    Text(
-        text, color = color, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier.fillMaxWidth().background(color.copy(alpha = 0.12f), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
-    )
+internal fun Banner(text: String) {
+    Notice(text, Tone.URGENT)
 }
 
 /** Full-width action button shared by the money and cards tabs. */
 @Composable
 internal fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text(text) }
+    KitPrimaryButton(text, onClick, enabled = enabled)
 }

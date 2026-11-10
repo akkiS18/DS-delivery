@@ -3,7 +3,6 @@ package com.dsdelivery.admin.ui
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -36,6 +37,15 @@ import com.dsdelivery.admin.AdminApp
 import com.dsdelivery.admin.data.ApiResult
 import com.dsdelivery.admin.data.RefundDetailDto
 import com.dsdelivery.admin.data.RefundRowDto
+import com.dsdelivery.admin.ui.kit.AdminCard
+import com.dsdelivery.admin.ui.kit.DetailHeader
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.Notice
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.SectionHeader
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.PrimaryButton as KitPrimaryButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -49,12 +59,12 @@ private fun statusText(status: String, byPlatform: Boolean = false): String = wh
     else -> status
 }
 
-@androidx.compose.runtime.Composable
-private fun statusColor(status: String): Color = when (status) {
-    "DISPUTED" -> UrgentColor
-    "SENT", "APPROVED", "REQUESTED" -> WarnColor
-    "CONFIRMED" -> OkColor
-    else -> NeutralColor
+/** The tone of a refund's state. [canSend] = the administrator has to send the money himself, which is the urgent case. */
+private fun statusTone(status: String, canSend: Boolean = false): Tone = when {
+    canSend || status == "DISPUTED" -> Tone.URGENT
+    status == "SENT" || status == "APPROVED" || status == "REQUESTED" -> Tone.WARN
+    status == "CONFIRMED" -> Tone.OK
+    else -> Tone.NEUTRAL
 }
 
 private fun actionText(action: String): String = when (action) {
@@ -116,17 +126,17 @@ private fun RefundsHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
     }
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
-        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
-            item { Text("💸 Oçiq qaytarişlar", style = MaterialTheme.typography.titleMedium) }
+        LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin") }
+            item { SectionHeader("Oçiq qaytarişlar") }
             val list = open
-            if (list == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (list == null) item { ListPlaceholder(offline) { scope.launch { load() } } }
             else {
-                if (list.isEmpty()) item { Text("✅ Oçiq qaytariş sörovi yöq.", style = MaterialTheme.typography.bodyLarge, color = OkColor) }
+                if (list.isEmpty()) item { EmptyState(title = "Oçiq qaytariş sörovi yöq", icon = Icons.Filled.CheckCircle) }
                 items(list.size) { i -> RefundCard(list[i], onOpen) }
             }
             if (recent.isNotEmpty()) {
-                item { Text("Oxirgi 14 kun (yopilgan)", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+                item { SectionHeader("Oxirgi 14 kun (yopilgan)") }
                 items(recent.size) { i -> RefundCard(recent[i], onOpen) }
             }
         }
@@ -135,10 +145,10 @@ private fun RefundsHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
 
 @Composable
 private fun RefundCard(r: RefundRowDto, onOpen: (String) -> Unit) {
-    Card(Modifier.clickable { onOpen(r.id) }) {
+    AdminCard(onClick = { onOpen(r.id) }) {
         Text("#${r.orderCode} • ${r.restaurantName}", style = MaterialTheme.typography.titleMedium)
-        Text(statusText(r.status, r.byPlatform), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = if (r.canSend) UrgentColor else statusColor(r.status))
-        Text(amountLine(r), style = MaterialTheme.typography.bodyMedium)
+        StatusChip(statusText(r.status, r.byPlatform), statusTone(r.status, r.canSend))
+        Text(amountLine(r), style = MaterialTheme.typography.bodyMedium.merge(AmountStyle))
         if (r.reason != null) Text("Sabab: ${r.reason}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stampOf(r.lastAt), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -181,22 +191,19 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Orqaga") }
-        }
-        if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor)
+        DetailHeader(detail?.let { "Qaytariş #${it.number}" } ?: "Qaytariş", onBack)
+        if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin")
         val d = detail
         if (d == null) {
-            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ListPlaceholder(offline) { scope.launch { load() } }
         } else {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 item {
-                    Card {
-                        Text("💸 Qaytariş #${d.number} • buyurtma #${d.orderCode}", style = MaterialTheme.typography.titleMedium)
-                        Text(d.restaurantName, style = MaterialTheme.typography.bodyLarge)
-                        Text(statusText(d.status, d.byPlatform), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = if (d.canSend) UrgentColor else statusColor(d.status))
-                        Text("Tölangan: ${somText(d.paidSom)}", style = MaterialTheme.typography.bodyMedium)
-                        if (d.approvedSom != null) Text("Qaytariladi: ${somText(d.approvedSom)}", style = MaterialTheme.typography.bodyMedium)
+                    AdminCard {
+                        Text("Buyurtma #${d.orderCode} • ${d.restaurantName}", style = MaterialTheme.typography.titleMedium)
+                        StatusChip(statusText(d.status, d.byPlatform), statusTone(d.status, d.canSend))
+                        Text("Tölangan: ${somText(d.paidSom)}", style = MaterialTheme.typography.bodyMedium.merge(AmountStyle))
+                        if (d.approvedSom != null) Text("Qaytariladi: ${somText(d.approvedSom)}", style = MaterialTheme.typography.bodyMedium.merge(AmountStyle))
                         if (d.reason != null) Text("Sabab: ${d.reason}", style = MaterialTheme.typography.bodyMedium)
                         if (d.rejectReason != null) Text("Rad etiş sababi: ${d.rejectReason}", style = MaterialTheme.typography.bodyMedium)
                         if (d.hasReceipt) Text("Restoran çek/bank raqamini körsatgan.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -204,19 +211,19 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                     }
                 }
                 item {
-                    Card {
+                    AdminCard {
                         Text("Mustaqil tekşiriş uçun", style = MaterialTheme.typography.titleMedium)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             val rp = d.restaurantPhone?.takeIf { dialable(it).isNotEmpty() }
                             val cp = d.customerPhone?.takeIf { dialable(it).isNotEmpty() }
-                            if (rp != null) OutlinedButton(onClick = { dial(rp) }) { Text("📞 ${d.restaurantName}") }
-                            if (cp != null) OutlinedButton(onClick = { dial(cp) }) { Text("📞 Mijoz${d.customerName?.let { " ($it)" } ?: ""}") }
+                            if (rp != null) SecondaryButton(d.restaurantName, { dial(rp) }, Modifier)
+                            if (cp != null) SecondaryButton("Mijoz${d.customerName?.let { " ($it)" } ?: ""}", { dial(cp) }, Modifier)
                             if (rp == null && cp == null) Text("Telefon raqami yöq.", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
                 if (d.canSend) item {
-                    Card {
+                    AdminCard(highlight = Tone.URGENT) {
                         Text("Pul platforma kartasida", style = MaterialTheme.typography.titleMedium, color = UrgentColor)
                         Text(
                             "Mijoz restoranga emas, platforma kartasiga tölagan, şuning uçun qaytarişni SIZ yuborasiz: mijoz bilan boğlanib karta raqamini sörang, " +
@@ -224,25 +231,22 @@ private fun RefundScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                                 "Ilova pul ötkazmaydi.",
                             style = MaterialTheme.typography.bodyMedium,
                         )
-                        PrimaryButton(if (d.status == "DISPUTED") "💸 Qayta yubordim" else "💸 Qaytardim", enabled = !busy) { sending = true }
+                        KitPrimaryButton(if (d.status == "DISPUTED") "Qayta yubordim" else "Qaytardim", { sending = true }, enabled = !busy)
                     }
                 }
                 item {
                     if (d.canConfirm) {
-                        Card {
-                            Text(
-                                "Pul mijozga yetib borganini restoran hisobi va mijoz bilan gaplaşib tekşiring. Tasdiqlaş yozma izoh bilan qayd etiladi. DS pul ötkazmaydi.",
-                                style = MaterialTheme.typography.bodyMedium, color = WarnColor,
-                            )
-                            PrimaryButton("✅ Izoh bilan tasdiqlaş", enabled = !busy) { confirming = true }
+                        AdminCard {
+                            Notice("Pul mijozga yetib borganini restoran hisobi va mijoz bilan gaplaşib tekşiring. Tasdiqlaş yozma izoh bilan qayd etiladi. DS pul ötkazmaydi.", Tone.WARN)
+                            KitPrimaryButton("Izoh bilan tasdiqlaş", { confirming = true }, enabled = !busy)
                         }
                     } else if (d.status == "CONFIRMED" || d.status == "REJECTED") {
-                        Text("Bu sörov yopilgan.", style = MaterialTheme.typography.bodyLarge, color = OkColor)
+                        Notice("Bu sörov yopilgan.", Tone.OK)
                     } else if (!d.canSend) {
                         Text("Restoran hali pulni yubormagan — administrator tasdiqlay olmaydi.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                item { Text("Tarix", style = MaterialTheme.typography.titleMedium) }
+                item { SectionHeader("Tarix") }
                 items(d.events.size) { i ->
                     val e = d.events[i]
                     Text("${stampOf(e.at)} — ${actorText(e.actor)}: ${actionText(e.action)}", style = MaterialTheme.typography.bodyMedium)

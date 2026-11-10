@@ -98,7 +98,7 @@ fun PlatformPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin") }
             val s = settings
             if (s == null) {
                 item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -122,8 +122,8 @@ fun PlatformPane(onMessage: (String) -> Unit) {
                         )
                     }
                 }
-                item { CashMaxCard(s, saving) { som -> change({ app.repository.setCashMax(som) }) { r -> if (r.result == "CHANGED") "Naqd çegarasi saqlandi." else "O‘zgarmadi." } } }
-                item { FeeCard(s, saving) { mode, percent, line, waived -> change({ app.repository.setFee(mode, percent, line, waived) }) { r -> if (r.result == "CHANGED") "Xizmat haqi saqlandi." else "O‘zgarmadi." } } }
+                item { CashMaxCard(s, saving) { som -> change({ app.repository.setCashMax(som) }) { r -> if (r.result == "CHANGED") "Naqd çegarasi saqlandi." else "Özgarmadi." } } }
+                item { FeeCard(s, saving) { mode, percent, line, waived -> change({ app.repository.setFee(mode, percent, line, waived) }) { r -> if (r.result == "CHANGED") "Xizmat haqi saqlandi." else "Özgarmadi." } } }
                 item {
                     Card {
                         Text("🚕 Taksi qaçon çaqiriladi", style = MaterialTheme.typography.titleMedium)

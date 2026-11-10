@@ -101,7 +101,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             item { PrimaryButton("➕ Yangi restoran", enabled = !saving) { newOpen = true } }
             val list = rows
             if (list == null) {

@@ -97,7 +97,7 @@ private fun InboxList(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             val data = inbox
             if (data == null) {
                 item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -200,7 +200,7 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
             TextButton(onClick = onBack) { Text("← Orqaga") }
             if (t != null) Text("#${t.ticket.number} • ${statusLabel(t.ticket)}", style = MaterialTheme.typography.titleMedium)
         }
-        if (offline) Banner("Ulaniş yöq — suhbat eskirgan bölişi mumkin", UrgentColor)
+        if (offline) Banner("Ulaniş yöq — suhbat eskirgan bölişi mumkin")
         if (t == null) {
             Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {

@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,15 +44,28 @@ import com.dsdelivery.admin.data.CardsResponse
 import com.dsdelivery.admin.data.PoolCardDto
 import com.dsdelivery.admin.data.PoolResponse
 import com.dsdelivery.admin.data.PoolRestaurantDto
+import com.dsdelivery.admin.ui.kit.AdminCard
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.SectionHeader
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.PrimaryButton as KitPrimaryButton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private fun statusText(status: String): String = when (status) {
-    "PENDING" -> "⏳ tasdiq kutmoqda"
-    "ACTIVE" -> "✅ faol"
-    "DISABLED" -> "⏸ öçirilgan"
-    "REJECTED" -> "❌ rad etilgan"
+    "PENDING" -> "Tasdiq kutmoqda"
+    "ACTIVE" -> "Faol"
+    "DISABLED" -> "Öçirilgan"
+    "REJECTED" -> "Rad etilgan"
     else -> status
+}
+
+private fun statusTone(status: String): Tone = when (status) {
+    "PENDING" -> Tone.WARN
+    "ACTIVE" -> Tone.OK
+    "REJECTED" -> Tone.URGENT
+    else -> Tone.NEUTRAL
 }
 
 /**
@@ -94,15 +106,15 @@ fun CardsTab(onMessage: (String) -> Unit) {
 
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin", UrgentColor) }
+            if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin") }
             val cs = cards
             val ps = pool
             if (cs == null || ps == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
                 val pending = cs.cards.filter { it.status == "PENDING" }
-                item { Text("Tasdiq kutayotgan kartalar", style = MaterialTheme.typography.titleMedium) }
-                if (pending.isEmpty()) item { Text("Yo‘q.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { SectionHeader("Tasdiq kutayotgan kartalar") }
+                if (pending.isEmpty()) item { Text("Yöq.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(pending.size) { i ->
                     val c = pending[i]
                     PendingRow(c, busy = opening == c.id) {
@@ -115,28 +127,30 @@ fun CardsTab(onMessage: (String) -> Unit) {
                 }
 
                 item {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Platforma kartalari", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        if (ps.capSom == 0L) "Çegara yöq (çeklanmagan)." else "Har bir karta uçun ${ps.days} kunda ${somText(ps.capSom)} çegara. 90% dan oşganda yangi tölovlar boşqa kartaga ötadi.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SectionHeader("Platforma kartalari")
+                        Text(
+                            if (ps.capSom == 0L) "Çegara yöq (çeklanmagan)." else "Har bir karta uçun ${ps.days} kunda ${somText(ps.capSom)} çegara. 90% dan oşganda yangi tölovlar boşqa kartaga ötadi.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
-                if (ps.cards.isEmpty()) item { Text("Platforma kartasi yöq.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                if (ps.cards.isEmpty()) item { Text("Platforma kartasi yöq.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(ps.cards.size) { i -> PoolCardRow(ps.cards[i]) }
-                item { OutlinedButton(onClick = { addOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("+ Platforma kartasi qöşiş") } }
+                item { SecondaryButton("Platforma kartasi qöşiş", { addOpen = true }) }
 
                 item {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Pul qayerga tuşadi", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Yoqilgan restoranning mijoz tölovlari platforma kartalariga tuşadi, öçirilgan bölsa restoranning öz kartalariga.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SectionHeader("Pul qayerga tuşadi")
+                        Text(
+                            "Yoqilgan restoranning mijoz tölovlari platforma kartalariga tuşadi, öçirilgan bölsa restoranning öz kartalariga.",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 items(ps.restaurants.size) { i ->
                     val r = ps.restaurants[i]
-                    Card {
+                    AdminCard {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(r.name, style = MaterialTheme.typography.titleMedium)
@@ -148,14 +162,16 @@ fun CardsTab(onMessage: (String) -> Unit) {
                 }
 
                 val others = cs.cards.filter { it.status != "PENDING" && !it.platform }
-                item {
-                    Spacer(Modifier.height(4.dp))
-                    Text("Restoran kartalari", style = MaterialTheme.typography.titleMedium)
-                }
-                if (others.isEmpty()) item { Text("Yo‘q.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { SectionHeader("Restoran kartalari") }
+                if (others.isEmpty()) item { Text("Yöq.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 items(others.size) { i ->
                     val c = others[i]
-                    Card { Text("${c.restaurant} · ***${c.last4}", style = MaterialTheme.typography.bodyLarge); Text(statusText(c.status), style = MaterialTheme.typography.bodyMedium) }
+                    AdminCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${c.restaurant} · ***${c.last4}", style = MaterialTheme.typography.titleSmall.merge(AmountStyle), modifier = Modifier.weight(1f))
+                            StatusChip(statusText(c.status), statusTone(c.status))
+                        }
+                    }
                 }
             }
         }
@@ -226,27 +242,28 @@ fun CardsTab(onMessage: (String) -> Unit) {
 
 @Composable
 private fun PendingRow(c: CardRowDto, busy: Boolean, onOpen: () -> Unit) {
-    Card {
+    AdminCard {
+        StatusChip(statusText(c.status), statusTone(c.status))
         Text(if (c.platform) "Platforma kartasi" else c.restaurant, style = MaterialTheme.typography.titleMedium)
-        Text("***${c.last4} · ${statusText(c.status)}", style = MaterialTheme.typography.bodyLarge)
-        PrimaryButton(if (busy) "Oçilmoqda…" else "Köriş va tasdiqlaş", enabled = !busy, onClick = onOpen)
+        Text("***${c.last4}", style = MaterialTheme.typography.bodyLarge.merge(AmountStyle))
+        KitPrimaryButton(if (busy) "Oçilmoqda…" else "Köriş va tasdiqlaş", onOpen, enabled = !busy)
     }
 }
 
 @Composable
 private fun PoolCardRow(c: PoolCardDto) {
     val color = when (c.level) { "HIGH" -> UrgentColor; "MID" -> WarnColor; else -> OkColor }
-    Card {
-        Row {
-            Text("***${c.last4}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Text(statusText(c.status), style = MaterialTheme.typography.bodyMedium)
+    AdminCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("***${c.last4}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.merge(AmountStyle))
+            StatusChip(statusText(c.status), statusTone(c.status))
         }
         c.holderName?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (c.percent != null) {
-            LinearProgressIndicator(progress = { (c.percent / 100f).coerceIn(0f, 1f) }, color = color, modifier = Modifier.fillMaxWidth().height(8.dp))
-            Text("${c.percent}% · ${somText(c.turnoverSom)}", color = color, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+            LinearProgressIndicator(progress = { (c.percent / 100f).coerceIn(0f, 1f) }, color = color, trackColor = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth().height(8.dp))
+            Text("${c.percent}% · ${somText(c.turnoverSom)}", color = color, style = MaterialTheme.typography.labelLarge.merge(AmountStyle))
         } else {
-            Text("Aylanma: ${somText(c.turnoverSom)}", style = MaterialTheme.typography.bodyMedium)
+            Text("Aylanma: ${somText(c.turnoverSom)}", style = MaterialTheme.typography.bodyMedium.merge(AmountStyle))
         }
     }
 }
