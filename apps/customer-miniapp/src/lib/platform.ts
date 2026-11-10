@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
  * a trust signal (the backend decides from the credential: a verified Telegram signature or a server-issued guest session).
  *
  *  - telegram: inside the Telegram Mini App (unchanged behaviour, initData auth)
- *  - android:  the Capacitor APK. Requires BOTH the android build target (compile-time) AND the native runtime, so the Vercel web build can
+ *  - android:  the Capacitor APK. Requires BOTH the android build target (compile-time) AND the native runtime, so the plain web build can
  *              never switch into guest mode by faking a global.
  *  - browser:  a plain browser; keeps the existing "open in Telegram" protection.
  */
