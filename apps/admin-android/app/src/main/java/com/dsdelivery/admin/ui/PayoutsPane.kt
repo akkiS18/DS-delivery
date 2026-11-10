@@ -39,22 +39,6 @@ import com.dsdelivery.admin.data.PayoutDetailDto
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val SECTIONS = listOf("Tekşiruv", "Tölov hisoboti")
-
-/** "Pul": mismatched money to check (the bot's /money) and the daily payout report. */
-@Composable
-fun MoneyHome(onMessage: (String) -> Unit) {
-    var section by rememberSaveable { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize()) {
-        TabRow(selectedTabIndex = section, containerColor = MaterialTheme.colorScheme.surface) {
-            SECTIONS.forEachIndexed { i, label ->
-                Tab(selected = section == i, onClick = { section = i }, text = { Text(label) })
-            }
-        }
-        if (section == 0) MoneyTab(onMessage) else PayoutsPane(onMessage)
-    }
-}
-
 /**
  * The daily payout report for restaurants whose customers pay onto the platform's cards. It only SHOWS what to transfer to each restaurant:
  * collected - commission - refunds the restaurant sent. DS never moves money; the administrator transfers it in the bank by hand.

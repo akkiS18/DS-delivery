@@ -27,6 +27,7 @@ interface AdminApi {
     @POST("api/v1/admin/auth/logout") suspend fun logout(): Response<Unit>
     @POST("api/v1/admin/auth/logout-all") suspend fun logoutAll(): Response<LogoutAllResponse>
     @GET("api/v1/admin/attention") suspend fun attention(): Response<AttentionResponse>
+    @GET("api/v1/admin/today") suspend fun today(): Response<TodayDto>
     @POST("api/v1/admin/attention/ack") suspend fun ack(@Body body: AckRequest): Response<AckResponse>
     @PUT("api/v1/admin/attention/quiet-hours") suspend fun quietHours(@Body body: QuietRequest): Response<QuietResponse>
 
@@ -180,6 +181,7 @@ class Repository(private val session: SessionStore) {
     suspend fun logout(): ApiResult<Unit> = call { api.logout() }
     suspend fun logoutAll(): ApiResult<LogoutAllResponse> = call { api.logoutAll() }
     suspend fun attention(): ApiResult<AttentionResponse> = call { api.attention() }
+    suspend fun today(): ApiResult<TodayDto> = call { api.today() }
     suspend fun ack(key: String, minutes: Int?): ApiResult<AckResponse> = call { api.ack(AckRequest(key, minutes)) }
     suspend fun setQuietHours(off: Boolean, from: String?, to: String?): ApiResult<QuietResponse> =
         call { api.quietHours(if (off) QuietRequest(off = true) else QuietRequest(from = from, to = to)) }

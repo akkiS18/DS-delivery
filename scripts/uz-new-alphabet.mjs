@@ -13,6 +13,7 @@ const args = process.argv.slice(2);
 const root = args.find(a => !a.startsWith('--'));
 const WRITE = args.includes('--write');
 const WORDS = args.includes('--words');
+const TS = args.includes('--ts'); // also TypeScript files: '...', "..." and `...` literals (use it on one server file at a time and read the diff)
 if (!root) { console.error('usage: node scripts/uz-new-alphabet.mjs <dir> [--write] [--words]'); process.exit(2); }
 
 // Single-token literals that are code, not Uzbek text.
@@ -58,12 +59,13 @@ export function convertLiteral(body) {
   return out;
 }
 
-function walk(d) { return readdirSync(d).flatMap(f => { const p = join(d, f); return statSync(p).isDirectory() ? (/(^|[\\/])(build|\.gradle)$/.test(p) ? [] : walk(p)) : [p]; }); }
+function walk(d) { if (statSync(d).isFile()) return [d]; return readdirSync(d).flatMap(f => { const p = join(d, f); return statSync(p).isDirectory() ? (/(^|[\\/])(build|\.gradle)$/.test(p) ? [] : walk(p)) : [p]; }); }
 
 const changed = new Map(); // old word -> new word
 let files = 0, literals = 0;
 for (const file of walk(root)) {
-  const isKt = file.endsWith('.kt'), isXml = /[\\/]res[\\/]values[\\/]strings\.xml$/.test(file);
+  const isTs = TS && /\.tsx?$/.test(file);
+  const isKt = file.endsWith('.kt') || isTs, isXml = /[\\/]res[\\/]values[\\/]strings\.xml$/.test(file);
   if (!isKt && !isXml) continue;
   const lines = readFileSync(file, 'utf8').split('\n');
   let fileChanged = false;
@@ -72,10 +74,11 @@ for (const file of walk(root)) {
     if (isKt) {
       const t = line.trimStart();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return line;
-      fixed = line.replace(/"(?:[^"\\]|\\.)*"/g, lit => {
-        const body = lit.slice(1, -1), nb = convertLiteral(body);
+      const literal = isTs ? /'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g : /"(?:[^"\\]|\\.)*"/g;
+      fixed = line.replace(literal, lit => {
+        const q = lit[0], body = lit.slice(1, -1), nb = convertLiteral(body);
         if (nb !== body) record(file, n, body, nb);
-        return nb === body ? lit : `"${nb}"`;
+        return nb === body ? lit : q + nb + q;
       });
     } else {
       fixed = line.replace(/(<string\b[^>]*>)([^<]*)(<\/string>)/g, (m, a, body, c) => {

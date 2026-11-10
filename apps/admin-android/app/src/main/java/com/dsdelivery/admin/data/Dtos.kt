@@ -68,6 +68,30 @@ data class AttentionResponse(
     @SerializedName("counts") val counts: AttentionCounts,
 )
 
+/** GET /api/v1/admin/today: the home screen numbers (Tashkent calendar day; real orders only). */
+data class TodayDto(
+    @SerializedName("day") val day: String,
+    @SerializedName("orders") val orders: TodayOrders,
+    @SerializedName("revenueSom") val revenueSom: Long,
+    @SerializedName("cashSom") val cashSom: Long,
+    @SerializedName("commissionDue") val commissionDue: TodayCommission,
+    @SerializedName("openTickets") val openTickets: Int,
+    @SerializedName("moneyReviews") val moneyReviews: Int,
+    @SerializedName("generatedAt") val generatedAt: String,
+)
+
+data class TodayOrders(
+    @SerializedName("total") val total: Int,
+    @SerializedName("delivered") val delivered: Int,
+    @SerializedName("cancelled") val cancelled: Int,
+    @SerializedName("inProgress") val inProgress: Int,
+)
+
+data class TodayCommission(
+    @SerializedName("restaurants") val restaurants: Int,
+    @SerializedName("amountSom") val amountSom: Long,
+)
+
 data class AckRequest(
     @SerializedName("key") val key: String,
     @SerializedName("minutes") val minutes: Int?,

@@ -69,7 +69,7 @@ export interface AttentionItem {
 
 function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min: number, max: number): number {
   const n = Number(env[name] ?? fallback);
-  if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(`${name} ${min}–${max} oralig‘ida bo‘lsin`);
+  if (!Number.isSafeInteger(n) || n < min || n > max) throw new Error(`${name} ${min}–${max} oraliğida bölsin`);
   return n;
 }
 /** Seconds an item must have been open before it is raised. Read per call so tests (and operators after a restart) can change them. */
@@ -164,26 +164,26 @@ export function evaluateOrders(rows: OrderRow[], online: ReadonlySet<string>, no
     if (o.status === 'PAYMENT_PENDING' && method === 'CASH' && pstatus === CASH_PENDING) {
       if (ageSec(o.createdAt, now) >= cfg.cashSeconds) {
         out.push({ ...base, key: `CASH_UNACCEPTED:${o.id}`, kind: 'CASH_UNACCEPTED', title: 'Naqd buyurtma qabul qilinmadi',
-          detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(o.createdAt, now))} daqiqa`, since: o.createdAt });
+          detail: `#${o.code} · ${somText(o.totalSom)} söm · ${minutes(ageSec(o.createdAt, now))} daqiqa`, since: o.createdAt });
       }
     } else if (o.status === 'PAYMENT_PENDING' && method === CARD_MANUAL && pstatus === RESTAURANT_CHECK) {
       // "Shirin" mode: the order waits for the restaurant to look at its bank and confirm (or reject). Same urgency as an unverified payment.
       if (ageSec(o.createdAt, now) >= cfg.unverifiedSeconds) {
-        out.push({ ...base, key: `PAYMENT_UNVERIFIED:${o.id}`, kind: 'PAYMENT_UNVERIFIED', title: 'Restoran to‘lovni tasdiqlamadi',
-          detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(o.createdAt, now))} daqiqa`, since: o.createdAt });
+        out.push({ ...base, key: `PAYMENT_UNVERIFIED:${o.id}`, kind: 'PAYMENT_UNVERIFIED', title: 'Restoran tölovni tasdiqlamadi',
+          detail: `#${o.code} · ${somText(o.totalSom)} söm · ${minutes(ageSec(o.createdAt, now))} daqiqa`, since: o.createdAt });
       }
     } else if (o.status === 'PAYMENT_MATCHED_UNVERIFIED') {
       const since = o.payment?.matchedAt ?? o.updatedAt;
       if (ageSec(since, now) >= cfg.unverifiedSeconds) {
-        out.push({ ...base, key: `PAYMENT_UNVERIFIED:${o.id}`, kind: 'PAYMENT_UNVERIFIED', title: 'To‘lov kelgan, lekin tasdiqlanmadi',
-          detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(since, now))} daqiqa`, since });
+        out.push({ ...base, key: `PAYMENT_UNVERIFIED:${o.id}`, kind: 'PAYMENT_UNVERIFIED', title: 'Tölov kelgan, lekin tasdiqlanmadi',
+          detail: `#${o.code} · ${somText(o.totalSom)} söm · ${minutes(ageSec(since, now))} daqiqa`, since });
       }
     } else if ((method === 'CARD' || method === CARD_MANUAL) && o.prepChosenMinutes === null && (o.status === 'PREPARING' || o.status === 'PAYMENT_CONFIRMED')) {
       // A paid order the kitchen has not acknowledged (the one-tap "SET_PREP_TIME" silences the app's bell).
       const since = o.status === 'PREPARING' ? (o.preparingStartedAt ?? o.paymentVerifiedAt ?? o.updatedAt) : (o.paymentVerifiedAt ?? o.updatedAt);
       if (ageSec(since, now) >= cfg.unseenSeconds) {
-        out.push({ ...base, key: `ORDER_UNSEEN:${o.id}`, kind: 'ORDER_UNSEEN', title: 'Restoran to‘langan buyurtmani ko‘rmadi',
-          detail: `#${o.code} · ${somText(o.totalSom)} so‘m · ${minutes(ageSec(since, now))} daqiqa`, since });
+        out.push({ ...base, key: `ORDER_UNSEEN:${o.id}`, kind: 'ORDER_UNSEEN', title: 'Restoran tölangan buyurtmani körmadi',
+          detail: `#${o.code} · ${somText(o.totalSom)} söm · ${minutes(ageSec(since, now))} daqiqa`, since });
       }
     }
 
@@ -191,15 +191,15 @@ export function evaluateOrders(rows: OrderRow[], online: ReadonlySet<string>, no
       const d = o.taxiDispatches[0];
       const stage = d ? taxiStage(d.status) : null;
       if (stage === 'NEEDS_HELP' && d) {
-        out.push({ ...base, key: `TAXI_NEEDS_HELP:${o.id}`, kind: 'TAXI_NEEDS_HELP', title: 'Taksi so‘rovi muammoli',
+        out.push({ ...base, key: `TAXI_NEEDS_HELP:${o.id}`, kind: 'TAXI_NEEDS_HELP', title: 'Taksi sörovi muammoli',
           detail: `#${o.code} · ${d.taxiCompany.name} · ${d.status}`, since: d.updatedAt });
       } else if (o.status === 'READY' && o.deliveryMode === 'TAXI' && o.readyAt && ageSec(o.readyAt, now) >= cfg.readyNoTaxiSeconds
         && (stage === null || stage === 'SCHEDULED' || stage === 'REQUESTED' || stage === 'ACCEPTED' || stage === 'CANCELLED')) {
-        const what = stage === null ? 'taksi chaqirilmagan' : stage === 'CANCELLED' ? 'taksi bekor qilingan' : stage === 'ACCEPTED' ? 'haydovchi yuborilmagan' : 'taksi operatori javob bermagan';
-        out.push({ ...base, key: `READY_NO_TAXI:${o.id}`, kind: 'READY_NO_TAXI', title: 'Buyurtma tayyor, taksi yo‘q',
+        const what = stage === null ? 'taksi çaqirilmagan' : stage === 'CANCELLED' ? 'taksi bekor qilingan' : stage === 'ACCEPTED' ? 'haydovçi yuborilmagan' : 'taksi operatori javob bermagan';
+        out.push({ ...base, key: `READY_NO_TAXI:${o.id}`, kind: 'READY_NO_TAXI', title: 'Buyurtma tayyor, taksi yöq',
           detail: `#${o.code} · ${what} · ${minutes(ageSec(o.readyAt, now))} daqiqa`, since: o.readyAt });
       } else if (o.status === 'READY' && stage === 'DISPATCHED' && d?.dispatchedAt && ageSec(d.dispatchedAt, now) >= cfg.notDeliveredSeconds) {
-        out.push({ ...base, key: `NOT_DELIVERED:${o.id}`, kind: 'NOT_DELIVERED', title: 'Haydovchi yuborilgan, yetkazildi deb belgilanmagan',
+        out.push({ ...base, key: `NOT_DELIVERED:${o.id}`, kind: 'NOT_DELIVERED', title: 'Haydovçi yuborilgan, yetkazildi deb belgilanmagan',
           detail: `#${o.code} · ${d.taxiCompany.name} · ${minutes(ageSec(d.dispatchedAt, now))} daqiqa`, since: d.dispatchedAt });
       }
     }
@@ -233,7 +233,7 @@ export function evaluateTurnover(cards: ReadonlyArray<{ id: string; last4: strin
     out.push({
       key: `${high ? 'CARD_TURN_HIGH' : 'CARD_TURN_MID'}:${c.id}`, kind: high ? 'CARD_TURN_HIGH' : 'CARD_TURN_MID',
       title: `Platforma kartasi aylanmasi ${Math.floor(ratio * 100)}%`,
-      detail: `***${c.last4} · ${POOL_TURNOVER_DAYS} kunda ${somText(used)} / ${somText(capSom)} so‘m${high ? ' · yangi to‘lovlar boshqa kartaga o‘tadi' : ''}`,
+      detail: `***${c.last4} · ${POOL_TURNOVER_DAYS} kunda ${somText(used)} / ${somText(capSom)} söm${high ? ' · yangi tölovlar boşqa kartaga ötadi' : ''}`,
       restaurant: null, orderCode: null, since: null,
     });
   }
@@ -301,11 +301,11 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
   const raw: RawItem[] = evaluateOrders(orders, online, now, cfg);
   for (const r of reviews) {
     raw.push({ key: `MONEY_REVIEW:${r.id}`, kind: 'MONEY_REVIEW', title: 'Mos kelmagan pul',
-      detail: `***${r.cardLast4} · ${somText(Number(r.amountTiyin / 100n))} so‘m${r.reason ? ` · ${explainReason(r.reason)}` : ''}`,
+      detail: `***${r.cardLast4} · ${somText(Number(r.amountTiyin / 100n))} söm${r.reason ? ` · ${explainReason(r.reason)}` : ''}`,
       restaurant: null, orderCode: null, since: r.emailReceivedAt ?? r.occurredAt });
   }
   for (const c of cards) {
-    raw.push({ key: `CARD_PENDING:${c.id}`, kind: 'CARD_PENDING', title: 'Yangi karta tasdig‘ini kutmoqda',
+    raw.push({ key: `CARD_PENDING:${c.id}`, kind: 'CARD_PENDING', title: 'Yangi karta tasdiğini kutmoqda',
       detail: `***${c.last4}${c.restaurant ? ` · ${c.restaurant.name}` : ' · platforma'}`, restaurant: c.restaurant ? { id: c.restaurant.id, name: c.restaurant.name, phone: c.restaurant.pickupPhone } : null,
       orderCode: null, since: c.createdAt });
   }
@@ -315,19 +315,19 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
       orderCode: t.order?.code ?? null, since: t.createdAt });
   }
   for (const d of disputes) {
-    raw.push({ key: `REFUND_DISPUTED:${d.id}`, kind: 'REFUND_DISPUTED', title: 'Qaytarish: mijoz pul KELMADI dedi',
-      detail: `Qaytarish #${d.number} · buyurtma #${d.order.code} · ${somText(Number(d.paidAmountTiyin / 100n))} so‘m`,
+    raw.push({ key: `REFUND_DISPUTED:${d.id}`, kind: 'REFUND_DISPUTED', title: 'Qaytariş: mijoz pul KELMADI dedi',
+      detail: `Qaytariş #${d.number} · buyurtma #${d.order.code} · ${somText(Number(d.paidAmountTiyin / 100n))} söm`,
       restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.disputedAt });
   }
   for (const d of poolDue) {
-    raw.push({ key: `REFUND_POOL_DUE:${d.id}`, kind: 'REFUND_POOL_DUE', title: 'Qaytarish: pul platforma kartasida — mijozga qaytaring',
-      detail: `Qaytarish #${d.number} · buyurtma #${d.order.code} · ${somText(Number((d.approvedAmountTiyin ?? d.paidAmountTiyin) / 100n))} so‘m`,
+    raw.push({ key: `REFUND_POOL_DUE:${d.id}`, kind: 'REFUND_POOL_DUE', title: 'Qaytariş: pul platforma kartasida — mijozga qaytaring',
+      detail: `Qaytariş #${d.number} · buyurtma #${d.order.code} · ${somText(Number((d.approvedAmountTiyin ?? d.paidAmountTiyin) / 100n))} söm`,
       restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.decidedAt ?? d.requestedAt });
   }
   const cap = poolCapSom(env);
   if (cap > 0 && poolCards.length) raw.push(...evaluateTurnover(poolCards, await cardTurnoverSom(db, poolCards.map(c => c.id), now), cap));
   if (gmailHealth.status() === 'down') {
-    raw.push({ key: 'GMAIL_DOWN:gmail', kind: 'GMAIL_DOWN', title: 'Gmail o‘qilmayapti: to‘lovlar tanilmaydi', detail: 'Bank xabarlari kelmayapti. Mijozlar to‘lagan bo‘lishi mumkin.', restaurant: null, orderCode: null, since: null });
+    raw.push({ key: 'GMAIL_DOWN:gmail', kind: 'GMAIL_DOWN', title: 'Gmail öqilmayapti: tölovlar tanilmaydi', detail: 'Bank xabarlari kelmayapti. Mijozlar tölagan bölişi mumkin.', restaurant: null, orderCode: null, since: null });
   }
 
   const quietActive = inQuietHours(quiet, now);

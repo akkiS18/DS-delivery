@@ -154,7 +154,7 @@ test('Telegram copy: one message per item, silent for non-critical items in quie
   const n1 = await deliverAttention(bot, new Date(), only);
   assert.equal(n1, 2, 'unseen order + offline restaurant; the acknowledged cash order is skipped');
   assert.ok(sent.every(m => m.chatId === adminId));
-  const unseen = sent.find(m => m.text.includes('ko‘rmadi'))!;
+  const unseen = sent.find(m => m.text.includes('körmadi'))!;
   assert.ok(unseen.text.includes('+998901234567') && unseen.text.includes(`Diqqat ${tag}`));
   assert.equal(unseen.extra.disable_notification, undefined, 'critical stays loud');
   const offline = sent.find(m => m.text.includes('aloqada emas'))!;

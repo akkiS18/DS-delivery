@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -74,14 +75,19 @@ private fun toneIcon(t: Tone): ImageVector? = when (t) {
     Tone.NEUTRAL -> null
 }
 
-/** The surface every block of content sits on: 16 dp corners, 1 dp outline, 16 dp padding, 8 dp between children. Tappable when [onClick] is given. */
+/**
+ * The surface every block of content sits on: 16 dp corners, 1 dp outline, 16 dp padding, 8 dp between children. Tappable when [onClick] is given.
+ * [highlight] tints the card and its outline in a status tone (an item that is ringing right now).
+ */
 @Composable
-fun AdminCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
+fun AdminCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null, highlight: Tone? = null, content: @Composable ColumnScope.() -> Unit) {
     val body: @Composable () -> Unit = { Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = content) }
     val shape = MaterialTheme.shapes.large
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-    if (onClick != null) Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surface, border = border, content = body)
-    else Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = MaterialTheme.colorScheme.surface, border = border, content = body)
+    val tone = highlight?.let { toneColors(it) }
+    val border = BorderStroke(if (tone != null) 2.dp else 1.dp, tone?.first ?: MaterialTheme.colorScheme.outline)
+    val color = tone?.second ?: MaterialTheme.colorScheme.surface
+    if (onClick != null) Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = shape, color = color, border = border, content = body)
+    else Surface(modifier = modifier.fillMaxWidth(), shape = shape, color = color, border = border, content = body)
 }
 
 /** Heading of a group of cards or rows, with an optional action on the right ("Hammasi"). */
@@ -147,9 +153,9 @@ fun ListRow(
 
 /** A number with its label (home screen: orders today, revenue, commission due). */
 @Composable
-fun MetricTile(label: String, value: String, modifier: Modifier = Modifier, tone: Tone = Tone.NEUTRAL, hint: String? = null) {
+fun MetricTile(label: String, value: String, modifier: Modifier = Modifier, tone: Tone = Tone.NEUTRAL, hint: String? = null, onClick: (() -> Unit)? = null) {
     val (fg, _) = toneColors(tone)
-    AdminCard(modifier) {
+    AdminCard(modifier, onClick = onClick) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
             value, style = MaterialTheme.typography.displaySmall.merge(AmountStyle),
@@ -163,10 +169,13 @@ private val ButtonHeight = 48.dp
 
 /** The one main action of a card or screen. While [loading] it shows a spinner and ignores taps. */
 @Composable
-fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean = true, loading: Boolean = false) {
+fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean = true, loading: Boolean = false, icon: ImageVector? = null) {
     Button(onClick = onClick, enabled = enabled && !loading, modifier = modifier.heightIn(min = ButtonHeight)) {
         if (loading) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-        else Text(text, style = MaterialTheme.typography.labelLarge)
+        else {
+            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
     }
 }
 

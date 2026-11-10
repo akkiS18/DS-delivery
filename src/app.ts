@@ -27,6 +27,7 @@ import { adminPlatformRoutes } from './modules/admin-platform/routes.js';
 import { adminProvisionRoutes } from './modules/admin-platform/provision-routes.js';
 import { adminPromoRoutes } from './modules/admin-platform/promo-routes.js';
 import { adminLandmarkRoutes } from './modules/admin-platform/landmark-routes.js';
+import { adminTodayRoutes } from './modules/admin-today/routes.js';
 import { adminSupportRoutes } from './modules/admin-support/routes.js';
 import { adminTaxiRoutes } from './modules/admin-taxi/routes.js';
 import { adminRefundsRoutes } from './modules/admin-refunds/routes.js';
@@ -84,6 +85,7 @@ export function buildApp(engine: PaymentEngineV3, deps: { pingDatabase?: () => P
   app.register(adminProvisionRoutes, { prefix: '/api/v1/admin' }); // DS Admin A3b: add restaurant, password, staff link, photo, delete/archive
   app.register(adminPromoRoutes, { prefix: '/api/v1/admin' }); // DS Admin: 1+1 promotions and home slides (news and offers)
   app.register(adminLandmarkRoutes, { prefix: '/api/v1/admin' }); // DS Admin: landmarks (named places for the customer map and the taxi text)
+  app.register(adminTodayRoutes, { prefix: '/api/v1/admin' }); // DS Admin: today's numbers for the home screen (read-only)
   app.register(adminSupportRoutes, { prefix: '/api/v1/admin' }); // DS Admin A4a: support inbox, conversation, ticket actions
   app.register(adminTaxiRoutes, { prefix: '/api/v1/admin' }); // DS Admin A4b: taxi problems and taxi companies
   app.register(adminRefundsRoutes, { prefix: '/api/v1/admin' }); // DS Admin A4c: refunds (read + confirm with a note)
