@@ -53,6 +53,7 @@ private fun standingText(blocked: Boolean, manual: Boolean, strikes: Int, cashAl
     else -> "✅ Çeklov yöq"
 }
 
+@androidx.compose.runtime.Composable
 private fun standingColor(blocked: Boolean, cashAllowed: Boolean) = when {
     blocked -> UrgentColor
     !cashAllowed -> WarnColor

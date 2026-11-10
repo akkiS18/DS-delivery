@@ -49,6 +49,7 @@ private fun statusText(status: String, byPlatform: Boolean = false): String = wh
     else -> status
 }
 
+@androidx.compose.runtime.Composable
 private fun statusColor(status: String): Color = when (status) {
     "DISPUTED" -> UrgentColor
     "SENT", "APPROVED", "REQUESTED" -> WarnColor

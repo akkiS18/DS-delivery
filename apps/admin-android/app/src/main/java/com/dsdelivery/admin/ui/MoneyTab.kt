@@ -119,7 +119,7 @@ fun MoneyTab(onMessage: (String) -> Unit) {
                             Text("Karta ***${r.cardLast4}${r.restaurantName?.let { " · $it" } ?: ""}", style = MaterialTheme.typography.bodyLarge)
                             Text("Bank amali: ${clockOf(r.occurredAt) ?: ""}${r.emailReceivedAt?.let { e -> clockOf(e)?.let { " · xat: $it" } } ?: ""}", style = MaterialTheme.typography.bodyMedium)
                             Text(r.reasonText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Qaror yoziş ›", color = AdminBlue, fontWeight = FontWeight.SemiBold)
+                            Text("Qaror yoziş ›", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }

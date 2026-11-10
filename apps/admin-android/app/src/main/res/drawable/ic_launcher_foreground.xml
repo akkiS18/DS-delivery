@@ -4,11 +4,19 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- A white bell on the blue background, inside the 66dp safe zone. -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,32 C46,32 40,38 40,46 L40,56 L35,62 L35,65 L73,65 L73,62 L68,56 L68,46 C68,38 62,32 54,32 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M54,76 C57,76 59.5,73.5 59.5,70.5 L48.5,70.5 C48.5,73.5 51,76 54,76 Z" />
+    <!-- "DS" monogram, white strokes on the indigo launcher background; inside the 66dp safe zone (docs/ADMIN_UI_PLAN.md). -->
+    <group android:translateX="-1.5">
+        <path
+            android:pathData="M37,38.5 L37,69.5 L45,69.5 C56,69.5 59,62 59,54 C59,46 56,38.5 45,38.5 Z"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M80,44 C77.5,40 71.5,38.5 68.5,40.5 C64.5,43.5 66,49 72,51.5 C78,54 80.5,56.5 79.5,61.5 C78.3,67.5 71,70.5 66,67.5 C64.5,66.6 63.5,65.5 63,64.5"
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="6.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
 </vector>

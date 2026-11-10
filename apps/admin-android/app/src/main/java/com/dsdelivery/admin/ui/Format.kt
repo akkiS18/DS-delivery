@@ -1,5 +1,6 @@
 package com.dsdelivery.admin.ui
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.dsdelivery.admin.data.Severity
 import java.time.Instant
@@ -56,12 +57,6 @@ fun dialable(phone: String): String = phone.filter { it.isDigit() || it == '+' }
 
 enum class Tone { URGENT, WARN, INFO, OK, NEUTRAL }
 
-val UrgentColor = Color(0xFFD32F2F)
-val WarnColor = Color(0xFFEF6C00)
-val InfoColor = Color(0xFF1565C0)
-val OkColor = Color(0xFF2E7D32)
-val NeutralColor = Color(0xFF616161)
-
 fun toneOf(severity: String): Tone = when (severity) {
     Severity.CRITICAL -> Tone.URGENT
     Severity.HIGH -> Tone.WARN
@@ -69,6 +64,7 @@ fun toneOf(severity: String): Tone = when (severity) {
     else -> Tone.NEUTRAL
 }
 
+@Composable
 fun toneColor(t: Tone): Color = when (t) {
     Tone.URGENT -> UrgentColor
     Tone.WARN -> WarnColor

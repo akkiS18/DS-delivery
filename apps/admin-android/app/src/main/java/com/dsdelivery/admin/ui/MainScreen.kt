@@ -131,7 +131,7 @@ fun MainScreen(readiness: Readiness, onReadinessChanged: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text(if (tab == Tab.SETTINGS) "Sozlamalar" else "DS Admin", maxLines = 1) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = AdminBlue, titleContentColor = Color.White, actionIconContentColor = Color.White),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface, titleContentColor = MaterialTheme.colorScheme.onSurface, actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                 actions = {
                     IconButton(onClick = { tab = if (tab == Tab.SETTINGS) Tab.ATTENTION else Tab.SETTINGS }) {
                         Icon(Icons.Filled.Settings, contentDescription = "Sozlamalar")

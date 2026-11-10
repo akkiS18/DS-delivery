@@ -29,6 +29,12 @@ Qarorlar egasi bilan "grill-me" suhbatida qabul qilingan (2026-11-10). Oxirida s
 | Bosqichlar | Asos → Bosh+navigatsiya → Pul → qolgan bo‘limlar; har biri alohida commit |
 | Skill | Faqat DS Admin uslubi |
 
+## 2a. Alifbo: yangi o‘zbek lotin imlosi (egasi talabi, 2026-11-10)
+
+Qonun O‘RQ-1184 (imzolangan 2026-10-21, kuchga kirishi 2027-04-22): **Oʻ→Ö, Gʻ→Ğ, Sh→Ş, Ch→Ç**; `ng` o‘z holicha qoladi, tutuq belgisi qoladi (`ma’no`, `şe’r`). Misollar: so‘m→**söm**, qo‘ng‘iroq→**qöngğiroq**, shoshilinch→**şoşilinç**, choy→**çoy**, tekshirish→**tekşiriş**.
+
+Qoidalar: (1) ilovadagi barcha o‘zbekcha matn shu imloda; (2) yangi matn to‘g‘ridan-to‘g‘ri yangi imloda yoziladi, nuqtasiz `ı` ishlatilmaydi; (3) tekshiruv: `node scripts/uz-new-alphabet.mjs apps/admin-android/app/src` (eski imlo qolsa 1 qaytaradi; `--write` tuzatadi, ingliz so‘zi/kodga tegmaydi: izoh, kalit, `${...}` ichi); (4) serverdan keladigan matn (Diqqat kartalari, `src/modules/admin-attention/service.ts`, ~24 qator) 2-bosqichda o‘tkaziladi.
+
 ## 3. Dizayn tokenlari (boshlang‘ich qiymatlar; 1-bosqichda kontrast testi bilan tasdiqlanadi)
 
 **Ranglar** (yorug‘ / qorong‘i):
@@ -63,7 +69,7 @@ Qoida: matn kontrasti kamida **4.5:1** (WCAG AA), katta matn/ikonka **3:1**. Bun
 
 Telefon shrift masshtabi 1.3 gacha ekran sinmasligi kerak (matn kesilmaydi, tugmalar o‘z ichida o‘raladi).
 Karta raqami (`CardsTab`) monospace qoladi.
-Tekshirish: `‘ ’ o‘ g‘ sh ch ng` belgilari va kirill harflar (restoran nomi) Manropeda to‘g‘ri chiqadi; chiqmasa tizim shriftiga tushadi.
+Tekshirilgan (2026-11-10): Ö ö Ğ ğ Ş ş Ç ç va ’ Manropeda bor; tutuq belgisi ʼ (U+02BC) yo‘q, shuning uchun interfeysda ’ (U+2019) ishlatiladi; kirill қ ғ ҳ yo‘q (restoran nomida bo‘lsa tizim shriftidan chiqadi). Raqamlar uchun tnum (tabular) bor.
 
 **Bo‘shliq/shakl:** 4dp setka; ekran chetidan 16dp; karta 16dp radius, ichida 16dp; karta orasi 12dp; tugma balandligi 48dp; bosiladigan joy kamida 48x48dp.
 
@@ -106,7 +112,7 @@ Eski `Card`, `Banner`, `PrimaryButton` (`MoneyTab.kt`) va `Format.kt`dagi holat 
 
 | # | Nima | Qamrab oladi | Tekshiruv |
 |---|---|---|---|
-| 1 | **Asos** | Manrope fayllari, `Theme.kt` (yorug‘+qorong‘i), tokenlar, holat ranglarini Theme'ga ko‘chirish, `ui/kit/` komponentlari, "DS" logo (adaptive icon + monochrome qatlam + kirish ekranidagi belgi), `colors.xml/themes.xml` (status bar, splash) | `compileReleaseKotlin`, JVM testlar (kontrast, shrift belgilari), mavjud testlar |
+| 1 | **Asos** (BAJARILDI 2026-11-10, telefonda ko‘rilmagan) | Manrope fayllari, `Theme.kt` (yorug‘+qorong‘i), tokenlar, holat ranglarini Theme'ga ko‘chirish, `ui/kit/` komponentlari, "DS" logo (adaptive icon + monochrome qatlam + kirish ekranidagi belgi), `colors.xml/themes.xml` (status bar, splash) | `compileReleaseKotlin`, JVM testlar (kontrast, shrift belgilari), mavjud testlar |
 | 2 | **Bosh + navigatsiya** | 4 tab, "Yana" ro‘yxati, Diqqat ekrani yangi dizayni, bugungi raqamlar + server endpointi (`/admin/today`) va uning DB testi | `tsc`, `test:admin:db` + yangi test, Kotlin kompilyatsiya, telefon |
 | 3 | **Pul** | Pul bosh, Kartalar, Qaytarish, To‘lovlar, Komissiya | Kotlin kompilyatsiya, telefon (egasi) |
 | 4 | **Qolgan** | Murojaat, Restoranlar, Taksi, Mijozlar, Aksiya, Joylar, Platforma, Qo‘llanma, Sozlamalar, Kirish va PIN ekranlarining ko‘rinishi | Kotlin kompilyatsiya, telefon |

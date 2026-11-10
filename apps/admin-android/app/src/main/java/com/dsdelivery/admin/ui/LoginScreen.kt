@@ -3,12 +3,15 @@ package com.dsdelivery.admin.ui
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.res.painterResource
+import com.dsdelivery.admin.R
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -101,6 +104,8 @@ fun LoginScreen(onSignedIn: () -> Unit) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 48.dp),
         verticalArrangement = Arrangement.Center,
     ) {
+        Image(painterResource(R.drawable.ic_logo_ds), contentDescription = "DS Admin logosi", modifier = Modifier.size(64.dp))
+        Spacer(Modifier.height(16.dp))
         Text("DS Admin", style = MaterialTheme.typography.titleLarge)
         Text("Administrator uçun", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyLarge)
         Spacer(Modifier.height(32.dp))

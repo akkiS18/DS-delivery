@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="launcher_background">#1565C0</color>
-    <color name="window_background">#FFFFFF</color>
-    <color name="status_bar">#0D3B7A</color>
+    <!-- Launcher icon background and system bars. Light/dark pairs follow Palette.kt (docs/ADMIN_UI_PLAN.md). -->
+    <color name="launcher_background">#4F5BD5</color>
+    <color name="window_background">#F5F6F8</color>
+    <color name="status_bar">#FFFFFF</color>
+    <color name="nav_bar">#FFFFFF</color>
 </resources>
