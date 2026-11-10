@@ -1,5 +1,7 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -101,14 +103,14 @@ fun PlatformPane(onMessage: (String) -> Unit) {
             if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin") }
             val s = settings
             if (s == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
                 item { PaymentsCard(s, saving) { pending = if (s.payments.open) Pending.PAYMENTS_CLOSE else Pending.PAYMENTS_OPEN } }
                 item {
                     Card {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("💵 Naqd tölov", style = MaterialTheme.typography.titleMedium)
+                                Text("Naqd tölov", style = MaterialTheme.typography.titleMedium)
                                 Text(
                                     if (s.cash.enabled) "Yoqilgan: mijoz naqd tölaşni tanlay oladi." else "Öçirilgan: yangi naqd buyurtma olinmaydi.",
                                     style = MaterialTheme.typography.bodyMedium, color = if (s.cash.enabled) OkColor else UrgentColor, fontWeight = FontWeight.SemiBold,
@@ -126,7 +128,7 @@ fun PlatformPane(onMessage: (String) -> Unit) {
                 item { FeeCard(s, saving) { mode, percent, line, waived -> change({ app.repository.setFee(mode, percent, line, waived) }) { r -> if (r.result == "CHANGED") "Xizmat haqi saqlandi." else "Özgarmadi." } } }
                 item {
                     Card {
-                        Text("🚕 Taksi qaçon çaqiriladi", style = MaterialTheme.typography.titleMedium)
+                        Text("Taksi qaçon çaqiriladi", style = MaterialTheme.typography.titleMedium)
                         if (s.taxiMode == "READY") {
                             Text("Hozir: restoran «Tayyor» bosganda. Haydovçi biroz keç qolişi mumkin, lekin erta kelmaydi.", style = MaterialTheme.typography.bodyMedium)
                         } else {
@@ -134,7 +136,7 @@ fun PlatformPane(onMessage: (String) -> Unit) {
                                 "Hozir: taom tayyor bölişidan 4 daqiqa oldin. Tayyorlaş vaqti endi söralmagani uçun bu rejim yaşirin standart vaqtga tayanadi; «Tayyor» bosilganda rejimiga qayting.",
                                 style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                             )
-                            OutlinedButton(enabled = !saving, onClick = { change({ app.repository.setTaxiMode("READY") }) { "«Tayyor» bosilganda rejimiga qaytdi." } }) { Text("«Tayyor» bosilganda rejimiga qaytiş") }
+                            SecondaryButton("«Tayyor» bosilganda rejimiga qaytiş", { change({ app.repository.setTaxiMode("READY") }) { "«Tayyor» bosilganda rejimiga qaytdi." } }, Modifier, enabled = !saving)
                         }
                         Text("Faqat YANGI boşlangan buyurtmalarga ta’sir qiladi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -159,10 +161,10 @@ fun PlatformPane(onMessage: (String) -> Unit) {
                 TextButton(enabled = !saving, onClick = {
                     pending = null
                     when (p) {
-                        Pending.PAYMENTS_OPEN -> change({ app.repository.setPayments(true) }) { if (it.result == "CHANGED") "🟢 Real tölov oçildi." else "Holat özgarmadi." }
-                        Pending.PAYMENTS_CLOSE -> change({ app.repository.setPayments(false) }) { if (it.result == "CHANGED") "🔴 Real tölov yopildi." else "Holat özgarmadi." }
-                        Pending.CASH_ON -> change({ app.repository.setCash(true) }) { if (it.result == "CHANGED") "🟢 Naqd tölov yoqildi." else "Holat özgarmadi." }
-                        Pending.CASH_OFF -> change({ app.repository.setCash(false) }) { if (it.result == "CHANGED") "🔴 Naqd tölov öçirildi." else "Holat özgarmadi." }
+                        Pending.PAYMENTS_OPEN -> change({ app.repository.setPayments(true) }) { if (it.result == "CHANGED") "Real tölov oçildi." else "Holat özgarmadi." }
+                        Pending.PAYMENTS_CLOSE -> change({ app.repository.setPayments(false) }) { if (it.result == "CHANGED") "Real tölov yopildi." else "Holat özgarmadi." }
+                        Pending.CASH_ON -> change({ app.repository.setCash(true) }) { if (it.result == "CHANGED") "Naqd tölov yoqildi." else "Holat özgarmadi." }
+                        Pending.CASH_OFF -> change({ app.repository.setCash(false) }) { if (it.result == "CHANGED") "Naqd tölov öçirildi." else "Holat özgarmadi." }
                     }
                 }) { Text(confirm, color = if (p == Pending.PAYMENTS_OPEN) UrgentColor else MaterialTheme.colorScheme.primary) }
             },
@@ -175,13 +177,13 @@ fun PlatformPane(onMessage: (String) -> Unit) {
 private fun PaymentsCard(s: SettingsDto, saving: Boolean, onToggle: () -> Unit) {
     val p = s.payments
     Card {
-        Text("💳 Real tölov", style = MaterialTheme.typography.titleMedium)
+        Text("Real tölov", style = MaterialTheme.typography.titleMedium)
         if (!p.gateActive) {
             Text("Bu test serveri: kalit faqat production serverda işlaydi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Card
         }
         Text(
-            if (p.open) "🟢 OÇIQ: mijozlar haqiqiy pul tölaşi mumkin." else "🔴 YOPIQ: yangi buyurtma olinmaydi.",
+            if (p.open) "OÇIQ: mijozlar haqiqiy pul tölaşi mumkin." else "YOPIQ: yangi buyurtma olinmaydi.",
             fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyLarge, color = if (p.open) OkColor else UrgentColor,
         )
         if (!p.open && p.blockers.isNotEmpty()) {
@@ -192,7 +194,7 @@ private fun PaymentsCard(s: SettingsDto, saving: Boolean, onToggle: () -> Unit) 
                 onClick = onToggle, enabled = !saving,
                 colors = if (p.open) ButtonDefaults.buttonColors(containerColor = UrgentColor) else ButtonDefaults.buttonColors(),
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text(if (p.open) "⛔ Yopiş" else "▶️ Real tölovni yoqiş") }
+            ) { Text(if (p.open) "Yopiş" else "▶️ Real tölovni yoqiş") }
             if (p.open) Text("Yopsangiz ham, allaqaçon berilgan buyurtmalar tölovi davom etadi.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -212,7 +214,7 @@ private fun FeeCard(s: SettingsDto, saving: Boolean, onSave: (mode: String, perc
     val percentOk = pick != "PERCENT" || (percent != null && percent in 1.0..25.0 && Math.round(percent * 100) / 100.0 == percent)
     val unchanged = pick == currentPick && (pick != "PERCENT" || percent == s.fee.percentBp / 100.0) && (!isLine || line == currentLine)
     Card {
-        Text("🧾 Xizmat haqi", style = MaterialTheme.typography.titleMedium)
+        Text("Xizmat haqi", style = MaterialTheme.typography.titleMedium)
         val modes = if (s.fee.mode == "FLAT") listOf("FLAT" to "Eski tekis: mijoz heç narsa körmaydi, restoran hisobiga 5 000 yoziladi") + FEE_MODES else FEE_MODES
         modes.forEach { (code, label) ->
             Row(Modifier.fillMaxWidth().clickable { pick = code }, verticalAlignment = Alignment.CenterVertically) {
@@ -257,7 +259,7 @@ private fun CashMaxCard(s: SettingsDto, saving: Boolean, onSave: (Long) -> Unit)
     val som = text.filter { it.isDigit() }.toLongOrNull()
     val ok = som != null && som in 10_000L..100_000_000L
     Card {
-        Text("💵 Naqd buyurtmaning eng katta summasi", style = MaterialTheme.typography.titleMedium)
+        Text("Naqd buyurtmaning eng katta summasi", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(
             value = text, onValueChange = { if (it.length <= 9) text = it },
             label = { Text("Söm (10 000 dan 100 000 000 gaça)") }, singleLine = true, isError = !ok,
@@ -278,7 +280,7 @@ private fun RatingsCard(s: SettingsDto, r: RatingsDto?, saving: Boolean, onRanki
     Card {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("⭐ Restoran baholari", style = MaterialTheme.typography.titleMedium)
+                Text("Restoran baholari", style = MaterialTheme.typography.titleMedium)
                 Text(
                     if (s.ranking.enabled) "Röyxat tartibi: reyting böyiça (yaxşi baholilar tepada)." else "Röyxat tartibi: alifbo böyiça (baho tartibga ta’sir qilmaydi).",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,

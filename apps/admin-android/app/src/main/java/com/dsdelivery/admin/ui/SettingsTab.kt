@@ -1,5 +1,13 @@
 package com.dsdelivery.admin.ui
 
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.Icons
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.PrimaryButton
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.AdminCard
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -108,15 +116,15 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
                 HourStepper("Boşlanişi", fromH) { fromH = it }
                 HourStepper("Tugaşi", toH) { toH = it }
                 if (state.quietActive) Text("Hozir jim soat davom etyapti.", style = MaterialTheme.typography.bodyMedium, color = NeutralColor)
-                Button(onClick = { saveQuiet(off = false) }, enabled = changed && fromH != toH && !quietBusy) { Text("Saqlaş") }
+                PrimaryButton("Saqlaş", { saveQuiet(off = false) }, Modifier, enabled = changed && fromH != toH && !quietBusy)
             }
         }
 
         Section("Signal") {
             Text("Signal telefonning „Budilnik“ ovozida çalinadi. Jim rejim uni öçirmaydi.", style = MaterialTheme.typography.bodyMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { app.alarm.beepOnce() }) { Text("Ovozni sinaş") }
-                OutlinedButton(onClick = { app.alarm.setVolumeFraction(1f); onReadinessChanged() }) { Text("Maksimal ovoz") }
+                PrimaryButton("Ovozni sinaş", { app.alarm.beepOnce() }, Modifier)
+                SecondaryButton("Maksimal ovoz", { app.alarm.setVolumeFraction(1f); onReadinessChanged() }, Modifier)
             }
         }
 
@@ -136,7 +144,7 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
                     "Sozlamalar → Ilovalar → DS Admin bölimida „Avtoyuklaş“ni yoqing va „Batareya: çeklovsiz“ni tanlang.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedButton(onClick = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }) { Text("Ilova sozlamalarini oçiş") }
+            SecondaryButton("Ilova sozlamalarini oçiş", { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) })
         }
 
         if (bioAvailable || bioOn) Section("Qulf") {
@@ -160,8 +168,8 @@ fun SettingsTab(readiness: Readiness, duty: Boolean, onReadinessChanged: () -> U
 
         Section("Hisob") {
             Text("Telegram ID: ${account?.telegramUserId ?: ""}", style = MaterialTheme.typography.bodyLarge)
-            OutlinedButton(onClick = { confirmLogout = true }) { Text("Çiqiş") }
-            OutlinedButton(onClick = { confirmLogoutAll = true }) { Text("Barça qurilmalarni yopiş") }
+            SecondaryButton("Çiqiş", { confirmLogout = true })
+            SecondaryButton("Barça qurilmalarni yopiş", { confirmLogoutAll = true })
             Text(
                 "Telefon yöqolsa yoki öğirlansa: „Barça qurilmalarni yopiş“ni bosing (yoki botda /logoutall yozing).",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -225,11 +233,8 @@ private fun HourStepper(label: String, hour: Int, onChange: (Int) -> Unit) {
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface, RoundedCornerShape(16.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    AdminCard {
+        Text(title, style = MaterialTheme.typography.titleMedium)
         content()
     }
 }
@@ -237,7 +242,10 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun Check(label: String, ok: Boolean, fixLabel: String, onFix: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(if (ok) "✅" else "⚠️", modifier = Modifier.padding(end = 10.dp))
+        Icon(
+            if (ok) Icons.Filled.CheckCircle else Icons.Filled.Warning, contentDescription = null,
+            tint = if (ok) OkColor else WarnColor, modifier = Modifier.padding(end = 10.dp),
+        )
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
         if (!ok) TextButton(onClick = onFix) { Text(fixLabel) }
     }

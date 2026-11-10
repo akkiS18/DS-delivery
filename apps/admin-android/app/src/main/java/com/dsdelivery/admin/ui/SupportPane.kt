@@ -1,5 +1,10 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.DetailHeader
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.SectionHeader
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -55,8 +60,8 @@ private fun newKey(): String = UUID.randomUUID().toString().replace("-", "")
 
 private fun statusLabel(t: TicketRowDto): String = when (t.status) {
     "OPEN" -> "🆕 Oçiq"
-    "IN_PROGRESS" -> if (t.mine) "🛠 Sizda" else "🛠 ${t.assignedAdminName ?: "Jarayonda"}"
-    else -> "✅ Hal qilindi"
+    "IN_PROGRESS" -> if (t.mine) "Sizda" else "${t.assignedAdminName ?: "Jarayonda"}"
+    else -> "Hal qilindi"
 }
 
 /** Support inbox. Same rules as the bot's /tickets and its buttons; the app only adds a conversation view. */
@@ -100,9 +105,9 @@ private fun InboxList(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
             if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             val data = inbox
             if (data == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
-                if (data.active.isEmpty()) item { Text("Oçiq murojaat yöq.", style = MaterialTheme.typography.titleMedium) }
+                if (data.active.isEmpty()) item { EmptyState(title = "Oçiq murojaat yöq", hint = "Mijoz yozsa, şu yerda körinadi.") }
                 items(data.active.size) { i -> TicketCard(data.active[i]) { onOpen(data.active[i].id) } }
                 if (data.resolved.isNotEmpty()) {
                     item { Text("Hal qilingan (oxirgi 7 kun)", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -196,13 +201,10 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
 
     Column(Modifier.fillMaxSize()) {
         val t = thread
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Orqaga") }
-            if (t != null) Text("#${t.ticket.number} • ${statusLabel(t.ticket)}", style = MaterialTheme.typography.titleMedium)
-        }
+        DetailHeader(if (t != null) "#${t.ticket.number} • ${statusLabel(t.ticket)}" else "Murojaat", onBack)
         if (offline) Banner("Ulaniş yöq — suhbat eskirgan bölişi mumkin")
         if (t == null) {
-            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ListPlaceholder(offline) { scope.launch { load() } }
         } else {
             Card(Modifier.padding(horizontal = 16.dp)) {
                 Text("Buyurtma #${t.order.code} • ${t.order.restaurantName} • ${somText(t.order.totalSom)} (${t.order.status})", style = MaterialTheme.typography.bodyMedium)
@@ -214,7 +216,7 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                     val phone = t.customer.phone?.takeIf { dialable(it).isNotEmpty() }
                     if (phone != null) TextButton(onClick = {
                         runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${dialable(phone)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                    }) { Text("📞") }
+                    }) { Text("Qönğiroq") }
                 }
             }
             LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = listState, contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -253,21 +255,21 @@ private fun TicketScreen(id: String, onBack: () -> Unit, onMessage: (String) -> 
                 }
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when {
-                        status == "OPEN" -> OutlinedButton(enabled = !busy, onClick = { act("🙋 Murojaat sizga olindi.") { app.repository.claimTicket(id, it) } }) { Text("🙋 Men oldim") }
+                        status == "OPEN" -> SecondaryButton("Men oldim", { act("Murojaat sizga olindi.") { app.repository.claimTicket(id, it) } }, Modifier, enabled = !busy)
                         status == "IN_PROGRESS" && t.ticket.mine -> {
                             OutlinedButton(enabled = !busy, onClick = {
-                                confirm = Confirm("Hal qilindimi?", "Mijozga «murojaatingiz hal qilindi» deb xabar boradi.", "Ha, hal qilindi") { act("✅ Hal qilindi.") { app.repository.resolveTicket(id, it) } }
-                            }) { Text("✅ Hal qilindi") }
+                                confirm = Confirm("Hal qilindimi?", "Mijozga «murojaatingiz hal qilindi» deb xabar boradi.", "Ha, hal qilindi") { act("Hal qilindi.") { app.repository.resolveTicket(id, it) } }
+                            }) { Text("Hal qilindi") }
                             t.others.forEach { o ->
                                 OutlinedButton(enabled = !busy, onClick = {
-                                    confirm = Confirm("Ötkazilsinmi?", "Murojaat ${o.name} ga ötadi; unga xabar boradi.", "Ha, ötkaziş") { act("🔁 ${o.name} ga ötkazildi.") { k -> app.repository.reassignTicket(id, k, o.telegramId) } }
-                                }) { Text("🔁 ${o.name} ga") }
+                                    confirm = Confirm("Ötkazilsinmi?", "Murojaat ${o.name} ga ötadi; unga xabar boradi.", "Ha, ötkaziş") { act("${o.name} ga ötkazildi.") { k -> app.repository.reassignTicket(id, k, o.telegramId) } }
+                                }) { Text("${o.name} ga") }
                             }
                         }
                         status == "IN_PROGRESS" && me != null -> OutlinedButton(enabled = !busy, onClick = {
-                            confirm = Confirm("Menga ötkazilsinmi?", "Murojaat ${t.ticket.assignedAdminName ?: "boshqa administrator"} dan sizga ötadi.", "Ha, menga") { act("🔁 Murojaat sizga ötdi.") { k -> app.repository.reassignTicket(id, k, me) } }
-                        }) { Text("🔁 Menga ötkaziş") }
-                        status == "RESOLVED" -> OutlinedButton(enabled = !busy, onClick = { act("♻️ Murojaat qayta oçildi.") { app.repository.reopenTicket(id, it) } }) { Text("♻️ Qayta oçiş") }
+                            confirm = Confirm("Menga ötkazilsinmi?", "Murojaat ${t.ticket.assignedAdminName ?: "boshqa administrator"} dan sizga ötadi.", "Ha, menga") { act("Murojaat sizga ötdi.") { k -> app.repository.reassignTicket(id, k, me) } }
+                        }) { Text("Menga ötkaziş") }
+                        status == "RESOLVED" -> SecondaryButton("Qayta oçiş", { act("Murojaat qayta oçildi.") { app.repository.reopenTicket(id, it) } }, Modifier, enabled = !busy)
                     }
                 }
             }

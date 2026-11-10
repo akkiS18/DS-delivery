@@ -1,5 +1,11 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.DetailHeader
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.SectionHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -97,41 +103,40 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (offline) item { Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin") }
-            item { Text("🛠 Taksi muammolari", style = MaterialTheme.typography.titleMedium) }
+            item { SectionHeader("Taksi muammolari") }
             val ps = problems
-            if (ps == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (ps == null) item { ListPlaceholder(offline) { scope.launch { load() } } }
             else {
-                if (ps.isEmpty()) item { Text("✅ Hal qilinişi kerak bölgan taksi buyurtmasi yöq.", style = MaterialTheme.typography.bodyLarge, color = OkColor) }
+                if (ps.isEmpty()) item { EmptyState(title = "Hal qilinişi kerak bölgan taksi buyurtmasi yöq") }
                 items(ps.size) { i ->
                     val p = ps[i]
                     Card(Modifier.clickable { onOpen(p.id) }) {
                         Text("#${p.orderCode} • ${p.restaurantName}", style = MaterialTheme.typography.titleMedium)
-                        Text("${p.companyName} — ${label(p.status)} (uriniş #${p.attemptNo})", style = MaterialTheme.typography.bodyMedium, color = WarnColor, fontWeight = FontWeight.SemiBold)
+                        StatusChip("${p.companyName} — ${label(p.status)} (uriniş #${p.attemptNo})", Tone.WARN)
                         Text(stampOf(p.updatedAt), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            item { Text("🚕 Taksi kompaniyalari", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
-            item { PrimaryButton("➕ Yangi kompaniya", enabled = !saving) { newOpen = true } }
+            item { SectionHeader("Taksi kompaniyalari") }
+            item { PrimaryButton("Yangi kompaniya", enabled = !saving) { newOpen = true } }
             val cs = companies
             if (cs != null) {
-                if (cs.isEmpty()) item { Text("Kompaniyalar yöq.") }
+                if (cs.isEmpty()) item { EmptyState(title = "Kompaniyalar yöq", hint = "«Yangi kompaniya» tugmasi bilan qöşing.") }
                 items(cs.size) { i ->
                     val c = cs[i]
                     Card {
                         Text(c.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
+                        StatusChip(
                             when {
-                                !c.isActive -> "⛔ öçirilgan"
-                                c.reachable -> "✅ buyurtma olişi mumkin"
-                                else -> "⚠️ ilova logini yöq — buyurtma olmaydi"
+                                !c.isActive -> "Öçirilgan"
+                                c.reachable -> "Buyurtma olişi mumkin"
+                                else -> "Ilova logini yöq — buyurtma olmaydi"
                             },
-                            style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
-                            color = if (c.isActive && c.reachable) OkColor else WarnColor,
+                            if (!c.isActive) Tone.NEUTRAL else if (c.reachable) Tone.OK else Tone.WARN,
                         )
                         if (c.login != null) Text("Login: ${c.login}", fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodyMedium)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { resetFor = c }) { Text("🔑 Yangi parol") }
+                            SecondaryButton("Yangi parol", { resetFor = c }, Modifier, enabled = !saving)
                             OutlinedButton(enabled = !saving, onClick = {
                                 saving = true
                                 scope.launch {
@@ -139,7 +144,7 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
                                     saving = false
                                     if (res != null) removal = c to res.plan
                                 }
-                            }) { Text("🗑 Öçiriş", color = UrgentColor) }
+                            }) { Text("Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -187,7 +192,7 @@ private fun TaxiHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit) {
                     val res = unwrap(app.repository.removeTaxiCompany(c.id, expected), onMessage)
                     saving = false
                     removal = null
-                    if (res != null) onMessage(if (res.result == "DELETED") "🗑 ${c.name} öçirildi." else "🗄 ${c.name} arxivlandi.")
+                    if (res != null) onMessage(if (res.result == "DELETED") "${c.name} öçirildi." else "${c.name} arxivlandi.")
                     load()
                 }
             },
@@ -270,18 +275,16 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Orqaga") }
-        }
+        DetailHeader(detail?.let { "#${it.orderCode} • ${it.restaurantName}" } ?: "Taksi sörovi", onBack)
         if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin")
         val d = detail
         if (d == null) {
-            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ListPlaceholder(offline) { scope.launch { load() } }
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
                     Card {
-                        Text("🚕 #${d.orderCode} • ${d.restaurantName}", style = MaterialTheme.typography.titleMedium)
+                        Text("#${d.orderCode} • ${d.restaurantName}", style = MaterialTheme.typography.titleMedium)
                         Text("Manzil: ${d.addressText}", style = MaterialTheme.typography.bodyMedium)
                         Text("Buyurtma: ${d.orderStatus}", style = MaterialTheme.typography.bodyMedium)
                         Text("Joriy uriniş #${d.attemptNo}: ${d.companyName} — ${label(d.status)}", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
@@ -293,13 +296,13 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                     if (d.open) {
                         Card {
                             Text(
-                                "⚠️ Qayta yuborişdan oldin haydovçi YUBORILMAGANINI operator bilan telefon orqali aniqlang. Yuborilgan bölsa — «Haydovçi allaqaçon yuborilgan»ni bosing: yangi buyurtma yaratilmaydi.",
+                                "Qayta yuborişdan oldin haydovçi YUBORILMAGANINI operator bilan telefon orqali aniqlang. Yuborilgan bölsa — «Haydovçi allaqaçon yuborilgan»ni bosing: yangi buyurtma yaratilmaydi.",
                                 style = MaterialTheme.typography.bodyMedium, color = WarnColor,
                             )
                             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("RETRY_SAME") }) { Text("🔁 Şu kompaniyaga qayta yuboriş") }
-                                OutlinedButton(enabled = !busy, onClick = { picking = true }) { Text("🔀 Boşqa kompaniyaga ötkaziş") }
-                                OutlinedButton(enabled = !busy, onClick = { pending = RecoverAction("DRIVER_SENT") }) { Text("🚕 Haydovçi allaqaçon yuborilgan") }
+                                SecondaryButton("Şu kompaniyaga qayta yuboriş", { pending = RecoverAction("RETRY_SAME") }, Modifier, enabled = !busy)
+                                SecondaryButton("Boşqa kompaniyaga ötkaziş", { picking = true }, Modifier, enabled = !busy)
+                                SecondaryButton("Haydovçi allaqaçon yuborilgan", { pending = RecoverAction("DRIVER_SENT") }, Modifier, enabled = !busy)
                             }
                         }
                     } else {
@@ -343,8 +346,8 @@ private fun ProblemScreen(id: String, onBack: () -> Unit, onMessage: (String) ->
                     pending = null
                     if (res != null) {
                         onMessage(
-                            if (res.action == "DRIVER_SENT") "✅ Haydovçi yuborilgani qayd etildi."
-                            else "✅ Yangi sörov ${res.companyName ?: ""} operatoriga navbatga qöyildi (bir neça soniyada yuboriladi).",
+                            if (res.action == "DRIVER_SENT") "Haydovçi yuborilgani qayd etildi."
+                            else "Yangi sörov ${res.companyName ?: ""} operatoriga navbatga qöyildi (bir neça soniyada yuboriladi).",
                         )
                     }
                     load() // a refusal (CHANGED) also means the situation moved on: show the current state

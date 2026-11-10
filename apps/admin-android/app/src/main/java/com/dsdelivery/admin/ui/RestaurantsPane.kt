@@ -1,5 +1,9 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.StatusChip
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -93,7 +97,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                 onMessage("Rasmni öqib bölmadi. Boşqa rasm tanlang.")
             } else {
                 val res = unwrap(app.repository.setRestaurantImage(r.id, jpeg), onMessage)
-                if (res != null) onMessage("🖼 ${r.name}: rasm saqlandi.")
+                if (res != null) onMessage("${r.name}: rasm saqlandi.")
             }
             saving = false
         }
@@ -102,12 +106,12 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
     PullRefresh(onRefresh = { scope.launch { load() } }, modifier = Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
-            item { PrimaryButton("➕ Yangi restoran", enabled = !saving) { newOpen = true } }
+            item { PrimaryButton("Yangi restoran", enabled = !saving) { newOpen = true } }
             val list = rows
             if (list == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
-                if (list.isEmpty()) item { Text("Restoranlar yöq.") }
+                if (list.isEmpty()) item { EmptyState(title = "Restoranlar yöq", hint = "«Yangi restoran» tugmasi bilan qöşing.") }
                 items(list.size) { i ->
                     val r = list[i]
                     Card {
@@ -118,23 +122,20 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                             }
                             Switch(checked = r.isActive, enabled = !saving, onCheckedChange = { target = r to it })
                         }
-                        Text(
-                            if (r.isActive) "✅ faol" else "⛔ töxtatilgan", fontWeight = FontWeight.SemiBold,
-                            color = if (r.isActive) OkColor else UrgentColor, style = MaterialTheme.typography.bodyMedium,
-                        )
+                        StatusChip(if (r.isActive) "Faol" else "Töxtatilgan", if (r.isActive) Tone.OK else Tone.URGENT)
                         val notes = listOfNotNull(
                             if (r.isPaused) "⏸ pauzada" else null,
-                            if (!r.hasPassword) "⚠️ parol yöq" else null,
+                            if (!r.hasPassword) "parol yöq" else null,
                             if (!r.hasFinancePin) "moliya kodi berilmagan" else null,
                             if (!r.staffLinked) "Telegram xodimi ulanmagan" else null,
                             "kartalar: ${r.enabledCards} faol" + if (r.pendingCards > 0) ", ${r.pendingCards} kutmoqda" else "",
                         )
                         Text(notes.joinToString(" • "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { resetFor = r }) { Text("🔑 Yangi parol") }
-                            OutlinedButton(enabled = !saving, onClick = { pinFor = r }) { Text("🔐 Moliya kodi") }
-                            OutlinedButton(enabled = !saving, onClick = { linkFor = r }) { Text("🔗 Telegram") }
-                            OutlinedButton(enabled = !saving, onClick = { photoFor = r; picker.launch("image/*") }) { Text("🖼 Rasm") }
+                            SecondaryButton("Yangi parol", { resetFor = r }, Modifier, enabled = !saving)
+                            SecondaryButton("Moliya kodi", { pinFor = r }, Modifier, enabled = !saving)
+                            SecondaryButton("Telegram", { linkFor = r }, Modifier, enabled = !saving)
+                            SecondaryButton("Rasm", { photoFor = r; picker.launch("image/*") }, Modifier, enabled = !saving)
                             OutlinedButton(enabled = !saving, onClick = {
                                 saving = true
                                 scope.launch {
@@ -142,7 +143,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                                     saving = false
                                     if (res != null) removal = r to res.plan
                                 }
-                            }) { Text("🗑 Öçiriş", color = UrgentColor) }
+                            }) { Text("Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -170,7 +171,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                         if (res != null) {
                             onMessage(
                                 when (res.result) {
-                                    "CHANGED" -> if (active) "✅ ${r.name} yoqildi." else "⛔ ${r.name} töxtatildi (${res.signedOut} ta seans yopildi)."
+                                    "CHANGED" -> if (active) "${r.name} yoqildi." else "${r.name} töxtatildi (${res.signedOut} ta seans yopildi)."
                                     else -> "Holat allaqaçon şunday."
                                 },
                             )
@@ -242,7 +243,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                 scope.launch {
                     val res = unwrap(app.repository.linkStaff(r.id, tg), onMessage)
                     saving = false
-                    if (res != null) { linkFor = null; onMessage("🔗 ${r.name}: Telegram xodimi ulandi.") }
+                    if (res != null) { linkFor = null; onMessage("${r.name}: Telegram xodimi ulandi.") }
                     load()
                 }
             },
@@ -258,7 +259,7 @@ fun RestaurantsPane(onMessage: (String) -> Unit) {
                     val res = unwrap(app.repository.removeRestaurant(r.id, expected), onMessage)
                     saving = false
                     removal = null
-                    if (res != null) onMessage(if (res.result == "DELETED") "🗑 ${r.name} öçirildi." else "🗄 ${r.name} arxivlandi.")
+                    if (res != null) onMessage(if (res.result == "DELETED") "${r.name} öçirildi." else "${r.name} arxivlandi.")
                     load()
                 }
             },

@@ -1,5 +1,10 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.DetailHeader
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
+import com.dsdelivery.admin.ui.kit.SectionHeader
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
@@ -47,10 +52,10 @@ private fun who(name: String?, phone: String?, tg: String?): String =
     listOfNotNull(name?.takeIf { it.isNotBlank() }, phone?.takeIf { it.isNotBlank() }, tg?.let { "TG $it" }).joinToString(" • ").ifEmpty { "Noma’lum mijoz" }
 
 private fun standingText(blocked: Boolean, manual: Boolean, strikes: Int, cashAllowed: Boolean): String = when {
-    manual -> "⛔ Administrator bloklagan"
-    blocked -> "⛔ Bloklangan ($strikes ta strike)"
-    !cashAllowed -> "⚠️ $strikes ta strike — naqd tölov yopiq"
-    else -> "✅ Çeklov yöq"
+    manual -> "Administrator bloklagan"
+    blocked -> "Bloklangan ($strikes ta strike)"
+    !cashAllowed -> "$strikes ta strike — naqd tölov yopiq"
+    else -> "Çeklov yöq"
 }
 
 @androidx.compose.runtime.Composable
@@ -120,7 +125,7 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { applied = typed.trim() }),
                     )
-                    OutlinedButton(onClick = { applied = typed.trim() }) { Text("Qidiriş") }
+                    SecondaryButton("Qidiriş", { applied = typed.trim() }, Modifier)
                 }
             }
             item {
@@ -130,12 +135,12 @@ private fun CustomersHome(onOpen: (String) -> Unit, onMessage: (String) -> Unit)
                 )
             }
             val rows = list
-            if (rows == null) item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (rows == null) item { ListPlaceholder(offline) { scope.launch { load() } } }
             else {
                 if (rows.isEmpty()) item {
-                    Text(
-                        if (applied.isEmpty()) "✅ Hozir strike yoki bloki bor mijoz yöq." else "Heç kim topilmadi (telefon uçun kamida 5 raqam).",
-                        style = MaterialTheme.typography.bodyLarge, color = if (applied.isEmpty()) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    EmptyState(
+                        title = if (applied.isEmpty()) "Hozir strike yoki bloki bor mijoz yöq" else "Heç kim topilmadi",
+                        hint = if (applied.isEmpty()) null else "Telefon uçun kamida 5 raqam yozing.",
                     )
                 }
                 items(rows.size) { i ->
@@ -225,13 +230,11 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
     }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("← Orqaga") }
-        }
+        DetailHeader(detail?.let { who(it.name, it.phone, it.telegramUserId) } ?: "Mijoz", onBack)
         if (offline) Banner("Ulaniş yöq — ma’lumot eskirgan bölişi mumkin")
         val d = detail
         if (d == null) {
-            Text(if (offline) "Yuklab bölmadi." else "Yuklanmoqda…", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ListPlaceholder(offline) { scope.launch { load() } }
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item {
@@ -247,14 +250,14 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
                             val phone = d.phone?.takeIf { dialable(it).isNotEmpty() }
                             if (phone != null) OutlinedButton(onClick = {
                                 runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${dialable(phone)}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
-                            }) { Text("📞 Qönğiroq") }
-                            OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Strike }) { Text("⚠️ Strike beriş") }
-                            if (d.manuallyBlocked) OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Unblock }) { Text("✅ Blokdan çiqariş") }
-                            else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Block }) { Text("⛔ Bloklaş", color = UrgentColor) }
+                            }) { Text("Qönğiroq") }
+                            SecondaryButton("Strike beriş", { pending = CustomerAction.Strike }, Modifier, enabled = !busy)
+                            if (d.manuallyBlocked) SecondaryButton("Blokdan çiqariş", { pending = CustomerAction.Unblock }, Modifier, enabled = !busy)
+                            else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Block }) { Text("Bloklaş", color = UrgentColor) }
                         }
                     }
                 }
-                item { Text("Strikelar", style = MaterialTheme.typography.titleMedium) }
+                item { SectionHeader("Strikelar") }
                 if (d.strikeLines.isEmpty()) item { Text("Strike yöq.", style = MaterialTheme.typography.bodyMedium) }
                 items(d.strikeLines.size) { i ->
                     val s = d.strikeLines[i]
@@ -267,10 +270,10 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
                         )
                         Text(s.note, style = MaterialTheme.typography.bodyMedium)
                         if (!active) Text("Bekor qiliş izohi: ${s.revokeNote ?: ""}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        else OutlinedButton(enabled = !busy, onClick = { pending = CustomerAction.Revoke(s.id) }) { Text("↩️ Strikeni bekor qiliş") }
+                        else SecondaryButton("Strikeni bekor qiliş", { pending = CustomerAction.Revoke(s.id) }, Modifier, enabled = !busy)
                     }
                 }
-                item { Text("Oxirgi buyurtmalar", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
+                item { SectionHeader("Oxirgi buyurtmalar") }
                 if (d.recentOrders.isEmpty()) item { Text("Buyurtma yöq.", style = MaterialTheme.typography.bodyMedium) }
                 items(d.recentOrders.size) { i ->
                     val o = d.recentOrders[i]
@@ -292,7 +295,7 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
                     val res = unwrap(app.repository.addStrike(id, note, orderCode), onMessage)
                     busy = false
                     pending = null
-                    if (res != null) onMessage("✅ Saqlandi.")
+                    if (res != null) onMessage("Saqlandi.")
                     load()
                 }
             },
@@ -323,7 +326,7 @@ private fun CustomerScreen(id: String, onBack: () -> Unit, onMessage: (String) -
                     )
                     busy = false
                     pending = null
-                    if (res != null) onMessage("✅ Saqlandi.")
+                    if (res != null) onMessage("Saqlandi.")
                     load() // a refusal (CHANGED) also means someone else moved it on: show the current state
                 }
             },

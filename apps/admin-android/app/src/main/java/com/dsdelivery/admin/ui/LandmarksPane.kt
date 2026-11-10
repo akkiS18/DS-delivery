@@ -1,5 +1,8 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -111,7 +114,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
             if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             val d = data
             if (d == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
                 item { Text("Joylar (${d.landmarks.size})", style = MaterialTheme.typography.titleLarge) }
                 item {
@@ -121,7 +124,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                item { PrimaryButton("➕ Yangi joy", enabled = !saving) { adding = true } }
+                item { PrimaryButton("Yangi joy", enabled = !saving) { adding = true } }
                 if (d.landmarks.size > 6) {
                     item {
                         OutlinedTextField(
@@ -131,7 +134,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
                     }
                 }
                 val shown = d.landmarks.filter { filter.isBlank() || it.name.contains(filter.trim(), ignoreCase = true) }
-                if (shown.isEmpty()) item { Text(if (d.landmarks.isEmpty()) "Hali joy qöşilmagan." else "Topilmadi.") }
+                if (shown.isEmpty()) item { EmptyState(title = if (d.landmarks.isEmpty()) "Hali joy qöşilmagan" else "Topilmadi") }
                 items(shown.size) { i ->
                     val l = shown[i]
                     Card {
@@ -143,15 +146,15 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
                             Switch(checked = l.isActive, enabled = !saving, onCheckedChange = { on -> run(null) { app.repository.setLandmarkActive(l.id, on) } })
                         }
                         Text(
-                            if (l.isActive) "🟢 Mijozlarga körinadi" else "⚪ Öçiq (mijozga körinmaydi)",
+                            if (l.isActive) "Mijozlarga körinadi" else "Öçiq (mijozga körinmaydi)",
                             style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold,
                             color = if (l.isActive) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(CoordText.format(GeoPoint(l.lat, l.lng)), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { editing = l }) { Text("✏️ Tahrirlaş") }
-                            OutlinedButton(onClick = { showOnMap(l) }) { Text("🗺 Xaritada") }
-                            OutlinedButton(enabled = !saving, onClick = { deleting = l }) { Text("🗑 Öçiriş", color = UrgentColor) }
+                            SecondaryButton("Tahrirlaş", { editing = l }, Modifier, enabled = !saving)
+                            SecondaryButton("Xaritada", { showOnMap(l) }, Modifier)
+                            OutlinedButton(enabled = !saving, onClick = { deleting = l }) { Text("Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
@@ -164,7 +167,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
             initial = null, kinds = data?.kinds.orEmpty(), busy = saving, onDismiss = { adding = false },
             onSave = { name, kind, p ->
                 adding = false
-                run("✅ «$name» qöşildi.") { app.repository.createLandmark(name, kind, p.lat, p.lng) }
+                run("«$name» qöşildi.") { app.repository.createLandmark(name, kind, p.lat, p.lng) }
             },
         )
     }
@@ -174,7 +177,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
             initial = l, kinds = data?.kinds.orEmpty(), busy = saving, onDismiss = { editing = null },
             onSave = { name, kind, p ->
                 editing = null
-                run("✅ «$name» saqlandi.") { app.repository.updateLandmark(l.id, PatchLandmarkRequest(name = name, kind = kind, lat = p.lat, lng = p.lng)) }
+                run("«$name» saqlandi.") { app.repository.updateLandmark(l.id, PatchLandmarkRequest(name = name, kind = kind, lat = p.lat, lng = p.lng)) }
             },
         )
     }
@@ -187,7 +190,7 @@ fun LandmarksPane(onMessage: (String) -> Unit) {
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     deleting = null
-                    run("🗑 «${l.name}» öçirildi.") { app.repository.deleteLandmark(l.id) }
+                    run("«${l.name}» öçirildi.") { app.repository.deleteLandmark(l.id) }
                 }) { Text("Ha, öçiriş", color = UrgentColor) }
             },
             dismissButton = { TextButton(enabled = !saving, onClick = { deleting = null }) { Text("Yöq") } },
@@ -218,8 +221,8 @@ private fun LandmarkDialog(
             finding = false
             if (fix != null) {
                 coords = CoordText.format(GeoPoint(fix.lat, fix.lng))
-                gpsNote = if (fix.accuracyM > 40f) "⚠️ Aniqlik past (±${if (fix.accuracyM < 10_000f) fix.accuracyM.toInt() else 0} m). Oçiq joyda qayta bosing."
-                else "📍 Joylaşuv olindi (±${fix.accuracyM.toInt()} m)."
+                gpsNote = if (fix.accuracyM > 40f) "Aniqlik past (±${if (fix.accuracyM < 10_000f) fix.accuracyM.toInt() else 0} m). Oçiq joyda qayta bosing."
+                else "Joylaşuv olindi (±${fix.accuracyM.toInt()} m)."
             } else {
                 gpsNote = when (problem) {
                     FixProblem.NO_PERMISSION -> "Joylaşuvga ruxsat berilmadi."
@@ -254,7 +257,7 @@ private fun LandmarkDialog(
                     enabled = !busy && !finding,
                     onClick = { if (LocationFinder.hasPermission(context)) findHere() else askPermission.launch(LocationFinder.permissions) },
                     modifier = Modifier.fillMaxWidth(),
-                ) { Text(if (finding) "Aniqlanmoqda…" else "📍 Hozirgi joyim (şu yerda turibman)") }
+                ) { Text(if (finding) "Aniqlanmoqda…" else "Hozirgi joyim (şu yerda turibman)") }
                 if (gpsNote.isNotEmpty()) Text(gpsNote, style = MaterialTheme.typography.bodyMedium)
                 OutlinedTextField(
                     value = coords, onValueChange = { if (it.length <= 200) coords = it }, label = { Text("Koordinata: 40.0304, 65.6672") },
@@ -262,7 +265,7 @@ private fun LandmarkDialog(
                 )
                 if (coords.isNotBlank()) {
                     Text(
-                        if (point != null) "✅ ${CoordText.format(point)}" else "❌ Koordinata öqilmadi (kenglik va uzunlik: 40.0304, 65.6672)",
+                        if (point != null) "${CoordText.format(point)}" else "Koordinata öqilmadi (kenglik va uzunlik: 40.0304, 65.6672)",
                         style = MaterialTheme.typography.bodyMedium, color = if (point != null) OkColor else UrgentColor,
                     )
                 }

@@ -76,7 +76,7 @@ fun SecretDialog(credential: CredentialResponse, onDone: () -> Unit) {
                 OutlinedButton(onClick = {
                     clipboard.setText(AnnotatedString("Login: ${credential.slug}\nParol: ${credential.password}"))
                     copied = true
-                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalaş") }
+                }) { Text(if (copied) "Nusxalandi" else "Nusxalaş") }
                 Text(
                     "Parol faqat şu yerda va faqat hozir körinadi: tizim uni saqlamaydi. Restoranga xavfsiz yöl bilan yuboring (masalan, şaxsiy Telegram). Yuborgaç, boşqa narsani nusxalab qöying.",
                     style = MaterialTheme.typography.bodyMedium, color = WarnColor,
@@ -119,7 +119,7 @@ fun FinancePinDialog(result: FinancePinResponse, onDone: () -> Unit) {
                 OutlinedButton(onClick = {
                     clipboard.setText(AnnotatedString(result.pin))
                     copied = true
-                }) { Text(if (copied) "✓ Nusxalandi" else "Nusxalaş") }
+                }) { Text(if (copied) "Nusxalandi" else "Nusxalaş") }
                 Text(
                     "Kod faqat şu yerda va faqat hozir körinadi: tizim uni saqlamaydi. Restoran egasiga özingiz ayting; kassirlarga bermang. Yozib olgaç, boşqa narsani nusxalab qöying.",
                     style = MaterialTheme.typography.bodyMedium, color = WarnColor,

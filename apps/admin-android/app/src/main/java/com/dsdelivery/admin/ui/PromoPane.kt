@@ -1,5 +1,8 @@
 package com.dsdelivery.admin.ui
 
+import com.dsdelivery.admin.ui.kit.EmptyState
+import com.dsdelivery.admin.ui.kit.SecondaryButton
+import com.dsdelivery.admin.ui.kit.ListPlaceholder
 import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -128,7 +131,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             if (jpeg == null) {
                 onMessage("Rasmni öqib bölmadi. Boşqa rasm tanlang.")
             } else if (unwrap(app.repository.setSlideImage(id, jpeg), onMessage) != null) {
-                onMessage("🖼 Slayd rasmi saqlandi.")
+                onMessage("Slayd rasmi saqlandi.")
             }
             saving = false
             load()
@@ -156,7 +159,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             if (offline) item { Banner("Ulaniş yöq — röyxat eskirgan bölişi mumkin") }
             val d = data
             if (d == null) {
-                item { Text(if (offline) "Yuklab bölmadi. Pastga torting." else "Yuklanmoqda…", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                item { ListPlaceholder(offline) { scope.launch { load() } } }
             } else {
                 item { Text("Aksiyalar (1+1)", style = MaterialTheme.typography.titleLarge) }
                 item {
@@ -165,7 +168,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (d.promotions.isEmpty()) item { Text("Aksiya yöq.") }
+                if (d.promotions.isEmpty()) item { EmptyState(title = "Aksiya yöq") }
                 items(d.promotions.size) { i ->
                     val p = d.promotions[i]
                     val chosen = p.dishes.filter { it.id in p.productIds }
@@ -178,11 +181,11 @@ fun PromoPane(onMessage: (String) -> Unit) {
                             Switch(checked = p.isActive, enabled = !saving, onCheckedChange = { confirmToggle = p to it })
                         }
                         Text(
-                            if (p.isActive) "🟢 Yoqilgan" else "⚪ Öçiq", fontWeight = FontWeight.SemiBold,
+                            if (p.isActive) "Yoqilgan" else "Öçiq", fontWeight = FontWeight.SemiBold,
                             color = if (p.isActive) OkColor else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            if (chosen.isEmpty()) "⚠️ Taom tanlanmagan" else "Taomlar: " + chosen.joinToString(", ") { it.name },
+                            if (chosen.isEmpty()) "Taom tanlanmagan" else "Taomlar: " + chosen.joinToString(", ") { it.name },
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
@@ -190,13 +193,13 @@ fun PromoPane(onMessage: (String) -> Unit) {
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { dishesFor = p }) { Text("🍽 Taomlarni tanlaş") }
-                            OutlinedButton(enabled = !saving, onClick = { capFor = p }) { Text("🔢 Limit") }
-                            OutlinedButton(enabled = !saving, onClick = { deletePromo = p }) { Text("🗑 Öçiriş", color = UrgentColor) }
+                            SecondaryButton("Taomlarni tanlaş", { dishesFor = p }, Modifier, enabled = !saving)
+                            SecondaryButton("Limit", { capFor = p }, Modifier, enabled = !saving)
+                            OutlinedButton(enabled = !saving, onClick = { deletePromo = p }) { Text("Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
-                item { PrimaryButton("➕ Yangi aksiya", enabled = !saving) { newPromo = true } }
+                item { PrimaryButton("Yangi aksiya", enabled = !saving) { newPromo = true } }
 
                 item { Text("Slaydlar (boş sahifa)", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(top = 12.dp)) }
                 item {
@@ -205,7 +208,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                if (d.banners.isEmpty()) item { Text("Slayd yöq.") }
+                if (d.banners.isEmpty()) item { EmptyState(title = "Slayd yöq") }
                 items(d.banners.size) { i ->
                     val s = d.banners[i]
                     Card {
@@ -222,23 +225,23 @@ fun PromoPane(onMessage: (String) -> Unit) {
                         }
                         Text(
                             when {
-                                !s.hasImage -> "⚠️ Rasm yöq"
-                                s.live -> "✅ Mijozlarga körinmoqda"
-                                s.isActive -> "⏳ Yoqilgan, lekin hozir körinmaydi (aksiyasi öçiq yoki taomi yöq)"
-                                else -> "⛔ Öçiq"
+                                !s.hasImage -> "Rasm yöq"
+                                s.live -> "Mijozlarga körinmoqda"
+                                s.isActive -> "Yoqilgan, lekin hozir körinmaydi (aksiyasi öçiq yoki taomi yöq)"
+                                else -> "Öçiq"
                             },
                             fontWeight = FontWeight.SemiBold,
                             color = if (s.live) OkColor else MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
                         )
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(enabled = !saving, onClick = { photoFor = s.id; picker.launch("image/*") }) { Text("🖼 Rasm") }
-                            OutlinedButton(enabled = !saving && i > 0, onClick = { move(d.banners, i, -1) }) { Text("⬆") }
-                            OutlinedButton(enabled = !saving && i < d.banners.size - 1, onClick = { move(d.banners, i, 1) }) { Text("⬇") }
-                            OutlinedButton(enabled = !saving, onClick = { deleteSlide = s }) { Text("🗑 Öçiriş", color = UrgentColor) }
+                            SecondaryButton("Rasm", { photoFor = s.id; picker.launch("image/*") }, Modifier, enabled = !saving)
+                            SecondaryButton("⬆", { move(d.banners, i, -1) }, Modifier, enabled = !saving && i > 0)
+                            SecondaryButton("", { move(d.banners, i, 1) }, Modifier, enabled = !saving && i < d.banners.size - 1)
+                            OutlinedButton(enabled = !saving, onClick = { deleteSlide = s }) { Text("Öçiriş", color = UrgentColor) }
                         }
                     }
                 }
-                item { PrimaryButton("➕ Yangi slayd", enabled = !saving) { newSlide = true } }
+                item { PrimaryButton("Yangi slayd", enabled = !saving) { newSlide = true } }
             }
         }
     }
@@ -256,7 +259,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     confirmToggle = null
-                    run(if (on) "🟢 ${p.title} yoqildi." else "⚪ ${p.title} öçirildi.") { app.repository.setPromotionActive(p.id, on) }
+                    run(if (on) "${p.title} yoqildi." else "${p.title} öçirildi.") { app.repository.setPromotionActive(p.id, on) }
                 }) { Text(if (on) "Ha, yoqiş" else "Ha, öçiriş") }
             },
             dismissButton = { TextButton(enabled = !saving, onClick = { confirmToggle = null }) { Text("Yöq") } },
@@ -268,7 +271,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             promo = p, busy = saving, onDismiss = { dishesFor = null },
             onSave = { ids ->
                 dishesFor = null
-                run("✅ ${p.title}: ${ids.size} ta taom tanlandi.") { app.repository.setPromotionDishes(p.id, ids) }
+                run("${p.title}: ${ids.size} ta taom tanlandi.") { app.repository.setPromotionDishes(p.id, ids) }
             },
         )
     }
@@ -278,7 +281,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             promo = p, busy = saving, onDismiss = { capFor = null },
             onSave = { cap ->
                 capFor = null
-                run(if (cap == 0) "✅ Limit olib taşlandi." else "✅ Limit: $cap ta.") { app.repository.setPromotionCap(p.id, cap) }
+                run(if (cap == 0) "Limit olib taşlandi." else "Limit: $cap ta.") { app.repository.setPromotionCap(p.id, cap) }
             },
         )
     }
@@ -291,7 +294,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     deletePromo = null
-                    run("🗑 ${p.title} öçirildi.") { app.repository.deletePromotion(p.id) }
+                    run("${p.title} öçirildi.") { app.repository.deletePromotion(p.id) }
                 }) { Text("Ha, öçiriş", color = UrgentColor) }
             },
             dismissButton = { TextButton(enabled = !saving, onClick = { deletePromo = null }) { Text("Yöq") } },
@@ -306,7 +309,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             confirmButton = {
                 TextButton(enabled = !saving, onClick = {
                     deleteSlide = null
-                    run("🗑 Slayd öçirildi.") { app.repository.deleteSlide(s.id) }
+                    run("Slayd öçirildi.") { app.repository.deleteSlide(s.id) }
                 }) { Text("Ha, öçiriş", color = UrgentColor) }
             },
             dismissButton = { TextButton(enabled = !saving, onClick = { deleteSlide = null }) { Text("Yöq") } },
@@ -318,7 +321,7 @@ fun PromoPane(onMessage: (String) -> Unit) {
             restaurants = data?.restaurants.orEmpty(), busy = saving, onDismiss = { newPromo = false },
             onCreate = { restaurantId, title ->
                 newPromo = false
-                run("✅ Aksiya qöşildi (öçiq). Taomlarini tanlang.") { app.repository.createPromotion(restaurantId, title) }
+                run("Aksiya qöşildi (öçiq). Taomlarini tanlang.") { app.repository.createPromotion(restaurantId, title) }
             },
         )
     }

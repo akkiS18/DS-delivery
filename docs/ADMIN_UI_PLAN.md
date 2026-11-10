@@ -115,7 +115,7 @@ Eski `Card`, `Banner`, `PrimaryButton` (`MoneyTab.kt`) va `Format.kt`dagi holat 
 | 1 | **Asos** (BAJARILDI 2026-11-10, telefonda ko‘rilmagan) | Manrope fayllari, `Theme.kt` (yorug‘+qorong‘i), tokenlar, holat ranglarini Theme'ga ko‘chirish, `ui/kit/` komponentlari, "DS" logo (adaptive icon + monochrome qatlam + kirish ekranidagi belgi), `colors.xml/themes.xml` (status bar, splash) | `compileReleaseKotlin`, JVM testlar (kontrast, shrift belgilari), mavjud testlar |
 | 2 | **Bosh + navigatsiya** (BAJARILDI 2026-11-10: kod+testlar, telefonda ko‘rilmagan, serverga qo‘yilmagan) | 4 tab, "Yana" ro‘yxati, Diqqat ekrani yangi dizayni, bugungi raqamlar + server endpointi (`/admin/today`) va uning DB testi | `tsc`, `test:admin:db` + yangi test, Kotlin kompilyatsiya, telefon |
 | 3 | **Pul** (BAJARILDI 2026-11-10: kod, telefonda ko‘rilmagan) | Pul bosh, Kartalar, Qaytarish, To‘lovlar, Komissiya | Kotlin kompilyatsiya, telefon (egasi) |
-| 4 | **Qolgan** | Murojaat, Restoranlar, Taksi, Mijozlar, Aksiya, Joylar, Platforma, Qo‘llanma, Sozlamalar, Kirish va PIN ekranlarining ko‘rinishi | Kotlin kompilyatsiya, telefon |
+| 4 | **Qolgan** (BAJARILDI 2026-11-11: umumiy naqshlar bilan, telefonda ko‘rilmagan; dialoglar hali AlertDialog) | Murojaat, Restoranlar, Taksi, Mijozlar, Aksiya, Joylar, Platforma, Qo‘llanma, Sozlamalar, Kirish va PIN ekranlarining ko‘rinishi | Kotlin kompilyatsiya, telefon |
 | 5 | **Skill** | `.claude/skills/ds-admin-ui/` (haqiqatan yozilgan kodga mos) | skillni yangi ekranda sinash |
 
 Har bosqich: kichik commit, hisobot (nima tekshirildi / tekshirilmadi), deploy faqat egasining "ha"siga. Server tomoni faqat 2-bosqichdagi yagona yangi endpoint.

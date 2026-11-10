@@ -1,5 +1,7 @@
 package com.dsdelivery.admin.ui
 
+import androidx.compose.ui.Alignment
+import com.dsdelivery.admin.ui.kit.PrimaryButton
 import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -103,6 +105,7 @@ fun LoginScreen(onSignedIn: () -> Unit) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 48.dp),
         verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Image(painterResource(R.drawable.ic_logo_ds), contentDescription = "DS Admin logosi", modifier = Modifier.size(64.dp))
         Spacer(Modifier.height(16.dp))
@@ -123,10 +126,7 @@ fun LoginScreen(onSignedIn: () -> Unit) {
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(24.dp))
-            Button(onClick = { requestCode() }, enabled = !busy && telegramId.isNotBlank(), modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                else Text("Kod yuboriş")
-            }
+            PrimaryButton("Kod yuboriş", { requestCode() }, enabled = telegramId.isNotBlank(), loading = busy)
             Spacer(Modifier.height(16.dp))
             Text(
                 "Kod DS Delivery botidagi Telegram çatingizga keladi. Bot bilan avval „/start“ bosilgan bölişi kerak.",
@@ -147,10 +147,7 @@ fun LoginScreen(onSignedIn: () -> Unit) {
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(24.dp))
-            Button(onClick = { verify() }, enabled = !busy && code.length == 6, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                else Text("Kiriş")
-            }
+            PrimaryButton("Kiriş", { verify() }, enabled = code.length == 6, loading = busy)
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = { requestCode() }, enabled = !busy && resendIn == 0, modifier = Modifier.fillMaxWidth()) {
                 Text(if (resendIn > 0) "Kodni qayta yuboriş ($resendIn)" else "Kodni qayta yuboriş")
