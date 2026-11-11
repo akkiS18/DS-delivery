@@ -10,6 +10,13 @@ android {
         // Release builds pass -PdsVersionCode=N -PdsVersionName=x.y.z (Android needs a higher versionCode for every update).
         versionCode Integer.parseInt((project.findProperty('dsVersionCode') ?: '1').toString())
         versionName "${project.findProperty('dsVersionName') ?: '1.0'}"
+        // A side-by-side TEST build (-PdsTestInstall=1, see scripts/build-release-apks.ps1 -TestInstall): its own application id and name, so it installs next to the Play app instead of replacing it.
+        if (project.hasProperty('dsTestInstall')) {
+            applicationIdSuffix ".test"
+            manifestPlaceholders = [appLabel: "DS Test"]
+        } else {
+            manifestPlaceholders = [appLabel: "DS Delivery"]
+        }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
