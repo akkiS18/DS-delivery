@@ -95,7 +95,7 @@ export function Profile({ go }: { go: (r: Route) => void }) {
           <article key={a.id} className={`addr-row ${a.isDefault ? 'main' : ''}`}>
             <span className="addr-row-ico" aria-hidden><Icon as={a.isDefault ? House : MapPin} size={22} /></span>
             <div className="addr-row-text">
-              <span className="addr-row-name">{a.label}{a.isDefault && <span className="tbadge">{t('Asosiy')}</span>}</span>
+              <span className="addr-row-name">{a.label}{a.isDefault && <span className="tbadge">{t('Asosiy manzil')}</span>}</span>
               <span className="addr-row-addr">{a.addressText}</span>
             </div>
             <button type="button" className="icon-btn" aria-label={`${a.label}: ${t('Tahrirlash')}`} onClick={() => { setForm({ id: a.id, label: a.label, addressText: a.addressText, lat: a.lat, lng: a.lng }); setTouched(false); }}><Icon as={Pencil} size={20} /></button>

@@ -160,7 +160,8 @@ export const RU: Record<string, string> = {
   'Buyurtmani rasmiylashtirish': 'Оформление заказа',
   'Yetkazish manzili': 'Адрес доставки',
   'Manzil': 'Адрес',
-  'Asosiy': 'Основной',
+  'Asosiy': 'Главная', // the first tab; the default-address badge has its own text below
+  'Asosiy manzil': 'Основной',
   '+ Yangi manzil': '+ Новый адрес',
   'Ko‘cha, uy, kvartira, mo‘ljal': 'Улица, дом, квартира, ориентир',
   'Joylashuv qo‘shildi': 'Местоположение добавлено',
@@ -171,7 +172,7 @@ export const RU: Record<string, string> = {
   'Joylashuvim': 'Моё местоположение',
   'Yaqin joylar': 'Рядом',
   '{n} m': '{n} м',
-  'Mo‘ljal: {name} (~{m} m)': 'Ориентир: {name} (~{m} м)',
+  'Eng yaqin mo‘ljal: <b>{name}</b> (~{m} m)': 'Ближайший ориентир: <b>{name}</b> (~{m} м)',
   'Joy belgilandi': 'Место отмечено',
   'Xaritani suring: belgi uyingiz ustida tursin': 'Двигайте карту: метка должна стоять на вашем доме',
   'Xaritada joyni belgilang': 'Отметьте место на карте',
@@ -370,6 +371,11 @@ export const RU: Record<string, string> = {
   // ---- empty / error states
   'Ma’lumot yuklanmadi': 'Данные не загрузились',
   'Internet yo‘q. Ulangach o‘zi yangilanadi.': 'Нет интернета. Обновится само, когда он появится.',
+  // ---- reorder
+  'Yana buyurtma berish': 'Заказать снова',
+  'Bu taomlar endi menyuda yo‘q': 'Этих блюд больше нет в меню',
+  '{n} ta taom endi menyuda yo‘q': 'Блюд, которых больше нет в меню: {n}',
+  'Menyuni yuklab bo‘lmadi. Qayta urinib ko‘ring': 'Не удалось загрузить меню. Попробуйте ещё раз',
   'Kelgusi bronlar': 'Предстоящие брони',
   'Oldingi bronlar': 'Прошедшие брони',
   '{n} kishi': 'Человек: {n}',

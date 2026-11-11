@@ -217,7 +217,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
           <label key={a.id} className={`pickcard ${selected === a.id ? 'on' : ''}`}>
             <input type="radio" name="addr" checked={selected === a.id} onChange={() => setSelected(a.id)} />
             <div className="grow">
-              <div className="bold">{a.label}{a.isDefault && <span className="badge" style={{ marginLeft: 8 }}>{t('Asosiy')}</span>}</div>
+              <div className="bold">{a.label}{a.isDefault && <span className="badge" style={{ marginLeft: 8 }}>{t('Asosiy manzil')}</span>}</div>
               <div className="sub small">{a.addressText}</div>
             </div>
           </label>

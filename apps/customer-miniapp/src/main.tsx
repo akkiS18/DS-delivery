@@ -5,6 +5,7 @@ import { isAndroidApp } from './lib/platform';
 import { initTelegram } from './lib/telegram';
 import { initTheme } from './lib/theme';
 import { AppProvider } from './state';
+import '@fontsource-variable/onest/index.css'; // Onest, served from our own files (latin, latin-ext, cyrillic); the CSP allows font-src 'self'
 import './styles.css';
 
 initTelegram();

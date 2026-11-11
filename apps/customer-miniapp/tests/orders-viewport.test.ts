@@ -82,8 +82,9 @@ describe('search focus / navigation persistence (source contract)', () => {
   it('remembers the home search across navigation', () => {
     expect(read('screens/Home.tsx')).toMatch(/rememberedSearch/);
   });
-  it('orders screen has both sections and an empty state', () => {
+  it('orders tab shows the active orders with an empty state and one button to the history screen, which has its own title', () => {
     const s = read('screens/Orders.tsx');
-    for (const t of ['Faol buyurtmalar', 'Buyurtmalar tarixi', 'Hozir faol buyurtma yo‘q', 'Kuzatish'.length ? 'nextAction' : '']) expect(s).toContain(t);
+    for (const t of ['Faol buyurtmalar', 'Hozir faol buyurtma yo‘q', 'nextAction', 'Tarixni ko‘rish']) expect(s).toContain(t);
+    expect(read('screens/History.tsx')).toContain('Buyurtmalar tarixi');
   });
 });
