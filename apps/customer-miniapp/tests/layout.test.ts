@@ -20,7 +20,7 @@ describe('global layout', () => {
   });
   it('wraps every screen in the shared shell', () => {
     const app = readFileSync(join(src, 'App.tsx'), 'utf8');
-    expect(app).toContain('className="app-main"');
+    expect(app).toMatch(/className={?["`]app-main/);
   });
 });
 

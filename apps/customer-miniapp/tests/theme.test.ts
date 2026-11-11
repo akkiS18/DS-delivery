@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { CHROME, resolveTheme } from '../src/lib/theme';
+import { CHROME, parsePref, resolveTheme } from '../src/lib/theme';
 
 const css = readFileSync(join(__dirname, '..', 'src', 'styles.css'), 'utf8').replace(/\r\n/g, '\n');
 const block = (selector: string): string => {
@@ -65,5 +65,44 @@ describe('font', () => {
     expect(css).toMatch(/font-family: 'Onest Variable', system-ui/);
     expect(readFileSync(join(__dirname, '..', 'src', 'main.tsx'), 'utf8')).toContain("@fontsource-variable/onest");
     expect(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).toContain('"@fontsource-variable/onest": "5.3.1"');
+  });
+});
+
+describe('manual theme choice', () => {
+  it('an explicit choice beats Telegram and the phone', () => {
+    expect(resolveTheme('light', true, 'dark')).toBe('dark');
+    expect(resolveTheme('dark', false, 'light')).toBe('light');
+    expect(resolveTheme('dark', false, 'auto')).toBe('dark');
+  });
+  it('reads only known values from storage', () => {
+    expect(parsePref('dark')).toBe('dark');
+    expect(parsePref('light')).toBe('light');
+    expect(parsePref('x')).toBe('auto');
+    expect(parsePref(null)).toBe('auto');
+  });
+});
+
+describe('dark theme keeps the tab bar and green headers readable', () => {
+  it('draws the idle tab labels in a fixed light colour (the mint-soft token turns dark)', () => {
+    expect(css).toMatch(/\.tabbar button \{[^}]*color: var\(--on-dark\);/);
+    expect(css).toMatch(/:root\[data-theme='dark'\] \.tabbar button\.on \{ background: var\(--primary\); color: #fff; \}/);
+  });
+  it('defines the on-dark tokens once and does not override them in the dark theme', () => {
+    expect(tokens(block(':root {'))).toEqual(expect.arrayContaining(['--on-dark', '--on-dark-mint']));
+    expect(tokens(block(":root[data-theme='dark']"))).not.toContain('--on-dark');
+  });
+});
+
+describe('restaurant pictures', () => {
+  it('fill their frame: no blurred copy behind, no contain-fit', () => {
+    expect(css).not.toMatch(/rphoto-bg|rphoto-whole/);
+    expect(css).not.toMatch(/\.logo-round \.rphoto-img \{ object-fit: contain/);
+    expect(readFileSync(join(__dirname, '..', 'src', 'components', 'RestaurantPhoto.tsx'), 'utf8')).not.toMatch(/rphoto-bg|blur\(|whole\s*[=?:]/);
+  });
+});
+
+describe('APK status bar', () => {
+  it('is painted with the header green so its light icons stay readable on every screen', () => {
+    expect(css).toMatch(/:root\[data-app='android'\] body::before \{[^}]*height: env\(safe-area-inset-top[^}]*background: var\(--primary-dark\)/);
   });
 });

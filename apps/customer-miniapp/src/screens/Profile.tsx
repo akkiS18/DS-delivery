@@ -16,6 +16,7 @@ import { useApp } from '../state';
 import { TelegramLink } from './TelegramLink';
 import { t } from '../i18n';
 import { LanguageSwitch } from '../components/LanguageSwitch';
+import { ThemeSwitch } from '../components/ThemeSwitch';
 
 /** The legal pages are served by the backend: the APK knows its API origin, the Mini App is served from it. */
 function legalOrigin(): string {
@@ -123,6 +124,11 @@ export function Profile({ go }: { go: (r: Route) => void }) {
           )}
         <span className="setrow-sep" aria-hidden />
         <button type="button" className="setrow" onClick={() => go({ name: 'reservations' })}><span className="setrow-title">{t('Bronlarim')}</span><Icon as={ChevronRight} size={20} /></button>
+      </section>
+
+      <section className="setgroup themegroup" aria-label={t('Ko‘rinish')}>
+        <span className="setrow-sub">{t('Ko‘rinish')}</span>
+        <ThemeSwitch />
       </section>
 
       <section className="setgroup" aria-label={t('Hujjatlar')}>
