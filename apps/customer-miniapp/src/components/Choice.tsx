@@ -1,7 +1,6 @@
-import { Check, ChevronDown, Car, type LucideIcon } from 'lucide-react';
+import { ChevronDown, Car, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { haptic } from '../lib/telegram';
-import { t } from '../i18n';
 import { Icon } from './ui';
 
 /** A small, quiet "show more" line: the extra explanations live inside and open only when the customer taps it. */
@@ -18,8 +17,7 @@ export function Fold({ title, children }: { title: string; children: ReactNode }
 export function Tile({ icon, title, sub, on, onPick }: { icon: LucideIcon; title: string; sub?: string; on: boolean; onPick: () => void }) {
   return (
     <button type="button" role="radio" aria-checked={on} className={`tile ${on ? 'on' : ''}`} onClick={() => { haptic.tap(); onPick(); }}>
-      {on && <span className="tile-check" aria-hidden><Icon as={Check} size={14} /></span>}
-      <span className="tile-ico" aria-hidden><Icon as={icon} size={30} /></span>
+      <span className="tile-ico" aria-hidden><Icon as={icon} size={24} /></span>
       <span className="tile-title">{title}</span>
       {sub ? <span className="tile-sub">{sub}</span> : null}
     </button>
@@ -30,11 +28,19 @@ export function Tile({ icon, title, sub, on, onPick }: { icon: LucideIcon; title
 export function TaxiTile({ name, number, on, onPick }: { name: string; number?: string | null; on: boolean; onPick: () => void }) {
   return (
     <button type="button" role="radio" aria-checked={on} className={`tile taxi ${on ? 'on' : ''}`} onClick={() => { haptic.tap(); onPick(); }}>
-      {on && <span className="tile-check" aria-hidden><Icon as={Check} size={14} /></span>}
-      <span className="tile-ico" aria-hidden><Icon as={Car} size={30} /></span>
+      <span className="tile-ico" aria-hidden><Icon as={Car} size={24} /></span>
       <span className="tile-title">{name}</span>
       {number ? <span className="taxi-number mono">{number}</span> : null}
-      <span className="tile-sub">{t('narxi alohida')}</span>
+    </button>
+  );
+}
+
+/** The way to pay for the food: a wide choice with the icon on the left (two side by side). */
+export function PayTile({ icon, title, sub, on, onPick }: { icon: LucideIcon; title: string; sub?: string; on: boolean; onPick: () => void }) {
+  return (
+    <button type="button" role="radio" aria-checked={on} className={`paytile ${on ? 'on' : ''}`} onClick={() => { haptic.tap(); onPick(); }}>
+      <Icon as={icon} size={26} />
+      <span className="paytile-text"><span className="paytile-title">{title}</span>{sub ? <span className="paytile-sub">{sub}</span> : null}</span>
     </button>
   );
 }

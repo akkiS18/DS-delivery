@@ -10,6 +10,26 @@ import { t } from '../i18n';
 
 const POLL_MS = 3000;
 const LIVE = ['CREATED', 'BOT_BOUND', 'BOT_CONFIRMED'];
+const PENDING_KEY = 'ds.tgLink.v1';
+
+type Pending = LinkStatus & { deepLink: string };
+
+/**
+ * The attempt in progress, kept on the phone: opening Telegram sends the app to the background, and coming back reloads the screen (and an
+ * Android phone may even restart the page). Without this the customer returned to a blank profile and the confirmation step was lost.
+ */
+function loadPending(): Pending | null {
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw) as Pending;
+    if (!p || typeof p.id !== 'string' || typeof p.deepLink !== 'string' || !(Date.parse(p.expiresAt) > Date.now())) { window.localStorage.removeItem(PENDING_KEY); return null; }
+    return p;
+  } catch { return null; }
+}
+const savePending = (p: Pending | null): void => {
+  try { if (p) window.localStorage.setItem(PENDING_KEY, JSON.stringify(p)); else window.localStorage.removeItem(PENDING_KEY); } catch { /* the sheet then lives until the screen reloads */ }
+};
 
 /**
  * Optional "link Telegram" for the Android guest. The deep link only opens the bot; nothing is linked until the person confirms in
@@ -17,8 +37,8 @@ const LIVE = ['CREATED', 'BOT_BOUND', 'BOT_CONFIRMED'];
  */
 export function TelegramLink() {
   const { profile, reload, toast } = useApp();
-  const [open, setOpen] = useState(false);
-  const [link, setLink] = useState<(LinkStatus & { deepLink: string }) | null>(null);
+  const [link, setLink] = useState<Pending | null>(loadPending);
+  const [open, setOpen] = useState(() => link !== null);
   const [status, setStatus] = useState<LinkStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -32,6 +52,9 @@ export function TelegramLink() {
       if (alive.current) setStatus(s);
     } catch (e) { if (alive.current && e instanceof ApiError && e.status === 404) setProblem(t('Bog‘lash topilmadi. Qaytadan boshlang.')); }
   }, [link]);
+
+  // Back from Telegram with an attempt in progress: ask for its state at once instead of waiting for the first tick.
+  useEffect(() => { if (link) void poll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bounded polling: every few seconds while the sheet is open, the app is visible and the attempt is live; stops at expiry.
   useEffect(() => {
@@ -53,16 +76,16 @@ export function TelegramLink() {
     setBusy(true); setProblem(null); setStatus(null);
     try {
       const created = await api.startTelegramLink();
-      setLink(created); setOpen(true);
+      setLink(created); savePending(created); setOpen(true);
       await openExternal(created.deepLink);
     } catch (e) {
       toast(e instanceof ApiError && e.code === 'TELEGRAM_LINK_NOT_CONFIGURED' ? t('Telegramga bog‘lash hozircha sozlanmagan') : t('Telegramni ochib bo‘lmadi'));
     } finally { setBusy(false); }
   };
-  const close = () => { setOpen(false); };
+  const close = () => { setOpen(false); savePending(null); }; // closed on purpose: a screen reload must not bring the sheet back
   const cancel = async () => {
     if (link && status && LIVE.includes(status.status)) { try { await api.cancelTelegramLink(link.id); } catch { /* it expires by itself */ } }
-    setOpen(false); setLink(null); setStatus(null);
+    setOpen(false); setLink(null); setStatus(null); savePending(null);
   };
   const confirm = async () => {
     if (!link || busy) return;
@@ -71,7 +94,7 @@ export function TelegramLink() {
       const r = await api.confirmTelegramLink(link.id);
       if (r.session) await storeGuestToken(r.session.token); // the server rotated the credential: keep the new one
       toast(t('Telegram bog‘landi'));
-      setOpen(false); setLink(null); setStatus(null);
+      setOpen(false); setLink(null); setStatus(null); savePending(null);
       reload();
     } catch (e) {
       setProblem(e instanceof ApiError && (e.code === 'LINK_EXPIRED' || e.code === 'LINK_CLOSED') ? t('Bog‘lash muddati tugagan. Qaytadan boshlang.') : t('Bog‘lab bo‘lmadi. Qayta urinib ko‘ring.'));

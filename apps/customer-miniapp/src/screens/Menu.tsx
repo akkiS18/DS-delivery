@@ -83,7 +83,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       {!active ? (
         // Categories: the restaurant's logo, dimmed, behind its name; the groups are wide chips that fill the screen width without scrolling.
         <header className="rest-head">
-          <div className={`rphoto ${r.isOpen ? '' : 'closed'}`} aria-hidden><RestaurantPhoto name={r.name} url={r.imageUrl} whole /></div>
+          <div className={`rphoto ${r.isOpen ? '' : 'closed'}`} aria-hidden><RestaurantPhoto name={r.name} url={r.imageUrl} /></div>
           <span className="rest-head-dim" aria-hidden />
           <button type="button" className="round-back on-photo" onClick={back} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
           <div className="rest-head-info">

@@ -58,7 +58,7 @@ export function App() {
     <div className="app">
       {(pull > 0 || refreshing) && <div className="ptr" style={{ height: refreshing ? 52 : pull }} aria-hidden><div><span className="spinner" style={{ width: 18, height: 18, margin: 0, borderWidth: 2, animationPlayState: refreshing || pull >= 60 ? 'running' : 'paused' }} /></div></div>}
       <OfflineBar />
-      <main className="app-main" key={`${route.name}:${'id' in route ? route.id : ''}:${epoch}:${lang}`}>{screen(route, go)}</main>
+      <main className={`app-main ${route.name === 'ticket' ? 'chatmain' : ''}`} key={`${route.name}:${'id' in route ? route.id : ''}:${epoch}:${lang}`}>{screen(route, go)}</main>
       <CartBar route={route} go={go} />
       <TabBar route={route} go={r => go(r)} orders={0} support={supportUnread} />
     </div>

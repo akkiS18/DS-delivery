@@ -5,7 +5,7 @@ prompt and lives only in this process's environment while Gradle runs.
   powershell -ExecutionPolicy Bypass -File scripts\build-release-apks.ps1 -ApiUrl https://api.example.uz -VersionCode 1 -VersionName 1.0.0
 
 Output: <OutDir>\ds-customer-release-<versionName>.apk, ds-restaurant-release-<versionName>.apk, ds-taxi-release-<versionName>.apk and
-ds-admin-release-<versionName>.apk with SHA-256 files. Add -CustomerAab to build ONLY the customer app as a Google Play bundle (.aab, signed with the upload key; the other apps are skipped). Add -OnlyAdmin to build just the DS Admin app, or -OnlyRestaurant for just the restaurant app (neither needs Node / the customer web build).
+ds-admin-release-<versionName>.apk with SHA-256 files. Add -CustomerAab to build ONLY the customer app as a Google Play bundle (.aab, signed with the upload key; the other apps are skipped). Add -OnlyAdmin to build just the DS Admin app, or -OnlyRestaurant for just the restaurant app (neither needs Node / the customer web build), or -OnlyCustomer for just the customer APK.
 Needs Node (customer web build), the Android SDK and a JDK (Android Studio's is found automatically). The keystore comes from
 scripts\create-release-keystore.ps1. It does not install anything on a phone and never uses the debug key.
 #>
@@ -18,7 +18,8 @@ param(
   [string]$OutDir = (Join-Path $env:USERPROFILE 'Documents\DS-backups\apk'),
   [switch]$OnlyAdmin,
   [switch]$CustomerAab,
-  [switch]$OnlyRestaurant
+  [switch]$OnlyRestaurant,
+  [switch]$OnlyCustomer
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
@@ -68,19 +69,19 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'customer APK build failed' }
   }
 
-  if (-not $OnlyAdmin) {
+  if (-not $OnlyAdmin -and -not $OnlyCustomer) {
     Write-Host '== restaurant: signed release APK'
     & $gradle -p (Join-Path $root 'apps\restaurant-android') :app:assembleRelease "-PdsApiBaseUrl=$ApiUrl/" "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
     if ($LASTEXITCODE -ne 0) { throw 'restaurant APK build failed' }
   }
 
-  if (-not $OnlyAdmin -and -not $OnlyRestaurant) {
+  if (-not $OnlyAdmin -and -not $OnlyRestaurant -and -not $OnlyCustomer) {
     Write-Host '== taxi operator: signed release APK'
     & $gradle -p (Join-Path $root 'apps\taxi-android') :app:assembleRelease "-PdsApiBaseUrl=$ApiUrl/" "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
     if ($LASTEXITCODE -ne 0) { throw 'taxi APK build failed' }
   }
 
-  if (-not $OnlyRestaurant) {
+  if (-not $OnlyRestaurant -and -not $OnlyCustomer) {
     Write-Host '== admin: signed release APK'
     & $gradle -p (Join-Path $root 'apps\admin-android') :app:assembleRelease "-PdsApiBaseUrl=$ApiUrl/" "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
     if ($LASTEXITCODE -ne 0) { throw 'admin APK build failed' }
@@ -94,6 +95,7 @@ try {
   )
   if ($OnlyAdmin) { $pairs = @($pairs | Where-Object { $_.To -like 'ds-admin-*' }) }
   if ($OnlyRestaurant) { $pairs = @($pairs | Where-Object { $_.To -like 'ds-restaurant-*' }) }
+  if ($OnlyCustomer) { $pairs = @($pairs | Where-Object { $_.To -like 'ds-customer-*' }) }
   foreach ($p in $pairs) {
     if (-not (Test-Path $p.From)) { throw "Expected output missing (unsigned build?): $($p.From)" }
     $dest = Join-Path $OutDir $p.To

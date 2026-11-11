@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Banknote, ChevronLeft, ChevronRight, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket, Smartphone, Truck } from 'lucide-react';
-import { Fold, TaxiTile, Tile } from '../components/Choice';
+import { Fold, PayTile, TaxiTile, Tile } from '../components/Choice';
 import { LocationPicker } from '../components/LocationPicker';
 import type { MapState } from '../lib/mapConfig';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
 import { Button, Empty, Icon, Sheet, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError, type CheckoutBody } from '../lib/api';
-import { cartCount, cartView } from '../lib/cart';
+import { cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
 import { newKey, som } from '../lib/format';
 import { effectiveMethod, methodChoices } from '../lib/payMethod';
@@ -184,9 +184,9 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     <>
       <header className="screen-head">
         <button type="button" className="round-back" onClick={() => go({ name: 'cart' })} aria-label={t('Ortga')}><ChevronLeft size={22} strokeWidth={2.2} aria-hidden /></button>
-        <h1 className="grow">{t('Buyurtmani rasmiylashtirish')}</h1>
+        <h1 className="grow">{t('Rasmiylashtirish')}</h1>
       </header>
-    <div className="page" style={{ paddingTop: 4 }}>
+    <div className="page co-page" style={{ paddingTop: 4 }}>
 
       <section className="card inforows" aria-label={t('Yetkazish manzili')}>
         <button type="button" id="co-address" className="inforow" onClick={() => setSheet('address')}>
@@ -256,7 +256,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       )}
 
       <section className="stack" id="co-delivery" aria-label={t('Yetkazish usuli')}>
-        <h2 style={{ fontSize: 17 }}>{t('Yetkazish usuli')}</h2>
+        <h2 className="co-h">{t('Yetkazish usuli')}</h2>
         {taxiOptions === null && !taxiFailed && <Spinner />}
         {taxiFailed && <div className="banner warn" role="alert">{t('Taksi xizmatlari ro‘yxatini yuklab bo‘lmadi.')} <Button small variant="secondary" onClick={loadTaxis}>{t('Qayta urinish')}</Button></div>}
         {taxiOptions !== null && taxiOptions.length === 0 && <div className="banner warn" role="alert">{t('Hozir yetkazib berish uchun taksi xizmati mavjud emas. Birozdan keyin urinib ko‘ring.')}</div>}
@@ -276,18 +276,17 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
 
       {choices.cash && (
         <section className="stack" aria-label={t('To‘lov usuli')}>
-          <h2 style={{ fontSize: 17 }}>{t('Taom uchun to‘lov')}</h2>
-          <div className="tiles" role="radiogroup" aria-label={t('To‘lov usuli')}>
-            {choices.card && <Tile icon={CreditCard} title={t('Karta')} sub={choices.cardBusy ? t('Navbat bo‘lishi mumkin') : t('Kartaga o‘tkazma')} on={method === 'CARD'} onPick={() => setChosen('CARD')} />}
-            <Tile icon={Banknote} title={t('Naqd pul')} sub={t('Haydovchiga berasiz')} on={method === 'CASH'} onPick={() => setChosen('CASH')} />
+          <h2 className="co-h">{t('Taom uchun to‘lov')}</h2>
+          <div className="paytiles" role="radiogroup" aria-label={t('To‘lov usuli')}>
+            {choices.card && <PayTile icon={CreditCard} title={t('Karta')} sub={choices.cardBusy ? t('Navbat bo‘lishi mumkin') : t('Kartaga o‘tkazma')} on={method === 'CARD'} onPick={() => setChosen('CARD')} />}
+            <PayTile icon={Banknote} title={t('Naqd pul')} sub={t('Haydovchiga berasiz')} on={method === 'CASH'} onPick={() => setChosen('CASH')} />
           </div>
         </section>
       )}
 
       <section className="receipt" aria-label={t('Buyurtma xulosasi')}>
        <div className="receipt-top">
-        <h2 style={{ fontSize: 17 }}>{cart.restaurantName}</h2>
-        <div className="sub small">{t('{n} ta', { n: cartCount(cart) })}</div>
+        <h2 className="co-h" style={{ fontSize: 17 }}>{cart.restaurantName}</h2>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}{l.freeQty > 0 ? ` (${t('{n} ta bepul', { n: l.freeQty })})` : ''}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         {view.extras.map(x => <div key={x.productId} className="row between small"><span className="grow">{x.quantity} × {x.name}</span><span className="mono">{som(x.subtotalSom)}</span></div>)}
         {view.dealSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya chegirmasi')}</span><span className="mono">−{som(view.dealSavedSom)}</span></div>}
@@ -331,7 +330,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
 
       <StickyAction tone={touched && !canSubmit && taxiOptions !== null ? 'bad' : 'soft'} hint={stickyHint}>
         <Button loading={submitting} disabled={taxiOptions === null} onClick={() => void submit()}>
-          {method === 'CASH' ? t('Buyurtma berish • {sum}', { sum: som(total) }) : problem?.kind === 'PRICE' ? t('Yangi narxda to‘lovga o‘tish • {sum}', { sum: som(total) }) : t('To‘lovga o‘tish • {sum}', { sum: som(total) })}
+          <span className="btn-split"><span>{method === 'CASH' ? t('Buyurtma berish') : problem?.kind === 'PRICE' ? t('Yangi narxda to‘lovga o‘tish') : t('To‘lovga o‘tish')}</span><span className="mono">{som(total)}</span></span>
         </Button>
       </StickyAction>
     </div>

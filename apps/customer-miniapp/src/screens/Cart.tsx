@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, Gift, ShoppingBasket } from 'lucide-react';
-import { Fold } from '../components/Choice';
+import { Car, ChevronLeft, Gift, ShoppingBasket } from 'lucide-react';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
-import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
+import { PlatformLine } from '../components/PriceLines';
 import { Button, Empty, Icon, Qty, Spinner, StickyAction } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { cartBase, cartView, catalogAction } from '../lib/cart';
@@ -82,22 +81,17 @@ export function Cart({ go }: { go: (r: Route) => void }) {
       {closed && <div className="banner bad" role="alert">{closed.kind === 'RESTAURANT_CLOSED' ? t('Restoran hozir yopiq. {opens}.', { opens: opensText(closed.opensNext) }) : t('Restoran hozir buyurtma qabul qilmayapti.')}</div>}
       {error && <div className="banner bad" role="alert">{describeCheckoutError(error).message}</div>}
       {view.lines.map(l => (
-        <div key={l.productId} className={`card ${unavailable.has(l.productId) ? 'muted' : ''}`}>
-          <div className="row between">
-            <div className="grow">
-              <div className="bold">{l.name}</div>
-              {l.description && <div className="sub small line-desc">{l.description}</div>}
-              <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.wasSom} />{unavailable.has(l.productId) ? ` • ${t('hozir mavjud emas')}` : ''}</div>
-            </div>
-            <div className="bold mono">{som(l.subtotalSom)}</div>
-          </div>
+        <article key={l.productId} className={`cline ${unavailable.has(l.productId) ? 'muted' : ''}`}>
+          <h2>{l.name}</h2>
+          {l.description && <div className="sub small line-desc">{l.description}</div>}
+          <div className="sub small"><PriceTag unitSom={l.unitSom} referenceSom={l.wasSom} />{unavailable.has(l.productId) ? ` • ${t('hozir mavjud emas')}` : ''}</div>
           {l.freeQty > 0 && <div className="row between free-row"><span className="row" style={{ gap: 6 }}><Icon as={Gift} size={16} />{t('{n} ta bepul (1+1 aksiya)', { n: l.freeQty })}</span><span className="mono"><span className="strike">{som(l.freeQty * l.priceSom)}</span> <b>0</b></span></div>}
-          <div className="row between" style={{ marginTop: 10 }}>
+          <div className="cline-foot">
+            <span className="cline-sum">{som(l.subtotalSom)}</span>
             <Qty value={l.quantity} onInc={() => dispatch({ type: 'inc', productId: l.productId })} onDec={() => dispatch({ type: 'dec', productId: l.productId })} />
-            <Button small variant="ghost" onClick={() => dispatch({ type: 'remove', productId: l.productId })} aria-label={t('{name} ni olib tashlash', { name: l.name })}>{t('Olib tashlash')}</Button>
           </div>
           {unavailable.has(l.productId) && <div className="err">{t('Bu mahsulot mavjud emas — olib tashlang.')}</div>}
-        </div>
+        </article>
       ))}
       {view.extras.map(x => (
         <div key={x.productId} className="card">
@@ -123,7 +117,10 @@ export function Cart({ go }: { go: (r: Route) => void }) {
        <div className="receipt-notch" aria-hidden><i /></div>
        <div className="receipt-total"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="receipt-sum mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>
       </section>
-      <Fold title={t('Taksi haqi haqida')}><TaxiFareBox /></Fold>
+      <section className="taxicard" aria-label={t('Taksi haqi alohida')} role="note">
+        <Icon as={Car} size={24} />
+        <span>{t('Taksi haqi alohida: taomni olgach, taksi xizmatiga o‘zingiz to‘laysiz.')}</span>
+      </section>
       {unavailable.size > 0 && (
         <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>{t('Mavjud bo‘lmaganlarni olib tashlash')}</Button>
       )}
