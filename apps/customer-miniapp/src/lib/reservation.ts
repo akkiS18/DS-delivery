@@ -49,6 +49,21 @@ export function whenText(iso: string): string {
   return `${get('day')}.${get('month')} ${get('hour')}:${get('minute')}`;
 }
 
+const MONTHS_LC = [T('yanvar'), T('fevral'), T('mart'), T('aprel'), T('may'), T('iyun'), T('iyul'), T('avgust'), T('sentyabr'), T('oktyabr'), T('noyabr'), T('dekabr')];
+const WEEKDAYS_LC = [T('yakshanba'), T('dushanba'), T('seshanba'), T('chorshanba'), T('payshanba'), T('juma'), T('shanba')]; // Date#getUTCDay order
+
+/** The three ticket cells for a start time, on the Tashkent clock: "12-noyabr", "chorshanba", "19:00". Empty strings for a broken date. */
+export function ticketWhen(iso: string): { day: string; weekday: string; time: string } {
+  const ms = Date.parse(iso);
+  if (Number.isNaN(ms)) return { day: '', weekday: '', time: '' };
+  const d = new Date(ms + 5 * 3_600_000); // UTC+5, no daylight saving
+  return {
+    day: t('{day}-{month}', { day: d.getUTCDate(), month: t(MONTHS_LC[d.getUTCMonth()] ?? '') }),
+    weekday: t(WEEKDAYS_LC[d.getUTCDay()] ?? ''),
+    time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`,
+  };
+}
+
 /** Shown through t(STATUS_LABEL[status]). */
 export const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING_PAYMENT: T('To‘lov kutilmoqda'),
