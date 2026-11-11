@@ -587,3 +587,28 @@ h1, h2, h3, p { margin: 0; }
 .pastres-head, .pastres-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .pastres-name { min-width: 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
 .pastres-meta { font-size: 13px; }
+
+/* Reservation form: day tiles, time slots, guest stepper, deposit card */
+.resv-page { padding-top: 4px; gap: 20px; }
+.contents { display: contents; }
+.tilegrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.daytile { position: relative; min-height: 64px; border: 1.5px solid var(--line); border-radius: 16px; background: #fff; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.daytile span { font-size: 12px; color: var(--ink-soft); text-transform: capitalize; }
+.daytile b { font-size: 18px; font-weight: 800; }
+.daytile .icon { color: var(--primary); }
+.daytile.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.daytile.on span { color: #fff; }
+.daytile-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.slotgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.slot { min-height: 48px; border: 1.5px solid var(--line); border-radius: 14px; background: #fff; color: var(--ink); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.slot.on { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 800; }
+.slot:disabled { opacity: 0.4; }
+.partyrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 12px 12px 16px; border-radius: 20px; background: var(--card); box-shadow: 0 2px 10px rgba(27, 48, 49, 0.07); }
+.stepper { display: flex; align-items: center; gap: 6px; border-radius: 999px; background: var(--mint-soft); color: var(--primary-dark); }
+.stepper button { width: 48px; height: 48px; border: 0; border-radius: 50%; background: none; color: inherit; display: flex; align-items: center; justify-content: center; }
+.stepper button:disabled { opacity: 0.35; }
+.stepper span { min-width: 28px; text-align: center; font-size: 22px; font-weight: 800; }
+.fieldlbl { font-size: 14px; font-weight: 700; color: #3f5a55; }
+.depositcard { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; border-radius: 22px; background: var(--primary-dark); color: #fff; }
+.depositcard-sum { font-size: 22px; font-weight: 800; }
+.depositcard p { font-size: 13px; color: var(--mint-soft); }
