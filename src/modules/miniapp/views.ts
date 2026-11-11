@@ -1,4 +1,5 @@
 import type { Prisma } from '@prisma/client';
+import { reorderLines } from './reorder.js';
 import { db } from '../../lib/db.js';
 import { customerWhere, type CustomerOwner } from '../../lib/customer-owner.js';
 import { isPaymentCleared } from '../payment/status.js';
@@ -130,7 +131,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 const orderInclude = {
   restaurant: { select: { id: true, name: true, defaultPrepMinutes: true, pickupPhone: true, image: { select: { version: true } } } },
   taxiCompany: { select: { name: true } },
-  items: { where: { supersededAt: null }, select: { name: true, unitSom: true, quantity: true, subtotalSom: true } },
+  items: { where: { supersededAt: null }, select: { productId: true, name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
   payment: { include: { card: { select: { last4: true, isTest: true, number: true, holderName: true } } } },
   taxiDispatches: { orderBy: { attemptNo: 'desc' as const }, take: 1, select: { status: true, deliveredAt: true, taxiCompany: { select: { name: true } } } },
@@ -265,6 +266,6 @@ export async function listCustomerOrders(owner: CustomerOwner, limit = 20) {
   });
   return rows.map(r => {
     const v = customerOrderView(r);
-    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantName: v.restaurantName, restaurantImageUrl: v.restaurantImageUrl, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), itemsPreview: v.items.slice(0, 3).map(i => ({ name: i.name, quantity: i.quantity })), itemsMore: Math.max(0, v.items.length - 3), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
+    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantId: r.restaurantId, reorder: reorderLines(r.items), restaurantName: v.restaurantName, restaurantImageUrl: v.restaurantImageUrl, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), itemsPreview: v.items.slice(0, 3).map(i => ({ name: i.name, quantity: i.quantity })), itemsMore: Math.max(0, v.items.length - 3), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
   });
 }

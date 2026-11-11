@@ -21,7 +21,7 @@
     "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.build.json",
     "build:prod": "prisma generate && npm run build",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test src/modules/payment/uzcard.test.ts src/modules/payment/matching.test.ts src/modules/payment/gmail-health.test.ts src/modules/payment/humo.test.ts src/modules/legal/pages.test.ts src/bot/cart.test.ts src/lib/test-db-guard.test.ts src/modules/miniapp/search-text.test.ts src/modules/taxi-app/client-config.test.ts",
+    "test": "node --import tsx --test src/modules/payment/uzcard.test.ts src/modules/payment/matching.test.ts src/modules/payment/gmail-health.test.ts src/modules/payment/humo.test.ts src/modules/legal/pages.test.ts src/bot/cart.test.ts src/lib/test-db-guard.test.ts src/modules/miniapp/search-text.test.ts src/modules/miniapp/reorder.test.ts src/modules/taxi-app/client-config.test.ts",
     "test:db": "node --env-file=.env --import tsx --test src/tests/payment.db.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
