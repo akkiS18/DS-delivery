@@ -678,3 +678,10 @@ h1, h2, h3, p { margin: 0; }
 .dish-extra { padding: 12px 14px; border-radius: 16px; background: var(--bg); font-size: 14px; }
 .dish-actions { display: flex; align-items: center; gap: 12px; }
 .dish-actions .btn { flex: 1; min-height: 56px; border-radius: 18px; }
+
+/* Closed restaurant: a calm card above the menu instead of a warning banner */
+.closedcard { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 22px; background: var(--card); border: 1px solid var(--line); }
+.closedcard-ico { flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--quiet-chip); color: var(--ink-soft); display: flex; align-items: center; justify-content: center; }
+.closedcard-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.closedcard-text strong { font-size: 16px; }
+.closedcard-text span { font-size: 14px; color: var(--ink-soft); }
