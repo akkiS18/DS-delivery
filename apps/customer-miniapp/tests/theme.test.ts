@@ -38,7 +38,7 @@ describe('dark palette in styles.css', () => {
   });
   it('keeps no white page surface or green text colour that would not flip', () => {
     const rules = css.split('\n').filter(l => !l.startsWith('  --'));
-    const surfaces = rules.filter(l => /background(-color)?:\s*#fff\b/.test(l) && !l.startsWith('.logo-round'));
+    const surfaces = rules.filter(l => /background(-color)?:\s*#fff\b/.test(l) && !l.startsWith('.logo-round') && !l.startsWith('.switch::after')); // logos and the switch knob stay white
     expect(surfaces).toEqual([]);
     const greenText = rules.filter(l => /(?<![-\w])color:\s*var\(--primary(-dark)?\)/.test(l));
     expect(greenText).toEqual([]);
