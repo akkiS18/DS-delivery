@@ -367,6 +367,9 @@ export const RU: Record<string, string> = {
   'To‘lashga o‘tish': 'Перейти к оплате',
   '{day}, {time} • {n} kishi': '{day}, {time} • человек: {n}',
   'Yak': 'Вс', 'Dush': 'Пн', 'Sesh': 'Вт', 'Chor': 'Ср', 'Pay': 'Чт', 'Jum': 'Пт', 'Shan': 'Сб',
+  // ---- empty / error states
+  'Ma’lumot yuklanmadi': 'Данные не загрузились',
+  'Internet yo‘q. Ulangach o‘zi yangilanadi.': 'Нет интернета. Обновится само, когда он появится.',
   'Kelgusi bronlar': 'Предстоящие брони',
   'Oldingi bronlar': 'Прошедшие брони',
   '{n} kishi': 'Человек: {n}',

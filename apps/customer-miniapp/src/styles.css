@@ -235,8 +235,19 @@ h1, h2, h3, p { margin: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .skeleton { height: 78px; border-radius: var(--radius); background: linear-gradient(90deg, var(--mint-soft), var(--card), var(--mint-soft)); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
-.empty { text-align: center; padding: 36px 16px; color: var(--ink-soft); }
-.empty .big { display: flex; justify-content: center; color: var(--primary-fg); opacity: 0.85; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 20px 22px; border-radius: 26px; background: var(--card); border: 1px solid var(--line); text-align: center; color: var(--ink-soft); }
+.empty .big { width: 96px; height: 96px; border-radius: 50%; background: var(--mint-soft); color: var(--primary-fg); display: flex; align-items: center; justify-content: center; }
+.empty h3 { font-size: 22px; font-weight: 800; color: var(--ink); }
+.empty p { font-size: 15px; }
+.empty-action { align-self: stretch; margin-top: 6px; }
+.empty-action .btn { width: 100%; min-height: 52px; border-radius: 18px; }
+.empty.err .big { background: #fff3b0; color: #4d3b00; }
+.offbar { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 16px; right: 16px; max-width: 528px; margin: 0 auto; z-index: 60; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 14px; border-radius: 16px; background: var(--dark-surface); color: #fff; font-size: 14px; font-weight: 600; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25); }
+.offbar .icon { color: #ffc72c; }
+.openintg { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 20px 22px; border-radius: 26px; background: var(--primary-dark); color: #fff; text-align: center; }
+.openintg .big { width: 96px; height: 96px; border-radius: 50%; background: var(--card); color: var(--primary-fg); display: flex; align-items: center; justify-content: center; }
+.openintg h2 { font-size: 22px; font-weight: 800; }
+.openintg p { font-size: 15px; color: var(--mint-soft); }
 
 /* Keyboard-sized viewports: icon-only bar, labels stay available to screen readers. */
 :root[data-nav='compact'] .tabbar .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

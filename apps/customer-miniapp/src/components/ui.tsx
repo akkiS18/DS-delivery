@@ -28,9 +28,9 @@ export function Empty({ icon, title, hint, action }: { icon: ReactNode; title: s
   return (
     <div className="empty">
       <div className="big" aria-hidden>{icon}</div>
-      <h3 style={{ marginTop: 8, color: 'var(--ink)' }}>{title}</h3>
-      {hint && <p className="sub" style={{ marginTop: 4 }}>{hint}</p>}
-      {action && <div style={{ marginTop: 14 }}>{action}</div>}
+      <h3>{title}</h3>
+      {hint && <p>{hint}</p>}
+      {action && <div className="empty-action">{action}</div>}
     </div>
   );
 }
@@ -38,10 +38,11 @@ export function Empty({ icon, title, hint, action }: { icon: ReactNode; title: s
 export function ErrorBox({ error, onRetry }: { error: ApiError | null; onRetry?: () => void }) {
   const d = describeCheckoutError(error);
   return (
-    <div className="card center stack" role="alert">
-      <div className="status-ico bad" aria-hidden><Icon as={AlertTriangle} size={32} /></div>
+    <div className="empty err" role="alert">
+      <div className="big" aria-hidden><Icon as={AlertTriangle} size={44} /></div>
+      {!(d.kind === 'OTHER' && error?.status === 404) && d.kind !== 'AUTH' && <h3>{t('Ma’lumot yuklanmadi')}</h3>}
       <p>{d.kind === 'OTHER' && error?.status === 404 ? t('Topilmadi.') : d.kind === 'NETWORK' ? t('Internet aloqasi yo‘q yoki server javob bermadi. Aloqani tekshirib, qayta urinib ko‘ring.') : d.message}</p>
-      {onRetry && d.kind !== 'AUTH' && <Button variant="secondary" onClick={onRetry}>{t('Qayta urinish')}</Button>}
+      {onRetry && d.kind !== 'AUTH' && <div className="empty-action"><Button onClick={onRetry}>{t('Qayta urinish')}</Button></div>}
     </div>
   );
 }
