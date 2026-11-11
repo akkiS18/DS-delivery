@@ -75,7 +75,7 @@ function screen(route: Route, go: (r: Route, o?: { replace?: boolean }) => void)
     case 'reserve': return <Reserve id={route.id} go={go} />;
     case 'reservation': return <ReservationScreen id={route.id} go={go} />;
     case 'reservations': return <Reservations go={go} />;
-    case 'profile': return <Profile />;
+    case 'profile': return <Profile go={go} />;
     case 'support': return <Support go={go} />;
     case 'ticket': return <Ticket id={route.id} go={go} />;
     case 'supportNew': return <SupportNew orderId={route.orderId} go={go} />;
