@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Smartphone } from 'lucide-react';
 import { CartBar } from './components/CartBar';
+import { OfflineBar } from './components/OfflineBar';
 import { Button, ErrorBox, Icon, Skeletons, TabBar } from './components/ui';
 import { isTab, parentOf, type Route } from './lib/router';
 import { useViewportLayout } from './lib/viewport';
@@ -47,7 +48,7 @@ export function App() {
     return (
       <div className="page">
         {error?.status === 401 && noTelegram
-          ? <div className="card center stack"><div className="status-ico" aria-hidden><Icon as={Smartphone} size={32} /></div><h2>{t('Telegram orqali oching')}</h2><p className="sub">{t('Bu ilova faqat Telegram ichida ishlaydi. Botdagi “Buyurtma berish” tugmasini bosing.')}</p></div>
+          ? <div className="openintg"><div className="big" aria-hidden><Icon as={Smartphone} size={44} /></div><h2>{t('Telegram orqali oching')}</h2><p>{t('Bu ilova faqat Telegram ichida ishlaydi. Botdagi “Buyurtma berish” tugmasini bosing.')}</p></div>
           : <ErrorBox error={error} onRetry={reload} />}
         {error?.status !== 401 && <Button variant="ghost" onClick={reload}>{t('Qayta yuklash')}</Button>}
       </div>
@@ -56,6 +57,7 @@ export function App() {
   return (
     <div className="app">
       {(pull > 0 || refreshing) && <div className="ptr" style={{ height: refreshing ? 52 : pull }} aria-hidden><div><span className="spinner" style={{ width: 18, height: 18, margin: 0, borderWidth: 2, animationPlayState: refreshing || pull >= 60 ? 'running' : 'paused' }} /></div></div>}
+      <OfflineBar />
       <main className="app-main" key={`${route.name}:${'id' in route ? route.id : ''}:${epoch}:${lang}`}>{screen(route, go)}</main>
       <CartBar route={route} go={go} />
       <TabBar route={route} go={r => go(r)} orders={0} support={supportUnread} />
