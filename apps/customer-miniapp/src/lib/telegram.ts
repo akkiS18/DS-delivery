@@ -9,6 +9,7 @@ import { isAndroidApp } from './platform';
  */
 interface TgWebApp {
   initData: string;
+  colorScheme?: string;
   ready(): void;
   expand(): void;
   close(): void;
@@ -45,6 +46,23 @@ export function getInitData(): string {
 
 export const insideTelegram = (): boolean => Boolean(webApp()?.initData);
 
+/** 'light' or 'dark' as Telegram reports it; undefined outside Telegram (or on a client too old to say). */
+export const telegramColorScheme = (): string | undefined => (insideTelegram() ? webApp()?.colorScheme : undefined);
+
+/** Telegram fires themeChanged when the person switches Telegram's theme while the Mini App is open. */
+export function onTelegramTheme(cb: () => void): () => void {
+  const tg = webApp();
+  if (!tg?.onEvent) return () => undefined;
+  tg.onEvent('themeChanged', cb);
+  return () => tg.offEvent?.('themeChanged', cb);
+}
+
+/** The strip above the Mini App and the page behind it, so no light edge shows around a dark page. */
+export function setTelegramColors(header: string, background: string): void {
+  const tg = webApp();
+  try { tg?.setHeaderColor?.(header); tg?.setBackgroundColor?.(background); } catch { /* old clients */ }
+}
+
 export function initTelegram(): void {
   if (isAndroidApp) { initAndroidBack(); return; }
   const tg = webApp();
@@ -53,8 +71,6 @@ export function initTelegram(): void {
     tg.ready();
     tg.expand();
     tg.disableVerticalSwipes?.();      // pull-down must not close the app while the customer scrolls the menu
-    tg.setHeaderColor?.('#087F5B');
-    tg.setBackgroundColor?.('#F5FBF7');
   } catch { /* old clients */ }
 }
 
