@@ -64,6 +64,38 @@ export function ticketWhen(iso: string): { day: string; weekday: string; time: s
   };
 }
 
+const WEEKDAYS_SHORT = [T('Yak'), T('Dush'), T('Sesh'), T('Chor'), T('Pay'), T('Jum'), T('Shan')]; // Date#getUTCDay order
+
+/** Half-hour start times the form offers (restaurants answer for their own opening hours; the server refuses the rest). */
+export const SLOT_TIMES: string[] = Array.from({ length: 28 }, (_, i) => { const m = 10 * 60 + i * 30; return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`; }); // 10:00 .. 23:30
+
+/** "YYYY-MM-DD" of the Tashkent calendar day that is `offset` days after the one `nowMs` falls on. */
+export const dayKey = (nowMs: number, offset = 0): string => toLocalInput(new Date(nowMs + offset * 86_400_000)).slice(0, 10);
+
+/** The three quick day tiles: today, tomorrow and the day after (named by weekday). */
+export function dayChoices(nowMs: number): Array<{ date: string; label: string; num: number }> {
+  return [0, 1, 2].map(i => {
+    const date = dayKey(nowMs, i);
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+    return { date, num: Number(date.slice(8, 10)), label: i === 0 ? t('Bugun') : i === 1 ? t('Ertaga') : t(WEEKDAYS_SHORT[weekday] ?? '') };
+  });
+}
+
+/** A date tile for any other day picked from the calendar: weekday name and day number. */
+export function dayTile(date: string): { label: string; num: number } {
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return { label: t(WEEKDAYS_SHORT[weekday] ?? ''), num: Number(date.slice(8, 10)) };
+}
+
+/** Can this date + time still be booked (not too soon, not too far)? */
+export const slotOk = (date: string, time: string, nowMs: number): boolean => checkWhen(`${date}T${time}`, nowMs) === null;
+
+/** "Ertaga, 19:00 • 4 kishi" for the line above the pay button. */
+export function bookingSummary(date: string, time: string, party: number, nowMs: number): string {
+  const day = date === dayKey(nowMs, 0) ? t('Bugun') : date === dayKey(nowMs, 1) ? t('Ertaga') : ticketWhen(`${date}T${time || '00:00'}:00+05:00`).day;
+  return t('{day}, {time} • {n} kishi', { day, time, n: party });
+}
+
 /** Shown through t(STATUS_LABEL[status]). */
 export const STATUS_LABEL: Record<ReservationStatus, string> = {
   PENDING_PAYMENT: T('To‘lov kutilmoqda'),

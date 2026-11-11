@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingBounds, checkWhen, describeReservationError, localInputToIso, splitReservations, ticketWhen, toLocalInput, whenText } from '../src/lib/reservation';
+import { bookingBounds, bookingSummary, dayChoices, dayKey, SLOT_TIMES, slotOk, checkWhen, describeReservationError, localInputToIso, splitReservations, ticketWhen, toLocalInput, whenText } from '../src/lib/reservation';
 import { cartBarVisible, parentOf, parseRoute, routeToHash } from '../src/lib/router';
 import type { ReservationView } from '../src/lib/types';
 
@@ -80,5 +80,40 @@ describe('reservation ticket date', () => {
   });
   it('returns empty cells for a broken date', () => {
     expect(ticketWhen('nope')).toEqual({ day: '', weekday: '', time: '' });
+  });
+});
+
+describe('reservation form day and time choices', () => {
+  const NOW = Date.parse('2026-11-11T10:00:00Z'); // 15:00 Wednesday in Tashkent
+
+  it('offers 10:00 to 23:30 in half hours', () => {
+    expect(SLOT_TIMES[0]).toBe('10:00');
+    expect(SLOT_TIMES.at(-1)).toBe('23:30');
+    expect(SLOT_TIMES).toHaveLength(28);
+  });
+
+  it('names today, tomorrow and then the weekday', () => {
+    expect(dayChoices(NOW)).toEqual([
+      { date: '2026-11-11', label: 'Bugun', num: 11 },
+      { date: '2026-11-12', label: 'Ertaga', num: 12 },
+      { date: '2026-11-13', label: 'Jum', num: 13 },
+    ]);
+  });
+
+  it('counts the day on the Tashkent calendar, not UTC', () => {
+    expect(dayKey(Date.parse('2026-11-11T20:00:00Z'))).toBe('2026-11-12'); // 01:00 on the 12th in Tashkent
+  });
+
+  it('only allows slots at least 60 minutes ahead', () => {
+    expect(slotOk('2026-11-11', '15:30', NOW)).toBe(false);
+    expect(slotOk('2026-11-11', '16:00', NOW)).toBe(true);
+    expect(slotOk('2026-11-11', '10:00', NOW)).toBe(false);
+    expect(slotOk('2026-12-20', '19:00', NOW)).toBe(false); // beyond 30 days
+  });
+
+  it('writes the summary line above the pay button', () => {
+    expect(bookingSummary('2026-11-12', '19:00', 4, NOW)).toBe('Ertaga, 19:00 • 4 kishi');
+    expect(bookingSummary('2026-11-11', '19:00', 2, NOW)).toBe('Bugun, 19:00 • 2 kishi');
+    expect(bookingSummary('2026-11-20', '19:00', 6, NOW)).toBe('20-noyabr, 19:00 • 6 kishi');
   });
 });
