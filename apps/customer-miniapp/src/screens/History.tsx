@@ -6,11 +6,13 @@ import { countThisMonth, groupByPeriod, matchesFilter, topRestaurant, type Histo
 import { groupOrders } from '../lib/orderList';
 import type { Route } from '../lib/router';
 import { useOrders } from '../lib/useOrders';
+import { useReorder } from '../lib/useReorder';
 import { t } from '../i18n';
 
 /** Finished orders on a screen of their own (the Buyurtma tab shows only what is still going on). */
 export function History({ go }: { go: (r: Route) => void }) {
   const { data, error, refresh } = useOrders();
+  const { reorder, busy: reordering } = useReorder(go);
   const [filter, setFilter] = useState<HistoryFilter>('ALL');
   const nowMs = useMemo(() => Date.now(), [data]); // eslint-disable-line react-hooks/exhaustive-deps
   const history = useMemo(() => (data ? groupOrders(data).history : []), [data]);
@@ -51,7 +53,7 @@ export function History({ go }: { go: (r: Route) => void }) {
               {groups.map(g => (
                 <section key={g.key} className="stack" aria-label={g.label}>
                   <h2 className="period">{g.label}</h2>
-                  {g.items.map(o => <PastOrderCard key={o.id} o={o} nowMs={nowMs} open={() => go({ name: 'order', id: o.id })} onRated={() => void refresh()} />)}
+                  {g.items.map(o => <PastOrderCard key={o.id} o={o} nowMs={nowMs} open={() => go({ name: 'order', id: o.id })} onRated={() => void refresh()} onReorder={o.stage === 'DELIVERED' ? () => void reorder(o) : undefined} reordering={reordering === o.id} />)}
                 </section>
               ))}
               {shown.length === 0 && <p className="sub center">{t('Bu bo‘limda buyurtma yo‘q')}</p>}

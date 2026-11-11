@@ -211,6 +211,9 @@ export interface OrderSummary {
   stage: CustomerStage;
   createdAt: string;
   restaurantName: string;
+  /** For "Yana buyurtma berish": the restaurant and the dishes (with quantities) of this order; an older backend omits them. */
+  restaurantId?: string;
+  reorder?: Array<{ productId: string; quantity: number }>;
   restaurantImageUrl?: string | null;
   foodTotalSom: number;
   itemsCount: number;

@@ -59,3 +59,11 @@ describe('styles.css is well formed after token changes', () => {
     expect([...new Set(used)].filter(u => !defined.has(u) && !runtime.has(u))).toEqual([]);
   });
 });
+
+describe('font', () => {
+  it('uses Onest from the bundled package, with the system font as fallback', () => {
+    expect(css).toMatch(/font-family: 'Onest Variable', system-ui/);
+    expect(readFileSync(join(__dirname, '..', 'src', 'main.tsx'), 'utf8')).toContain("@fontsource-variable/onest");
+    expect(readFileSync(join(__dirname, '..', 'package.json'), 'utf8')).toContain('"@fontsource-variable/onest": "5.3.1"');
+  });
+});

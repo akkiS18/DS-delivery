@@ -8,6 +8,7 @@ import { layers, namedFlavor } from '@protomaps/basemaps';
 import { PMTiles, Protocol } from 'pmtiles';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { t } from '../i18n';
+import { rich } from '../i18n/rich';
 import { api } from '../lib/api';
 import { CHIP_COUNT, CHIP_RADIUS_METERS, NOTE_RADIUS_METERS, nearbyLandmarks, roundedMeters, type Landmark } from '../lib/landmarks';
 import { insideBounds, MAP_BOUNDS, MAP_FILE, roundPoint, TOWN_CENTER, type LatLng, type MapState } from '../lib/mapConfig';
@@ -156,11 +157,13 @@ export default function MapPicker({ value, onPick, onState }: Props) {
         <div ref={box} className="map-canvas" role="application" aria-label={t('Xarita')} />
         <div className="map-pin" aria-hidden><Icon as={MapPin} size={40} /></div>
         <button type="button" className="map-locate" onClick={locate} aria-label={t('Joylashuvim')}><Icon as={LocateFixed} size={22} /></button>
+        {!chosen && !note && <span className="map-hint">{t('Xaritani suring: belgi uyingiz ustida tursin')}</span>}
       </div>
-      <div className={`small ${note ? 'err' : 'sub'}`} role="status">
-        {note || (nearest ? t('Mo‘ljal: {name} (~{m} m)', { name: nearest.name, m: roundedMeters(nearest.meters) })
-          : chosen ? t('Joy belgilandi') : t('Xaritani suring: belgi uyingiz ustida tursin'))}
-      </div>
+      {note
+        ? <div className="small err" role="status">{note}</div>
+        : nearest
+          ? <div className="map-near" role="status"><Icon as={MapPin} size={18} /><span>{rich('Eng yaqin mo‘ljal: <b>{name}</b> (~{m} m)', { name: nearest.name, m: roundedMeters(nearest.meters) })}</span></div>
+          : chosen ? <div className="small sub" role="status">{t('Joy belgilandi')}</div> : null}
       {chips.length > 0 && (
         <div className="stack" style={{ gap: 6 }}>
           <div className="small sub">{t('Yaqin joylar')}</div>
