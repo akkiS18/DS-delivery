@@ -106,6 +106,7 @@ export const RU: Record<string, string> = {
   'Bu toifada mahsulot yo‘q': 'В этой категории нет блюд',
   'Mavjud emas': 'Нет в наличии',
   'Qo‘shish': 'Добавить',
+  'Savatga qo‘shish': 'Добавить в корзину',
   'Restoran hozir yopiq': 'Ресторан сейчас закрыт',
   'Restoran vaqtincha buyurtma qabul qilmayapti.': 'Ресторан временно не принимает заказы.',
   'Menyuni ko‘rishingiz mumkin.': 'Меню можно посмотреть.',

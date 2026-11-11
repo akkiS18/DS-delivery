@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, ChevronLeft, ChevronRight, Plus, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
-import { Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
+import { Button, Empty, ErrorBox, Icon, Qty, Sheet, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
 import { cartBase, catalogAction, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
@@ -25,6 +25,7 @@ export const isDealGroup = (name: string): boolean => /^\s*(aksiya|акция|а
 export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route, o?: { replace?: boolean }) => void }) {
   const { cart, dispatch, toast } = useApp();
   const { data, error, loading, reload } = useLoad(signal => api.menu(id, signal), [id]);
+  const [detail, setDetail] = useState<string | null>(null); // id of the dish whose big card is open
 
   // The fee model is part of the menu: keep the cart pricing in step with what the server uses now.
   useEffect(() => { if (data?.pricing) dispatch({ type: 'pricing', pricing: data.pricing }); }, [data?.pricing, dispatch]);
@@ -144,15 +145,15 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
         const first = referenceUnitPrice(p.priceSom, pricing);
         const unit = base > 0 ? unitPrice(p.priceSom, base, pricing) : first;
         return (
-          <div key={p.id} className={`card product menu-dish ${p.isAvailable ? '' : 'muted'}`}>
+          <div key={p.id} className={`card product menu-dish ${p.isAvailable ? '' : 'muted'}`} onClick={() => setDetail(p.id)}>
             {p.imageUrl
               ? <img className="img" src={mediaUrl(p.imageUrl, 320) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               : <div className="img" aria-hidden><Icon as={UtensilsCrossed} size={30} /></div>}
             <div className="grow stack" style={{ gap: 4 }}>
-              <div className="bold">{p.name}{promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}</div>
+              <div className="bold"><button type="button" className="dishlink" onClick={e => { e.stopPropagation(); setDetail(p.id); }} aria-haspopup="dialog">{p.name}</button>{promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}</div>
               {p.description && <div className="desc">{p.description}</div>}
               {p.packaging && <div className="sub small">{t('+ {name} {sum} (har bir dona uchun)', { name: p.packaging.name.toLowerCase(), sum: som(p.packaging.priceSom) })}</div>}
-              <div className="row between" style={{ marginTop: 'auto' }}>
+              <div className="row between" style={{ marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                 <PriceTag unitSom={unit} referenceSom={Math.max(first, unit, p.oldPriceSom && p.oldPriceSom > p.priceSom ? referenceUnitPrice(p.oldPriceSom, pricing) : 0)} />
                 {!p.isAvailable ? <span className="badge closed">{t('Mavjud emas')}</span>
                   : q > 0 ? <Qty value={q} onInc={() => dispatch({ type: 'inc', productId: p.id })} onDec={() => dispatch({ type: 'dec', productId: p.id })} />
@@ -163,6 +164,32 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
         );
       })}
       </div>
+      {detail && (() => {
+        const p = (data.products ?? []).find(x => x.id === detail);
+        if (!p) return null;
+        const q = inThisCart ? qtyOf(cart, p.id) : 0;
+        const orderable = r.isOpen && p.isAvailable;
+        const first = referenceUnitPrice(p.priceSom, pricing);
+        const unit = base > 0 ? unitPrice(p.priceSom, base, pricing) : first;
+        return (
+          <Sheet title={p.name} onClose={() => setDetail(null)}>
+            <div className="stack">
+              {p.imageUrl && <img className="dish-photo" src={mediaUrl(p.imageUrl, 720) ?? ''} alt="" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
+              <div className="row between">
+                <PriceTag unitSom={unit} referenceSom={Math.max(first, unit, p.oldPriceSom && p.oldPriceSom > p.priceSom ? referenceUnitPrice(p.oldPriceSom, pricing) : 0)} />
+                {promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}
+              </div>
+              {p.description && <p className="dish-desc">{p.description}</p>}
+              {p.packaging && <div className="dish-extra"><span>{t('+ {name} {sum} (har bir dona uchun)', { name: p.packaging.name.toLowerCase(), sum: som(p.packaging.priceSom) })}</span></div>}
+              {!p.isAvailable && <span className="badge closed">{t('Mavjud emas')}</span>}
+              {p.isAvailable && !r.isOpen && <div className="banner warn" role="status">{t('Restoran hozir yopiq')}</div>}
+              {q > 0
+                ? <div className="dish-actions"><Qty value={q} onInc={() => dispatch({ type: 'inc', productId: p.id })} onDec={() => dispatch({ type: 'dec', productId: p.id })} /><Button onClick={() => setDetail(null)}>{t('Tayyor')}</Button></div>
+                : <Button disabled={!orderable} onClick={() => { void add(p); }}>{t('Savatga qo‘shish')}</Button>}
+            </div>
+          </Sheet>
+        );
+      })()}
     </>
   );
 }
