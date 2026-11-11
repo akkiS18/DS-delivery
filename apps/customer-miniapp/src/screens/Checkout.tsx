@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Banknote, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket, Truck } from 'lucide-react';
+import { Banknote, ChevronLeft, ChevronRight, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket, Smartphone, Truck } from 'lucide-react';
 import { Fold, TaxiTile, Tile } from '../components/Choice';
 import { LocationPicker } from '../components/LocationPicker';
 import type { MapState } from '../lib/mapConfig';
@@ -45,6 +45,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   // Walking is offered only by a restaurant that allows it (the server says so in the quote); everywhere else the option is not shown.
   const [walkingAvailable, setWalkingAvailable] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [sheet, setSheet] = useState<'address' | 'phone' | null>(null); // address and phone are edited in a sheet opened from their row
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<Described | null>(null);
   // The "taxi fare is separate" question that comes before every order (card and cash alike): open = waiting for "Ha" or "Ortga".
@@ -108,6 +109,9 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const view = cartView(cart);
   const total = view.totalSom;
 
+  const addressValue = selected === 'new' ? text.trim() : savedAddress ? `${savedAddress.label} • ${savedAddress.addressText}` : '';
+  const addressProblem = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') ? t('Manzilni kiriting') : needPin ? t('Xaritada joyni belgilang') : '';
+
   const missingText = [
     ready.missing.includes('address') || (selected === 'new' && hasErrors(newErrors)) ? t('Manzilni kiriting') : '',
     needPin ? t('Xaritada joyni belgilang') : '',
@@ -130,8 +134,10 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     if (busy.current) return;   // a ref, not just state: two taps in the same frame still send one request
     if (!canSubmit) {
       // Not silently disabled: say what is missing and take the customer to it.
-      const target = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') || needPin ? 'co-address' : ready.missing.includes('phone') ? 'co-phone' : taxiMissing ? 'co-delivery' : null;
-      if (target) window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+      // Address and phone live in sheets: open the one that is missing; the delivery choice is on the page itself.
+      if ((selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') || needPin) setSheet('address');
+      else if (ready.missing.includes('phone')) setSheet('phone');
+      else if (taxiMissing) window.setTimeout(() => document.getElementById('co-delivery')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
     setAsking(true); // the order is placed by place(), after the customer has seen that the taxi fare is separate and said "Ha"
@@ -175,11 +181,38 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   };
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('Buyurtmani rasmiylashtirish')}</h1>
+    <>
+      <header className="screen-head">
+        <button type="button" className="round-back" onClick={() => go({ name: 'cart' })} aria-label={t('Ortga')}><ChevronLeft size={22} strokeWidth={2.2} aria-hidden /></button>
+        <h1 className="grow">{t('Buyurtmani rasmiylashtirish')}</h1>
+      </header>
+    <div className="page" style={{ paddingTop: 4 }}>
 
-      <section className="stack" id="co-address" aria-label={t('Yetkazish manzili')}>
-        <h2 style={{ fontSize: 17 }}>{t('Yetkazish manzili')}</h2>
+      <section className="card inforows" aria-label={t('Yetkazish manzili')}>
+        <button type="button" id="co-address" className="inforow" onClick={() => setSheet('address')}>
+          <span className="inforow-ico" aria-hidden><Icon as={MapPin} size={22} /></span>
+          <span className="inforow-body">
+            <span className="inforow-lbl">{t('Yetkazish manzili')}</span>
+            <span className={`inforow-val ${addressValue ? '' : 'empty'}`}>{addressValue || t('Manzilni kiriting')}</span>
+            {touched && addressProblem && <span className="err">{addressProblem}</span>}
+          </span>
+          <Icon as={ChevronRight} size={20} className="inforow-chev" />
+        </button>
+        <span className="inforow-sep" aria-hidden />
+        <button type="button" id="co-phone" className="inforow" onClick={() => setSheet('phone')}>
+          <span className="inforow-ico" aria-hidden><Icon as={Smartphone} size={22} /></span>
+          <span className="inforow-body">
+            <span className="inforow-lbl">{t('Telefon raqami')}</span>
+            <span className={`inforow-val mono ${phone || phoneInput.trim() ? '' : 'empty'}`}>{phone ? formatPhone(phone) : phoneInput.trim() || t('Telefon raqamini kiriting')}</span>
+            {touched && !phone && <span className="err">{t('Telefon raqamini to‘g‘ri kiriting (masalan, 90 123 45 67)')}</span>}
+          </span>
+          <Icon as={ChevronRight} size={20} className="inforow-chev" />
+        </button>
+      </section>
+
+      {sheet === 'address' && (
+      <Sheet title={t('Yetkazish manzili')} onClose={() => setSheet(null)}>
+      <div className="stack">
         {addresses.map(a => (
           <label key={a.id} className="card row" style={{ border: selected === a.id ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
             <input type="radio" name="addr" checked={selected === a.id} onChange={() => setSelected(a.id)} style={{ width: 22, height: 22 }} />
@@ -204,16 +237,23 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
             <label className="row"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('Keyingi buyurtmalar uchun saqlash')}</label>
           </div>
         )}
-      </section>
+        <Button onClick={() => setSheet(null)}>{t('Tayyor')}</Button>
+      </div>
+      </Sheet>
+      )}
 
-      <section className="stack" id="co-phone" aria-label={t('Telefon')}>
-        <h2 style={{ fontSize: 17 }}>{t('Telefon raqami')}</h2>
+      {sheet === 'phone' && (
+      <Sheet title={t('Telefon raqami')} onClose={() => setSheet(null)}>
+      <div className="stack">
         <div className="field">
           <input className={`input ${touched && !phone ? 'invalid' : ''}`} inputMode="tel" autoComplete="tel" placeholder="+998 90 123 45 67" value={phoneInput}
             onChange={e => { phoneEdited.current = true; setPhoneInput(e.target.value); }} aria-label={t('Telefon raqami')} />
           {touched && !phone && <div className="err">{t('Telefon raqamini to‘g‘ri kiriting (masalan, 90 123 45 67)')}</div>}
         </div>
-      </section>
+        <Button onClick={() => setSheet(null)}>{t('Tayyor')}</Button>
+      </div>
+      </Sheet>
+      )}
 
       <section className="stack" id="co-delivery" aria-label={t('Yetkazish usuli')}>
         <h2 style={{ fontSize: 17 }}>{t('Yetkazish usuli')}</h2>
@@ -244,21 +284,22 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         </section>
       )}
 
-      <section className="card stack" aria-label={t('Buyurtma xulosasi')}>
-        <h2 style={{ fontSize: 17 }}>{t('Buyurtma')}</h2>
-        <div className="sub small">{cart.restaurantName} • {t('{n} ta', { n: cartCount(cart) })}</div>
+      <section className="receipt" aria-label={t('Buyurtma xulosasi')}>
+       <div className="receipt-top">
+        <h2 style={{ fontSize: 17 }}>{cart.restaurantName}</h2>
+        <div className="sub small">{t('{n} ta', { n: cartCount(cart) })}</div>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}{l.freeQty > 0 ? ` (${t('{n} ta bepul', { n: l.freeQty })})` : ''}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
         {view.extras.map(x => <div key={x.productId} className="row between small"><span className="grow">{x.quantity} × {x.name}</span><span className="mono">{som(x.subtotalSom)}</span></div>)}
         {view.dealSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya chegirmasi')}</span><span className="mono">−{som(view.dealSavedSom)}</span></div>}
         {view.promoSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
-        <div className="divider" />
-        <div className="row between"><span className="bold">{t('Taomlar')}</span><span className="bold mono">{som(view.dishesSom)}</span></div>
         <PlatformLine pricing={view.pricing} />
-        {view.pricing.mode === 'LINE' && <div className="row between"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="bold mono">{som(total)}</span></div>}
         <Fold title={t('Qo‘shimcha')}>
           <TaxiFareBox walk={walk && walkingAvailable} taxiName={taxiOptions?.find(o => o.id === taxiId)?.name ?? null} />
           <p className="sub small">{method === 'CASH' ? t('Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.') : t('Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.')}</p>
         </Fold>
+       </div>
+       <div className="receipt-notch" aria-hidden><i /></div>
+       <div className="receipt-total"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="receipt-sum mono">{som(total)}</span></div>
       </section>
 
       {problem && (
@@ -294,5 +335,6 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         </Button>
       </StickyAction>
     </div>
+    </>
   );
 }

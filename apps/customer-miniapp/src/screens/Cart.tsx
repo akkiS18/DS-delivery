@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Gift, ShoppingBasket } from 'lucide-react';
+import { ChevronLeft, Gift, ShoppingBasket } from 'lucide-react';
 import { Fold } from '../components/Choice';
 import { FeeProgress, PriceTag } from '../components/FeeProgress';
 import { PlatformLine, TaxiFareBox } from '../components/PriceLines';
@@ -68,11 +68,16 @@ export function Cart({ go }: { go: (r: Route) => void }) {
   const blocked = unavailable.size > 0 || Boolean(closed) || !quote || !quote.ok || checking;
 
   return (
-    <div className="page">
-      <div>
-        <h1 className="page-title">{t('Savat')}</h1>
-        <p className="sub">{cart.restaurantName}</p>
-      </div>
+    <>
+      <header className="screen-head">
+        <button type="button" className="round-back" onClick={() => go(cart.restaurantId ? { name: 'menu', id: cart.restaurantId } : { name: 'home' })} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+        <div className="grow">
+          <h1>{t('Savat')}</h1>
+          <p className="sub small">{cart.restaurantName} • {t('{n} ta', { n: view.lines.reduce((n, l) => n + l.quantity, 0) })}</p>
+        </div>
+        <button type="button" className="textbtn bad" onClick={() => { dispatch({ type: 'clear' }); toast(t('Savat tozalandi')); go({ name: 'home' }); }}>{t('Tozalash')}</button>
+      </header>
+    <div className="page" style={{ paddingTop: 4 }}>
       {repriced.length > 0 && <div className="banner warn" role="alert">{t('Narx yangilandi: {names}. Yangi summani tekshiring.', { names: repriced.join(', ') })}</div>}
       {closed && <div className="banner bad" role="alert">{closed.kind === 'RESTAURANT_CLOSED' ? t('Restoran hozir yopiq. {opens}.', { opens: opensText(closed.opensNext) }) : t('Restoran hozir buyurtma qabul qilmayapti.')}</div>}
       {error && <div className="banner bad" role="alert">{describeCheckoutError(error).message}</div>}
@@ -105,7 +110,8 @@ export function Cart({ go }: { go: (r: Route) => void }) {
           </div>
         </div>
       ))}
-      <div className="card stack">
+      <section className="receipt">
+       <div className="receipt-top">
         <div className="row between"><span>{t('Taomlar')}</span><span className="bold mono">{som(quote?.ok ? quote.totalSom - lineCharge(view.pricing) : view.dishesSom)}</span></div>
         {view.savedSom > 0 && <div className="row between saved"><span>{t('Tejadingiz')}</span><span className="mono">−{som(view.savedSom)}</span></div>}
         {view.dealSavedSom > 0 && <div className="row between saved"><span>{t('Aksiya chegirmasi')}</span><span className="mono">−{som(view.dealSavedSom)}</span></div>}
@@ -113,17 +119,19 @@ export function Cart({ go }: { go: (r: Route) => void }) {
         <PlatformLine pricing={view.pricing} />
         <FeeProgress base={cartBase(cart)} pricing={view.pricing} />
         {view.pricing.mode !== 'FLAT' && view.pricing.mode !== 'LINE' && <p className="sub small">{t('Narxlarga xizmat haqi kiritilgan.')}</p>}
-        {view.pricing.mode === 'LINE' && <div className="row between bold"><span>{t('Jami (taksidan tashqari)')}</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>}
-      </div>
+       </div>
+       <div className="receipt-notch" aria-hidden><i /></div>
+       <div className="receipt-total"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="receipt-sum mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></div>
+      </section>
       <Fold title={t('Taksi haqi haqida')}><TaxiFareBox /></Fold>
       {unavailable.size > 0 && (
         <Button variant="secondary" onClick={() => dispatch({ type: 'drop', productIds: [...unavailable] })}>{t('Mavjud bo‘lmaganlarni olib tashlash')}</Button>
       )}
       {checking && <Spinner />}
-      <Button variant="ghost" onClick={() => { dispatch({ type: 'clear' }); toast(t('Savat tozalandi')); go({ name: 'home' }); }}>{t('Savatni tozalash')}</Button>
       <StickyAction hint={checking ? t('Narxlar tekshirilmoqda…') : blocked ? null : t('Keyingi qadam: manzil va to‘lov usuli')}>
-        <Button disabled={blocked} onClick={() => { setRepriced([]); go({ name: 'checkout' }); }}>{t('Rasmiylashtirish • {sum}', { sum: som(quote?.ok ? quote.totalSom : view.totalSom) })}</Button>
+        <Button disabled={blocked} onClick={() => { setRepriced([]); go({ name: 'checkout' }); }}><span className="btn-split"><span>{t('Rasmiylashtirish')}</span><span className="mono">{som(quote?.ok ? quote.totalSom : view.totalSom)}</span></span></Button>
       </StickyAction>
     </div>
+    </>
   );
 }

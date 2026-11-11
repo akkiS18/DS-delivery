@@ -7,6 +7,7 @@ import { PROMO_CATEGORY } from '../screens/Menu';
 import { t } from '../i18n';
 
 const SLIDE_MS = 4500;
+const SLIDE_GAP = 10; // keep equal to .banner-track gap in styles.css
 
 /**
  * Where a tap on a slide goes: the restaurant's menu, on its "Chegirmalar" group for a 1+1 offer, on its "AKSIYA" group when the server names one
@@ -31,10 +32,15 @@ export function BannerCarousel({ go }: { go: (r: Route) => void }) {
     return () => ac.abort();
   }, []);
 
+  /** One slide's pitch: the slide is narrower than the track (the next one peeks in), so a step is slide width + gap. */
+  const pitch = (el: HTMLElement) => {
+    const first = el.firstElementChild as HTMLElement | null;
+    return Math.max(1, (first?.offsetWidth ?? el.clientWidth) + SLIDE_GAP);
+  };
   const scrollTo = (i: number) => {
     const el = track.current;
     if (!el) return;
-    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+    el.scrollTo({ left: i * pitch(el), behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -43,8 +49,8 @@ export function BannerCarousel({ go }: { go: (r: Route) => void }) {
       if (paused.current || document.hidden) return;
       const el = track.current;
       if (!el) return;
-      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % banners.length;
-      el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
+      const next = (Math.round(el.scrollLeft / pitch(el)) + 1) % banners.length;
+      el.scrollTo({ left: next * pitch(el), behavior: 'smooth' });
     }, SLIDE_MS);
     return () => window.clearInterval(t);
   }, [banners.length]);
@@ -53,7 +59,7 @@ export function BannerCarousel({ go }: { go: (r: Route) => void }) {
   return (
     <section className="banners" aria-label={t('Yangiliklar va chegirmalar')} aria-roledescription="carousel">
       <div className="banner-track" ref={track}
-        onScroll={e => { const el = e.currentTarget; setIndex(Math.round(el.scrollLeft / Math.max(1, el.clientWidth))); }}
+        onScroll={e => { const el = e.currentTarget; setIndex(Math.round(el.scrollLeft / pitch(el))); }}
         onTouchStart={() => { paused.current = true; }} onTouchEnd={() => { window.setTimeout(() => { paused.current = false; }, 6000); }}
         onMouseEnter={() => { paused.current = true; }} onMouseLeave={() => { paused.current = false; }}>
         {banners.map((b, i) => {

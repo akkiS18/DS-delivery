@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { Smartphone } from 'lucide-react';
 import { CartBar } from './components/CartBar';
 import { Button, ErrorBox, Icon, Skeletons, TabBar } from './components/ui';
-import { cartCount } from './lib/cart';
 import { isTab, parentOf, type Route } from './lib/router';
 import { useViewportLayout } from './lib/viewport';
 import { isAndroidApp } from './lib/platform';
@@ -26,7 +25,7 @@ import { useApp, useRoute } from './state';
 import { t, useLang } from './i18n';
 
 export function App() {
-  const { status, error, reload, cart } = useApp();
+  const { status, error, reload } = useApp();
   const lang = useLang(); // a language change re-renders the whole screen tree (the key below remounts <main>)
   const [route, go] = useRoute();
   useViewportLayout();
@@ -58,7 +57,7 @@ export function App() {
       {(pull > 0 || refreshing) && <div className="ptr" style={{ height: refreshing ? 52 : pull }} aria-hidden><div><span className="spinner" style={{ width: 18, height: 18, margin: 0, borderWidth: 2, animationPlayState: refreshing || pull >= 60 ? 'running' : 'paused' }} /></div></div>}
       <main className="app-main" key={`${route.name}:${'id' in route ? route.id : ''}:${epoch}:${lang}`}>{screen(route, go)}</main>
       <CartBar route={route} go={go} />
-      <TabBar route={route} go={r => go(r)} orders={0} support={supportUnread} cart={cartCount(cart)} />
+      <TabBar route={route} go={r => go(r)} orders={0} support={supportUnread} />
     </div>
   );
 }

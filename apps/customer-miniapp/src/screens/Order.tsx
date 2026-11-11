@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { ChevronLeft, MapPin } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
 import { PaidDialog } from '../components/PaidDialog';
@@ -120,18 +120,18 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
   };
 
   return (
-    <div className="page">
-      {paidNotice && <PaidDialog cash={cash} onClose={() => setPaidNotice(false)} />}
-      <div className="row between">
-        <div className="row order-head">
-          <div className="logo-round" aria-hidden><RestaurantPhoto name={o.restaurantName} url={o.restaurantImageUrl} width={160} /></div>
-          <div>
-            <h1 className="page-title">{o.restaurantName}</h1>
-            <p className="sub">{t('Buyurtma #{code}', { code: o.code })} • {clock(o.createdAt)}</p>
-          </div>
+    <>
+      <header className="screen-head">
+        <button type="button" className="round-back" onClick={() => go({ name: 'orders' })} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+        <div className="grow" style={{ minWidth: 0 }}>
+          <h1 className="ellipsis" style={{ fontSize: 20 }}>{o.restaurantName}</h1>
+          <p className="sub small">{t('Buyurtma #{code}', { code: o.code })} • {clock(o.createdAt)}</p>
         </div>
         {o.isTest && <span className="badge test">TEST</span>}
-      </div>
+        <div className="logo-round" style={{ width: 44, height: 44 }} aria-hidden><RestaurantPhoto name={o.restaurantName} url={o.restaurantImageUrl} width={160} /></div>
+      </header>
+    <div className="page" style={{ paddingTop: 4 }}>
+      {paidNotice && <PaidDialog cash={cash} onClose={() => setPaidNotice(false)} />}
 
       <div className="card stack">
         <StatusHero stage={o.stage} cash={cash} />
@@ -196,7 +196,14 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
       {awaiting && pay && !cash && (
         <div className="card stack" aria-label={t('To‘lov')}>
           <h2 style={{ fontSize: 17 }}>{t('To‘lov')}</h2>
-          <div className="row between"><span>{t('To‘lov summasi')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.amountSom)}</span></div>
+          {pay.mode === 'REAL' && ins && !ins.recipientUnavailable && ins.cardNumber
+            ? (
+              <div className="pay-amount">
+                <div><span className="pay-amount-lbl">{t('Aynan shu summani yuboring')}</span><span className="pay-amount-sum mono">{som(pay.amountSom)}</span></div>
+                <button type="button" className="pay-amount-copy" onClick={() => void copy(String(pay.amountSom))}>{t('Nusxalash')}</button>
+              </div>
+            )
+            : <div className="row between"><span>{t('To‘lov summasi')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.amountSom)}</span></div>}
           {pay.queued && (
             <div className="banner warn">{t('To‘lov rekvizitlari hozir band. Birozdan keyin avtomatik ko‘rinadi.')}
               <div style={{ marginTop: 8 }}><Button small variant="secondary" loading={busy === 'pay'} onClick={() => void payCash()}>{t('Naqd to‘lash')}</Button></div>
@@ -221,7 +228,15 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
               <Button loading={busy === 'pay'} onClick={() => void mockPay()}>{t('Sinov to‘lovini bajarish')}</Button>
             </>
           )}
-          {o.stage === 'PAYMENT_PENDING' && pay.mode === 'REAL' && <p className="sub small">{t('O‘tkazgandan so‘ng bu sahifada qoling — holat o‘zi yangilanadi.')}</p>}
+          {o.stage === 'PAYMENT_PENDING' && pay.mode === 'REAL' && (ins?.cardNumber && !ins.recipientUnavailable
+            ? (
+              <ol className="pay-steps" aria-label={t('Qanday to‘lanadi')}>
+                <li><span aria-hidden>1</span>{t('Karta raqamini nusxalang')}</li>
+                <li><span aria-hidden>2</span>{t('Bank ilovangizda shu kartaga o‘tkazing')}</li>
+                <li><span aria-hidden>3</span>{t('Shu sahifaga qayting — holat o‘zi yangilanadi')}</li>
+              </ol>
+            )
+            : <p className="sub small">{t('O‘tkazgandan so‘ng bu sahifada qoling — holat o‘zi yangilanadi.')}</p>)}
         </div>
       )}
 
@@ -259,6 +274,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
         </Sheet>
       )}
     </div>
+    </>
   );
 }
 
