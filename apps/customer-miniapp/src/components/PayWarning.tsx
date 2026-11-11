@@ -39,10 +39,13 @@ export function PayWarning({ amountSom, windowMinutes, remaining, total, contact
         </strong>
       </div>
       {remaining !== null && !over && (
-        <>
-          <div className="pay-warn-time" aria-live="off"><span className="mono">{mmss(remaining)}</span><span className="pay-warn-left"> {t('qoldi')}</span></div>
-          {share !== null && <div className="pay-warn-bar" aria-hidden><span style={{ width: `${share * 100}%` }} /></div>}
-        </>
+        <div className="pay-ring" role="timer" aria-live="off" aria-label={`${mmss(remaining)} ${t('qoldi')}`}>
+          <svg aria-hidden width="96" height="96" viewBox="0 0 124 124">
+            <circle cx="62" cy="62" r="54" className="pay-ring-bg" />
+            <circle cx="62" cy="62" r="54" className="pay-ring-fg" strokeDasharray="339.3" strokeDashoffset={339.3 * (1 - (share ?? 1))} />
+          </svg>
+          <span className="pay-ring-time"><span className="mono">{mmss(remaining)}</span><span className="pay-ring-left">{t('qoldi')}</span></span>
+        </div>
       )}
       <div className="pay-warn-note">{t(over ? T('Pul o‘tkazib bo‘lgan bo‘lsangiz, restoranga murojaat qiling') : T('Boshqa summa yoki muddatdan keyin pul o‘tkazgan bo‘lsangiz, restoranga murojaat qiling'))}{phone ? <>: <a href={`tel:${phone}`} className="nowrap">{contactPhone}</a></> : '.'}</div>
     </div>

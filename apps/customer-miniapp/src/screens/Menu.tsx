@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from 'react';
-import { BadgePercent, CalendarClock, ChevronLeft, ChevronRight, Gift, Star, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Plus, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
-import { Button, Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
+import { Empty, ErrorBox, Icon, Qty, Skeletons } from '../components/ui';
 import { api } from '../lib/api';
 import { cartBase, catalogAction, qtyOf } from '../lib/cart';
 import { FLAT_PRICING, referenceUnitPrice, unitPrice } from '../lib/fee';
@@ -10,7 +10,7 @@ import { opensText, som } from '../lib/format';
 import { mediaUrl } from '../lib/platform';
 import { ratingText } from '../lib/rating';
 import type { Route } from '../lib/router';
-import { confirmDialog } from '../lib/telegram';
+import { confirmDialog, haptic } from '../lib/telegram';
 import type { Product } from '../lib/types';
 import { useApp, useLoad } from '../state';
 import { t } from '../i18n';
@@ -22,7 +22,7 @@ export const PROMO_CATEGORY = 'promo';
 /** A restaurant's own group of special offers ("AKSIYA"): without a photo it gets a discount badge instead of the first letter. */
 export const isDealGroup = (name: string): boolean => /^\s*(aksiya|акция|акции)/i.test(name);
 
-export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route) => void }) {
+export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route, o?: { replace?: boolean }) => void }) {
   const { cart, dispatch, toast } = useApp();
   const { data, error, loading, reload } = useLoad(signal => api.menu(id, signal), [id]);
 
@@ -73,16 +73,45 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
   const pricing = data.pricing ?? cart.pricing ?? FLAT_PRICING;
   const base = inThisCart ? cartBase(cart) : 0;
 
+  const stateLabel = r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? t('Vaqtincha yopiq') : t('Yopiq');
+  const isRed = (g: { id: string; name: string; imageUrl: string | null }) => g.id === PROMO_CATEGORY || (!g.imageUrl && isDealGroup(g.name));
+  const back = () => go?.({ name: 'home' });
+
   return (
-    <div className="page">
-      <div>
-        <div className={`rphoto banner-photo ${r.isOpen ? '' : 'closed'}`}><RestaurantPhoto name={r.name} url={r.imageUrl} whole /></div>
-        <h1 className="page-title">{r.name}</h1>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-          <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{r.isOpen ? t('Ochiq') : r.closedReason === 'PAUSED' ? t('Vaqtincha yopiq') : t('Yopiq')}</span>
-          {ratingText(r.rating) && <span className="rrate"><Icon as={Star} size={16} className="star on" />{ratingText(r.rating)}</span>}
+    <>
+      {!active ? (
+        // Categories: the restaurant's logo, dimmed, behind its name; the groups are wide chips that fill the screen width without scrolling.
+        <header className="rest-head">
+          <div className={`rphoto ${r.isOpen ? '' : 'closed'}`} aria-hidden><RestaurantPhoto name={r.name} url={r.imageUrl} whole /></div>
+          <span className="rest-head-dim" aria-hidden />
+          <button type="button" className="round-back on-photo" onClick={back} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+          <div className="rest-head-info">
+            <h1>{r.name}</h1>
+            <div className="row" style={{ gap: 8 }}>
+              <span className={`badge ${r.isOpen ? 'open' : 'closed'}`}>{stateLabel}</span>
+              {ratingText(r.rating) && <span className="rrate on-photo"><Icon as={Star} size={15} className="star on" />{ratingText(r.rating)}</span>}
+            </div>
+          </div>
+        </header>
+      ) : (
+        // A group's dishes: a bar with the restaurant, and the other groups one tap away.
+        <div className="menu-top">
+          <header className="menu-top-row">
+            <button type="button" className="round-back" onClick={() => go?.({ name: 'menu', id })} aria-label={t('Toifalar')}><Icon as={ChevronLeft} size={22} /></button>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <h1 className="ellipsis">{r.name}</h1>
+              <div className="menu-top-sub"><span>{stateLabel}</span>{ratingText(r.rating) && <><span aria-hidden>•</span><Icon as={Star} size={14} className="star on" /><b>{ratingText(r.rating)}</b></>}</div>
+            </div>
+          </header>
+          <div className="cat-strip" role="tablist" aria-label={t('Toifalar')}>
+            {groups.map(g => (
+              <button key={g.id} type="button" role="tab" aria-selected={g.id === active.id} className={`pill ${g.id === active.id ? 'on' : ''} ${isRed(g) ? 'red' : ''}`}
+                onClick={() => go?.({ name: 'menu', id, cat: g.id }, { replace: true })}>{g.name}</button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+      <div className="page">
       {!r.isOpen && (
         <div className="banner warn">{r.closedReason === 'HOURS' ? t('Hozir yopiq. {opens}.', { opens: opensText(r.opensNext) }) : t('Restoran vaqtincha buyurtma qabul qilmayapti.')} {t('Menyuni ko‘rishingiz mumkin.')}</div>
       )}
@@ -90,23 +119,21 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
         <button type="button" className="helpbar" onClick={() => go?.({ name: 'reserve', id })}><Icon as={CalendarClock} size={18} /><span>{t('Joy bron qilish • oldindan to‘lov {sum}', { sum: som(r.reservation.depositSom) })}</span><Icon as={ChevronRight} size={18} /></button>
       )}
       {showGrid && !active && (
-        <div className="cat-grid" role="list" aria-label={t('Toifalar')}>
-          {groups.map(g => (
-            <button key={g.id} role="listitem" className={`cat-card ${g.id === PROMO_CATEGORY || (!g.imageUrl && isDealGroup(g.name)) ? 'promo' : ''}`} onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
-              {g.id === PROMO_CATEGORY
-                ? <span className="promo-art" aria-hidden><Icon as={Gift} size={34} /><b>1+1</b></span>
-                : !g.imageUrl && isDealGroup(g.name)
-                  ? <span className="promo-art" aria-hidden><Icon as={BadgePercent} size={56} /></span>
-                  : <RestaurantPhoto name={g.name} url={g.imageUrl} />}
-              <span className="cat-label"><span className="cat-name">{g.name}</span><span className="cat-count">{t('{n} ta taom', { n: g.count })}</span></span>
-            </button>
-          ))}
-        </div>
+        <>
+          <h2 className="cats-title">{t('Nimani tanlaysiz?')}</h2>
+          <div className="cat-chips" role="list" aria-label={t('Toifalar')}>
+            {groups.map(g => (
+              <button key={g.id} type="button" role="listitem" className={`cat-chip ${isRed(g) ? 'red' : ''}`} onClick={() => go?.({ name: 'menu', id, cat: g.id })}>
+                {g.id === PROMO_CATEGORY ? '1+1' : g.name}{g.id !== PROMO_CATEGORY && <span className="n">{g.count}</span>}
+              </button>
+            ))}
+          </div>
+        </>
       )}
       {showGrid && active && (
-        <div className="row cat-head">
-          <button className="chip" onClick={() => go?.({ name: 'menu', id })}><Icon as={ChevronLeft} size={18} /> {t('Toifalar')}</button>
-          <h2 className="grow" style={{ fontSize: 18 }}>{active.name}</h2>
+        <div className="row between cat-title-row">
+          <h2>{active.name}</h2>
+          <span className="sub small">{t('{n} ta taom', { n: active.count })}</span>
         </div>
       )}
       {(!showGrid || active) && visible.length === 0 && <Empty icon={<Icon as={UtensilsCrossed} size={44} />} title={t('Bu toifada mahsulot yo‘q')} />}
@@ -117,7 +144,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
         const first = referenceUnitPrice(p.priceSom, pricing);
         const unit = base > 0 ? unitPrice(p.priceSom, base, pricing) : first;
         return (
-          <div key={p.id} className={`card product ${p.isAvailable ? '' : 'muted'}`}>
+          <div key={p.id} className={`card product menu-dish ${p.isAvailable ? '' : 'muted'}`}>
             {p.imageUrl
               ? <img className="img" src={mediaUrl(p.imageUrl, 320) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               : <div className="img" aria-hidden><Icon as={UtensilsCrossed} size={30} /></div>}
@@ -129,12 +156,13 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
                 <PriceTag unitSom={unit} referenceSom={Math.max(first, unit, p.oldPriceSom && p.oldPriceSom > p.priceSom ? referenceUnitPrice(p.oldPriceSom, pricing) : 0)} />
                 {!p.isAvailable ? <span className="badge closed">{t('Mavjud emas')}</span>
                   : q > 0 ? <Qty value={q} onInc={() => dispatch({ type: 'inc', productId: p.id })} onDec={() => dispatch({ type: 'dec', productId: p.id })} />
-                  : <Button small disabled={!orderable} onClick={() => { void add(p); if (!r.isOpen) toast(t('Restoran hozir yopiq')); }}>{t('Qo‘shish')}</Button>}
+                  : <button type="button" className="addfab" disabled={!orderable} aria-label={`${p.name} — ${t('Qo‘shish')}`} onClick={() => { haptic.tap(); void add(p); if (!r.isOpen) toast(t('Restoran hozir yopiq')); }}><Icon as={Plus} size={22} /></button>}
               </div>
             </div>
           </div>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }

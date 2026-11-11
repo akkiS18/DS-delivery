@@ -1,4 +1,4 @@
-import { AlertTriangle, MessageCircle, ReceiptText, Minus, Plus, ShoppingBasket, UserRound, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Home, MessageCircle, ReceiptText, Minus, Plus, UserRound, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
@@ -98,11 +98,11 @@ export function Qty({ value, onInc, onDec, max = 30 }: { value: number; onInc: (
   );
 }
 
-export function TabBar({ route, go, orders, support = 0, cart = 0 }: { route: Route; go: (r: Route) => void; orders: number; support?: number; cart?: number }) {
+/** Four tabs; the basket has no tab of its own: it opens from the floating basket panel (CartBar), and its screens keep "Asosiy" lit. */
+export function TabBar({ route, go, orders, support = 0 }: { route: Route; go: (r: Route) => void; orders: number; support?: number }) {
   const tabs: Array<{ r: Route; icon: LucideIcon; label: string; on: boolean; badge?: number }> = [
-    { r: { name: 'home' }, icon: UtensilsCrossed, label: t('Restoranlar'), on: route.name === 'home' || route.name === 'menu' || route.name === 'reserve' },
-    { r: { name: 'cart' }, icon: ShoppingBasket, label: t('Savat'), on: route.name === 'cart' || route.name === 'checkout', ...(cart > 0 ? { badge: cart } : {}) },
-    { r: { name: 'orders' }, icon: ReceiptText, label: t('Buyurtmalar'), on: route.name === 'orders' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
+    { r: { name: 'home' }, icon: Home, label: t('Asosiy'), on: route.name === 'home' || route.name === 'menu' || route.name === 'reserve' || route.name === 'cart' || route.name === 'checkout' },
+    { r: { name: 'orders' }, icon: ReceiptText, label: t('Buyurtma'), on: route.name === 'orders' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
     { r: { name: 'support' }, icon: MessageCircle, label: t('Yordam'), on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
     { r: { name: 'profile' }, icon: UserRound, label: t('Profil'), on: route.name === 'profile' },
   ];
