@@ -44,3 +44,18 @@ describe('dark palette in styles.css', () => {
     expect(greenText).toEqual([]);
   });
 });
+
+describe('styles.css is well formed after token changes', () => {
+  it('has no leftover replacement placeholders ($1, $&)', () => {
+    expect(css.split('\n').filter(l => /\$[1-9&]/.test(l))).toEqual([]);
+  });
+  it('has no declaration that lost its property name', () => {
+    expect(css.split('\n').filter(l => /[{;]\s*var\(--/.test(l))).toEqual([]);
+  });
+  it('defines every colour token it uses (runtime-set sizes aside)', () => {
+    const defined = new Set(tokens(block(':root {')));
+    const used = [...css.matchAll(/var\((--[\w-]+)\s*[,)]/g)].map(m => m[1]!);
+    const runtime = new Set(['--tg-safe-area-inset-bottom', '--cartbar-h', '--kb-h', '--vh', '--kb-offset']);
+    expect([...new Set(used)].filter(u => !defined.has(u) && !runtime.has(u))).toEqual([]);
+  });
+});
