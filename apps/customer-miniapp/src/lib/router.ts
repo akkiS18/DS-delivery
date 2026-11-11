@@ -5,6 +5,7 @@ export type Route =
   | { name: 'checkout' }
   | { name: 'order'; id: string }
   | { name: 'orders' }
+  | { name: 'history' }
   | { name: 'reserve'; id: string }
   | { name: 'reservation'; id: string }
   | { name: 'reservations' }
@@ -33,6 +34,7 @@ export function parseRoute(hash: string): Route {
     if (a === 'cart') return { name: 'cart' };
     if (a === 'checkout') return { name: 'checkout' };
     if (a === 'orders') return { name: 'orders' };
+    if (a === 'history') return { name: 'history' };
     if (a === 'reservations') return { name: 'reservations' };
     if (a === 'profile') return { name: 'profile' };
     if (a === 'support') return { name: 'support' };
@@ -51,6 +53,7 @@ export function routeToHash(r: Route): string {
     case 'cart': return '#/cart';
     case 'checkout': return '#/checkout';
     case 'orders': return '#/orders';
+    case 'history': return '#/history';
     case 'profile': return '#/profile';
     case 'support': return '#/support';
     case 'ticket': return `#/support/${r.id}`;
@@ -66,6 +69,7 @@ export function parentOf(r: Route): Route | null {
     case 'cart': return { name: 'home' };
     case 'checkout': return { name: 'cart' };
     case 'order': return { name: 'orders' };
+    case 'history': return { name: 'orders' };
     case 'reserve': return { name: 'menu', id: r.id };
     case 'reservation': return { name: 'reservations' };
     case 'reservations': return { name: 'orders' };

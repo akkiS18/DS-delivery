@@ -8,6 +8,7 @@ import { isAndroidApp } from './lib/platform';
 import { insideTelegram, setBackButton } from './lib/telegram';
 import { Cart } from './screens/Cart';
 import { Checkout } from './screens/Checkout';
+import { History } from './screens/History';
 import { Home } from './screens/Home';
 import { Menu } from './screens/Menu';
 import { OrderScreen } from './screens/Order';
@@ -70,6 +71,7 @@ function screen(route: Route, go: (r: Route, o?: { replace?: boolean }) => void)
     case 'checkout': return <Checkout go={go} />;
     case 'order': return <OrderScreen id={route.id} go={go} />;
     case 'orders': return <Orders go={go} />;
+    case 'history': return <History go={go} />;
     case 'reserve': return <Reserve id={route.id} go={go} />;
     case 'reservation': return <ReservationScreen id={route.id} go={go} />;
     case 'reservations': return <Reservations go={go} />;

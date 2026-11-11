@@ -102,7 +102,7 @@ export function Qty({ value, onInc, onDec, max = 30 }: { value: number; onInc: (
 export function TabBar({ route, go, orders, support = 0 }: { route: Route; go: (r: Route) => void; orders: number; support?: number }) {
   const tabs: Array<{ r: Route; icon: LucideIcon; label: string; on: boolean; badge?: number }> = [
     { r: { name: 'home' }, icon: Home, label: t('Asosiy'), on: route.name === 'home' || route.name === 'menu' || route.name === 'reserve' || route.name === 'cart' || route.name === 'checkout' },
-    { r: { name: 'orders' }, icon: ReceiptText, label: t('Buyurtma'), on: route.name === 'orders' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
+    { r: { name: 'orders' }, icon: ReceiptText, label: t('Buyurtma'), on: route.name === 'orders' || route.name === 'history' || route.name === 'order' || route.name === 'reservations' || route.name === 'reservation', ...(orders > 0 ? { badge: orders } : {}) },
     { r: { name: 'support' }, icon: MessageCircle, label: t('Yordam'), on: route.name === 'support' || route.name === 'ticket' || route.name === 'supportNew', ...(support > 0 ? { badge: support } : {}) },
     { r: { name: 'profile' }, icon: UserRound, label: t('Profil'), on: route.name === 'profile' },
   ];

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CalendarClock, ChevronRight, Users } from 'lucide-react';
+import { OrdersSwitch } from '../components/OrdersSwitch';
 import { Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { som } from '../lib/format';
@@ -37,12 +38,14 @@ export function Reservations({ go }: { go: (r: Route) => void }) {
   );
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('Bronlarim')}</h1>
+    <>
+    <header className="page-head"><h1>{t('Bronlarim')}</h1><OrdersSwitch active="reservations" go={go} /></header>
+    <div className="page" style={{ paddingTop: 4 }}>
       {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
       {list.length === 0 && <Empty icon={<Icon as={CalendarClock} size={44} />} title={t('Hali bron yo‘q')} hint={t('Restoran menyusidagi “Joy bron qilish” tugmasi orqali stol band qiling.')} />}
       {upcoming.length > 0 && <section className="stack" aria-label={t('Kelgusi bronlar')}><h2 className="sec-title">{t('Kelgusi bronlar')}<span className="count">{upcoming.length}</span></h2>{upcoming.map(card)}</section>}
       {past.length > 0 && <section className="stack" aria-label={t('Oldingi bronlar')}><h2 className="sec-title">{t('Oldingi bronlar')}</h2>{past.map(card)}</section>}
     </div>
+    </>
   );
 }
