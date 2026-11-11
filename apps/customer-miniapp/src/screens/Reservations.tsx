@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, ChevronRight, Users } from 'lucide-react';
+import { useCallback, useEffect, useState, type KeyboardEvent } from 'react';
+import { CalendarClock, ChevronRight, CreditCard } from 'lucide-react';
 import { OrdersSwitch } from '../components/OrdersSwitch';
+import { ReservationTicket } from '../components/ReservationTicket';
 import { Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { som } from '../lib/format';
@@ -19,27 +20,40 @@ export function Reservations({ go }: { go: (r: Route) => void }) {
   }, []);
   useEffect(() => { const ac = new AbortController(); void load(ac.signal); return () => ac.abort(); }, [load]);
 
-  if (!list && !error) return <div className="page"><Skeletons n={3} /></div>;
-  if (!list) return <div className="page"><ErrorBox error={error} onRetry={() => void load()} /></div>;
+  const head = <header className="page-head"><h1>{t('Bronlarim')}</h1><OrdersSwitch active="reservations" go={go} /></header>;
+  if (!list && !error) return <>{head}<div className="page"><Skeletons n={3} /></div></>;
+  if (!list) return <>{head}<div className="page"><ErrorBox error={error} onRetry={() => void load()} /></div></>;
 
   const { upcoming, past } = splitReservations(list, Date.now());
-  const card = (r: ReservationView) => (
-    <div key={r.id} className={`card tap ${isOpenReservation(r) ? 'live attn' : ''}`} role="button" tabIndex={0} onClick={() => go({ name: 'reservation', id: r.id })}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go({ name: 'reservation', id: r.id }); } }}
-      aria-label={t('Bron {code}, {name}, {status}', { code: r.code, name: r.restaurantName, status: t(STATUS_LABEL[r.status]) })}>
-      <div className="row between"><span className="bold">#{r.code} • {r.restaurantName}</span><span className={`badge ${r.status === 'PAID' ? 'open' : r.status === 'PENDING_PAYMENT' ? 'warn' : 'closed'}`}>{t(STATUS_LABEL[r.status])}</span></div>
-      <div className="row between sub small" style={{ marginTop: 6 }}>
-        <span className="row" style={{ gap: 6 }}><Icon as={CalendarClock} size={16} />{whenText(r.startsAt)}</span>
-        <span className="row" style={{ gap: 6 }}><Icon as={Users} size={16} />{r.partySize}</span>
-        <span className="mono">{som(r.depositSom)}</span>
-        <Icon as={ChevronRight} size={18} />
+  const open = (r: ReservationView) => () => go({ name: 'reservation', id: r.id });
+  const key = (r: ReservationView) => (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(r)(); } };
+  const label = (r: ReservationView) => t('Bron {code}, {name}, {status}', { code: r.code, name: r.restaurantName, status: t(STATUS_LABEL[r.status]) });
+  // Paid and still ahead: the ticket. Waiting for the deposit: the yellow "pay" card (like an order). Everything else: a quiet grey card.
+  const card = (r: ReservationView) => {
+    if (r.status === 'PAID' && upcoming.includes(r)) return <ReservationTicket key={r.id} r={r} id={`cottonTkt${r.id}`} onOpen={open(r)} />;
+    if (isOpenReservation(r)) {
+      return (
+        <div key={r.id} className="ocard pay" role="button" tabIndex={0} onClick={open(r)} onKeyDown={key(r)} aria-label={label(r)}>
+          <div className="ocard-head"><span className="ocard-name">#{r.code} • {r.restaurantName}</span><span className="bold mono">{som(r.depositSom)}</span></div>
+          <div className="ocard-mid">
+            <span className="ocard-stage"><span className="ocard-ico" aria-hidden><Icon as={CreditCard} size={22} /></span><span>{t(STATUS_LABEL[r.status])}</span></span>
+            <span className="ocard-go">{t('To‘lash')}<Icon as={ChevronRight} size={18} /></span>
+          </div>
+          <div className="ocard-sub">{whenText(r.startsAt)} • {t('{n} kishi', { n: r.partySize })}</div>
+        </div>
+      );
+    }
+    return (
+      <div key={r.id} className="pastres" role="button" tabIndex={0} onClick={open(r)} onKeyDown={key(r)} aria-label={label(r)}>
+        <div className="pastres-head"><span className="pastres-name">#{r.code} • {r.restaurantName}</span><span className="tbadge done">{r.status === 'PAID' ? t('O‘tgan') : t(STATUS_LABEL[r.status])}</span></div>
+        <div className="pastres-meta"><span>{whenText(r.startsAt)} • {t('{n} kishi', { n: r.partySize })}</span><span className="mono">{som(r.depositSom)}</span></div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <>
-    <header className="page-head"><h1>{t('Bronlarim')}</h1><OrdersSwitch active="reservations" go={go} /></header>
+    {head}
     <div className="page" style={{ paddingTop: 4 }}>
       {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
       {list.length === 0 && <Empty icon={<Icon as={CalendarClock} size={44} />} title={t('Hali bron yo‘q')} hint={t('Restoran menyusidagi “Joy bron qilish” tugmasi orqali stol band qiling.')} />}

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CalendarClock, CircleCheck, Users } from 'lucide-react';
+import { CalendarClock, ChevronLeft, Users } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { PayCard } from '../components/PayCard';
 import { PayWarning } from '../components/PayWarning';
+import { ReservationTicket } from '../components/ReservationTicket';
 import { api, ApiError } from '../lib/api';
 import { som } from '../lib/format';
 import { anchorOf, paymentRemainingSeconds, windowMinutes, type Anchor } from '../lib/order';
@@ -11,7 +12,6 @@ import type { Route } from '../lib/router';
 import type { ReservationView } from '../lib/types';
 import { useApp, useNow } from '../state';
 import { t } from '../i18n';
-import { rich } from '../i18n/rich';
 
 const POLL_MS = 4000;
 
@@ -59,28 +59,26 @@ export function ReservationScreen({ id, go }: { id: string; go: (r: Route) => vo
   };
 
   return (
-    <div className="page">
-      <div className="row between">
-        <div>
-          <h1 className="page-title">{t('Bron #{code}', { code: r.code })}</h1>
-          <p className="sub">{r.restaurantName}</p>
-        </div>
-        {r.isTest && <span className="badge test">TEST</span>}
+    <>
+    <header className="screen-head">
+      <button type="button" className="round-back" onClick={() => go({ name: 'reservations' })} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+      <div className="grow">
+        <h1>{t('Bron #{code}', { code: r.code })}</h1>
+        <p className="sub">{r.restaurantName}</p>
       </div>
+      {r.isTest && <span className="badge test">TEST</span>}
+    </header>
+    <div className="page" style={{ paddingTop: 4 }}>
+      {r.status === 'PAID' && <ReservationTicket r={r} id="cottonTktDetail" />}
+      {r.status === 'PAID' && <div className="banner" role="status">{t('To‘lov qabul qilindi — joy siz uchun band. Restoran xabar oldi.')}</div>}
 
-      <div className="card stack">
-        <div className="status-line"><Icon as={r.status === 'PAID' ? CircleCheck : CalendarClock} /><span className="bold">{t(STATUS_LABEL[r.status])}</span></div>
+      {r.status !== 'PAID' && <div className="card stack">
+        <div className="status-line"><Icon as={CalendarClock} /><span className="bold">{t(STATUS_LABEL[r.status])}</span></div>
         <div className="row between small"><span className="row" style={{ gap: 6 }}><Icon as={CalendarClock} size={16} />{whenText(r.startsAt)}</span><span className="row" style={{ gap: 6 }}><Icon as={Users} size={16} />{t('{n} kishi', { n: r.partySize })}</span></div>
         {r.note && <p className="sub small">{r.note}</p>}
-        {r.status === 'PAID' && (
-          <div className="banner" role="status">
-            {t('To‘lov qabul qilindi — joy siz uchun band. Restoran xabar oldi.')}
-            {phone && <> {rich('Savol bo‘lsa: {phone}', { phone: <a href={`tel:${phone}`} className="nowrap">{r.restaurantPhone}</a> })}</>}
-          </div>
-        )}
         {r.status === 'EXPIRED' && <div className="banner bad">{t('To‘lov muddati tugadi, bron bekor bo‘ldi. Pul o‘tkazgan bo‘lsangiz, restoranga murojaat qiling')}{phone ? <>: <a href={`tel:${phone}`} className="nowrap">{r.restaurantPhone}</a></> : '.'}</div>}
         {r.status === 'CANCELLED' && <div className="banner warn">{t('Restoran bronni bekor qildi. To‘lov qilgan bo‘lsangiz, xodim siz bilan bog‘lanib pulni qaytaradi')}{phone ? <>. {t('Savol:')} <a href={`tel:${phone}`} className="nowrap">{r.restaurantPhone}</a></> : '.'}</div>}
-      </div>
+      </div>}
 
       {r.status === 'PENDING_PAYMENT' && (
         <div className="card stack" aria-label={t('To‘lov')}>
@@ -105,7 +103,7 @@ export function ReservationScreen({ id, go }: { id: string; go: (r: Route) => vo
 
       {error && <div className="banner warn">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
       {(r.status === 'EXPIRED' || r.status === 'CANCELLED') && <Button onClick={() => go({ name: 'home' })}>{t('Restoranlar')}</Button>}
-      <Button variant="ghost" onClick={() => go({ name: 'reservations' })}>{t('Bronlarim')}</Button>
     </div>
+    </>
   );
 }
