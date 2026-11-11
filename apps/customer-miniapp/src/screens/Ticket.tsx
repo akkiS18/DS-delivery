@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { ChevronLeft, Send } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, newKey } from '../lib/format';
@@ -66,11 +66,16 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
   };
 
   return (
-    <div className="page chat">
-      <div>
-        <h1 className="page-title">{t('Murojaat #{number}', { number: tk.number })}</h1>
-        <p className="sub">{tk.orderId ? <><a href={`#/order/${tk.orderId}`}>{t('Buyurtma #{code}', { code: tk.orderCode })}</a> • {tk.restaurantName} • </> : <>{t('Umumiy murojaat')} • </>}<span className={`badge ${resolved ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span></p>
+    <>
+    <header className="screen-head chat-head">
+      <button type="button" className="round-back" onClick={() => go({ name: 'support' })} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+      <div className="grow chat-head-text">
+        <h1>{t('Murojaat #{number}', { number: tk.number })}</h1>
+        {tk.orderId ? <a href={`#/order/${tk.orderId}`}>{t('Buyurtma #{code}', { code: tk.orderCode })} • {tk.restaurantName}</a> : <span>{t('Umumiy murojaat')}</span>}
       </div>
+      <span className={`tbadge ${resolved ? 'done' : ''}`}>{t(TICKET_LABEL[tk.status])}</span>
+    </header>
+    <div className="page chat">
       {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
       <div className="bubbles" role="log" aria-live="polite" aria-label={t('Yozishma')}>
         {thread.messages.map(m => (
@@ -92,11 +97,14 @@ export function Ticket({ id, go }: { id: string; go: (r: Route) => void }) {
         )
         : (
           <form className="composer" onSubmit={e => { e.preventDefault(); void send(); }}>
-            <textarea className="input" rows={2} maxLength={TICKET_MAX} value={text} placeholder={t('Xabar yozing…')} aria-label={t('Xabar')}
+            <textarea className="input" rows={1} maxLength={TICKET_MAX} value={text} placeholder={t('Xabar yozing…')} aria-label={t('Xabar')}
               onChange={e => { setText(e.target.value); key.current = null; }} />
-            <Button type="submit" loading={busy} disabled={!text.trim()} aria-label={t('Yuborish')}><Icon as={Send} size={20} /></Button>
+            <button type="submit" className="send-fab" disabled={busy || !text.trim()} aria-label={t('Yuborish')} aria-busy={busy || undefined}>
+              {busy ? <span className="spinner" style={{ width: 20, height: 20, margin: 0, borderWidth: 2 }} /> : <Icon as={Send} size={22} />}
+            </button>
           </form>
         )}
     </div>
+    </>
   );
 }

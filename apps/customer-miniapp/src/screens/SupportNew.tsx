@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Send } from 'lucide-react';
+import { ChevronLeft, Send } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, newKey } from '../lib/format';
@@ -71,11 +71,15 @@ export function SupportNew({ orderId, go }: { orderId?: string | undefined; go: 
 
   if (!orderId) {
     return (
-      <div className="page chat">
-        <div>
-          <h1 className="page-title">{t('Yordam xizmati')}</h1>
-          <p className="sub">{t('Javobni shu yerda ko‘rasiz.')}</p>
+      <>
+      <header className="screen-head chat-head">
+        <button type="button" className="round-back" onClick={() => go({ name: 'support' })} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+        <div className="grow chat-head-text">
+          <h1>{t('Yordam xizmati')}</h1>
+          <span>{t('Javobni shu yerda ko‘rasiz.')}</span>
         </div>
+      </header>
+      <div className="page chat">
         <div className="bubbles" role="log" aria-label={t('Yozishma')}>
           <div className="bubble theirs">
             <div className="who">{t('Yordam xizmati')}</div>
@@ -84,17 +88,24 @@ export function SupportNew({ orderId, go }: { orderId?: string | undefined; go: 
           {touched && !validTicketText(text) && <div className="err center">{t('Kamida {n} ta belgi yozing', { n: TICKET_MIN })}</div>}
         </div>
         <form className="composer" onSubmit={e => { e.preventDefault(); void send(); }}>
-          <textarea className="input" rows={2} maxLength={TICKET_MAX} value={text} placeholder={t('Xabar yozing…')} aria-label={t('Xabar')} autoFocus
+          <textarea className="input" rows={1} maxLength={TICKET_MAX} value={text} placeholder={t('Xabar yozing…')} aria-label={t('Xabar')} autoFocus
             onChange={e => { setText(e.target.value); key.current = null; }} />
-          <Button type="submit" loading={busy} disabled={!text.trim()} aria-label={t('Yuborish')}><Icon as={Send} size={20} /></Button>
+          <button type="submit" className="send-fab" disabled={busy || !text.trim()} aria-label={t('Yuborish')} aria-busy={busy || undefined}>
+            {busy ? <span className="spinner" style={{ width: 20, height: 20, margin: 0, borderWidth: 2 }} /> : <Icon as={Send} size={22} />}
+          </button>
         </form>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('Muammo haqida yozish')}</h1>
+    <>
+    <header className="screen-head">
+      <button type="button" className="round-back" onClick={() => go(orderId ? { name: 'order', id: orderId } : { name: 'support' })} aria-label={t('Ortga')}><Icon as={ChevronLeft} size={22} /></button>
+      <h1 className="grow">{t('Muammo haqida yozish')}</h1>
+    </header>
+    <div className="page" style={{ paddingTop: 4 }}>
       <div className="card">
         <div className="row between"><span className="bold">#{order!.code} • {order!.restaurantName}</span><span className="mono">{som(order!.foodTotalSom)}</span></div>
         <div className="opick-items">{order!.items.map(i => `${i.quantity}× ${i.name}`).join(', ')}</div>
@@ -109,5 +120,6 @@ export function SupportNew({ orderId, go }: { orderId?: string | undefined; go: 
       </div>
       <Button loading={busy} onClick={() => void send()}>{t('Yuborish')}</Button>
     </div>
+    </>
   );
 }
