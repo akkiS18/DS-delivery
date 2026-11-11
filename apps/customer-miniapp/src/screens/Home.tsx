@@ -3,6 +3,7 @@ import { Search, Star, UtensilsCrossed, X } from 'lucide-react';
 import { ActiveOrderStrip } from '../components/ActiveOrderStrip';
 import { AddressChip } from '../components/AddressChip';
 import { BannerCarousel } from '../components/BannerCarousel';
+import { CottonPattern } from '../components/CottonPattern';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
@@ -118,19 +119,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
   return (
     <>
       <header className="home-head">
-        <svg className="home-head-pattern" aria-hidden width="100%" height="100%" focusable={false}>
-          <defs>
-            <pattern id="cottonHome" width="64" height="64" patternUnits="userSpaceOnUse">
-              <g fill="#b8e8cf">
-                <circle cx="13" cy="13" r="4.5" /><circle cx="21" cy="13" r="4.5" /><circle cx="17" cy="8" r="4.5" /><circle cx="17" cy="17" r="4.5" />
-                <path d="M17 21l-4.5 7h9z" />
-                <circle cx="45" cy="45" r="4.5" /><circle cx="53" cy="45" r="4.5" /><circle cx="49" cy="40" r="4.5" /><circle cx="49" cy="49" r="4.5" />
-                <path d="M49 53l-4.5 7h9z" />
-              </g>
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#cottonHome)" opacity="0.13" />
-        </svg>
+        <CottonPattern id="cottonHome" />
         <AddressChip go={go} />
         <h1 className="home-title">{t('Bugun nima yeymiz?')}</h1>
         <div className="searchbox">

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { MessageCircle } from 'lucide-react';
-import { Button, Empty, ErrorBox, Icon, Sheet, Skeletons } from '../components/ui';
+import { MessageCircle, MessageSquarePlus } from 'lucide-react';
+import { CottonPattern } from '../components/CottonPattern';
+import { Empty, ErrorBox, Icon, Sheet, Skeletons } from '../components/ui';
 import { api, ApiError } from '../lib/api';
 import { clock, som } from '../lib/format';
+import { haptic } from '../lib/telegram';
 import type { Route } from '../lib/router';
 import { itemsLine, TICKET_LABEL } from '../lib/support';
 import { STAGE_LABEL } from '../lib/order';
@@ -42,12 +44,18 @@ export function Support({ go }: { go: (r: Route) => void }) {
   if (!tickets) return <div className="page"><ErrorBox error={error} onRetry={() => void load()} /></div>;
 
   return (
-    <div className="page">
-      <h1 className="page-title">{t('Yordam')}</h1>
-      <div className="banner" role="note">{t('Savol yoki muammo bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.')}</div>
-      <Button onClick={() => go({ name: 'supportNew' })}>{t('Yangi murojaat yozish')}</Button>
-      <Button variant="secondary" onClick={() => void choose()}>{t('Buyurtma haqida yozish')}</Button>
-      {error && <div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
+    <>
+      <header className="home-head">
+        <CottonPattern id="cottonSupport" />
+        <div className="sup-intro">
+          <h1 className="home-title">{t('Yordam')}</h1>
+          <p>{t('Savol yoki muammo bo‘lsa, shu yerga yozing. Javobni ham shu yerda ko‘rasiz.')}</p>
+        </div>
+        <button type="button" className="sup-cta" onClick={() => { haptic.tap(); go({ name: 'supportNew' }); }}><Icon as={MessageSquarePlus} size={20} />{t('Yangi murojaat yozish')}</button>
+        <button type="button" className="sup-cta ghost" onClick={() => { haptic.tap(); void choose(); }}>{t('Buyurtma haqida yozish')}</button>
+      </header>
+      <div className="page" style={{ paddingTop: 20 }}>
+      {error &&<div className="banner warn" role="status">{t('Yangilab bo‘lmadi. Oxirgi ma’lumot ko‘rsatilmoqda.')}</div>}
 
       {tickets.length === 0
         ? <Empty icon={<Icon as={MessageCircle} size={44} />} title={t('Murojaatlar yo‘q')} hint={t('Savol yoki muammo bo‘lsa, yuqoridagi tugma orqali yozing.')} />
@@ -55,19 +63,20 @@ export function Support({ go }: { go: (r: Route) => void }) {
           <section className="stack" aria-label={t('Murojaatlarim')}>
             <h2 className="sec-title">{t('Murojaatlarim')}</h2>
             {tickets.map(tk => (
-              <div key={tk.id} className={`card tap ${tk.unread ? 'attn' : ''}`} role="button" tabIndex={0} onClick={() => go({ name: 'ticket', id: tk.id })}
+              <div key={tk.id} className={`tcard ${tk.unread ? 'unread' : ''} ${tk.status === 'RESOLVED' && !tk.unread ? 'done' : ''}`} role="button" tabIndex={0} onClick={() => go({ name: 'ticket', id: tk.id })}
                 onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go({ name: 'ticket', id: tk.id }); } }}
                 aria-label={(tk.orderId ? t('Murojaat {number}, buyurtma {code}, {status}', { number: tk.number, code: tk.orderCode, status: t(TICKET_LABEL[tk.status]) }) : t('Murojaat {number}, umumiy, {status}', { number: tk.number, status: t(TICKET_LABEL[tk.status]) })) + (tk.unread ? `, ${t('yangi javob')}` : '')}>
-                <div className="row between">
-                  <span className="bold">{tk.orderId ? `#${tk.orderCode} • ${tk.restaurantName}` : t('Umumiy murojaat')}</span>
-                  {tk.unread ? <span className="badge warn">{t('Yangi javob')}</span> : <span className={`badge ${tk.status === 'RESOLVED' ? 'closed' : 'open'}`}>{t(TICKET_LABEL[tk.status])}</span>}
+                <div className="tcard-head">
+                  <span className="tcard-name">{tk.orderId ? `#${tk.orderCode} • ${tk.restaurantName}` : t('Umumiy murojaat')}</span>
+                  {tk.unread ? <span className="tbadge new">{t('Yangi javob')}</span> : <span className={`tbadge ${tk.status === 'RESOLVED' ? 'done' : ''}`}>{t(TICKET_LABEL[tk.status])}</span>}
                 </div>
-                <div className="ticket-snippet"><Icon as={MessageCircle} size={16} className="shrink" /><span>{tk.lastFrom === 'ADMIN' ? t('Yordam:') : t('Siz:')} {tk.lastText}</span></div>
-                <div className="sub small" style={{ marginTop: 6 }}>{t('Murojaat #{number}', { number: tk.number })} • {clock(tk.lastAt)}</div>
+                <div className="tcard-last"><b className={tk.lastFrom === 'ADMIN' ? 'them' : ''}>{tk.lastFrom === 'ADMIN' ? t('Yordam:') : t('Siz:')}</b> {tk.lastText}</div>
+                <div className="tcard-meta">{t('Murojaat #{number}', { number: tk.number })} • {clock(tk.lastAt)}</div>
               </div>
             ))}
           </section>
         )}
+      </div>
 
       {picking && (
         <Sheet title={t('Qaysi buyurtma haqida?')} onClose={() => setPicking(false)}>
@@ -88,6 +97,6 @@ export function Support({ go }: { go: (r: Route) => void }) {
               )}
         </Sheet>
       )}
-    </div>
+    </>
   );
 }
