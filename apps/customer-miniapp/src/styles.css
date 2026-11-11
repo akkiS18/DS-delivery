@@ -472,3 +472,36 @@ h1, h2, h3, p { margin: 0; }
 .pay-amount-lbl { font-size: 13px; font-weight: 600; }
 .pay-amount-sum { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
 .pay-amount-copy { flex: none; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: #4d3b00; color: #fff; font-size: 14px; font-weight: 700; }
+
+/* Buyurtma tab and its history */
+.page-head { padding: 20px 16px 8px; display: flex; flex-direction: column; gap: 14px; }
+.page-head h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--mint-soft); }
+.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 12px; background: none; color: #3f5a55; font-size: 15px; font-weight: 600; }
+.seg button.on { background: #fff; color: var(--primary-dark); font-weight: 800; box-shadow: 0 1px 4px rgba(27, 48, 49, 0.12); }
+.ocard { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; border-radius: 22px; cursor: pointer; }
+.ocard-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 15px; }
+.ocard-name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ocard-mid { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ocard-stage { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 800; }
+.ocard-ico { flex: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.ocard-go { flex: none; display: flex; align-items: center; gap: 2px; font-size: 15px; font-weight: 700; }
+.ocard-sub { font-size: 13px; }
+.ocard.live { background: var(--ink); color: #fff; }
+.ocard.live .ocard-head { color: var(--mint); }
+.ocard.live .ocard-ico { background: var(--primary); }
+.ocard.live .ocard-go, .ocard.live .ocard-sub { color: var(--mint); }
+.ocard.pay { background: #fff3b0; border: 2px solid #f0c000; color: #4d3b00; }
+.ocard.pay .ocard-ico { background: #4d3b00; color: #fff; }
+.ocard.pay .ocard-go { background: #4d3b00; color: #fff; padding: 0 10px 0 14px; min-height: 44px; border-radius: 999px; }
+.histbtn { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 22px; background: #fff; text-align: left; width: 100%; color: var(--primary-dark); }
+.histbtn-ico { flex: none; width: 44px; height: 44px; border-radius: 50%; background: var(--mint-soft); display: flex; align-items: center; justify-content: center; }
+.histbtn-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.histbtn-title { font-size: 17px; font-weight: 800; color: var(--ink); }
+.hist-tiles { display: flex; gap: 10px; }
+.hist-tile { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 18px; background: #fff; border: 1px solid var(--line); }
+.hist-tile span { font-size: 13px; color: var(--ink-soft); }
+.hist-tile b { font-size: 20px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist-tile.dark { background: var(--primary-dark); border-color: transparent; color: #fff; }
+.hist-tile.dark span { color: var(--mint); }
+.period { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); margin-top: 6px; }
