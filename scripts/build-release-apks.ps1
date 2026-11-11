@@ -5,7 +5,7 @@ prompt and lives only in this process's environment while Gradle runs.
   powershell -ExecutionPolicy Bypass -File scripts\build-release-apks.ps1 -ApiUrl https://api.example.uz -VersionCode 1 -VersionName 1.0.0
 
 Output: <OutDir>\ds-customer-release-<versionName>.apk, ds-restaurant-release-<versionName>.apk, ds-taxi-release-<versionName>.apk and
-ds-admin-release-<versionName>.apk with SHA-256 files. Add -CustomerAab to build ONLY the customer app as a Google Play bundle (.aab, signed with the upload key; the other apps are skipped). Add -OnlyAdmin to build just the DS Admin app, or -OnlyRestaurant for just the restaurant app (neither needs Node / the customer web build), or -OnlyCustomer for just the customer APK.
+ds-admin-release-<versionName>.apk with SHA-256 files. Add -CustomerAab to build ONLY the customer app as a Google Play bundle (.aab, signed with the upload key; the other apps are skipped). Add -OnlyAdmin to build just the DS Admin app, or -OnlyRestaurant for just the restaurant app (neither needs Node / the customer web build), or -OnlyCustomer for just the customer APK, or -TestInstall for a customer APK with its own id (com.dsdelivery.customer.test, name "DS Test") that installs NEXT TO the Play app.
 Needs Node (customer web build), the Android SDK and a JDK (Android Studio's is found automatically). The keystore comes from
 scripts\create-release-keystore.ps1. It does not install anything on a phone and never uses the debug key.
 #>
@@ -19,9 +19,13 @@ param(
   [switch]$OnlyAdmin,
   [switch]$CustomerAab,
   [switch]$OnlyRestaurant,
-  [switch]$OnlyCustomer
+  [switch]$OnlyCustomer,
+  [switch]$TestInstall
 )
 $ErrorActionPreference = 'Stop'
+if ($TestInstall) { $OnlyCustomer = $true }   # a test install is the customer app only
+$gradleExtra = @(); if ($TestInstall) { $gradleExtra = @('-PdsTestInstall=1') }   # id com.dsdelivery.customer.test, name "DS Test": installs next to the Play app
+$kind = if ($TestInstall) { 'test' } else { 'release' }
 $root = Split-Path $PSScriptRoot
 $ApiUrl = $ApiUrl.TrimEnd('/')
 if ($ApiUrl -notmatch '^https://[a-z0-9.-]+(:\d+)?$') { throw 'ApiUrl must be https://host (no path, no trailing slash).' }
@@ -65,7 +69,7 @@ try {
     Push-Location (Join-Path $root 'apps\customer-miniapp')
     try { npm run android:sync:release; if ($LASTEXITCODE -ne 0) { throw 'customer web build failed' } } finally { Pop-Location }
     Write-Host '== customer: signed release APK'
-    & $gradle -p (Join-Path $root 'apps\customer-miniapp\android') :app:assembleRelease "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" --console=plain -q
+    & $gradle -p (Join-Path $root 'apps\customer-miniapp\android') :app:assembleRelease "-PdsVersionCode=$VersionCode" "-PdsVersionName=$VersionName" @gradleExtra --console=plain -q
     if ($LASTEXITCODE -ne 0) { throw 'customer APK build failed' }
   }
 
@@ -88,7 +92,7 @@ try {
   }
 
   $pairs = @(
-    @{ From = Join-Path $root 'apps\customer-miniapp\android\app\build\outputs\apk\release\app-release.apk'; To = "ds-customer-release-$VersionName.apk" },
+    @{ From = Join-Path $root 'apps\customer-miniapp\android\app\build\outputs\apk\release\app-release.apk'; To = "ds-customer-$kind-$VersionName.apk" },
     @{ From = Join-Path $root 'apps\restaurant-android\app\build\outputs\apk\release\app-release.apk'; To = "ds-restaurant-release-$VersionName.apk" },
     @{ From = Join-Path $root 'apps\taxi-android\app\build\outputs\apk\release\app-release.apk'; To = "ds-taxi-release-$VersionName.apk" },
     @{ From = Join-Path $root 'apps\admin-android\app\build\outputs\apk\release\app-release.apk'; To = "ds-admin-release-$VersionName.apk" }
