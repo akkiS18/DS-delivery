@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Star, UtensilsCrossed } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Clock3, Plus, Star, UtensilsCrossed } from 'lucide-react';
 import { PriceTag } from '../components/FeeProgress';
 import { RestaurantPhoto } from '../components/RestaurantPhoto';
 import { Button, Empty, ErrorBox, Icon, Qty, Sheet, Skeletons } from '../components/ui';
@@ -114,7 +114,13 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
       )}
       <div className="page">
       {!r.isOpen && (
-        <div className="banner warn">{r.closedReason === 'HOURS' ? t('Hozir yopiq. {opens}.', { opens: opensText(r.opensNext) }) : t('Restoran vaqtincha buyurtma qabul qilmayapti.')} {t('Menyuni ko‘rishingiz mumkin.')}</div>
+        <section className="closedcard" aria-label={t('Restoran hozir yopiq')}>
+          <span className="closedcard-ico" aria-hidden><Icon as={Clock3} size={26} /></span>
+          <div className="closedcard-text">
+            <strong>{r.closedReason === 'HOURS' ? t('Restoran hozir yopiq') : t('Vaqtincha yopiq')}</strong>
+            <span>{r.closedReason === 'HOURS' ? `${opensText(r.opensNext)}.` : t('Restoran vaqtincha buyurtma qabul qilmayapti.')} {t('Menyuni ko‘rishingiz mumkin.')}</span>
+          </div>
+        </section>
       )}
       {r.reservation && !active && (
         <button type="button" className="helpbar" onClick={() => go?.({ name: 'reserve', id })}><Icon as={CalendarClock} size={18} /><span>{t('Joy bron qilish • oldindan to‘lov {sum}', { sum: som(r.reservation.depositSom) })}</span><Icon as={ChevronRight} size={18} /></button>

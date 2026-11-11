@@ -33,7 +33,6 @@ export const RU: Record<string, string> = {
   'Yopiq': 'Закрыто',
   'Vaqtincha yopiq': 'Временно закрыто',
   'Hozir yopiq': 'Сейчас закрыто',
-  'Hozir yopiq. {opens}.': 'Сейчас закрыто. {opens}.',
   '{when} {time} da ochiladi': 'Откроется {when} в {time}',
   'Bugun': 'сегодня',
   'Ertaga': 'завтра',
