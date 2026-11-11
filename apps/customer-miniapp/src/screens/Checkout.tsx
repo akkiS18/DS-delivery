@@ -214,16 +214,16 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       <Sheet title={t('Yetkazish manzili')} onClose={() => setSheet(null)}>
       <div className="stack">
         {addresses.map(a => (
-          <label key={a.id} className="card row" style={{ border: selected === a.id ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-            <input type="radio" name="addr" checked={selected === a.id} onChange={() => setSelected(a.id)} style={{ width: 22, height: 22 }} />
+          <label key={a.id} className={`pickcard ${selected === a.id ? 'on' : ''}`}>
+            <input type="radio" name="addr" checked={selected === a.id} onChange={() => setSelected(a.id)} />
             <div className="grow">
               <div className="bold">{a.label}{a.isDefault && <span className="badge" style={{ marginLeft: 8 }}>{t('Asosiy')}</span>}</div>
               <div className="sub small">{a.addressText}</div>
             </div>
           </label>
         ))}
-        <label className="card row" style={{ border: selected === 'new' ? '2px solid var(--primary)' : '2px solid transparent', cursor: 'pointer' }}>
-          <input type="radio" name="addr" checked={selected === 'new'} onChange={() => setSelected('new')} style={{ width: 22, height: 22 }} />
+        <label className={`pickcard ${selected === 'new' ? 'on' : ''}`}>
+          <input type="radio" name="addr" checked={selected === 'new'} onChange={() => setSelected('new')} />
           <span className="bold">{t('+ Yangi manzil')}</span>
         </label>
         {selected === 'new' && (
@@ -234,7 +234,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
             {mapState !== 'failed'
               ? <LocationPicker value={coords} onPick={setCoords} onState={setMapState} />
               : <Button variant="secondary" onClick={locate}><Icon as={coords ? CircleCheck : MapPin} />{coords ? t('Joylashuv qo‘shildi') : t('Joylashuvni qo‘shish (ixtiyoriy)')}</Button>}
-            <label className="row"><input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} style={{ width: 22, height: 22 }} /> {t('Keyingi buyurtmalar uchun saqlash')}</label>
+            <label className="switchrow"><span>{t('Keyingi buyurtmalar uchun saqlash')}</span><input type="checkbox" role="switch" checked={save} onChange={e => setSave(e.target.checked)} /><span className="switch" aria-hidden /></label>
           </div>
         )}
         <Button onClick={() => setSheet(null)}>{t('Tayyor')}</Button>

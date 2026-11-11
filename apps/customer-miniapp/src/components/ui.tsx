@@ -1,4 +1,4 @@
-import { AlertTriangle, Home, MessageCircle, ReceiptText, Minus, Plus, UserRound, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Home, MessageCircle, ReceiptText, Minus, Plus, UserRound, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import type { ApiError } from '../lib/api';
 import { describeCheckoutError } from '../lib/checkoutErrors';
@@ -56,7 +56,11 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   return (
     <div className="sheet-back" onClick={onClose} role="presentation">
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.stopPropagation()}>
-        <h2>{title}</h2>
+        <span className="sheet-handle" aria-hidden />
+        <div className="sheet-head">
+          <h2>{title}</h2>
+          <button type="button" className="round-back" onClick={onClose} aria-label={t('Yopish')}><Icon as={X} size={20} /></button>
+        </div>
         {children}
       </div>
     </div>
