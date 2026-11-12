@@ -158,7 +158,8 @@ export function Home({ go }: { go: (r: Route) => void }) {
           <Icon as={Search} size={20} className="searchbox-icon" />
           <input ref={input} className="searchbox-input" type="search" inputMode="search" enterKeyHint="search" autoComplete="off" autoCorrect="off" spellCheck={false} maxLength={60}
             placeholder={t('Taom yoki restoran qidirish')} aria-label={t('Taom yoki restoran qidirish')} value={text} onFocus={() => setActive(true)} onChange={e => setText(e.target.value)} />
-          {text && <button type="button" className="searchbox-clear" onClick={clear} aria-label={t('Tozalash')}><Icon as={X} size={18} /></button>}
+          {/* preventDefault on pointer down: the tap must not take focus from the field, or the keyboard stays up while the app thinks it closed. */}
+          {text && <button type="button" className="searchbox-clear" onPointerDown={e => e.preventDefault()} onMouseDown={e => e.preventDefault()} onClick={clear} aria-label={t('Tozalash')}><Icon as={X} size={18} /></button>}
         </div>
       </header>
       <div className="page">

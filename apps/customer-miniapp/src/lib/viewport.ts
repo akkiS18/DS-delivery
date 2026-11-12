@@ -39,7 +39,22 @@ export function keyboardOpen(baseline: number, visible: number, editableFocused:
   return baseline - visible >= KEYBOARD_MIN_DROP && visible < baseline * 0.85;
 }
 
-const EDITABLE = 'input:not([type=button]):not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=range]):not([type=file]), textarea, [contenteditable=""], [contenteditable="true"]';
+/** How long a field must stay unfocused before the current (possibly keyboard-shrunk) height is trusted as the new baseline. */
+export const BLUR_SETTLE_MS = 700;
+
+/**
+ * Next baseline (tallest visible height without a keyboard). While a field is focused, or for a short moment after it lost focus, it only
+ * grows: a tap on a button inside the form (the search box's clear "x") blurs the field for an instant while the keyboard stays up, and
+ * taking the shrunk height as baseline then would make the open keyboard look closed and put the tab bar on top of it. Once the field has
+ * stayed unfocused for BLUR_SETTLE_MS (`settled`), the keyboard has really gone and the current height is the truth (split screen, rotation).
+ */
+export function nextBaseline(prev: number, visible: number, focused: boolean, settled: boolean): number {
+  if (!Number.isFinite(visible) || visible <= 0) return prev;
+  if (focused || !settled) return Math.max(Number.isFinite(prev) ? prev : 0, visible);
+  return visible;
+}
+
+const EDITABLE ='input:not([type=button]):not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=range]):not([type=file]), textarea, [contenteditable=""], [contenteditable="true"]';
 function editableFocused(): boolean {
   const el = document.activeElement;
   return !!el && el !== document.body && el.matches(EDITABLE);
@@ -52,12 +67,22 @@ export function useViewportLayout(): void {
     let baseline = 0;
     // Safety net: while the bar is hidden, re-check every second, so a missed resize event can never leave it hidden.
     let watchdog: number | undefined;
+    let width = window.innerWidth;
+    let settled = true;
+    let settleTimer: number | undefined;
     const apply = () => {
       const vv = window.visualViewport;
       const h = vv?.height ?? window.innerHeight;
       const focused = editableFocused();
-      // Tallest visible height seen. While no field is focused the keyboard cannot be open, so the current height is the truth (also after a rotation).
-      baseline = focused ? Math.max(baseline, h) : h;
+      if (focused) {
+        settled = false;
+        if (settleTimer !== undefined) { window.clearTimeout(settleTimer); settleTimer = undefined; }
+      } else if (!settled && settleTimer === undefined) {
+        settleTimer = window.setTimeout(() => { settleTimer = undefined; if (!editableFocused()) settled = true; apply(); }, BLUR_SETTLE_MS);
+      }
+      // A width change is a rotation or a window resize, never a keyboard: start over from the current height.
+      if (window.innerWidth !== width) { width = window.innerWidth; baseline = h; }
+      baseline = nextBaseline(baseline, h, focused, settled);
       if (keyboardOpen(baseline, h, focused)) {
         root.dataset.kb = 'open';
         if (watchdog === undefined) watchdog = window.setInterval(apply, 1000);
@@ -96,6 +121,7 @@ export function useViewportLayout(): void {
       delete root.dataset.nav;
       delete root.dataset.kb;
       if (watchdog !== undefined) window.clearInterval(watchdog);
+      if (settleTimer !== undefined) window.clearTimeout(settleTimer);
       root.style.removeProperty('--kb-offset');
     };
   }, []);
