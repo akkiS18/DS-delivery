@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { db } from '../../lib/db.js';
 import { sniffImage, type ReceiptMime } from '../refunds/receipts.js';
 import { isSupportAdmin } from '../support/service.js';
+import { logoOnWide } from '../images/logo-wide.js';
 
 /**
  * The restaurant's photo on its card in the customer apps. Set by a platform administrator from Telegram (when adding the restaurant, or later
@@ -44,15 +45,26 @@ export const LOGO_MAX_WIDTH = 320;
 /** Pure. A square frame asks for a small copy; a request without a width (or a wide one) gets the main picture. */
 export const wantsLogo = (width: number | null): boolean => width !== null && width <= LOGO_MAX_WIDTH;
 
+export type PictureKind = 'image' | 'logo' | 'logoWide';
 /**
- * The restaurant's picture for one frame. Owner request 2026-11-22: a restaurant may have a wide picture (home card, menu header) AND a square
- * logo (RestaurantLogo); small frames get the logo when there is one, everything else the main picture. One URL for both, so app builds
- * already installed need no change. Without a logo nothing changes.
+ * Pure. Which picture one frame gets (owner requests 2026-11-22). Without a logo: always the main picture, as before.
+ * With a logo: small squares (?w<=320) the logo; the menu header (?slot=cover) the main picture (the wide icon background);
+ * other sized requests (home card, ?w=640) the logo on its own background colour (logo-wide.ts); a request without a width
+ * (staff apps showing the stored photo) the main picture.
  */
-export async function readRestaurantImage(restaurantId: string, width: number | null = null): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
-  if (wantsLogo(width)) {
-    const logo = await db.restaurantLogo.findFirst({ where: { restaurantId, restaurant: { isActive: true } }, select: { mime: true, data: true, sha256: true } });
-    if (logo) return { mime: logo.mime, data: Buffer.from(logo.data), sha256: logo.sha256 };
+export function pickPicture(width: number | null, slot: string | null, hasLogo: boolean): PictureKind {
+  if (!hasLogo || slot === 'cover' || width === null) return 'image';
+  return wantsLogo(width) ? 'logo' : 'logoWide';
+}
+
+export async function readRestaurantImage(restaurantId: string, width: number | null = null, slot: string | null = null): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
+  const logo = width === null || slot === 'cover' ? null
+    : await db.restaurantLogo.findFirst({ where: { restaurantId, restaurant: { isActive: true } }, select: { mime: true, data: true, sha256: true } });
+  const kind = pickPicture(width, slot, logo !== null);
+  if (logo && kind === 'logo') return { mime: logo.mime, data: Buffer.from(logo.data), sha256: logo.sha256 };
+  if (logo && kind === 'logoWide') {
+    const plain = { mime: logo.mime, data: Buffer.from(logo.data), sha256: logo.sha256 };
+    return (await logoOnWide(plain)) ?? plain;
   }
   const row = await db.restaurantImage.findFirst({ where: { restaurantId, restaurant: { isActive: true } }, select: { mime: true, data: true, sha256: true } });
   return row ? { mime: row.mime, data: Buffer.from(row.data), sha256: row.sha256 } : null;

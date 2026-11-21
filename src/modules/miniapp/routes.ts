@@ -249,7 +249,8 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   // The restaurant's photo. Public on purpose (an <img> cannot send the auth header; it is a marketing picture): the id is not secret and the
   // URL carries ?v=<version>, so the answer is cached hard and a replaced photo shows up at once.
   app.get<{ Params: { id: string } }>('/restaurants/:id/image', { config: { public: true } }, async (request, reply) => {
-    const img = await readRestaurantImage(idParam.parse(request.params.id), parseWidth((request.query as { w?: unknown } | undefined)?.w));
+    const q = request.query as { w?: unknown; slot?: unknown } | undefined;
+    const img = await readRestaurantImage(idParam.parse(request.params.id), parseWidth(q?.w), q?.slot === 'cover' ? 'cover' : null);
     if (!img) throw httpError(404, 'NOT_FOUND');
     return sendImage(request, reply, img);
   });
