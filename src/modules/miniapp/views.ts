@@ -53,9 +53,15 @@ export async function listRestaurants(search: string | undefined, now = new Date
 }
 
 /** Relative URL of the restaurant's photo (public, cache-busted by version), or null when it has none. */
+/**
+ * Which picture each frame gets for a restaurant WITH a logo (src/modules/restaurant/image.ts pickPicture). The answers are cached as immutable
+ * for 30 days, so whenever that choice changes this number must go up, or phones keep showing the old picture (2026-11-22: release e20239749be3
+ * sent the icon picture to home cards, d165eb25325c the logo card under the same URL, and phones kept the icons).
+ */
+export const LOGO_LAYOUT = 2;
 /** `logoVersion` (a square logo next to the picture) is part of ?v= so a new logo shows at once in the hard-cached small frames. */
 export const restaurantImageUrl = (id: string, version: number | undefined, logoVersion?: number): string | null =>
-  (version === undefined ? null : `/api/v1/miniapp/restaurants/${id}/image?v=${version}${logoVersion === undefined ? '' : `.${logoVersion}`}`);
+  (version === undefined ? null : `/api/v1/miniapp/restaurants/${id}/image?v=${version}${logoVersion === undefined ? '' : `.${logoVersion}.L${LOGO_LAYOUT}`}`);
 
 export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const r = await db.restaurant.findFirst({

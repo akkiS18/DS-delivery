@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import sharp from 'sharp';
 import { LOGO_MAX_WIDTH, pickPicture, wantsLogo } from './image.js';
-import { restaurantImageUrl } from '../miniapp/views.js';
+import { LOGO_LAYOUT, restaurantImageUrl } from '../miniapp/views.js';
 import { parseWidth } from '../images/variants.js';
 import { LOGO_WIDE_RATIO, edgeColour, logoOnWide } from '../images/logo-wide.js';
 
@@ -31,7 +31,8 @@ test('which picture each frame gets', () => {
 test('the picture URL carries the logo version, so a new logo is fetched again despite the hard cache', () => {
   assert.equal(restaurantImageUrl('r1', undefined, 3), null);
   assert.equal(restaurantImageUrl('r1', 2), '/api/v1/miniapp/restaurants/r1/image?v=2');
-  assert.equal(restaurantImageUrl('r1', 2, 1), '/api/v1/miniapp/restaurants/r1/image?v=2.1');
+  assert.equal(restaurantImageUrl('r1', 2, 1), `/api/v1/miniapp/restaurants/r1/image?v=2.1.L${LOGO_LAYOUT}`);
+  assert.notEqual(restaurantImageUrl('r1', 2, 1), '/api/v1/miniapp/restaurants/r1/image?v=2.1'); // the URL phones cached with the icon picture
 });
 
 test('edgeColour takes the median of the outer columns only', () => {
