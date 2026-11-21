@@ -16,6 +16,8 @@ import { db } from '../lib/db.js';
  *   node /tmp/asl-tool/seed-asl-market-sweets-2026-11.js --banner /tmp/asl-tool/kinder-aksiya.webp [--apply]
  * Dish pictures go separately with scripts/upload-dish-photos.sh asl-market <folder of copies named after the dishes>.
  *
+ * 2026-11-22: the owner dropped "Konfetlar" (Raffaello + Ferrero moved to "Shokoladlar" by asl-market-fold-konfetlar-2026-11-22.ts): do not run this again.
+ *
  * Reading notes: till names were Russian ("Нутилла майда шт", "Нутилла катта"); the owner's pictures for them are Nutella jars, so they are
  * "Nutella (kichik)" / "Nutella (katta)", next to the separate till line "Нутелла Шок Паста 180г" = "Nutella 180 g".
  * "Ferrero Collection 15\6" is written without the "15\6" (its meaning is not clear from the till).
