@@ -18,7 +18,7 @@ model Restaurant {
   /// "Shirin" mode (owner decision 2026-11-04): the restaurant itself checks that the customer's transfer to its own card arrived (Payment.method CARD_MANUAL). Exclusive with collectsToPlatform.
   manualPaymentCheck  Boolean               @default(false)
   /// "Yaqin, piyoda mumkin" is offered to customers only where this is on (owner decision 2026-10-31: Sifat Food only).
-  walkingDeliveryEnabled Boolean            @default(false)
+  walkingDeliveryEnabled Boolean            @default(true)
   defaultPrepMinutes  Int                   @default(25)
   /// Table reservations (off until the restaurant switches them on): the deposit is paid to the restaurant's card.
   reservationsEnabled   Boolean             @default(false)
