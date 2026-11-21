@@ -51,3 +51,6 @@ apps/admin-android/.gradle/
 apps/admin-android/.idea/
 apps/admin-android/**/build/
 apps/admin-android/local.properties
+
+# Rendered print files (rebuild with docs/print/ds-reklama/build.py)
+docs/print/ds-reklama/out/

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><title>DS stol uchburchagi</title>
+<!-- One face of the table tent: 100x210 mm trim + 3 mm bleed on every side = 106x216 mm. Both faces are the same. -->
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  @page { size: 106mm 216mm; }
+  html, body { width: 106mm; height: 216mm; overflow: hidden; }
+  .face { position: relative; width: 106mm; height: 216mm; overflow: hidden; color: #fff; }
+  .safe { position: absolute; inset: 9mm 8mm 8mm; display: flex; flex-direction: column; align-items: center; }
+  .head { display: flex; align-items: center; gap: 3.5mm; }
+  .head img { height: 15mm; display: block; }
+  .brand b { display: block; font-size: 6.6mm; font-weight: 850; letter-spacing: -.1mm; line-height: 1; }
+  .brand span { display: block; font-size: 3.3mm; font-weight: 600; opacity: .85; margin-top: 1.2mm; letter-spacing: .25mm; text-transform: uppercase; }
+  h1 { margin-top: 8mm; text-align: center; line-height: 1.02; font-weight: 900; letter-spacing: -.25mm; }
+  h1 .l1 { display: block; font-size: 9.2mm; }
+  h1 .l2 { display: block; font-size: 12.6mm; color: var(--y); margin-top: 1mm; }
+  .food { position: relative; width: 90mm; height: 36mm; margin-top: 5mm; }
+  .food [data-icon] { position: absolute; filter: drop-shadow(0 1.2mm 1.2mm rgba(0,0,0,.25)); }
+  .plate { position: absolute; left: 6mm; right: 6mm; bottom: 0; height: 9mm; border-radius: 50%; background: rgba(0,0,0,.16); }
+  .qrcard { margin-top: 5mm; width: 80mm; background: #fff; border-radius: 6mm; padding: 5mm 5mm 4.2mm; color: var(--ink); text-align: center; box-shadow: 0 1.5mm 4mm rgba(0,0,0,.22); }
+  .qrcard .qr { width: 66mm; height: 66mm; margin: 0 auto; }
+  .qrcard .cta { margin-top: 2.6mm; font-size: 5.2mm; font-weight: 850; line-height: 1.1; }
+  .qrcard .bot { margin-top: 1.6mm; display: inline-flex; align-items: center; gap: 1.6mm; font-size: 4mm; font-weight: 650; color: #2B5B4C; }
+  .qrcard .bot i { width: 4.6mm; height: 4.6mm; }
+  .insta { margin-top: auto; display: flex; align-items: center; gap: 1.8mm; font-size: 4.4mm; font-weight: 700; }
+  .insta i { width: 5mm; height: 5mm; color: #fff; }
+</style></head>
+<body>
+<div class="face green-bg">
+  <div class="dot" style="width:70mm;height:70mm;right:-30mm;top:-22mm"></div>
+  <div class="dot" style="width:46mm;height:46mm;left:-24mm;top:96mm"></div>
+  <div class="dot" style="width:30mm;height:30mm;right:-12mm;top:118mm"></div>
+  <div class="safe">
+    <div class="head">
+      <img src="assets/logo-white.png" alt="DS">
+      <div class="brand"><b>DS Dostavka</b><span>taom yetkazib berish</span></div>
+    </div>
+    <h1><span class="l1">Buyurtma bering —</span><span class="l2">olib boramiz</span></h1>
+    <div class="food">
+      <div class="plate"></div>
+      <i data-icon="lavash" style="left:0;top:9mm;width:21mm;height:21mm;transform:rotate(-14deg)"></i>
+      <i data-icon="pizza" style="left:13mm;top:2mm;width:26mm;height:26mm;transform:rotate(-12deg)"></i>
+      <i data-icon="fries" style="left:52mm;top:2mm;width:26mm;height:26mm;transform:rotate(9deg)"></i>
+      <i data-icon="cola" style="left:69mm;top:9mm;width:21mm;height:21mm;transform:rotate(12deg)"></i>
+      <i data-icon="burger" style="left:28mm;top:1mm;width:34mm;height:34mm"></i>
+    </div>
+    <div class="qrcard">
+      <div class="qr" data-qr="https://t.me/ds_dostavka_bot" data-logo="assets/logo-color.png"></div>
+      <div class="cta">Skanerlang va<br>buyurtma bering</div>
+      <div class="bot"><i data-icon="telegram"></i>@ds_dostavka_bot</div>
+    </div>
+    <div class="insta"><i data-icon="instagram"></i>@ds.dostavka</div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="assets/icons.js"></script><script src="assets/qr.js"></script>
+<script>mountIcons(); mountQR();</script>
+</body></html>

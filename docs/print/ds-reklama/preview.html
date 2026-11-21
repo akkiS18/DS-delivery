@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><title>DS reklama ko'rinishi</title>
+<!-- Mock-up for showing the owner: tent on a table + both card sides. Uses the rendered PNGs in out/. Not for printing. -->
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  html, body { width: 1600px; height: 1000px; overflow: hidden; }
+  .scene { position: relative; width: 1600px; height: 1000px; background: radial-gradient(90% 70% at 40% 30%, #F4E9D8 0%, #E2CFB4 70%, #D3BC9C 100%); }
+  .tent { position: absolute; left: 140px; top: 70px; width: 400px; height: 815px; transform: perspective(1800px) rotateX(9deg) rotateY(14deg); transform-origin: bottom center; border-radius: 3px; overflow: hidden; box-shadow: -18px 30px 40px rgba(60,35,10,.35); }
+  .tent img { width: 100%; height: 100%; display: block; }
+  .tent::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, rgba(255,255,255,.12), transparent 40%, rgba(0,0,0,.08)); }
+  .shadow { position: absolute; left: 110px; top: 860px; width: 520px; height: 50px; border-radius: 50%; background: rgba(60,35,10,.28); filter: blur(14px); }
+  .card { position: absolute; width: 520px; border-radius: 10px; overflow: hidden; box-shadow: 0 22px 36px rgba(60,35,10,.32); }
+  .card img { width: 100%; display: block; }
+  .c1 { left: 780px; top: 170px; transform: rotate(-6deg); }
+  .c2 { left: 900px; top: 560px; transform: rotate(4deg); }
+  .lbl { position: absolute; font-weight: 700; font-size: 22px; color: #6B4E2E; letter-spacing: .5px; }
+</style></head>
+<body>
+<div class="scene">
+  <div class="shadow"></div>
+  <div class="tent"><img src="out/tent-trim.png"></div>
+  <div class="card c1"><img src="out/card-front-trim.png"></div>
+  <div class="card c2"><img src="out/card-back-trim.png"></div>
+  <div class="lbl" style="left:190px;top:930px">Stol uchburchagi · 10×21 sm</div>
+  <div class="lbl" style="left:1010px;top:930px">Vizitka · 9×5 sm, 2 tomon</div>
+</div>
+</body></html>
