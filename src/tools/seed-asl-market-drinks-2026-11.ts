@@ -5,7 +5,7 @@ import { db } from '../lib/db.js';
  * Order: by popularity, NOT alphabetical (owner's words). The owner gave no ranking, so this one is my estimate:
  * the big Coca-Cola / Pepsi / Fanta bottles (1.5 L, 1 L) first, then 0.5 L and 2 L, then cans and the bigger Fanta, energy drinks last.
  * The menu shows a group's dishes by Product.position (src/modules/miniapp/views.ts), so the shop can reorder them in its app later.
- * "FREEZ MIX" 275 ml came without a price and is NOT added.
+ * "FREEZ MIX" 275 ml came without a price first; the owner gave 25 000 on 2026-11-22 and it was added last (a second --apply adds only it).
  * Idempotent: a dish that already exists (same name) is kept as it is. Prints the plan unless --apply is given.
  * No release needed: streamed into the prod container like seed-asl-market-sweets-2026-11.ts, then
  *   node /tmp/asl-tool/seed-asl-market-drinks-2026-11.js [--apply]
@@ -35,6 +35,7 @@ const DRINKS: Array<[name: string, priceSom: number]> = [
   ['Fanta 0.25 L (banka)', 6_000],
   ['Energetik ichimlik "Aligator" 0.25 L', 16_000],
   ['Energetik ichimlik "Cannabis" 0.33 L', 23_000],
+  ['Gazlangan ichimlik "Freez Mix" 275 ml', 25_000],
 ];
 
 async function main(): Promise<void> {
