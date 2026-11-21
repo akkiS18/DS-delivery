@@ -15,8 +15,8 @@ import { publicRatings, ratingWindow, rankingEnabled, rankingScores } from '../r
 /** What the Mini App is allowed to see. Built from real backend rows only; nothing here is demo data. */
 
 // ------------------------------------------------------------------------------------------------ restaurants and menu
-const cardSelect = { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } } } as const;
-type CardRow = { id: string; slug: string; name: string; isPaused: boolean; workingHours: Prisma.JsonValue | null; timezone: string; defaultPrepMinutes: number; image: { version: number } | null };
+const cardSelect = { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, image: { select: { version: true } }, logo: { select: { version: true } } } as const;
+type CardRow = { id: string; slug: string; name: string; isPaused: boolean; workingHours: Prisma.JsonValue | null; timezone: string; defaultPrepMinutes: number; image: { version: number } | null; logo?: { version: number } | null };
 
 /** The restaurant card the app shows (open state computed now, rating if there is one). */
 async function toCards(rows: CardRow[], now: Date) {
@@ -29,7 +29,7 @@ async function toCards(rows: CardRow[], now: Date) {
       closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS',
       opensNext: !hours.open ? hours.opensNext : null,
       prepMinutes: r.defaultPrepMinutes,
-      imageUrl: restaurantImageUrl(r.id, r.image?.version),
+      imageUrl: restaurantImageUrl(r.id, r.image?.version, r.logo?.version),
       rating: ratings.get(r.id) ?? null,
     };
   });
@@ -53,12 +53,14 @@ export async function listRestaurants(search: string | undefined, now = new Date
 }
 
 /** Relative URL of the restaurant's photo (public, cache-busted by version), or null when it has none. */
-export const restaurantImageUrl = (id: string, version: number | undefined): string | null => (version === undefined ? null : `/api/v1/miniapp/restaurants/${id}/image?v=${version}`);
+/** `logoVersion` (a square logo next to the picture) is part of ?v= so a new logo shows at once in the hard-cached small frames. */
+export const restaurantImageUrl = (id: string, version: number | undefined, logoVersion?: number): string | null =>
+  (version === undefined ? null : `/api/v1/miniapp/restaurants/${id}/image?v=${version}${logoVersion === undefined ? '' : `.${logoVersion}`}`);
 
 export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const r = await db.restaurant.findFirst({
     where: { isActive: true, OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, reservationsEnabled: true, reservationDepositSom: true, image: { select: { version: true } } },
+    select: { id: true, slug: true, name: true, isPaused: true, workingHours: true, timezone: true, defaultPrepMinutes: true, reservationsEnabled: true, reservationDepositSom: true, image: { select: { version: true } }, logo: { select: { version: true } } },
   });
   if (!r) return null;
   const [categories, products] = await Promise.all([
@@ -77,7 +79,7 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
   const hours = openState(r, now);
   const isOpen = !r.isPaused && hours.open;
   return {
-    restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null,
+    restaurant: { id: r.id, slug: r.slug, name: r.name, isOpen, closedReason: isOpen ? null : r.isPaused ? 'PAUSED' : 'HOURS', opensNext: !hours.open ? hours.opensNext : null, prepMinutes: r.defaultPrepMinutes, imageUrl: restaurantImageUrl(r.id, r.image?.version, r.logo?.version), rating: (await publicRatings([r.id])).get(r.id) ?? null,
       // Table reservations: present only while the restaurant takes them (the deposit is what the customer pays to the restaurant's card).
       reservation: r.reservationsEnabled ? { depositSom: r.reservationDepositSom } : null },
     categories: categories.map(({ image, ...c }) => ({ ...c, imageUrl: image ? `/api/v1/miniapp/categories/${c.id}/image?v=${image.version}` : null })),
@@ -129,7 +131,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 }
 
 const orderInclude = {
-  restaurant: { select: { id: true, name: true, defaultPrepMinutes: true, pickupPhone: true, image: { select: { version: true } } } },
+  restaurant: { select: { id: true, name: true, defaultPrepMinutes: true, pickupPhone: true, image: { select: { version: true } }, logo: { select: { version: true } } } },
   taxiCompany: { select: { name: true } },
   items: { where: { supersededAt: null }, select: { productId: true, name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
@@ -214,7 +216,7 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     createdAt: o.createdAt.toISOString(),
     restaurantName: o.restaurant.name,
     /** The restaurant's photo (round logo on the order screen); null = none. */
-    restaurantImageUrl: restaurantImageUrl(o.restaurant.id, o.restaurant.image?.version),
+    restaurantImageUrl: restaurantImageUrl(o.restaurant.id, o.restaurant.image?.version, o.restaurant.logo?.version),
     /** The restaurant's own number, shown where the customer must contact it (a payment that cannot be matched automatically). */
     restaurantPhone: o.restaurant.pickupPhone ?? null,
     items: o.items,

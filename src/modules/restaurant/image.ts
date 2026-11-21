@@ -38,7 +38,22 @@ export async function setRestaurantImage(input: { adminId: string; slug: string;
   return { id: r.id, name: r.name, version };
 }
 
-export async function readRestaurantImage(restaurantId: string): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
+/** Widths up to this are the app's small square frames (search / closed rows, order screen logo: ?w=160). */
+export const LOGO_MAX_WIDTH = 320;
+
+/** Pure. A square frame asks for a small copy; a request without a width (or a wide one) gets the main picture. */
+export const wantsLogo = (width: number | null): boolean => width !== null && width <= LOGO_MAX_WIDTH;
+
+/**
+ * The restaurant's picture for one frame. Owner request 2026-11-22: a restaurant may have a wide picture (home card, menu header) AND a square
+ * logo (RestaurantLogo); small frames get the logo when there is one, everything else the main picture. One URL for both, so app builds
+ * already installed need no change. Without a logo nothing changes.
+ */
+export async function readRestaurantImage(restaurantId: string, width: number | null = null): Promise<{ mime: string; data: Buffer; sha256: string } | null> {
+  if (wantsLogo(width)) {
+    const logo = await db.restaurantLogo.findFirst({ where: { restaurantId, restaurant: { isActive: true } }, select: { mime: true, data: true, sha256: true } });
+    if (logo) return { mime: logo.mime, data: Buffer.from(logo.data), sha256: logo.sha256 };
+  }
   const row = await db.restaurantImage.findFirst({ where: { restaurantId, restaurant: { isActive: true } }, select: { mime: true, data: true, sha256: true } });
   return row ? { mime: row.mime, data: Buffer.from(row.data), sha256: row.sha256 } : null;
 }

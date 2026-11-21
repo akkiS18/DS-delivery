@@ -48,6 +48,7 @@ model Restaurant {
   payoutMarks         PayoutMark[]
   ratings             OrderRating[]
   image               RestaurantImage?
+  logo                RestaurantLogo?
   promotions          Promotion[]
   banners             Banner[]
   // Company dispatch pickup site
@@ -1098,6 +1099,18 @@ model CategoryImage {
 }
 
 model RestaurantImage {
+  restaurantId String     @id
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  mime         String
+  data         Bytes
+  sha256       String
+  version      Int        @default(1)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(3)
+}
+
+/// Optional square logo (owner request 2026-11-22). RestaurantImage is the picture for wide frames (home card, menu header); when a logo exists,
+/// the image route serves it to small square frames (?w=160 / 320), see src/modules/restaurant/image.ts.
+model RestaurantLogo {
   restaurantId String     @id
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   mime         String

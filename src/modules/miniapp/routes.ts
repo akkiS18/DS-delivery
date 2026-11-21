@@ -16,6 +16,7 @@ import { addAppCustomerMessage } from '../support/conversation.js';
 import { createAppTicket } from '../support/service.js';
 import { RATING_REASONS, NOTE_MAX, rateOrder } from '../ratings/service.js';
 import { readRestaurantImage } from '../restaurant/image.js';
+import { parseWidth } from '../images/variants.js';
 import { sendImage } from '../images/serve.js';
 import { publicBanners, readBannerImage } from '../promotions/service.js';
 import { readCategoryImage, readProductImage } from '../restaurant-catalog/images.js';
@@ -248,7 +249,7 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
   // The restaurant's photo. Public on purpose (an <img> cannot send the auth header; it is a marketing picture): the id is not secret and the
   // URL carries ?v=<version>, so the answer is cached hard and a replaced photo shows up at once.
   app.get<{ Params: { id: string } }>('/restaurants/:id/image', { config: { public: true } }, async (request, reply) => {
-    const img = await readRestaurantImage(idParam.parse(request.params.id));
+    const img = await readRestaurantImage(idParam.parse(request.params.id), parseWidth((request.query as { w?: unknown } | undefined)?.w));
     if (!img) throw httpError(404, 'NOT_FOUND');
     return sendImage(request, reply, img);
   });
