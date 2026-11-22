@@ -61,6 +61,7 @@ import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
 import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.components.ServerConfigDialog
 import com.dsdelivery.restaurant.ui.screens.reservations.ReservationsViewModel
+import com.dsdelivery.restaurant.ui.theme.WarningText
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.DSRestaurantTheme
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
@@ -231,7 +232,7 @@ fun OperationsContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Buyurtma qabul qilish", style = MaterialTheme.typography.bodyLarge)
                         if (state.isPaused) {
-                            Text("To‘xtatilgan", style = MaterialTheme.typography.bodyMedium, color = WarningOrange)
+                            Text("To‘xtatilgan", style = MaterialTheme.typography.bodyMedium, color = WarningText)
                         }
                     }
                     Switch(
@@ -313,7 +314,7 @@ fun OperationsContent(
                         Text(
                             "Ish vaqti hali saqlanmagan: hozir restoran kechayu-kunduz ochiq hisoblanadi va mijozlar istalgan soatda buyurtma bera oladi. Pastdagi soatlar ko‘rsatma xolos.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = WarningOrange
+                            color = WarningText
                         )
                         Button(onClick = onSaveSchedule, colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)) {
                             Text("Shu soatlarni saqlash")

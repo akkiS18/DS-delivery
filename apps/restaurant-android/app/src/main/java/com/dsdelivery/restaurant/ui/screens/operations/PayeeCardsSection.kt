@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.dsdelivery.restaurant.data.model.CardNumber
 import com.dsdelivery.restaurant.data.model.PayeeCard
 import com.dsdelivery.restaurant.data.model.PayeeCardStatus
+import com.dsdelivery.restaurant.ui.theme.WarningText
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
 import com.dsdelivery.restaurant.ui.theme.SuccessGreen
@@ -72,7 +73,7 @@ fun PayeeCardsSection(
                 Text(error, style = MaterialTheme.typography.bodyMedium, color = ErrorRed, modifier = Modifier.padding(top = 12.dp))
                 TextButton(onClick = onRetry) { Text("Qayta urinish") }
             }
-            cards.isEmpty() -> Text("Karta yo‘q", style = MaterialTheme.typography.bodyMedium, color = WarningOrange, modifier = Modifier.padding(vertical = 12.dp))
+            cards.isEmpty() -> Text("Karta yo‘q", style = MaterialTheme.typography.bodyMedium, color = WarningText, modifier = Modifier.padding(vertical = 12.dp))
             else -> cards.forEachIndexed { index, card ->
                 if (index > 0) HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
                 PayeeCardRow(card = card, busy = busyCardId == card.id, onToggle = { onToggle(card) })
@@ -83,7 +84,7 @@ fun PayeeCardsSection(
             Text(
                 "Faol karta yo‘q. Mijozlar buyurtma bera olmaydi.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = WarningOrange,
+                color = WarningText,
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }

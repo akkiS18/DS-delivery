@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import com.dsdelivery.restaurant.data.model.Reservation
 import com.dsdelivery.restaurant.ui.components.ActionConfirmDialog
 import com.dsdelivery.restaurant.ui.components.PullRefresh
+import com.dsdelivery.restaurant.ui.theme.WarningText
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.ErrorRed
@@ -115,7 +116,7 @@ fun ReservationsContent(
             ) {
                 val report = state.report
                 if (state.errorMessage != null && report != null) {
-                    Text(state.errorMessage, color = WarningOrange, style = MaterialTheme.typography.bodySmall)
+                    Text(state.errorMessage, color = WarningText, style = MaterialTheme.typography.bodySmall)
                 }
                 when {
                     report != null -> {
@@ -224,7 +225,7 @@ private fun ReservationCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (r.note != null) Text("Izoh: ${r.note}", style = MaterialTheme.typography.bodyMedium)
-            if (r.isTest) Text("TEST", style = MaterialTheme.typography.labelSmall, color = WarningOrange)
+            if (r.isTest) Text("TEST", style = MaterialTheme.typography.labelSmall, color = WarningText)
             if (r.customerPhone.isNotEmpty()) {
                 TextButton(
                     onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:${r.customerPhone}"))) },

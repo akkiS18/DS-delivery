@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -69,6 +72,8 @@ import com.dsdelivery.restaurant.ui.components.PullRefresh
 import com.dsdelivery.restaurant.ui.components.rememberNowElapsed
 import com.dsdelivery.restaurant.data.model.OrderStatus
 import com.dsdelivery.restaurant.ui.preview.SampleData
+import com.dsdelivery.restaurant.ui.theme.WarningText
+import com.dsdelivery.restaurant.ui.theme.ReadyStripe
 import com.dsdelivery.restaurant.ui.theme.BrandDark
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
@@ -226,16 +231,19 @@ fun OrdersContent(
                         Surface(
                             onClick = { confirmPause = true },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isPaused) WarningOrange else SuccessGreen,
-                            modifier = Modifier.padding(end = 12.dp)
+                            color = if (isPaused) WarningOrange else Color.White,
+                            modifier = Modifier.padding(end = 12.dp).heightIn(min = 40.dp)
                         ) {
-                            Text(
-                                text = if (isPaused) "Tanaffus" else "Ochiq",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
-                            )
+                            Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(if (isPaused) Color.White else ReadyStripe))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isPaused) "Tanaffus" else "Ochiq",
+                                    color = if (isPaused) Color.White else BrandPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
                         }
                     }
                 },
@@ -291,7 +299,7 @@ fun OrdersContent(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Bu telefon navbatchilikda emas: yangi buyurtmada qo‘ng‘iroq chalmaydi", color = WarningOrange, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("Bu telefon navbatchilikda emas: yangi buyurtmada qo‘ng‘iroq chalmaydi", color = WarningText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         TextButton(onClick = onDutyOn) { Text("Yoqish") }
                     }
                 }
@@ -315,7 +323,7 @@ fun OrdersContent(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("E‘tibor kerak buyurtmalar", color = WarningOrange, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("E‘tibor kerak buyurtmalar", color = WarningText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         TextButton(onClick = { onFilterSelected(OrderFilter.NEW) }) { Text("Orqaga") }
                     }
                 }
@@ -330,13 +338,13 @@ fun OrdersContent(
                         Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "${state.attentionOrdersCount} ta buyurtmaga e’tibor kerak",
+                            text = "${state.attentionOrdersCount} ta buyurtmaga e‘tibor kerak",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold,
-                            color = WarningOrange,
+                            color = WarningText,
                             modifier = Modifier.weight(1f)
                         )
-                        Text("Ko‘rish", color = WarningOrange, style = MaterialTheme.typography.labelLarge)
+                        Text("Ko‘rish", color = WarningText, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

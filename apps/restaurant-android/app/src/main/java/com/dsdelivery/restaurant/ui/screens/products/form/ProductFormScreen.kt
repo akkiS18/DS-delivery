@@ -74,6 +74,7 @@ import kotlinx.coroutines.withContext
 import coil.request.ImageRequest
 import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.preview.SampleData
+import com.dsdelivery.restaurant.ui.theme.WarningText
 import com.dsdelivery.restaurant.ui.theme.BrandDark
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
@@ -329,7 +330,7 @@ fun ProductFormContent(
                             Text(
                                 text = "Vaqtincha to‘xtatilgan",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = WarningOrange
+                                color = WarningText
                             )
                         }
                     }

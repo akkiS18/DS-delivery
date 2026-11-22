@@ -57,6 +57,20 @@ import com.dsdelivery.restaurant.data.model.ageText
 import com.dsdelivery.restaurant.data.model.display
 import com.dsdelivery.restaurant.data.model.formatClock
 import com.dsdelivery.restaurant.data.model.urgencyOf
+import com.dsdelivery.restaurant.ui.theme.WarningText
+import com.dsdelivery.restaurant.ui.theme.WarningBg
+import com.dsdelivery.restaurant.ui.theme.ReadyStripe
+import com.dsdelivery.restaurant.ui.theme.ReadyBg
+import com.dsdelivery.restaurant.ui.theme.ReadyText
+import com.dsdelivery.restaurant.ui.theme.CookingBlue
+import com.dsdelivery.restaurant.ui.theme.CookingBg
+import com.dsdelivery.restaurant.ui.theme.CookingText
+import com.dsdelivery.restaurant.ui.theme.AcceptBlue
+import com.dsdelivery.restaurant.ui.theme.ErrorBg
+import com.dsdelivery.restaurant.ui.theme.ErrorText
+import com.dsdelivery.restaurant.ui.theme.DoneBg
+import com.dsdelivery.restaurant.ui.theme.DoneText
+import com.dsdelivery.restaurant.ui.theme.DoneStripe
 import com.dsdelivery.restaurant.ui.theme.BrandDark
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
@@ -72,22 +86,22 @@ fun OrderStatusBadge(
     modifier: Modifier = Modifier
 ) {
     val (bgColor, textColor) = when (status) {
-        OrderStatus.WAITING_RESTAURANT -> Pair(BrandPrimary.copy(alpha = 0.15f), BrandPrimary)
-        OrderStatus.PREPARING -> Pair(BrandMint.copy(alpha = 0.4f), BrandDark)
-        OrderStatus.READY -> Pair(SuccessGreen.copy(alpha = 0.15f), SuccessGreen)
+        OrderStatus.WAITING_RESTAURANT -> Pair(WarningBg, WarningText)
+        OrderStatus.PREPARING -> Pair(CookingBg, CookingText)
+        OrderStatus.READY -> Pair(ReadyBg, ReadyText)
         OrderStatus.PAYMENT_PENDING,
-        OrderStatus.WAITING_CUSTOMER_CONSENT -> Pair(WarningOrange.copy(alpha = 0.15f), WarningOrange)
+        OrderStatus.WAITING_CUSTOMER_CONSENT -> Pair(WarningBg, WarningText)
         OrderStatus.PAYMENT_MATCHED_UNVERIFIED -> Pair(BrandMint.copy(alpha = 0.3f), BrandDark)
         OrderStatus.PAYMENT_CONFIRMED,
         OrderStatus.ACCEPTED -> Pair(BrandPrimary.copy(alpha = 0.12f), BrandPrimary)
-        OrderStatus.COMPLETED -> Pair(BrandDark.copy(alpha = 0.1f), BrandDark)
+        OrderStatus.COMPLETED -> Pair(DoneBg, DoneText)
         OrderStatus.RESTAURANT_REJECTED,
         OrderStatus.RESTAURANT_EXPIRED,
         OrderStatus.PAYMENT_EXPIRED,
         OrderStatus.CUSTOMER_CANCELLED,
         OrderStatus.CANCELLATION_REQUESTED,
         OrderStatus.CANCELLED,
-        OrderStatus.FAILED -> Pair(ErrorRed.copy(alpha = 0.12f), ErrorRed)
+        OrderStatus.FAILED -> Pair(ErrorBg, ErrorText)
         OrderStatus.TAXI_REQUESTED,
         OrderStatus.DRIVER_ASSIGNED,
         OrderStatus.DELIVERY_ASSUMED -> Pair(BrandPrimary.copy(alpha = 0.12f), BrandPrimary)
@@ -361,10 +375,10 @@ fun OrderCard(
     val attention = attentionLine(order.attention)
     val stripe = when {
         attention != null -> WarningOrange
-        order.status == OrderStatus.READY -> SuccessGreen
-        cooking -> BrandPrimary
-        order.status == OrderStatus.COMPLETED -> BrandDark.copy(alpha = 0.4f)
-        else -> BrandMint
+        order.status == OrderStatus.READY -> ReadyStripe
+        cooking -> CookingBlue
+        order.status == OrderStatus.COMPLETED -> DoneStripe
+        else -> WarningOrange
     }
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
@@ -413,7 +427,7 @@ fun OrderCard(
                     Row(verticalAlignment = Alignment.Top) {
                         Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = WarningOrange, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(attention, style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
+                        Text(attention, style = MaterialTheme.typography.bodySmall, color = WarningText, fontWeight = FontWeight.Medium)
                     }
                 }
 
@@ -422,13 +436,13 @@ fun OrderCard(
                     Spacer(modifier = Modifier.height(10.dp))
                     Surface(shape = RoundedCornerShape(10.dp), color = WarningOrange.copy(alpha = 0.10f)) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("To‘lov qabul qilindi. Buyurtmani qabul qiling — shundan keyin mijoz uni bekor qila olmaydi. Tayyorlashni boshlang.", style = MaterialTheme.typography.bodySmall, color = WarningOrange, fontWeight = FontWeight.Medium)
+                            Text("To‘lov keldi. Qabul qiling.", style = MaterialTheme.typography.bodySmall, color = WarningText, fontWeight = FontWeight.Medium)
                             Spacer(modifier = Modifier.height(8.dp))
                             Button(
                                 onClick = onAcknowledge,
                                 enabled = !prepBusy,
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                                colors = ButtonDefaults.buttonColors(containerColor = AcceptBlue),
                                 modifier = Modifier.fillMaxWidth().height(48.dp)
                             ) {
                                 Text("Qabul qildim", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)

@@ -103,6 +103,7 @@ import com.dsdelivery.restaurant.ui.components.LoadingView
 import com.dsdelivery.restaurant.ui.components.OrderStatusBadge
 import com.dsdelivery.restaurant.ui.components.PaymentStatusBadge
 import com.dsdelivery.restaurant.ui.preview.SampleData
+import com.dsdelivery.restaurant.ui.theme.WarningText
 import com.dsdelivery.restaurant.ui.theme.BrandDark
 import com.dsdelivery.restaurant.ui.theme.BrandMint
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
@@ -463,7 +464,7 @@ fun OrderDetailContent(
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                         Text("${order.orderNumberDisplay} • ${som(ev?.expectedAmountSom ?: order.paymentAmountSom ?: order.totalSom)}", fontWeight = FontWeight.SemiBold)
                         if (ev?.isTest == true || order.isTest) {
-                            Text("Sinov to‘lovi: haqiqiy pul emas.", color = WarningOrange, style = MaterialTheme.typography.bodyMedium)
+                            Text("Sinov to‘lovi: haqiqiy pul emas.", color = WarningText, style = MaterialTheme.typography.bodyMedium)
                         } else {
                             Text("Pul kartangizga tushganini bankda tekshiring.", style = MaterialTheme.typography.bodyMedium)
                         }

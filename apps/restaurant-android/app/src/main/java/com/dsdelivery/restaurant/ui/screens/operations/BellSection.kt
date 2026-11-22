@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import com.dsdelivery.restaurant.RestaurantApp
+import com.dsdelivery.restaurant.ui.theme.WarningText
 import com.dsdelivery.restaurant.ui.theme.BrandPrimary
 import com.dsdelivery.restaurant.ui.theme.WarningOrange
 
@@ -48,7 +49,7 @@ fun BellSection() {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Shu telefon navbatchilikda", style = MaterialTheme.typography.bodyLarge)
-                if (!enabled) Text("O‘chiq: bu telefon jim, yangi buyurtmada qo‘ng‘iroq chalmaydi", style = MaterialTheme.typography.bodyMedium, color = WarningOrange)
+                if (!enabled) Text("O‘chiq: bu telefon jim, yangi buyurtmada qo‘ng‘iroq chalmaydi", style = MaterialTheme.typography.bodyMedium, color = WarningText)
             }
             Switch(
                 checked = enabled,
@@ -61,7 +62,7 @@ fun BellSection() {
                 Text(
                     "Signal ovozi (budilnik) o‘chiq. Telefonning budilnik ovozini oshiring.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = WarningOrange,
+                    color = WarningText,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             }

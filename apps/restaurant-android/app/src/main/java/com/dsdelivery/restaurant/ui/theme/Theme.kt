@@ -50,7 +50,8 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun DSRestaurantTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Always light (audit A3, owner 2026-11-22 "Doim yorug‘"): in the phone's dark mode fixed colours made texts such as the cash amount invisible.
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
