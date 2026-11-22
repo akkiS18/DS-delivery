@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -73,7 +74,8 @@ fun OperationsScreen(
     reservationsViewModel: ReservationsViewModel,
     onLoggedOut: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenRatings: () -> Unit = {}
+    onOpenRatings: () -> Unit = {},
+    onOpenFinance: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val reservations by reservationsViewModel.uiState.collectAsState()
@@ -109,6 +111,7 @@ fun OperationsScreen(
         onToggleCard = viewModel::toggleCard,
         onReloadCards = { viewModel.loadOperations(); viewModel.loadCards() },
         onOpenRatings = onOpenRatings,
+        onOpenFinance = onOpenFinance,
         onSaveSchedule = viewModel::saveShownWorkingHours,
         onToggleCustomerPickup = viewModel::setCustomerPickup,
         reservationSection = {
@@ -188,6 +191,7 @@ fun OperationsContent(
     onReloadCards: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenRatings: () -> Unit = {},
+    onOpenFinance: () -> Unit = {},
     onSaveSchedule: () -> Unit = {},
     onToggleCustomerPickup: (Boolean) -> Unit = {},
     reservationSection: @Composable () -> Unit = {}
@@ -291,6 +295,25 @@ fun OperationsContent(
             reservationSection()
 
             // 2c. Customers' ratings of the food (was a bottom tab)
+            // Money (mockup 2026-11-22, audit C16): visible row, still behind the 4-digit finance code.
+            SettingsSection(title = "Moliya", footer = "Kod bilan ochiladi. Ilovadan chiqsangiz yana yopiladi.") {
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onOpenFinance() },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(imageVector = Icons.Default.Lock, contentDescription = null, tint = BrandPrimary, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Hisob-kitob va to‘lovlar", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
             SettingsSection(title = "Baholar") {
                 Row(
                     modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onOpenRatings() },

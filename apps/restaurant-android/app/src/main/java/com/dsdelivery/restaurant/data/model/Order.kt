@@ -23,7 +23,7 @@ enum class OrderStatus(val title: String, val isActionable: Boolean = false) {
     CANCELLATION_REQUESTED("Bekor qilish so‘rovi"),
     CANCELLED("Bekor qilingan"),
     FAILED("Xatolik"),
-    UNKNOWN("Noma'lum");
+    UNKNOWN("Noma‘lum");
 
     companion object {
         fun fromRaw(raw: String?): OrderStatus {
@@ -45,7 +45,7 @@ enum class PaymentStatus(val title: String) {
     EXPIRED("Muddati o‘tgan"),
     QUEUE_EXPIRED("Navbat muddati o‘tgan"),
     CANCELLED("Bekor qilingan"),
-    UNKNOWN("Noma'lum");
+    UNKNOWN("Noma‘lum");
 
     companion object {
         fun fromRaw(raw: String?): PaymentStatus {

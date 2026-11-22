@@ -139,8 +139,6 @@ fun ProductCard(
                             modifier = Modifier.weight(1f)
                         )
 
-                        // Availability chip badge
-                        AvailabilityBadge(isAvailable = product.isAvailable)
                     }
 
                     if (!product.description.isNullOrBlank()) {
@@ -191,7 +189,7 @@ fun ProductCard(
                         Text(
                             text = if (product.isAvailable) "Sotuvda" else "Sotuvda emas",
                             style = MaterialTheme.typography.bodySmall,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             color = if (product.isAvailable) BrandPrimary else WarningOrange,
                             fontWeight = FontWeight.Medium
                         )
@@ -214,14 +212,14 @@ fun ProductCard(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("Tahrirlash", fontSize = 12.sp)
+                                Text("Tahrirlash", fontSize = 13.sp)
                             }
                         }
 
                         if (onDeleteClick != null) {
                             IconButton(
                                 onClick = onDeleteClick,
-                                modifier = Modifier.size(32.dp)
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
@@ -268,7 +266,7 @@ fun AvailabilityBadge(
             Text(
                 text = text,
                 color = textColor,
-                fontSize = 11.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -348,7 +346,7 @@ fun StatusBadge(
             Text(
                 text = text,
                 color = textColor,
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }

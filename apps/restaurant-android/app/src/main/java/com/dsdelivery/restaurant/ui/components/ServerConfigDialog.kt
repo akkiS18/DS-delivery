@@ -102,12 +102,12 @@ fun ServerConfigDialog(
                     ) {
                         SuggestionChip(
                             onClick = { urlInput = ApiConfig.EMULATOR_URL },
-                            label = { Text("Emulator (10.0.2.2)", fontSize = 11.sp) }
+                            label = { Text("Emulator (10.0.2.2)", fontSize = 13.sp) }
                         )
 
                         SuggestionChip(
                             onClick = { urlInput = ApiConfig.LOCALHOST_URL },
-                            label = { Text("Localhost", fontSize = 11.sp) }
+                            label = { Text("Localhost", fontSize = 13.sp) }
                         )
                     }
                 }

@@ -110,7 +110,7 @@ private fun PayeeCardRow(card: PayeeCard, busy: Boolean, onToggle: () -> Unit) {
                 PayeeCardStatus.DISABLED -> "O‘chirilgan" to MaterialTheme.colorScheme.onSurfaceVariant
                 PayeeCardStatus.PENDING -> "Tasdiq kutilmoqda" to WarningOrange
                 PayeeCardStatus.REJECTED -> "Rad etilgan" to ErrorRed
-                PayeeCardStatus.UNKNOWN -> "Noma’lum" to MaterialTheme.colorScheme.onSurfaceVariant
+                PayeeCardStatus.UNKNOWN -> "Noma‘lum" to MaterialTheme.colorScheme.onSurfaceVariant
             }
             Text(label, style = MaterialTheme.typography.bodyMedium, color = color)
         }

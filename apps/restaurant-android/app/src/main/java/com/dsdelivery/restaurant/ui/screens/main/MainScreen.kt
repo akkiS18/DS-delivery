@@ -8,7 +8,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.EventSeat
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.RestaurantMenu
-import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
@@ -62,7 +62,7 @@ enum class MainTab(val title: String, val icon: ImageVector) {
     ORDERS("Buyurtmalar", Icons.Default.Receipt),
     RESERVATIONS("Bronlar", Icons.Default.EventSeat),
     MENU("Menyu", Icons.Default.RestaurantMenu),
-    OPERATIONS("Sozlamalar", Icons.Default.Storefront),
+    OPERATIONS("Sozlamalar", Icons.Default.Settings),
     /** Not in the bar: opened by tapping Sozlamalar three times quickly. */
     FINANCE("Moliya", Icons.Default.AccountBalance)
 }
@@ -206,7 +206,8 @@ fun MainScreen(
                         label = {
                             Text(
                                 text = tab.title,
-                                fontSize = 11.sp,
+                                fontSize = 13.sp,
+                                maxLines = 1,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         },
@@ -267,7 +268,8 @@ fun MainScreen(
                             viewModel = operationsViewModel,
                             reservationsViewModel = reservationsViewModel,
                             onLoggedOut = onLoggedOut,
-                            onOpenRatings = { ratingsViewModel.refresh(); showRatings = true }
+                            onOpenRatings = { ratingsViewModel.refresh(); showRatings = true },
+                            onOpenFinance = { showRatings = false; selectedTab = MainTab.FINANCE }
                         )
                     }
                 }

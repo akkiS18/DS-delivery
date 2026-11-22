@@ -54,7 +54,7 @@ class ProductManagementViewModel(
                 val error = when {
                     productsResult is Resource.Error -> productsResult.message
                     categoriesResult is Resource.Error -> categoriesResult.message
-                    else -> "Ma'lumotlarni yuklab bo‘lmadi"
+                    else -> "Ma‘lumotlarni yuklab bo‘lmadi"
                 }
                 _uiState.update {
                     it.copy(

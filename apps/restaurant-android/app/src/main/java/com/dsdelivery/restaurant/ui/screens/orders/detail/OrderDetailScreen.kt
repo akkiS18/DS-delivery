@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -275,22 +276,11 @@ fun OrderDetailContent(
                             }
                         }
                     }
-                    if (OrderAction.CANCEL_ORDER in allowed) {
-                        OutlinedButton(
-                            onClick = { callbacks.showCancelDialog(true) },
-                            enabled = !busy,
-                            modifier = Modifier.fillMaxWidth().height(44.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed)
-                        ) { Text("Buyurtmani bekor qilish") }
-                    }
                     if (busy) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = BrandPrimary)
                         }
                     }
-
-                    TimelineCard(order)
 
                     // Order Items Card: the dishes are what the kitchen reads first, so the card is tinted green and the quantities are big
                     Card(
@@ -401,10 +391,30 @@ fun OrderDetailContent(
                         }
                     }
 
-                    CustomerCard(order)
-
                     PaymentEvidenceCard(order)
                     RefundCard(order)
+
+
+                    TimelineCard(order)
+
+                    CustomerCard(order)
+
+                    // Cancelling a paid order is dangerous: last on the page, apart from the main buttons (audit B7).
+                    if (OrderAction.CANCEL_ORDER in allowed) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { callbacks.showCancelDialog(true) },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed)
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Buyurtmani bekor qilish")
+                                Text("Pulni mijozga administrator qaytaradi", style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
                 }

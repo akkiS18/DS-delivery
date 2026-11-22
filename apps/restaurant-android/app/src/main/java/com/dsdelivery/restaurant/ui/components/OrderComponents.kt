@@ -127,7 +127,7 @@ fun OrderStatusBadge(
             Text(
                 text = status.title,
                 color = textColor,
-                fontSize = 11.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -173,7 +173,7 @@ fun PaymentStatusBadge(
             Text(
                 text = status.title,
                 color = textColor,
-                fontSize = 10.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -197,7 +197,7 @@ fun PaymentPill(order: Order, modifier: Modifier = Modifier) {
         Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(imageVector = Icons.Default.CreditCard, contentDescription = null, tint = fg, modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.width(5.dp))
-            Text(text = status.title, color = fg, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text(text = status.title, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -561,7 +561,7 @@ fun ActionConfirmDialog(
                             Text(
                                 text = warningNote,
                                 style = MaterialTheme.typography.bodySmall,
-                                fontSize = 11.sp,
+                                fontSize = 13.sp,
                                 color = BrandDark
                             )
                         }

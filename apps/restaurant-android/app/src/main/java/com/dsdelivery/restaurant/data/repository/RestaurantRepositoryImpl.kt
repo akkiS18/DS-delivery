@@ -764,7 +764,7 @@ class RestaurantRepositoryImpl(
         return when (e.code()) {
             400 -> when (parsedCode) {
                 "CARD_NUMBER_INVALID" -> "Karta raqami noto‘g‘ri."
-                "Validation failed" -> "Ma’lumotlar noto‘g‘ri kiritilgan."
+                "Validation failed" -> "Ma‘lumotlar noto‘g‘ri kiritilgan."
                 "DATE_FILTER_INVALID" -> "Sana noto‘g‘ri."
                 "DATE_RANGE_TOO_LARGE" -> "Sana oralig‘i juda katta (eng ko‘pi 366 kun)."
                 else -> parsedCode ?: "So‘rov noto‘g‘ri."
@@ -808,7 +808,7 @@ class RestaurantRepositoryImpl(
             }
             422 -> when (parsedCode) {
                 "INVALID_CATEGORY" -> "Toifa noto‘g‘ri tanlangan."
-                else -> "Ma’lumotlar noto‘g‘ri."
+                else -> "Ma‘lumotlar noto‘g‘ri."
             }
             429 -> when (parsedCode) {
                 "TOO_MANY_ATTEMPTS" -> "Juda ko‘p urinish. Birozdan keyin qayta urining."
