@@ -151,9 +151,12 @@ fun MainScreen(
     // A genuinely new order: one in-app message and (if allowed) one system notification, never repeated for the same id.
     LaunchedEffect(ordersViewModel) {
         ordersViewModel.newOrders.collect { fresh ->
-            if (!bellOn) notifier.notifyNewOrders(fresh)
-            val numbers = fresh.joinToString(", ") { it.orderNumberDisplay }
-            snackbarHostState.showSnackbar("Yangi buyurtma: $numbers")
+            // A phone whose bell is on already rings and shows the red bar on top (audit B12): no third signal covering the buttons.
+            if (!bellOn) {
+                notifier.notifyNewOrders(fresh)
+                val numbers = fresh.joinToString(", ") { it.orderNumberDisplay }
+                snackbarHostState.showSnackbar("Yangi buyurtma: $numbers")
+            }
         }
     }
 

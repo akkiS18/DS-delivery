@@ -84,7 +84,8 @@ class OrdersViewModel(
                         readyOrdersCount = page.readyCount,
                         waitingOrdersCount = page.waitingCount,
                         attentionOrdersCount = page.attentionCount,
-                        pollFailed = false
+                        pollFailed = false,
+                        lastUpdatedAtMillis = System.currentTimeMillis()
                     )
                 }
                 if (fresh.isNotEmpty()) _newOrders.tryEmit(fresh)
@@ -131,7 +132,8 @@ class OrdersViewModel(
                             waitingOrdersCount = page.waitingCount,
                             attentionOrdersCount = page.attentionCount,
                             errorMessage = null,
-                            backendNotice = null
+                            backendNotice = null,
+                            lastUpdatedAtMillis = System.currentTimeMillis()
                         )
                     }
                 }

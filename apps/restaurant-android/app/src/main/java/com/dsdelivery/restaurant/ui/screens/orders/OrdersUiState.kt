@@ -36,6 +36,8 @@ data class OrdersUiState(
     val attentionOrdersCount: Int = 0,
     /** The last background check failed (offline / server down); shown as a small hint, never as fake data. */
     val pollFailed: Boolean = false,
+    /** Wall-clock time of the last successful check, for "Oxirgi yangilanish: 14:32" while offline. */
+    val lastUpdatedAtMillis: Long? = null,
     /** The order whose "ready in N minutes" is being saved (one at a time). */
     val prepBusyId: String? = null,
     /** The order being marked "Tayyor" from the list (one at a time). */

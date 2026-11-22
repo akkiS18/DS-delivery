@@ -43,6 +43,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.dsdelivery.restaurant.data.model.formatClock
+import com.dsdelivery.restaurant.ui.theme.WarningBg
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -99,7 +103,8 @@ fun OrdersScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
 
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.loadOrders(isRefresh = true) }
+    // Silent: the list stays on screen, no spinner (audit B13). A newer load cancels an older one, so a parallel resume load costs one request.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.loadOrders(isRefresh = true, silent = true) }
 
     OrdersContent(
         state = state,
@@ -156,6 +161,7 @@ fun OrdersContent(
         onDispose { view.keepScreenOn = false }
     }
     var confirmPause by remember { mutableStateOf(false) }
+    var searchOpen by rememberSaveable { mutableStateOf(false) }
     if (confirmPause && onSetPaused != null) {
         ActionConfirmDialog(
             title = if (!isPaused) "Qabulni to‘xtatasizmi?" else "Qabulni yoqasizmi?",
@@ -227,19 +233,22 @@ fun OrdersContent(
                     )
                 },
                 actions = {
+                    IconButton(onClick = { if (searchOpen) onSearchQueryChange(""); searchOpen = !searchOpen }) {
+                        Icon(imageVector = if (searchOpen) Icons.Default.Clear else Icons.Default.Search, contentDescription = if (searchOpen) "Qidiruvni yopish" else "Qidirish", tint = Color.White)
+                    }
                     if (onSetPaused != null) {
                         Surface(
                             onClick = { confirmPause = true },
                             shape = RoundedCornerShape(20.dp),
-                            color = if (isPaused) WarningOrange else Color.White,
+                            color = if (isPaused) WarningBg else Color.White,
                             modifier = Modifier.padding(end = 12.dp).heightIn(min = 40.dp)
                         ) {
                             Row(modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(if (isPaused) Color.White else ReadyStripe))
+                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(if (isPaused) WarningOrange else ReadyStripe))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = if (isPaused) "Tanaffus" else "Ochiq",
-                                    color = if (isPaused) Color.White else BrandPrimary,
+                                    color = if (isPaused) WarningText else BrandPrimary,
                                     fontWeight = FontWeight.Bold,
                                     style = MaterialTheme.typography.labelLarge
                                 )
@@ -262,6 +271,64 @@ fun OrdersContent(
             modifier = Modifier.fillMaxSize().padding(innerPadding).background(MaterialTheme.colorScheme.background)
         ) {
         Column(modifier = Modifier.fillMaxSize()) {
+            if (alarmRinging) {
+                Surface(
+                    color = ErrorRed,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Yangi buyurtma kutmoqda!", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onSilence) { Text("Ovozni o‘chirish", color = Color.White, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+            // Offline: no new order can arrive, so it is a red bar, not a grey hint (audit A5).
+            if (state.pollFailed) {
+                Surface(
+                    color = ErrorRed,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(imageVector = Icons.Default.WifiOff, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Internet yo‘q", color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Yangi buyurtma kelmaydi." + (state.lastUpdatedAtMillis?.let { " Oxirgi yangilanish: ${formatClock(it)}" } ?: ""),
+                                color = Color.White, style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        TextButton(onClick = onRefresh) { Text("Qayta urinish", color = Color.White, fontWeight = FontWeight.Bold) }
+                    }
+                }
+            }
+            if (dutyOff) {
+                Surface(
+                    color = WarningBg,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Bu telefon navbatchilikda emas: qo‘ng‘iroq chalmaydi", color = WarningText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = onDutyOn) { Text("Yoqish") }
+                    }
+                }
+            }
+            // Reception switched off for the whole restaurant: say it here too, not only in the small title pill.
+            if (isPaused && onSetPaused != null) {
+                Surface(
+                    color = WarningBg,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
+                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Qabul to‘xtatilgan: mijozlar buyurtma bera olmaydi", color = WarningText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { confirmPause = true }) { Text("Yoqish") }
+                    }
+                }
+            }
             // Filter Chips Row
             val filterScrollState = rememberScrollState()
             Row(
@@ -292,33 +359,9 @@ fun OrdersContent(
                 }
             }
 
-            if (dutyOff) {
-                Surface(
-                    color = WarningOrange.copy(alpha = 0.15f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Bu telefon navbatchilikda emas: yangi buyurtmada qo‘ng‘iroq chalmaydi", color = WarningText, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        TextButton(onClick = onDutyOn) { Text("Yoqish") }
-                    }
-                }
-            }
-            if (alarmRinging) {
-                Surface(
-                    color = ErrorRed,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                    Row(modifier = Modifier.padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Yangi buyurtma kutmoqda!", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        TextButton(onClick = onSilence) { Text("Ovozni o‘chirish", color = Color.White, fontWeight = FontWeight.Bold) }
-                    }
-                }
-            }
             if (state.selectedFilter == OrderFilter.ATTENTION) {
                 Surface(
-                    color = WarningOrange.copy(alpha = 0.15f),
+                    color = WarningBg,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
@@ -330,7 +373,7 @@ fun OrdersContent(
             } else if (state.attentionOrdersCount > 0) {
                 Surface(
                     onClick = { onFilterSelected(OrderFilter.ATTENTION) },
-                    color = WarningOrange.copy(alpha = 0.15f),
+                    color = WarningBg,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
@@ -348,16 +391,8 @@ fun OrdersContent(
                     }
                 }
             }
-            if (state.pollFailed) {
-                Text(
-                    text = "Internet yo‘q. Qayta urinilmoqda...",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
-                )
-            }
-
-            // Search Bar
+            // Search (opened from the title bar icon)
+            if (searchOpen) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -386,6 +421,7 @@ fun OrdersContent(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            }
 
             // Error Banner (if any)
             if (state.errorMessage != null && state.orders.isNotEmpty()) {
@@ -413,7 +449,7 @@ fun OrdersContent(
                             color = ErrorRed,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = onDismissError, modifier = Modifier.size(20.dp)) {
+                        IconButton(onClick = onDismissError, modifier = Modifier.size(48.dp)) {
                             Icon(imageVector = Icons.Default.Clear, contentDescription = "Yopish", tint = ErrorRed, modifier = Modifier.size(14.dp))
                         }
                     }
@@ -441,7 +477,7 @@ fun OrdersContent(
                                     state.selectedFilter == OrderFilter.WAITING -> "Kutilayotgan buyurtma yo‘q"
                                     else -> "Buyurtma yo‘q"
                                 },
-                                subtitle = null,
+                                subtitle = if (state.searchQuery.isEmpty() && state.selectedFilter == OrderFilter.NEW) "Yangi to‘langan buyurtma kelsa, telefon qo‘ng‘iroq chaladi va u shu yerda paydo bo‘ladi." else null,
                                 modifier = Modifier.fillParentMaxSize()
                             )
                         }
