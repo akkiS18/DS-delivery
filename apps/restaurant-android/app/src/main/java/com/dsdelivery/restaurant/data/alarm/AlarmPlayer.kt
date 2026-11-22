@@ -21,8 +21,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * The kitchen alarm: the new-order ringtone followed by the phone's voice saying "Yangi buyurtma" (see [OrderVoice]), repeated until the
- * order is answered. Owner request 2026-10-30: the earlier piercing square-wave beeps were unpleasant and did not sound like "a new order". The
+ * The kitchen alarm: the new-order ringtone alone (it already says "Yangi buyurtma"), repeated until the order is answered. Owner
+ * request 2026-11-22: the phone's own speech-engine voice after the ringtone was dropped, it repeated the words of the recording.
+ * Owner request 2026-10-30: the earlier piercing square-wave beeps were unpleasant and did not sound like "a new order". The
  * ringtone is the owner's own recording (res/raw/new_order.mp3, owner decision 2026-11-05, replacing the generated chime), everything plays on the ALARM
  * stream (silent mode does not mute it), and the alarm volume is raised to the maximum whenever it rings. Safe to call from any thread.
  */
@@ -33,7 +34,6 @@ class AlarmPlayer(private val context: Context) {
     private var loop: Job? = null
     private var player: MediaPlayer? = null
     private var focus: AudioFocusRequest? = null
-    private val voice = OrderVoice(context)
 
     @Volatile private var wanted = false
 
@@ -48,7 +48,7 @@ class AlarmPlayer(private val context: Context) {
     /** One bell, for the "Ovozni sinash" button. */
     fun beepOnce() {
         raiseToMaxVolume()
-        scope.launch { playBell(); voice.say() }
+        scope.launch { playBell() }
     }
 
     /** A noisy kitchen needs every bit of the phone's volume: the alarm stream goes to the maximum while the bell rings (and for the test button). */
@@ -72,7 +72,6 @@ class AlarmPlayer(private val context: Context) {
                 raiseToMaxVolume() // somebody may have turned it down again since the last ring
                 vibrate()
                 playBell()
-                voice.say()
                 delay(REPEAT_MS)
             }
         }
@@ -83,7 +82,6 @@ class AlarmPlayer(private val context: Context) {
         loop?.cancel()
         loop = null
         releasePlayer()
-        voice.stop()
         abandonFocus()
         vibrator()?.cancel()
     }
@@ -130,7 +128,7 @@ class AlarmPlayer(private val context: Context) {
     }
 
     companion object {
-        /** Pause after the voice before the next round: the order must not be missed, so it stays insistent until it is answered. */
+        /** Pause after the ringtone before the next round: the order must not be missed, so it stays insistent until it is answered. */
         const val REPEAT_MS = 1_200L
         /** A ringtone that never ends (a broken file) must not freeze the loop. */
         private const val MAX_RING_MS = 15_000L
