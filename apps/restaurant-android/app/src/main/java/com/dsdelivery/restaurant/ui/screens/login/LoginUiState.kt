@@ -3,7 +3,8 @@ package com.dsdelivery.restaurant.ui.screens.login
 import com.dsdelivery.restaurant.data.model.Restaurant
 
 data class LoginUiState(
-    val restaurantSlug: String = "demo-restoran",
+    /** Empty: staff type their own restaurant code (no pre-filled demo code). */
+    val restaurantSlug: String = "",
     val password: String = "",
     val isPasswordVisible: Boolean = false,
     val isLoading: Boolean = false,

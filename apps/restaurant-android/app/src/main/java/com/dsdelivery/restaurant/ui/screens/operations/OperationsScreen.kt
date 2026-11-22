@@ -123,6 +123,9 @@ fun OperationsScreen(
     )
 }
 
+/** Owner 2026-11-22: restaurants do not add their own cards now (all money goes to the platform card). */
+private const val SHOW_PAYEE_CARDS = false
+
 /** A titled group of rows, like a grouped list in system settings: the title says what it is, the card holds the controls. */
 @Composable
 internal fun SettingsSection(
@@ -269,16 +272,19 @@ fun OperationsContent(
             // 1b. The kitchen bell
             BellSection()
 
-            // 2. Where the customers' money goes
-            PayeeCardsSection(
-                cards = state.cards,
-                loading = state.cardsLoading,
-                error = state.cardsError,
-                busyCardId = state.busyCardId,
-                onAdd = onAddCard,
-                onToggle = onToggleCard,
-                onRetry = onReloadCards
-            )
+            // 2. Payee cards: hidden (owner 2026-11-22: every restaurant is paid through the platform card now). PayeeCardsSection is kept
+            //    so it can come back; set SHOW_PAYEE_CARDS = true.
+            if (SHOW_PAYEE_CARDS) {
+                PayeeCardsSection(
+                    cards = state.cards,
+                    loading = state.cardsLoading,
+                    error = state.cardsError,
+                    busyCardId = state.busyCardId,
+                    onAdd = onAddCard,
+                    onToggle = onToggleCard,
+                    onRetry = onReloadCards
+                )
+            }
 
             // 2b. Table reservations
             reservationSection()

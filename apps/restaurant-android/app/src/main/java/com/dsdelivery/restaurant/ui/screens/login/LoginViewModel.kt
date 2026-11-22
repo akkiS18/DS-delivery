@@ -79,6 +79,11 @@ class LoginViewModel(
         val slug = current.restaurantSlug.trim().lowercase()
         val password = current.password
 
+        if (slug.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "Restoran kodini kiriting.") }
+            return
+        }
+
         if (slug.length !in 2..40 || !slug.matches(Regex("^[a-z0-9-]+$"))) {
             _uiState.update {
                 it.copy(errorMessage = "Restoran kodi noto‘g‘ri.")
