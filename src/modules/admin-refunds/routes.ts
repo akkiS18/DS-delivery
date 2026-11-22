@@ -30,8 +30,8 @@ export async function adminRefundsRoutes(app: FastifyInstance): Promise<void> {
     return d;
   });
 
-  // The customer paid onto a PLATFORM card, so the money is the platform's: the administrator sends the refund himself (bank transfer, outside DS)
-  // and records the bank reference. The customer is then asked to confirm, as for a restaurant refund. Refused for money the restaurant holds.
+  // The administrator sends every refund (owner decision 2026-11-22; bank transfer, outside DS) and records the bank reference. The customer is then
+  // asked to confirm. Money that was on the restaurant's own card is recorded as restaurantHeld (held back from the restaurant).
   app.post('/refunds/:id/sent', async (request, reply) => {
     const s = await requireAdminSession(request);
     const { id } = idParams.parse(request.params);
@@ -42,7 +42,7 @@ export async function adminRefundsRoutes(app: FastifyInstance): Promise<void> {
       if (r.result === 'NOT_POOL') return reply.code(409).send({ error: 'NOT_POOL' });
       if (r.result === 'REFERENCE_USED') return reply.code(409).send({ error: 'REFERENCE_USED' });
       if (r.result === 'STALE') return reply.code(409).send({ error: 'CHANGED', status: r.status });
-      await notifyAdmins('💸 Qaytarish: platforma kartasidan mijozga qaytarish belgilandi — DS Admin ilovasi.');
+      await notifyAdmins('💸 Qaytarish: mijozga pul qaytarilgani belgilandi — DS Admin ilovasi.');
       return { ok: true };
     } catch (e) {
       if (e instanceof Error && e.message === 'BANK_REFERENCE_NOTOGRI') return reply.code(400).send({ error: 'REFERENCE_INVALID', message: 'Bank ma’lumoti noto‘g‘ri (4–64 belgi, raqam bo‘lsin).' });

@@ -92,11 +92,13 @@ export interface PaymentOptions {
 export type PaymentMethod = 'CARD' | 'CASH';
 
 export type QuoteResponse =
-  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; paymentOptions?: PaymentOptions; estimatedPrepMinutes: number; walkingAvailable?: boolean }
+  | { ok: true; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing; paymentOptions?: PaymentOptions; estimatedPrepMinutes: number; walkingAvailable?: boolean;
+    /** "O‘zim olib ketaman" may be chosen here, and where the customer collects the order. Missing (older server) = not offered. */
+    pickupAvailable?: boolean; pickupAddress?: string | null }
   | { ok: false; issues: CheckoutIssue[]; lines: QuoteLine[]; totalSom: number; baseTotalSom?: number; pricing?: PublicPricing };
 
 export type CustomerStage =
-  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'SELF_DELIVERY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
+  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'SELF_DELIVERY' | 'PICKUP_READY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
   | 'DELIVERED' | 'CANCELLATION_REQUESTED' | 'CANCELLED' | 'EXPIRED' | 'NEEDS_HELP';
 
 export interface PaymentInstructions {
@@ -186,8 +188,10 @@ export interface OrderView {
   taxiCompanyName?: string | null;
   deliveredAt: string | null;
   /** Walking delivery: what the customer allowed at checkout, and what the restaurant decided at "Tayyor" (absent from an older backend: taxi). */
-  deliveryPreference?: 'TAXI' | 'WALK_OK';
-  deliveryMode?: 'TAXI' | 'SELF';
+  deliveryPreference?: 'TAXI' | 'WALK_OK' | 'PICKUP';
+  deliveryMode?: 'TAXI' | 'SELF' | 'PICKUP';
+  /** Pickup only: the restaurant's address, where the customer collects the order. */
+  pickupAddress?: string | null;
   /** "Did you receive it?" is asked once the taxi is on its way; a signal only. */
   receivedAt?: string | null;
   canConfirmReceived?: boolean;
@@ -221,6 +225,8 @@ export interface OrderSummary {
   itemsPreview?: Array<{ name: string; quantity: number }>;
   itemsMore?: number;
   method?: PaymentMethod;
+  /** PICKUP = the customer collects it at the restaurant. An older backend omits it. */
+  deliveryMode?: 'TAXI' | 'SELF' | 'PICKUP';
   /** Stars given to the food (null = not rated) and whether the 24 h window is still open. */
   rating?: number | null;
   canRate?: boolean;

@@ -306,8 +306,12 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
 
     const phone = body.phone ?? customer.phone;
     if (!phone) throw httpError(400, 'PHONE_REQUIRED');
-    let addressText: string; let lat: number | null = null; let lng: number | null = null;
-    if (body.addressId) {
+    // Pickup ("O‘zim olib ketaman"): the customer gives no address; the order stores a fixed label (orders/pickup.ts).
+    const pickup = body.deliveryPreference === 'PICKUP';
+    let addressText: string | undefined; let lat: number | null = null; let lng: number | null = null;
+    if (pickup) {
+      // nothing to resolve
+    } else if (body.addressId) {
       const a = await ownedAddress(customer.id, body.addressId); // another customer's address id is "not found"
       addressText = a.addressText; lat = a.lat; lng = a.lng;
     } else {
@@ -320,7 +324,7 @@ export async function miniAppRoutes(app: FastifyInstance, engine: PaymentEngineV
     // Remember what the customer entered, only after the order exists (a refused checkout stores nothing).
     if (body.phone && body.phone !== customer.phone) await setPhone(customer.id, body.phone);
     if (body.addressId) await touchAddress(customer.id, body.addressId);
-    else if (body.address?.save) {
+    else if (body.address?.save && addressText !== undefined) {
       await createAddress(customer.id, { ...(body.address.label ? { label: body.address.label } : {}), addressText, ...(lat !== null ? { lat, lng: lng! } : {}) }).catch(err => {
         if (!(err instanceof ProfileError)) throw err; // the address limit must not fail an order that already exists
       });

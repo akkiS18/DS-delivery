@@ -5,6 +5,7 @@ import { paymentOptions, type PaymentOptions } from '../payment/options.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { publicPricing, type PublicPricing } from '../pricing/fee.js';
 import { validateCheckout, type CheckoutIssue, type CheckoutLine, type PlaceOrderInput } from './service.js';
+import { pickupAvailable, pickupOpen } from './pickup.js';
 
 /**
  * Stage 6F: the backend contract for the future Telegram Mini App checkout. NO HTTP route is registered here on purpose:
@@ -39,7 +40,7 @@ export const checkoutRequestSchema = z.object({
   /** What the customer saw. Required: the order is refused with 409 NARX_OZGARGAN if the current total differs. */
   expectedTotalSom: z.number().int().min(0).max(100_000_000),
   expectedUnitPrices: z.record(id, z.number().int().min(0)).optional(),
-  /** Exactly one of: a saved address of THIS customer, or an inline address. */
+  /** Exactly one of: a saved address of THIS customer, or an inline address. Neither for a pickup order (the customer collects it). */
   addressId: id.optional(),
   address: inlineAddress.optional(),
   /** Optional: the saved profile phone is used when omitted. A phone sent here is remembered for next time. */
@@ -48,15 +49,20 @@ export const checkoutRequestSchema = z.object({
   taxiCompanyId: id.optional(),
   /** How the customer pays. Omitted (older app versions): CARD, exactly as before. */
   paymentMethod: z.enum(['CARD', 'CASH']).optional(),
-  /** Omitted (older app versions): TAXI. WALK_OK = the customer allows the restaurant to bring the order on foot (the restaurant still decides). */
-  deliveryPreference: z.enum(['TAXI', 'WALK_OK']).optional(),
-}).strict().refine(x => (x.addressId === undefined) !== (x.address === undefined), { message: 'addressId yoki address' });
+  /** Omitted (older app versions): TAXI. WALK_OK = the customer allows the restaurant to bring the order on foot (the restaurant still decides).
+   *  PICKUP = "O‘zim olib ketaman": the customer collects it at the restaurant; no address and no taxi service are sent. */
+  deliveryPreference: z.enum(['TAXI', 'WALK_OK', 'PICKUP']).optional(),
+}).strict().refine(x => x.deliveryPreference === 'PICKUP'
+  ? x.addressId === undefined && x.address === undefined && x.taxiCompanyId === undefined
+  : (x.addressId === undefined) !== (x.address === undefined), { message: 'addressId yoki address' });
 // A chosen company is the customer's decision (the delivery price is the taxi service's own): no silent fallback to another one.
 
 export const customerCancelRequestSchema = z.object({ reasonCode: z.enum(CUSTOMER_REASONS).optional() }).strict();
 
 export type QuoteResponse =
-  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing; paymentOptions: PaymentOptions; estimatedPrepMinutes: number; walkingAvailable: boolean }
+  | { ok: true; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing; paymentOptions: PaymentOptions; estimatedPrepMinutes: number; walkingAvailable: boolean;
+    /** "O‘zim olib ketaman" may be chosen (the restaurant allows it and the administrator opened it), and where the customer collects the order. */
+    pickupAvailable: boolean; pickupAddress: string | null }
   | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; baseTotalSom: number; pricing: PublicPricing };
 
 /** Price/availability preview without creating anything. Same validation the order creation runs. */
@@ -65,22 +71,26 @@ export async function quoteCheckout(input: z.infer<typeof quoteRequestSchema>, o
   const pricing = publicPricing(await loadFeeConfig(db)); // lets the app show the same prices locally while the customer edits the cart
   return r.ok
     ? { ok: true, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, pricing,
-      paymentOptions: await paymentOptions({ restaurantId: input.restaurantId, totalSom: r.totalSom, isTest: opts.isTest ?? false }), estimatedPrepMinutes: r.restaurant.defaultPrepMinutes, walkingAvailable: r.restaurant.walkingDeliveryEnabled }
+      paymentOptions: await paymentOptions({ restaurantId: input.restaurantId, totalSom: r.totalSom, isTest: opts.isTest ?? false }), estimatedPrepMinutes: r.restaurant.defaultPrepMinutes, walkingAvailable: r.restaurant.walkingDeliveryEnabled,
+      pickupAvailable: pickupAvailable(r.restaurant, await pickupOpen(db)), pickupAddress: r.restaurant.pickupAddress?.trim() || null }
     : { ok: false, issues: r.issues, lines: r.lines, totalSom: r.totalSom, baseTotalSom: r.fee.baseTotalSom, pricing };
 }
 
 /** The only place the customer identity enters: the owner must come from verified initData (Telegram id) or a server-side guest session (customer id), never from the request. */
 export function toPlaceOrderInput(
   owner: string | { customerId: string }, customerName: string | undefined,
-  resolved: { phone: string; addressText: string; lat?: number | null; lng?: number | null },
-  req: Pick<z.infer<typeof checkoutRequestSchema>, 'checkoutKey' | 'restaurantId' | 'items' | 'expectedTotalSom' | 'expectedUnitPrices'> & { taxiCompanyId?: string | undefined; paymentMethod?: 'CARD' | 'CASH' | undefined; deliveryPreference?: 'TAXI' | 'WALK_OK' | undefined },
+  /** addressText is omitted only for a pickup order. */
+  resolved: { phone: string; addressText?: string | undefined; lat?: number | null; lng?: number | null },
+  req: Pick<z.infer<typeof checkoutRequestSchema>, 'checkoutKey' | 'restaurantId' | 'items' | 'expectedTotalSom' | 'expectedUnitPrices'> & { taxiCompanyId?: string | undefined; paymentMethod?: 'CARD' | 'CASH' | undefined; deliveryPreference?: 'TAXI' | 'WALK_OK' | 'PICKUP' | undefined },
   paymentMode: 'MOCK' | 'REAL',
 ): PlaceOrderInput {
+  const pickup = req.deliveryPreference === 'PICKUP'; // no address, no map point, no taxi
   return {
-    restaurantId: req.restaurantId, ...(typeof owner === 'string' ? { telegramUserId: owner } : { customerId: owner.customerId }), ...(customerName ? { customerName } : {}), phone: resolved.phone, addressText: resolved.addressText,
-    ...(resolved.lat != null && resolved.lng != null ? { deliveryLat: resolved.lat, deliveryLng: resolved.lng } : {}),
+    restaurantId: req.restaurantId, ...(typeof owner === 'string' ? { telegramUserId: owner } : { customerId: owner.customerId }), ...(customerName ? { customerName } : {}), phone: resolved.phone,
+    ...(!pickup && resolved.addressText !== undefined ? { addressText: resolved.addressText } : {}),
+    ...(!pickup && resolved.lat != null && resolved.lng != null ? { deliveryLat: resolved.lat, deliveryLng: resolved.lng } : {}),
     checkoutKey: req.checkoutKey, createdViaBot: true, paymentMode, paymentMethod: req.paymentMethod ?? 'CARD', ...(req.deliveryPreference ? { deliveryPreference: req.deliveryPreference } : {}), items: req.items, expectedTotalSom: req.expectedTotalSom,
-    ...(req.taxiCompanyId ? { taxiCompanyId: req.taxiCompanyId } : { autoTaxi: true }),
+    ...(pickup ? {} : req.taxiCompanyId ? { taxiCompanyId: req.taxiCompanyId } : { autoTaxi: true }),
     ...(req.expectedUnitPrices ? { expectedUnitPrices: req.expectedUnitPrices } : {}),
   };
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, MapPin } from 'lucide-react';
+import { ChevronLeft, MapPin, ShoppingBag } from 'lucide-react';
 import { Button, ErrorBox, Icon, Skeletons, Sheet } from '../components/ui';
 import { PayCard } from '../components/PayCard';
 import { PaidDialog } from '../components/PaidDialog';
@@ -81,6 +81,8 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
   const pay = o.payment;
   const ins = pay?.instructions ?? null;
   const cash = pay?.method === 'CASH';
+  // "O‘zim olib ketaman": no taxi, the customer collects the order at the restaurant (and pays cash at its counter).
+  const pickup = o.deliveryMode === 'PICKUP';
   const awaiting = o.stage === 'PAYMENT_PENDING';
   const payLeft = awaiting && anchor ? paymentRemainingSeconds(ins?.expiresAt, anchor, perfNow) : null;
   const trouble = troubleHint(o, payLeft);
@@ -134,7 +136,7 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
       {paidNotice && <PaidDialog cash={cash} onClose={() => setPaidNotice(false)} />}
 
       <div className="card stack">
-        <StatusHero stage={o.stage} cash={cash} />
+        <StatusHero stage={o.stage} cash={cash} pickup={pickup} />
         {o.stage === 'DELIVERED' && <p className="sub center">{o.deliveredAt ? `${clock(o.deliveredAt)} • ` : ''}{t('Yoqimli ishtaha!')}</p>}
         {o.canConfirmReceived && !o.receivedAt && (
           <div className="stack">
@@ -146,6 +148,13 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
         {o.awaitingRestaurant && o.cancel.allowed && <div className="banner notice" role="status">{t('To‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz. Qabul qilgunicha buyurtmani bekor qilishingiz mumkin.')}</div>}
         {o.restaurantAccepted && !o.cancel.allowed && !isTerminal(o.stage) && o.stage !== 'PAYMENT_PENDING' && (
           <div className="banner notice" role="note">{rich('Restoran buyurtmani qabul qildi — endi uni ilovadan bekor qilib bo‘lmaydi. Jiddiy sabab bo‘lsa, restoranga qo‘ng‘iroq qiling{phone}.', { phone: o.restaurantPhone ? <>: <a href={`tel:${o.restaurantPhone}`}>{o.restaurantPhone}</a></> : '' })}</div>
+        )}
+        {pickup && !isTerminal(o.stage) && o.stage !== 'CANCELLATION_REQUESTED' && (
+          <div className="banner notice" role="status">
+            <strong>{o.stage === 'PICKUP_READY' ? t('Buyurtmangiz tayyor. Restorandan olib keting.') : t('Tayyor bo‘lganda xabar beramiz. Taksi chaqirilmaydi.')}</strong>
+            {o.pickupAddress && <div>{rich('Manzil: {address}', { address: <strong>{o.pickupAddress}</strong> })}</div>}
+            {o.restaurantPhone && <div>{rich('Restoran telefoni: {phone}', { phone: <a href={`tel:${o.restaurantPhone}`}>{o.restaurantPhone}</a> })}</div>}
+          </div>
         )}
         {o.stage === 'SELF_DELIVERY' && <div className="banner notice">{t('Restoran buyurtmani o‘zi olib boradi. Taksi chaqirilmaydi, yetkazish uchun alohida haq to‘lamaysiz.')}</div>}
         {o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage) && (
@@ -182,14 +191,14 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
       {awaiting && pay && cash && (
         <div className="card stack" aria-label={t('Naqd to‘lov')}>
           <h2 style={{ fontSize: 17 }}>{t('Naqd to‘lov')}</h2>
-          <div className="row between"><span>{t('Haydovchiga beriladigan summa')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.cash?.dueSom ?? pay.amountSom)}</span></div>
+          <div className="row between"><span>{pickup ? t('Kassada to‘lanadigan summa') : t('Haydovchiga beriladigan summa')}</span><span className="bold mono" style={{ fontSize: 20 }}>{som(pay.cash?.dueSom ?? pay.amountSom)}</span></div>
           <div className="banner" role="status"><strong>{t('Restoran buyurtmani tasdiqlashini kutyapmiz.')}</strong><br />{pay.cash?.acceptBy ? t('Tasdiqlangach taom tayyorlanadi. Javob muddati: {time} gacha. Karta yoki o‘tkazma kerak emas.', { time: clock(pay.cash.acceptBy) }) : t('Tasdiqlangach taom tayyorlanadi. Karta yoki o‘tkazma kerak emas.')}</div>
         </div>
       )}
       {!awaiting && cash && pay?.cash && !isTerminal(o.stage) && (
         <div className="card stack" aria-label={t('Naqd to‘lov')}>
           <div className="row between"><span className="bold">{t('Naqd to‘lov')}</span><span className="bold mono">{som(pay.cash.dueSom)}</span></div>
-          <p className="sub small">{t('Taom narxini yetkazib berilganda haydovchiga bering. Yetkazish haqi taksi tarifi bo‘yicha alohida.')}</p>
+          <p className="sub small">{pickup ? t('Taom narxini olib ketayotganda restoran kassasiga to‘laysiz.') : t('Taom narxini yetkazib berilganda haydovchiga bering. Yetkazish haqi taksi tarifi bo‘yicha alohida.')}</p>
         </div>
       )}
 
@@ -248,10 +257,12 @@ export function OrderScreen({ id, go }: { id: string; go: (r: Route) => void }) 
         {o.platformLine ? (<>
           <div className="row between"><span className="bold">{t('Taomlar')}</span><span className="bold mono">{som(o.foodTotalSom - o.platformLine.chargedSom)}</span></div>
           <PlatformLineRow chargedSom={o.platformLine.chargedSom} waivedSom={o.platformLine.waivedSom} />
-          <div className="row between"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
+          <div className="row between"><span className="bold">{pickup ? t('Jami') : t('Jami (taksidan tashqari)')}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>
         </>) : <div className="row between"><span className="bold">{t('Taomlar jami')}</span><span className="bold mono">{som(o.foodTotalSom)}</span></div>}
-        <TaxiFareBox selfDelivered={o.deliveryMode === 'SELF'} walk={o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage)} taxiName={o.taxiCompanyName ?? null} />
-        <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={MapPin} size={16} className="shrink" /><span className="grow">{o.address}</span></div>
+        {!pickup && <TaxiFareBox selfDelivered={o.deliveryMode === 'SELF'} walk={o.deliveryPreference === 'WALK_OK' && ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING'].includes(o.stage)} taxiName={o.taxiCompanyName ?? null} />}
+        {pickup
+          ? <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={ShoppingBag} size={16} className="shrink" /><span className="grow">{t('O‘zim olib ketaman')}{o.pickupAddress ? ` • ${o.pickupAddress}` : ''}</span></div>
+          : <div className="sub small row" style={{ alignItems: 'flex-start' }}><Icon as={MapPin} size={16} className="shrink" /><span className="grow">{o.address}</span></div>}
       </div>
 
       {o.cancel.allowed && !isTerminal(o.stage) && (

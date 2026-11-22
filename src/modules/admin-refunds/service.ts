@@ -2,9 +2,9 @@ import { db } from '../../lib/db.js';
 import { isPlatformHeld } from '../refunds/workflow.js';
 
 /**
- * DS Admin app, A4c: refunds. DS Delivery never moves money: the restaurant refunds from its own account and the platform only records who said what.
- * The administrator confirms with a written note (adminConfirmRefund) and, when the customer paid onto the PLATFORM card (the platform holds the money),
- * also sends the refund himself and types the bank reference (adminMarkRefundSent): the restaurant never had that money.
+ * DS Admin app, A4c: refunds. The restaurant only agrees or refuses; since the owner decision of 2026-11-22 the administrator sends EVERY refund and types
+ * the bank reference (adminMarkRefundSent). byPlatform tells whether the money was on the platform card; otherwise the restaurant had it, and that amount
+ * is held back from the restaurant. The administrator can also confirm with a written note (adminConfirmRefund).
  */
 export const OPEN_STATUSES = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'] as const;
 const RECENT_DAYS = 14;
@@ -23,7 +23,7 @@ export interface RefundRow {
   canConfirm: boolean;
   /** The customer paid onto a platform card: the money is the platform's, so the administrator (not the restaurant) refunds it. */
   byPlatform: boolean;
-  /** The administrator should now send the refund from the platform card and type the bank reference (approved, or disputed after a first send). */
+  /** The administrator should now send the refund and type the bank reference (approved, or disputed after a first send). */
   canSend: boolean;
 }
 
@@ -51,7 +51,7 @@ export function toRow(r: RowSource): RefundRow {
     id: r.id, number: r.number, orderCode: r.order.code, restaurantName: r.order.restaurant.name, status: r.status, kind: r.kind,
     reason: reasonLabel(r.reasonCode), paidSom: som(r.paidAmountTiyin), approvedSom: r.approvedAmountTiyin === null ? null : som(r.approvedAmountTiyin),
     requestedAt: r.requestedAt.toISOString(), lastAt: last.toISOString(), canConfirm: r.status === 'SENT' || r.status === 'DISPUTED',
-    byPlatform: isPlatformHeld(r.payment), canSend: isPlatformHeld(r.payment) && (r.status === 'APPROVED' || r.status === 'DISPUTED'),
+    byPlatform: isPlatformHeld(r.payment), canSend: r.status === 'APPROVED' || r.status === 'DISPUTED',
   };
 }
 

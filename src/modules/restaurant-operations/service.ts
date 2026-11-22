@@ -10,6 +10,8 @@ const minutesOf = (t: string): number => Number(t.slice(0, 2)) * 60 + Number(t.s
 export const statusSchema = z.object({ isPaused: z.boolean() }).strict();
 export const timezoneSchema = z.object({ timezone: z.string().min(3).max(64).refine(isValidTimezone, 'IANA time zone') }).strict();
 export const prepSchema = z.object({ defaultPrepMinutes: z.number().int().min(5).max(120) }).strict();
+/** "Mijoz o‘zi olib ketadi" (owner request 2026-11-22): on for every restaurant by default; the restaurant can turn it off. */
+export const customerPickupSchema = z.object({ enabled: z.boolean() }).strict();
 const dayShape = z.object({ dayOfWeek: z.number().int().min(1).max(7), isOpen: z.boolean(), openTime: time, closeTime: time }).strict();
 /** Exactly one entry per ISO weekday (1 = Monday .. 7 = Sunday). An open day must close after it opens. */
 export const workingHoursSchema = z.object({
@@ -37,11 +39,12 @@ function readDays(raw: Prisma.JsonValue | null): WorkingDay[] {
   return parsed.success ? parsed.data.days.slice().sort((a, b) => a.dayOfWeek - b.dayOfWeek) : DEFAULT_WORKING_DAYS;
 }
 
-const select = { isPaused: true, defaultPrepMinutes: true, workingHours: true, timezone: true } as const;
-type Row = { isPaused: boolean; defaultPrepMinutes: number; workingHours: Prisma.JsonValue | null; timezone: string };
+const select = { isPaused: true, defaultPrepMinutes: true, workingHours: true, timezone: true, customerPickupEnabled: true } as const;
+type Row = { isPaused: boolean; defaultPrepMinutes: number; workingHours: Prisma.JsonValue | null; timezone: string; customerPickupEnabled: boolean };
 /** false = no schedule was ever saved: customers are NOT limited by hours (always open) even though `workingDays` shows the defaults; the app says so and offers to save them. */
 const hoursSaved = (raw: Prisma.JsonValue | null): boolean => workingHoursSchema.safeParse({ days: raw }).success;
-const view = (r: Row) => ({ isPaused: r.isPaused, defaultPrepMinutes: r.defaultPrepMinutes, workingDays: readDays(r.workingHours), workingHoursSet: hoursSaved(r.workingHours), timezone: r.timezone });
+const view = (r: Row) => ({ isPaused: r.isPaused, defaultPrepMinutes: r.defaultPrepMinutes, workingDays: readDays(r.workingHours), workingHoursSet: hoursSaved(r.workingHours), timezone: r.timezone,
+  customerPickupEnabled: r.customerPickupEnabled });
 
 export async function getOperations(restaurantId: string) {
   return view(await db.restaurant.findUniqueOrThrow({ where: { id: restaurantId }, select }));
@@ -64,4 +67,9 @@ export async function setTimezone(restaurantId: string, timezone: string) {
 
 export async function setDefaultPrep(restaurantId: string, defaultPrepMinutes: number) {
   return view(await db.restaurant.update({ where: { id: restaurantId }, data: { defaultPrepMinutes }, select }));
+}
+
+/** Idempotent set. Only new checkouts are affected: pickup orders already placed keep going (the customer is coming for them). */
+export async function setCustomerPickup(restaurantId: string, enabled: boolean) {
+  return view(await db.restaurant.update({ where: { id: restaurantId }, data: { customerPickupEnabled: enabled }, select }));
 }

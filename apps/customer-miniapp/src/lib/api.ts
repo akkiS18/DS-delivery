@@ -75,8 +75,9 @@ export interface CheckoutBody {
   taxiCompanyId?: string;
   /** CARD (default) or CASH on delivery. */
   paymentMethod?: 'CARD' | 'CASH';
-  /** WALK_OK = "my home is close, the restaurant may bring it on foot" (the restaurant decides; otherwise a taxi comes). Omitted = taxi. */
-  deliveryPreference?: 'WALK_OK';
+  /** WALK_OK = "my home is close, the restaurant may bring it on foot" (the restaurant decides; otherwise a taxi comes). Omitted = taxi.
+   *  PICKUP = "O‘zim olib ketaman": the customer collects it at the restaurant; then no address and no taxi service are sent. */
+  deliveryPreference?: 'WALK_OK' | 'PICKUP';
 }
 
 export interface ReservationBody {

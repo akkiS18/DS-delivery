@@ -1,5 +1,5 @@
 import type { KeyboardEvent } from 'react';
-import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, Footprints, History, MessageCircle, PackageCheck, ReceiptText, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CarFront, ChefHat, ChevronRight, Clock3, CreditCard, Footprints, History, MessageCircle, PackageCheck, ReceiptText, ShoppingBag, type LucideIcon } from 'lucide-react';
 import { OrdersSwitch } from '../components/OrdersSwitch';
 import { Button, Empty, ErrorBox, Icon, Skeletons } from '../components/ui';
 import { clock, som } from '../lib/format';
@@ -11,7 +11,7 @@ import { useOrders } from '../lib/useOrders';
 import { t } from '../i18n';
 
 const STAGE_ICON: Record<CustomerStage, LucideIcon> = {
-  PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Clock3, PREPARING: ChefHat, READY: PackageCheck, SELF_DELIVERY: Footprints, TAXI_REQUESTED: CarFront,
+  PAYMENT_PENDING: CreditCard, PAYMENT_CHECKING: Clock3, PREPARING: ChefHat, READY: PackageCheck, SELF_DELIVERY: Footprints, PICKUP_READY: ShoppingBag, TAXI_REQUESTED: CarFront,
   TAXI_ACCEPTED: CarFront, TAXI_SENT: CarFront, DELIVERED: PackageCheck, CANCELLATION_REQUESTED: Clock3, CANCELLED: AlertTriangle,
   EXPIRED: AlertTriangle, NEEDS_HELP: AlertTriangle,
 };
@@ -35,7 +35,7 @@ export function Orders({ go }: { go: (r: Route) => void }) {
   const activeCard = (o: OrderSummary) => {
     const taxi = o.stage.startsWith('TAXI_') && o.taxi?.companyName ? o.taxi.companyName : null;
     const attn = needsAttention(o.stage, o.method);
-    const steps = attn ? null : heroSteps(o.stage);
+    const steps = attn ? null : heroSteps(o.stage, o.deliveryMode === 'PICKUP');
     return (
       <div key={o.id} className={`ocard ${attn ? 'pay' : 'live'}`} role="button" tabIndex={0} onClick={() => open(o)} onKeyDown={key(o)}
         aria-label={t('Buyurtma {code}, {name}, {stage}', { code: o.code, name: o.restaurantName, stage: t(STAGE_LABEL[o.stage]) })}>

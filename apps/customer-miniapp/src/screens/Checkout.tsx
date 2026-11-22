@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Banknote, ChevronLeft, ChevronRight, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBasket, Smartphone, Truck } from 'lucide-react';
+import { Banknote, ChevronLeft, ChevronRight, CircleCheck, CreditCard, Footprints, MapPin, ShoppingBag, ShoppingBasket, Smartphone, Truck } from 'lucide-react';
 import { Fold, PayTile, TaxiTile, Tile } from '../components/Choice';
 import { LocationPicker } from '../components/LocationPicker';
 import type { MapState } from '../lib/mapConfig';
@@ -44,6 +44,10 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const [walk, setWalk] = useState(false);
   // Walking is offered only by a restaurant that allows it (the server says so in the quote); everywhere else the option is not shown.
   const [walkingAvailable, setWalkingAvailable] = useState(false);
+  // "O‘zim olib ketaman": offered only where the server says so (restaurant switch + platform rollout switch). No address, no taxi.
+  const [pickup, setPickup] = useState(false);
+  const [pickupAvailable, setPickupAvailable] = useState(false);
+  const [pickupAddress, setPickupAddress] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [sheet, setSheet] = useState<'address' | 'phone' | null>(null); // address and phone are edited in a sheet opened from their row
   const [submitting, setSubmitting] = useState(false);
@@ -86,13 +90,17 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         const can = q.ok && q.walkingAvailable === true;
         setWalkingAvailable(can);
         if (!can) setWalk(false);
-      }, () => { /* no advice: card only, no walking */ });
+        const canPick = q.ok && q.pickupAvailable === true;
+        setPickupAvailable(canPick);
+        setPickupAddress(q.ok ? q.pickupAddress ?? null : null);
+        if (!canPick) setPickup(false);
+      }, () => { /* no advice: card only, no walking, no pickup */ });
     return () => ac.abort();
   }, [cart.restaurantId, itemsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const method = effectiveMethod(chosen, payOptions);
   const choices = methodChoices(payOptions);
 
-  const signature = useMemo(() => `${cart.restaurantId}|${itemsKey}|${taxiId ?? ''}|${method}|${walk ? 'walk' : ''}`, [cart.restaurantId, itemsKey, taxiId, method, walk]);
+  const signature = useMemo(() => `${cart.restaurantId}|${itemsKey}|${pickup ? 'pickup' : taxiId ?? ''}|${method}|${walk ? 'walk' : ''}`, [cart.restaurantId, itemsKey, taxiId, method, walk, pickup]);
 
   if (cart.lines.length === 0) return <div className="page"><Empty icon={<Icon as={ShoppingBasket} size={44} />} title={t('Savat bo‘sh')} action={<Button onClick={() => go({ name: 'home' })}>{t('Restoranlar')}</Button>} /></div>;
   if (!profile) return <div className="page"><Spinner /></div>;
@@ -100,12 +108,14 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const savedAddress = addresses.find(a => a.id === selected) ?? null;
   const newErrors = selected === 'new' ? validateAddress({ addressText: text, lat: coords?.lat ?? null, lng: coords?.lng ?? null }) : {};
   const phone = normalizePhone(phoneInput);
-  const ready = checkoutReady({ addressText: selected === 'new' ? text : savedAddress?.addressText ?? null, phone });
+  // A pickup needs only the phone: the customer gives no address and books no taxi.
+  const ready = pickup ? checkoutReady({ addressText: 'pickup', phone }) : checkoutReady({ addressText: selected === 'new' ? text : savedAddress?.addressText ?? null, phone });
   // Several services and none picked yet: the customer must choose. No services at all (or the list failed): the server answers with the reason.
-  const taxiMissing = taxiOptions !== null && taxiOptions.length > 1 && taxiId === null;
+  const taxiMissing = !pickup && taxiOptions !== null && taxiOptions.length > 1 && taxiId === null;
   // A new address needs a spot on the map (the taxi navigates to it). Only when the map itself cannot be shown does the text address stand alone.
-  const needPin = selected === 'new' && mapState !== 'failed' && !coords;
-  const canSubmit = ready.ok && !hasErrors(newErrors) && !needPin && !submitting && taxiOptions !== null && !taxiMissing;
+  const needPin = !pickup && selected === 'new' && mapState !== 'failed' && !coords;
+  const addressBad = !pickup && selected === 'new' && hasErrors(newErrors);
+  const canSubmit = ready.ok && !addressBad && !needPin && !submitting && (pickup || taxiOptions !== null) && !taxiMissing;
   const view = cartView(cart);
   const total = view.totalSom;
 
@@ -113,14 +123,14 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
   const addressProblem = (selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') ? t('Manzilni kiriting') : needPin ? t('Xaritada joyni belgilang') : '';
 
   const missingText = [
-    ready.missing.includes('address') || (selected === 'new' && hasErrors(newErrors)) ? t('Manzilni kiriting') : '',
+    ready.missing.includes('address') || addressBad ? t('Manzilni kiriting') : '',
     needPin ? t('Xaritada joyni belgilang') : '',
     ready.missing.includes('phone') ? t('Telefon raqamini kiriting') : '',
     taxiMissing ? t('Taksi xizmatini tanlang') : '',
   ].filter(Boolean).join(' • ');
-  const stickyHint = touched && !canSubmit && taxiOptions !== null && missingText
+  const stickyHint = touched && !canSubmit && (pickup || taxiOptions !== null) && missingText
     ? missingText
-    : method === 'CASH' ? t('Restoran tasdiqlagach taom tayyorlanadi, pulni haydovchiga berasiz') : t('Keyingi ekranda restoran kartasiga o‘tkazma qilasiz');
+    : method === 'CASH' ? (pickup ? t('Restoran tasdiqlagach taom tayyorlanadi, pulni kassada berasiz') : t('Restoran tasdiqlagach taom tayyorlanadi, pulni haydovchiga berasiz')) : t('Keyingi ekranda restoran kartasiga o‘tkazma qilasiz');
 
   const locate = () => {
     if (!navigator.geolocation) { toast(t('Joylashuvni aniqlab bo‘lmadi')); return; }
@@ -135,11 +145,12 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
     if (!canSubmit) {
       // Not silently disabled: say what is missing and take the customer to it.
       // Address and phone live in sheets: open the one that is missing; the delivery choice is on the page itself.
-      if ((selected === 'new' && hasErrors(newErrors)) || ready.missing.includes('address') || needPin) setSheet('address');
+      if (addressBad || ready.missing.includes('address') || needPin) setSheet('address');
       else if (ready.missing.includes('phone')) setSheet('phone');
       else if (taxiMissing) window.setTimeout(() => document.getElementById('co-delivery')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
       return;
     }
+    if (pickup) { void place(); return; } // no taxi, so no "the taxi fare is separate" question
     setAsking(true); // the order is placed by place(), after the customer has seen that the taxi fare is separate and said "Ha"
   };
 
@@ -153,17 +164,17 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       items: cart.lines.map(l => ({ productId: l.productId, quantity: l.quantity })),
       expectedTotalSom: total,
       expectedUnitPrices: Object.fromEntries(view.lines.map(l => [l.productId, l.unitSom])),
-      ...(selected === 'new'
+      ...(pickup ? {} : selected === 'new'
         ? { address: { addressText: text.trim(), ...(coords ?? {}), save } }
         : { addressId: selected! }),
       ...(phone && phone !== profile.phone ? { phone } : {}),
-      ...(taxiId ? { taxiCompanyId: taxiId } : {}),
+      ...(!pickup && taxiId ? { taxiCompanyId: taxiId } : {}),
       ...(method === 'CASH' ? { paymentMethod: 'CASH' as const } : {}),
-      ...(walk ? { deliveryPreference: 'WALK_OK' as const } : {}),
+      ...(pickup ? { deliveryPreference: 'PICKUP' as const } : walk ? { deliveryPreference: 'WALK_OK' as const } : {}),
     };
     try {
       const { order } = await api.createOrder(body);
-      if (taxiId) saveTaxiChoice(taxiId);
+      if (taxiId && !pickup) saveTaxiChoice(taxiId);
       forgetKey(); haptic.success();
       dispatch({ type: 'clear' });
       void refreshProfile();
@@ -175,6 +186,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       if (d.kind === 'PRICE' && d.currentLines) dispatch({ type: 'reprice', lines: d.currentLines.filter(l => !l.free && !l.packaging).map(l => ({ productId: l.productId, unitSom: l.baseUnitSom ?? l.unitSom })) });
       if (d.kind === 'UNAVAILABLE' && d.unavailableIds?.length) dispatch({ type: 'drop', productIds: d.unavailableIds });
       if (d.kind === 'NO_TAXI') { setTaxiId(null); loadTaxis(); } // the chosen service went away: show the current list
+      if (d.kind === 'NO_PICKUP') { setPickup(false); setPickupAvailable(false); } // switched off meanwhile: choose a delivery
       setProblem(d);
       if (!(e instanceof ApiError) || e.code === 'NARX_OZGARGAN') { /* the key is kept: nothing was created */ }
     } finally { busy.current = false; setSubmitting(false); }
@@ -188,7 +200,16 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       </header>
     <div className="page co-page" style={{ paddingTop: 4 }}>
 
-      <section className="card inforows" aria-label={t('Yetkazish manzili')}>
+      <section className="card inforows" aria-label={pickup ? t('Olib ketish manzili') : t('Yetkazish manzili')}>
+        {pickup ? (
+          <div className="inforow" id="co-address">
+            <span className="inforow-ico" aria-hidden><Icon as={ShoppingBag} size={22} /></span>
+            <span className="inforow-body">
+              <span className="inforow-lbl">{t('Olib ketish manzili')}</span>
+              <span className="inforow-val">{pickupAddress ? `${cart.restaurantName} • ${pickupAddress}` : cart.restaurantName}</span>
+            </span>
+          </div>
+        ) : (
         <button type="button" id="co-address" className="inforow" onClick={() => setSheet('address')}>
           <span className="inforow-ico" aria-hidden><Icon as={MapPin} size={22} /></span>
           <span className="inforow-body">
@@ -198,6 +219,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
           </span>
           <Icon as={ChevronRight} size={20} className="inforow-chev" />
         </button>
+        )}
         <span className="inforow-sep" aria-hidden />
         <button type="button" id="co-phone" className="inforow" onClick={() => setSheet('phone')}>
           <span className="inforow-ico" aria-hidden><Icon as={Smartphone} size={22} /></span>
@@ -258,16 +280,20 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
       <section className="stack" id="co-delivery" aria-label={t('Yetkazish usuli')}>
         <h2 className="co-h">{t('Yetkazish usuli')}</h2>
         {taxiOptions === null && !taxiFailed && <Spinner />}
-        {taxiFailed && <div className="banner warn" role="alert">{t('Taksi xizmatlari ro‘yxatini yuklab bo‘lmadi.')} <Button small variant="secondary" onClick={loadTaxis}>{t('Qayta urinish')}</Button></div>}
-        {taxiOptions !== null && taxiOptions.length === 0 && <div className="banner warn" role="alert">{t('Hozir yetkazib berish uchun taksi xizmati mavjud emas. Birozdan keyin urinib ko‘ring.')}</div>}
-        {taxiOptions !== null && taxiOptions.length > 0 && (
+        {taxiFailed && !pickup && <div className="banner warn" role="alert">{t('Taksi xizmatlari ro‘yxatini yuklab bo‘lmadi.')} <Button small variant="secondary" onClick={loadTaxis}>{t('Qayta urinish')}</Button></div>}
+        {taxiOptions !== null && taxiOptions.length === 0 && !pickup && <div className="banner warn" role="alert">{t('Hozir yetkazib berish uchun taksi xizmati mavjud emas. Birozdan keyin urinib ko‘ring.')}</div>}
+        {((taxiOptions !== null && taxiOptions.length > 0) || pickupAvailable) && (
           <div className="tiles" role="radiogroup" aria-label={t('Yetkazish usuli')}>
-            {taxiOptions.map(opt => (
-              <TaxiTile key={opt.id} name={opt.name} number={opt.phone} on={!walk && taxiId === opt.id} onPick={() => { setTaxiId(opt.id); setWalk(false); }} />
+            {(taxiOptions ?? []).map(opt => (
+              <TaxiTile key={opt.id} name={opt.name} number={opt.phone} on={!walk && !pickup && taxiId === opt.id} onPick={() => { setTaxiId(opt.id); setWalk(false); setPickup(false); }} />
             ))}
-            {walkingAvailable && (
+            {walkingAvailable && taxiOptions !== null && taxiOptions.length > 0 && (
               <Tile icon={Footprints} title={t('Piyoda')} sub={t('Restoran rozi bo‘lsa, haq yo‘q')} on={walk}
-                onPick={() => { setWalk(true); if (!taxiId && taxiOptions.length > 0) setTaxiId(taxiOptions[0]!.id); }} />
+                onPick={() => { setWalk(true); setPickup(false); if (!taxiId && taxiOptions.length > 0) setTaxiId(taxiOptions[0]!.id); }} />
+            )}
+            {pickupAvailable && (
+              <Tile icon={ShoppingBag} title={t('O‘zim olib ketaman')} sub={t('Restorandan, taksi haqi yo‘q')} on={pickup}
+                onPick={() => { setPickup(true); setWalk(false); }} />
             )}
           </div>
         )}
@@ -279,7 +305,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
           <h2 className="co-h">{t('Taom uchun to‘lov')}</h2>
           <div className="paytiles" role="radiogroup" aria-label={t('To‘lov usuli')}>
             {choices.card && <PayTile icon={CreditCard} title={t('Karta')} sub={choices.cardBusy ? t('Navbat bo‘lishi mumkin') : t('Kartaga o‘tkazma')} on={method === 'CARD'} onPick={() => setChosen('CARD')} />}
-            <PayTile icon={Banknote} title={t('Naqd pul')} sub={t('Haydovchiga berasiz')} on={method === 'CASH'} onPick={() => setChosen('CASH')} />
+            <PayTile icon={Banknote} title={t('Naqd pul')} sub={pickup ? t('Kassada to‘laysiz') : t('Haydovchiga berasiz')} on={method === 'CASH'} onPick={() => setChosen('CASH')} />
           </div>
         </section>
       )}
@@ -293,12 +319,14 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         {view.promoSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
         <PlatformLine pricing={view.pricing} />
         <Fold title={t('Qo‘shimcha')}>
-          <TaxiFareBox walk={walk && walkingAvailable} taxiName={taxiOptions?.find(o => o.id === taxiId)?.name ?? null} />
-          <p className="sub small">{method === 'CASH' ? t('Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.') : t('Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.')}</p>
+          {pickup
+            ? <p className="sub small">{t('Buyurtmani restorandan o‘zingiz olib ketasiz: taksi chaqirilmaydi. Tayyor bo‘lganda xabar beramiz.')}</p>
+            : <TaxiFareBox walk={walk && walkingAvailable} taxiName={taxiOptions?.find(o => o.id === taxiId)?.name ?? null} />}
+          <p className="sub small">{method === 'CASH' ? (pickup ? t('Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni olib ketayotganda kassaga berasiz.') : t('Naqd to‘lov: restoran tasdiqlagach taom tayyorlanadi, pulni yetkazib berganda haydovchiga berasiz.')) : t('Taom uchun to‘lov to‘g‘ridan-to‘g‘ri restoranga. Keyingi qadam — to‘lov.')}</p>
         </Fold>
        </div>
        <div className="receipt-notch" aria-hidden><i /></div>
-       <div className="receipt-total"><span className="bold">{t('Jami (taksidan tashqari)')}</span><span className="receipt-sum mono">{som(total)}</span></div>
+       <div className="receipt-total"><span className="bold">{pickup ? t('Jami') : t('Jami (taksidan tashqari)')}</span><span className="receipt-sum mono">{som(total)}</span></div>
       </section>
 
       {problem && (
@@ -328,8 +356,8 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
         </Sheet>
       )}
 
-      <StickyAction tone={touched && !canSubmit && taxiOptions !== null ? 'bad' : 'soft'} hint={stickyHint}>
-        <Button loading={submitting} disabled={taxiOptions === null} onClick={() => void submit()}>
+      <StickyAction tone={touched && !canSubmit && (pickup || taxiOptions !== null) ? 'bad' : 'soft'} hint={stickyHint}>
+        <Button loading={submitting} disabled={!pickup && taxiOptions === null} onClick={() => void submit()}>
           <span className="btn-split"><span>{method === 'CASH' ? t('Buyurtma berish') : problem?.kind === 'PRICE' ? t('Yangi narxda to‘lovga o‘tish') : t('To‘lovga o‘tish')}</span><span className="mono">{som(total)}</span></span>
         </Button>
       </StickyAction>

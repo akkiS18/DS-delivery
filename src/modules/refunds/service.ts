@@ -280,10 +280,11 @@ export async function markRefundSent(input: {
 }
 
 /**
- * The administrator refunded a customer whose money is on the PLATFORM card (the restaurant never had it) and types the bank reference of that
- * transfer (it is the proof the database requires for SENT). Same states as the restaurant's send: APPROVED, or DISPUTED (sent again after the
- * customer said it never arrived). A reference can prove only one refund. The customer is then asked to confirm, exactly as for a restaurant refund.
- * Refused for money the restaurant holds (NOT_POOL): there the restaurant sends it.
+ * The administrator refunded the customer and types the bank reference of that transfer (it is the proof the database requires for SENT). Same states
+ * as the restaurant's old send: APPROVED, or DISPUTED (sent again after the customer said it never arrived). A reference can prove only one refund.
+ * The customer is then asked to confirm, exactly as before.
+ * Owner decision 2026-11-22: the administrator sends EVERY refund, also when the customer had paid onto the restaurant's own card (the event records
+ * restaurantHeld: true, so that amount can be held back from the restaurant). NOT_POOL is kept in the type for older callers and is no longer returned.
  */
 export async function adminMarkRefundSent(input: { adminTelegramId: string; refundId: string; bankReference: string }): Promise<StepResult<{ amountTiyin: bigint }> | { result: 'NOT_POOL' } | { result: 'REFERENCE_USED' }> {
   if (!isSupportAdmin(input.adminTelegramId)) throw new Error('ADMIN_RUXSAT_YOQ');
@@ -291,7 +292,7 @@ export async function adminMarkRefundSent(input: { adminTelegramId: string; refu
   return db.$transaction(async tx => {
       const refund = await tx.refundRequest.findUnique({ where: { id: input.refundId }, include: { payment: { select: { method: true, card: { select: { restaurantId: true } } } } } });
       if (!refund) return { result: 'NOT_FOUND' } as const;
-      if (!isPlatformHeld(refund.payment)) return { result: 'NOT_POOL' } as const;
+      const byPlatform = isPlatformHeld(refund.payment);
       if (!canRefundTransition(refund.status as RefundStatus, 'SENT', 'ADMIN')) {
         await refundEvent(tx, refund.id, input.adminTelegramId, 'ADMIN', 'SEND_REJECTED', refund.status, refund.status);
         return { result: 'STALE', status: refund.status } as const;
@@ -302,7 +303,7 @@ export async function adminMarkRefundSent(input: { adminTelegramId: string; refu
         data: { status: 'SENT', sentBy: `admin:${input.adminTelegramId}`, sentAt: new Date(), bankReference: reference, customerSentNotifiedAt: null, disputeNotifiedAt: null, disputedAt: null },
       });
       if (claimed.count !== 1) return { result: 'STALE', status: 'CHANGED' } as const;
-      await refundEvent(tx, refund.id, input.adminTelegramId, 'ADMIN', 'SENT', refund.status, 'SENT', { bankReference: reference, byPlatform: true });
+      await refundEvent(tx, refund.id, input.adminTelegramId, 'ADMIN', 'SENT', refund.status, 'SENT', { bankReference: reference, byPlatform, restaurantHeld: !byPlatform });
       return { result: 'DONE', amountTiyin: refund.approvedAmountTiyin! } as const;
   });
 }

@@ -148,22 +148,23 @@ test('two confirm taps at once confirm exactly once', async () => {
 
 const ref = (suffix: string) => `PR-${tag}-${suffix}`;
 
-test('pool refunds: the platform holds the money, so the list says the administrator sends it; restaurant-held money is not his to send', async () => {
+test('the administrator sends every approved refund (owner decision 2026-11-22); byPlatform tells where the money was', async () => {
   const pool = await refund('APPROVED', true);
   const own = await refund('APPROVED');
   const requested = await refund('REQUESTED', true);
   const list = (await api('GET', '/refunds')).json() as { open: Array<{ id: string; byPlatform: boolean; canSend: boolean }> };
   const row = (id: string) => list.open.find(r => r.id === id)!;
   assert.deepEqual([row(pool.id).byPlatform, row(pool.id).canSend], [true, true]);
-  assert.deepEqual([row(own.id).byPlatform, row(own.id).canSend], [false, false]);
+  assert.deepEqual([row(own.id).byPlatform, row(own.id).canSend], [false, true]);
   assert.deepEqual([row(requested.id).byPlatform, row(requested.id).canSend], [true, false], 'the restaurant has not decided yet');
-  // an approved pool refund is a notification in Diqqat (never a ring), and only for pool money
+  // an approved refund is a notification in Diqqat (never a ring), whoever holds the money
   const snap = await computeAttention();
   const item = snap.items.find(i => i.key === `REFUND_POOL_DUE:${pool.id}`);
   assert.ok(item, 'raised');
   assert.deepEqual([item.alarm, item.notify, item.severity], [false, true, 'HIGH']);
   assert.match(item.detail, /40 000/);
-  assert.ok(!snap.items.some(i => i.key === `REFUND_POOL_DUE:${own.id}` || i.key === `REFUND_POOL_DUE:${requested.id}`));
+  assert.ok(snap.items.some(i => i.key === `REFUND_POOL_DUE:${own.id}`), 'restaurant-held money too');
+  assert.ok(!snap.items.some(i => i.key === `REFUND_POOL_DUE:${requested.id}`), 'not before the restaurant agreed');
 });
 
 test('administrator sends a pool refund: bank reference required and used once; the customer is then asked; the restaurant cannot send it', async () => {
@@ -200,11 +201,13 @@ test('administrator sends a pool refund: bank reference required and used once; 
   assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: other.id } })).status, 'APPROVED');
 });
 
-test('pool refund rules: restaurant-held money is refused, a not-yet-approved one is "changed", and a disputed one can be sent again with a new reference', async () => {
+test('refund rules: restaurant-held money is sent by the administrator and recorded as such, a not-yet-approved one is "changed", and a disputed one can be sent again with a new reference', async () => {
   const own = await refund('APPROVED');
-  const notOwn = await api('POST', `/refunds/${own.id}/sent`, { bankReference: ref('B1') });
-  assert.deepEqual([notOwn.statusCode, notOwn.json().error], [409, 'NOT_POOL']);
-  assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: own.id } })).status, 'APPROVED');
+  const sentOwn = await api('POST', `/refunds/${own.id}/sent`, { bankReference: ref('B1') });
+  assert.equal(sentOwn.statusCode, 200, sentOwn.body);
+  assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: own.id } })).status, 'SENT');
+  const ev = await db.refundEvent.findFirstOrThrow({ where: { refundId: own.id, action: 'SENT' } });
+  assert.deepEqual([(ev.details as { byPlatform: boolean }).byPlatform, (ev.details as { restaurantHeld: boolean }).restaurantHeld], [false, true]);
 
   const requested = await refund('REQUESTED', true);
   const early = await api('POST', `/refunds/${requested.id}/sent`, { bankReference: ref('B2') });

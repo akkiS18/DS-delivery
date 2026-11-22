@@ -1,10 +1,10 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import { RECEIPT_MAX_BYTES, RECEIPT_TYPES, discardReceipt, storeReceipt } from '../refunds/receipts.js';
+import { RECEIPT_MAX_BYTES, RECEIPT_TYPES } from '../refunds/receipts.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
 import {
   acceptBodySchema, cancelBodySchema, getOrderView, listOrders, listQuerySchema, orderIdSchema, performOrderAction, prepTimeBodySchema, preparingBodySchema,
-  readyBodySchema, refundDecisionBodySchema, selfDeliveredBodySchema, refundReceiptQuerySchema, rejectBodySchema, verifyBodySchema,
+  pickedUpBodySchema, readyBodySchema, refundDecisionBodySchema, selfDeliveredBodySchema, refundReceiptQuerySchema, rejectBodySchema, verifyBodySchema,
   type ActionArgs, type ActionOutcome, type OrderAction,
 } from './service.js';
 
@@ -43,6 +43,8 @@ export async function restaurantOrdersRoutes(app: FastifyInstance, engine: Payme
   act('ready', 'MARK_READY', b => readyBodySchema.parse(b));
   // Walking delivery: the restaurant reports that it brought the order itself (only after "Tayyor" with delivery SELF).
   act('delivered-self', 'SELF_DELIVERED', b => selfDeliveredBodySchema.parse(b));
+  // Pickup ("O‘zim olib ketaman"): the restaurant handed the ready order to the customer ("Mijozga berildi").
+  act('picked-up', 'PICKED_UP', b => pickedUpBodySchema.parse(b));
   // "Ready in N minutes" (5..60), chosen after the payment while the food is already cooking.
   act('prep-time', 'SET_PREP_TIME', b => { const x = prepTimeBodySchema.parse(b); return { chosenMinutes: x.minutes, expectedStatus: x.expectedStatus }; });
   // Stage 6E: the restaurant confirms the REAL bank credit itself (explicit confirmReceived:true). Gmail only ever signals.
@@ -53,9 +55,9 @@ export async function restaurantOrdersRoutes(app: FastifyInstance, engine: Payme
     const x = refundDecisionBodySchema.parse({ ...(b as object), decision: 'REJECT' });
     return { rejectReason: x.rejectReason, expectedStatus: x.expectedStatus };
   });
-  // "Qaytarildi": the ONLY proof asked for is one photo of the bank receipt, sent as the raw request body (image/jpeg|png|webp, <= 5 MB). The type is
-  // decided from the file's magic bytes, not from this header. Authentication runs BEFORE the body is read, so an anonymous caller cannot make
-  // the server buffer 5 MB. The file is stored first and removed again if the refund step is refused.
+  // "Qaytarildi" from older restaurant apps. Owner decision 2026-11-22: the administrator sends every refund, so this is always refused
+  // (409 REFUND_BY_PLATFORM, or 404 for another restaurant's order) and the photo is never stored. Authentication runs BEFORE the body is read,
+  // so an anonymous caller cannot make the server buffer 5 MB.
   app.addContentTypeParser([...RECEIPT_TYPES], { parseAs: 'buffer', bodyLimit: RECEIPT_MAX_BYTES }, (_request, body, done) => done(null, body));
   app.post<{ Params: { id: string } }>('/orders/:id/refund/receipt', {
     bodyLimit: RECEIPT_MAX_BYTES,
@@ -64,16 +66,6 @@ export async function restaurantOrdersRoutes(app: FastifyInstance, engine: Payme
     const s = await requireRestaurantSession(request);
     const id = orderIdSchema.parse(request.params.id);
     const q = refundReceiptQuerySchema.parse(request.query);
-    let stored;
-    try { stored = await storeReceipt(request.body as Buffer); }
-    catch (err) {
-      if (err instanceof Error && err.message === 'CHEK_RASMI_NOTOGRI') return reply.code(400).send({ error: 'CHEK_RASMI_NOTOGRI' });
-      throw err;
-    }
-    try {
-      const outcome = await performOrderAction(engine, s.restaurant.id, id, 'REFUND_SENT', { receipt: stored, ...(q.expectedStatus ? { expectedStatus: q.expectedStatus } : {}) });
-      if (!outcome.ok) await discardReceipt(stored.key);
-      return send(reply, outcome);
-    } catch (err) { await discardReceipt(stored.key); throw err; }
+    return send(reply, await performOrderAction(engine, s.restaurant.id, id, 'REFUND_SENT', q.expectedStatus ? { expectedStatus: q.expectedStatus } : {}));
   });
 }

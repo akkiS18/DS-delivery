@@ -77,6 +77,7 @@ interface RestaurantRepository {
 
     /** Walking delivery: "Yetkazildi". The restaurant is the only one who can confirm it. */
     suspend fun setSelfDelivered(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
+    suspend fun setPickedUp(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
 
     /** The restaurant explicitly confirms the real bank credit. Cooking then starts by itself. */
     suspend fun verifyPayment(id: String, expectedStatus: String?): Resource<com.dsdelivery.restaurant.data.model.Order>
@@ -87,6 +88,7 @@ interface RestaurantRepository {
 
     // --- Stage 4: Operations & Settings ---
     suspend fun updateRestaurantStatus(isPaused: Boolean): Resource<Unit>
+    suspend fun updateCustomerPickup(enabled: Boolean): Resource<Unit>
     suspend fun getOperationsConfig(): Resource<com.dsdelivery.restaurant.data.model.RestaurantOperationsConfig>
     suspend fun updateWorkingHours(workingDays: List<com.dsdelivery.restaurant.data.model.WorkingDay>): Resource<Unit>
     suspend fun updateDefaultPrepMinutes(minutes: Int): Resource<Unit>

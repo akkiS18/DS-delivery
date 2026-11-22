@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.LocalTaxi
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -194,7 +195,11 @@ fun CashDueLine(order: Order, modifier: Modifier = Modifier) {
     if (order.paymentMethod != "CASH") return
     val amount = NumberFormat.getNumberInstance(Locale("uz", "UZ")).format(due)
     Text(
-        text = if (order.selfDelivery) "Mijozdan $amount so‘m naqd oling" else "Haydovchi restoranga $amount so‘m to‘laydi",
+        text = when {
+            order.pickup -> "Mijoz kassada $amount so‘m to‘laydi"
+            order.selfDelivery -> "Mijozdan $amount so‘m naqd oling"
+            else -> "Haydovchi restoranga $amount so‘m to‘laydi"
+        },
         modifier = modifier.padding(top = 6.dp),
         style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = BrandDark
     )
@@ -205,7 +210,6 @@ fun attentionLine(codes: List<String>): String? = codes.firstNotNullOfOrNull { A
 val ATTENTION_TEXT: Map<String, String> = mapOf(
     "VERIFY_PAYMENT" to "To‘lov hali tasdiqlanmadi. Tekshirib tasdiqlang.",
     "CANCELLATION_REQUESTED" to "Mijoz bekor qilmoqchi. Qaror kerak.",
-    "REFUND_PENDING" to "Pulni qaytaring va chekni yuklang.",
     "AUTO_START_FAILED" to "Tayyorlash boshlanmadi. Qo‘lda boshlang.",
     "MENU_PROBLEM" to "Menyudagi taom mavjud emas.",
     "PRICE_CHANGED" to "Narx o‘zgargan. Buyurtmani rad eting.",
@@ -239,6 +243,23 @@ fun WalkLine(order: Order, modifier: Modifier = Modifier) {
             order.addressText?.takeIf { it.isNotBlank() }?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, color = BrandDark, modifier = Modifier.padding(top = 2.dp))
             }
+        }
+    }
+}
+
+/** Pickup colours (violet, so it never looks like the green walking box or the taxi row). */
+private val PickupBg = Color(0xFFF3E8FF)
+private val PickupFg = Color(0xFF6B21A8)
+
+/** "O‘zim olib ketaman": the customer comes to the restaurant for the order; no taxi is called. */
+@Composable
+fun PickupLine(order: Order, modifier: Modifier = Modifier) {
+    if (!order.pickup) return
+    Surface(shape = RoundedCornerShape(8.dp), color = PickupBg, modifier = modifier) {
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(imageVector = Icons.Default.ShoppingBag, contentDescription = null, tint = PickupFg, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text("Mijoz o‘zi olib ketadi • taksi yo‘q", style = MaterialTheme.typography.bodySmall, color = PickupFg, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -425,6 +446,12 @@ fun OrderCard(
                     WalkLine(order)
                 }
 
+                // 4c. pickup: the customer comes for it
+                if (order.pickup && order.status != OrderStatus.COMPLETED) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PickupLine(order)
+                }
+
                 // 5. taxi, visually separate from the food/payment state
                 order.taxiStage?.let { stage ->
                     Spacer(modifier = Modifier.height(8.dp))
@@ -455,8 +482,8 @@ fun OrderCard(
                     }
                 }
 
-                // 8. walking delivery: nobody else can confirm it, so the restaurant does
-                if (onSelfDelivered != null && OrderAction.SELF_DELIVERED in order.allowedActions) {
+                // 8. walking delivery / pickup: nobody else can confirm it, so the restaurant does
+                if (onSelfDelivered != null && (OrderAction.SELF_DELIVERED in order.allowedActions || OrderAction.PICKED_UP in order.allowedActions)) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = onSelfDelivered,
@@ -465,7 +492,7 @@ fun OrderCard(
                         colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen),
                         modifier = Modifier.fillMaxWidth().height(52.dp)
                     ) {
-                        Text("Yetkazildi", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(if (order.pickup) "Mijozga berildi" else "Yetkazildi", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                     }
                 }
             }

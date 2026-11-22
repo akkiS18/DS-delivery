@@ -435,33 +435,20 @@ test('restaurant cancellation and refund handling work from the app, tenant-scop
   assert.equal(c.statusCode, 200);
   assert.equal(c.json().status, 'CANCELLED');
   assert.equal(c.json().refund.status, 'APPROVED');
-  assert.deepEqual(c.json().allowedActions, ['REFUND_SENT']);
+  // Owner decision 2026-11-22: the restaurant only agrees or refuses; the administrator sends every refund. Nothing is left for the restaurant to do.
+  assert.deepEqual(c.json().allowedActions, []);
+  assert.deepEqual(c.json().attention, []);
   assert.equal((await call('POST', `/orders/${o.id}/cancel`, ta, { reason: 'CLOSED' })).statusCode, 409);
-  // "Qaytarildi" asks for ONE photo of the bank receipt - nothing typed. The old JSON route is gone.
   assert.equal((await call('POST', `/orders/${o.id}/refund/sent`, ta, { bankReference: 'TRX-1234-5678' })).statusCode, 404);
   assert.equal((await upload(`/orders/${o.id}/refund/receipt`, undefined, fakePng())).statusCode, 401, 'authentication happens before the body is read');
   const before = storedFiles().length;
-  for (const [bytes, type] of [[Buffer.alloc(3000), 'image/png'], [Buffer.from('%PDF-1.4 ' + 'x'.repeat(3000)), 'image/jpeg'], [fakePng(100).subarray(0, 500), 'image/png']] as const) {
-    const bad = await upload(`/orders/${o.id}/refund/receipt`, ta, bytes, type);
-    assert.equal(bad.statusCode, 400, 'only real JPEG/PNG/WebP photos are accepted (magic bytes, size >= 1 KB)');
-    assert.equal(bad.json().error, 'CHEK_RASMI_NOTOGRI');
-  }
-  assert.equal((await call('POST', `/orders/${o.id}/refund/receipt`, ta, { bankReference: 'TRX-1234-5678' })).statusCode, 400, 'a JSON body is not a receipt');
-  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, ta, Buffer.concat([fakePng(), Buffer.alloc(5 * 1024 * 1024)]))).statusCode, 413, 'bigger than 5 MB');
+  // an older app still offers "Qaytarildi — chek": refused, no photo stored, the refund untouched
+  const refused = await upload(`/orders/${o.id}/refund/receipt`, ta, fakeJpeg(), 'image/jpeg');
+  assert.deepEqual([refused.statusCode, refused.json().error], [409, 'REFUND_BY_PLATFORM']);
   assert.equal((await upload(`/orders/${o.id}/refund/receipt`, tb, fakePng())).statusCode, 404, "another restaurant's order is just not found");
-  assert.equal(storedFiles().length, before, 'a refused upload leaves no file behind');
-  const photo = fakeJpeg();
-  const sent = await upload(`/orders/${o.id}/refund/receipt`, ta, photo, 'image/jpeg');
-  assert.equal(sent.statusCode, 200);
-  assert.equal(sent.json().refund.status, 'SENT', 'a restaurant claim, never a settlement');
-  assert.equal(sent.json().refund.hasReceipt, true);
-  assert.equal(sent.json().refund.bankReference, null, 'no typed reference is asked for any more');
-  assert.equal(storedFiles().length, before + 1);
-  const stored = await db.refundRequest.findFirstOrThrow({ where: { orderId: o.id } });
-  assert.equal(stored.receiptMime, 'image/jpeg', 'the type comes from the bytes');
-  assert.equal(stored.receiptBytes, photo.length);
-  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, ta, fakePng())).statusCode, 409, 'already SENT: a second photo is refused');
-  assert.equal(storedFiles().length, before + 1, 'and its file is removed again');
+  assert.equal((await upload(`/orders/${o.id}/refund/receipt`, ta, Buffer.concat([fakePng(), Buffer.alloc(5 * 1024 * 1024)]))).statusCode, 413, 'bigger than 5 MB');
+  assert.equal(storedFiles().length, before, 'nothing is stored');
+  assert.equal((await db.refundRequest.findFirstOrThrow({ where: { orderId: o.id } })).status, 'APPROVED');
   // customer-initiated request: approve / reject from the app
   const o2 = await place();
   assert.equal((await acceptApi(o2.id)).statusCode, 200);

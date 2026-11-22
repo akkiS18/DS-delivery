@@ -3,7 +3,7 @@ import { ApiError } from './api';
 import type { CheckoutIssue, PublicPricing, QuoteLine } from './types';
 import { opensText, som } from './format';
 
-export type ErrorKind = 'PRICE' | 'CLOSED' | 'UNAVAILABLE' | 'PHONE' | 'NETWORK' | 'AUTH' | 'LIMIT' | 'NO_TAXI' | 'CASH' | 'VALIDATION' | 'OTHER';
+export type ErrorKind = 'PRICE' | 'CLOSED' | 'UNAVAILABLE' | 'PHONE' | 'NETWORK' | 'AUTH' | 'LIMIT' | 'NO_TAXI' | 'NO_PICKUP' | 'CASH' | 'VALIDATION' | 'OTHER';
 export interface Described {
   kind: ErrorKind;
   message: string;
@@ -49,6 +49,8 @@ export function describeCheckoutError(e: unknown): Described {
       return { kind: 'CLOSED', retryable: false, message: t('Buyurtma qabul qilish hozircha yopiq. Keyinroq urinib ko‘ring; pul olinmadi.') };
     case 'KOP_TOLANMAGAN_BUYURTMA':
       return { kind: 'LIMIT', retryable: false, message: t('To‘lanmagan buyurtmangiz bor. Avval uni to‘lang yoki bekor qiling, keyin yangisini bering.') };
+    case 'OLIB_KETISH_MAVJUD_EMAS':
+      return { kind: 'NO_PICKUP', retryable: false, message: t('Bu restoranda hozir o‘zingiz olib ketish mumkin emas. Yetkazish usulini tanlang; buyurtma yaratilmadi va pul olinmadi.') };
     case 'PIYODA_YETKAZISH_MAVJUD_EMAS':
       return { kind: 'OTHER', retryable: false, message: t('Bu restoran piyoda yetkazmaydi. Taksi bilan yetkazishni tanlang; buyurtma yaratilmadi va pul olinmadi.') };
     case 'NAQD_TOLOV_YOPIQ':

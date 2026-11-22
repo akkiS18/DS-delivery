@@ -198,6 +198,13 @@ interface RestaurantApiService {
         @Body body: SelfDeliveredRequestDto
     ): OrderDto
 
+    /** "O‘zim olib ketaman": the restaurant handed the order to the customer ("Mijozga berildi"). Same body as delivered-self. */
+    @POST("api/v1/restaurant/orders/{id}/picked-up")
+    suspend fun markPickedUp(
+        @Path("id") id: String,
+        @Body body: SelfDeliveredRequestDto
+    ): OrderDto
+
     // --- Stage 6E: payment verification, price proposals, cancellation / refunds (Telegram staff panel replaced) ---
     @POST("api/v1/restaurant/orders/{id}/verify-payment")
     suspend fun verifyPayment(@Path("id") id: String, @Body body: VerifyPaymentRequestDto): OrderDto
@@ -278,6 +285,11 @@ interface RestaurantApiService {
     @PUT("api/v1/restaurant/operations/working-hours")
     suspend fun updateWorkingHours(
         @Body body: UpdateWorkingHoursRequestDto
+    ): OperationsResponseDto
+
+    @PATCH("api/v1/restaurant/operations/customer-pickup")
+    suspend fun updateCustomerPickup(
+        @Body body: com.dsdelivery.restaurant.data.api.dto.UpdateCustomerPickupRequestDto
     ): OperationsResponseDto
 
     @PATCH("api/v1/restaurant/operations/prep-time")

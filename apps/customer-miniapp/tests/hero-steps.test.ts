@@ -34,3 +34,16 @@ describe('heroSteps: payment, cooking, delivery', () => {
     for (const s of ['CANCELLED', 'EXPIRED', 'CANCELLATION_REQUESTED', 'NEEDS_HELP'] as const) expect(heroSteps(s)).toBeNull();
   });
 });
+
+describe('pickup ("O‘zim olib ketaman")', () => {
+  const pick = (stage: CustomerStage) => heroSteps(stage, true)?.map(s => `${s.state}:${s.label}`);
+  it('the last step is collecting the order, not a delivery', () => {
+    expect(pick('PREPARING')).toEqual(['done:To‘lov', 'current:Tayyorlanmoqda', 'todo:Olib ketish']);
+    expect(pick('PICKUP_READY')).toEqual(['done:To‘lov', 'done:Tayyor', 'current:Olib ketish']);
+    expect(pick('DELIVERED')).toEqual(['done:To‘lov', 'done:Tayyor', 'done:Olib ketildi']);
+  });
+  it('the timeline has no taxi steps', () => {
+    const keys = timeline({ stage: 'PICKUP_READY', deliveryMode: 'PICKUP' }).map(s => `${s.key}:${s.state}`);
+    expect(keys).toEqual(['placed:done', 'PAYMENT_PENDING:done', 'PAYMENT_CHECKING:done', 'PREPARING:done', 'READY:done', 'PICKUP_READY:current', 'DELIVERED:todo']);
+  });
+});

@@ -106,7 +106,8 @@ class OperationsViewModel(
                             isPaused = result.data.isPaused,
                             defaultPrepMinutes = result.data.defaultPrepMinutes,
                             workingDays = result.data.workingDays,
-                            workingHoursSet = result.data.workingHoursSet
+                            workingHoursSet = result.data.workingHoursSet,
+                            customerPickupEnabled = result.data.customerPickupEnabled
                         )
                     }
                 }
@@ -154,6 +155,21 @@ class OperationsViewModel(
                         )
                     }
                 }
+                Resource.Loading -> {}
+            }
+        }
+    }
+
+    /** "Mijoz o‘zi olib ketadi" on/off for this restaurant (the customer then sees or no longer sees the choice at checkout). */
+    fun setCustomerPickup(enabled: Boolean) {
+        if (_uiState.value.pickupBusy) return
+        _uiState.update { it.copy(pickupBusy = true) }
+        viewModelScope.launch {
+            when (val result = repository.updateCustomerPickup(enabled)) {
+                is Resource.Success -> _uiState.update {
+                    it.copy(pickupBusy = false, customerPickupEnabled = enabled, infoMessage = if (enabled) "Olib ketish yoqildi" else "Olib ketish o‘chirildi")
+                }
+                is Resource.Error -> _uiState.update { it.copy(pickupBusy = false, backendNotice = result.message) }
                 Resource.Loading -> {}
             }
         }

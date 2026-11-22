@@ -18,8 +18,12 @@ data class OperationsResponseDto(
     @SerializedName("defaultPrepMinutes") val defaultPrepMinutes: Int? = null,
     @SerializedName("workingDays") val workingDays: List<WorkingDayDto>? = null,
     /** false = the server has no saved schedule (restaurant always open); older servers omit it, which counts as saved. */
-    @SerializedName("workingHoursSet") val workingHoursSet: Boolean? = null
+    @SerializedName("workingHoursSet") val workingHoursSet: Boolean? = null,
+    /** "O‘zim olib ketaman" offered to this restaurant's customers; older servers omit it (the switch is then hidden). */
+    @SerializedName("customerPickupEnabled") val customerPickupEnabled: Boolean? = null
 )
+
+data class UpdateCustomerPickupRequestDto(@SerializedName("enabled") val enabled: Boolean)
 
 data class UpdateStatusRequestDto(@SerializedName("isPaused") val isPaused: Boolean)
 
@@ -38,6 +42,7 @@ fun OperationsResponseDto.toDomain(): RestaurantOperationsConfig {
             ?.map { WorkingDay(it.dayOfWeek, names[it.dayOfWeek] ?: "", it.isOpen, it.openTime, it.closeTime) }
             ?.sortedBy { it.dayOfWeek }
             ?: RestaurantOperationsConfig.defaultWorkingDays(),
-        workingHoursSet = workingHoursSet ?: true
+        workingHoursSet = workingHoursSet ?: true,
+        customerPickupEnabled = customerPickupEnabled
     )
 }

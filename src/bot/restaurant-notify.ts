@@ -39,7 +39,7 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
         },
         orderBy: { updatedAt: 'desc' }, take: 200,
         include: {
-          restaurant: { select: { staffTelegramUserId: true, staffLinkedAt: true, name: true } },
+          restaurant: { select: { staffTelegramUserId: true, staffLinkedAt: true, name: true, pickupAddress: true } },
           customer: { select: { telegramUserId: true } },
           payment: { select: { method: true } },
         },
@@ -75,13 +75,18 @@ export function startRestaurantOrderNotifier(bot: Telegraf<any>): () => void {
             RESTAURANT_REJECTED: `🚫 #${order.code}: restoran buyurtmani qabul qila olmadi. Pul yubormang.`,
             RESTAURANT_EXPIRED: `⌛ #${order.code}: restoran vaqtida javob bermadi, buyurtma bekor bo‘ldi. Pul yubormang.`,
             // Cash: nothing was paid yet, the restaurant only accepted the order; the customer pays the driver.
-            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. Pulni haydovchiga naqd to‘laysiz.`
+            PAYMENT_CONFIRMED: order.payment?.method === 'CASH' ? `✅ #${order.code}: buyurtmangiz restoran tomonidan qabul qilindi. ${order.deliveryMode === 'PICKUP' ? 'Pulni restoranda kassaga naqd to‘laysiz.' : 'Pulni haydovchiga naqd to‘laysiz.'}`
               : order.payment?.method === 'CARD_MANUAL' ? `✅ #${order.code}: restoran to‘lovni tasdiqladi, buyurtma qabul qilindi.` // "Shirin": the confirming tap is also the acceptance
               : `✅ #${order.code}: to‘lov qabul qilindi. Restoran buyurtmani qabul qilishini kutyapmiz.`,
             PREPARING: `👨‍🍳 #${order.code}: restoran buyurtmani qabul qildi, tayyorlanmoqda.`,
           };
           // Walking delivery has no taxi "on the way" news, so the customer is told here that the restaurant brings it itself.
           if (order.status === 'READY' && order.deliveryMode === 'SELF') messages.READY = `🚶 #${order.code}: buyurtmangiz tayyor, restoran uni o‘zi olib boradi.`;
+          // Pickup: the customer comes for it; no taxi news follows.
+          if (order.status === 'READY' && order.deliveryMode === 'PICKUP') {
+            const where = order.restaurant.pickupAddress?.trim();
+            messages.READY = `🛍 #${order.code}: buyurtmangiz tayyor, ${order.restaurant.name} restoranidan olib keting.${where ? ` Manzil: ${where}` : ''}`;
+          }
           if (!messages[order.status]) { // READY has no message of its own: the next news is "on the way"
             await db.order.updateMany({ where: { id: order.id, status: order.status }, data: { customerLastNotifiedStatus: order.status } });
             continue;

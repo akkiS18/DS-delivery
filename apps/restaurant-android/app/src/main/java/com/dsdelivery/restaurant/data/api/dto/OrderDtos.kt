@@ -104,6 +104,8 @@ data class OrderDeliveryDto(
     @SerializedName("preference") val preference: String? = null,
     @SerializedName("mode") val mode: String? = null,
     @SerializedName("selfDeliveredAt") val selfDeliveredAt: String? = null,
+    /** Pickup (preference = mode = PICKUP): when the restaurant handed it to the customer. */
+    @SerializedName("pickedUpAt") val pickedUpAt: String? = null,
     @SerializedName("location") val location: LatLngDto? = null
 )
 
@@ -234,6 +236,7 @@ fun OrderDto.toDomain(): Order {
         taxiDeliveredAt = taxi?.deliveredAt,
         walkOk = delivery?.preference == "WALK_OK",
         selfDelivery = delivery?.mode == "SELF",
+        pickup = delivery?.mode == "PICKUP",
         deliveryLat = delivery?.location?.lat,
         deliveryLng = delivery?.location?.lng,
         restaurantDeadlineAt = restaurantDeadlineAt,

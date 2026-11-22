@@ -548,6 +548,9 @@ class RestaurantRepositoryImpl(
     override suspend fun setSelfDelivered(id: String, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.markDeliveredSelf(id, SelfDeliveredRequestDto(expectedStatus)) }
 
+    override suspend fun setPickedUp(id: String, expectedStatus: String?): Resource<Order> =
+        orderAction { apiClient.service.markPickedUp(id, SelfDeliveredRequestDto(expectedStatus)) }
+
     override suspend fun verifyPayment(id: String, expectedStatus: String?): Resource<Order> =
         orderAction { apiClient.service.verifyPayment(id, VerifyPaymentRequestDto(confirmReceived = true, expectedStatus = expectedStatus)) }
 
@@ -568,6 +571,17 @@ class RestaurantRepositoryImpl(
     override suspend fun updateRestaurantStatus(isPaused: Boolean): Resource<Unit> {
         return try {
             apiClient.service.updateOperationsStatus(UpdateStatusRequestDto(isPaused))
+            Resource.Success(Unit)
+        } catch (e: HttpException) {
+            Resource.Error(parseErrorMessage(e), e)
+        } catch (e: Exception) {
+            Resource.Error(parseGenericException(e), e)
+        }
+    }
+
+    override suspend fun updateCustomerPickup(enabled: Boolean): Resource<Unit> {
+        return try {
+            apiClient.service.updateCustomerPickup(com.dsdelivery.restaurant.data.api.dto.UpdateCustomerPickupRequestDto(enabled))
             Resource.Success(Unit)
         } catch (e: HttpException) {
             Resource.Error(parseErrorMessage(e), e)

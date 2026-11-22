@@ -28,6 +28,7 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
   PREPARING: T('Tayyorlanmoqda'),
   READY: T('Taom tayyor'),
   SELF_DELIVERY: T('Restoran olib bormoqda'),
+  PICKUP_READY: T('Tayyor, olib keting'),
   TAXI_REQUESTED: T('Taksi so‘ralgan'),
   TAXI_ACCEPTED: T('Taksi operatori qabul qildi'),
   TAXI_SENT: T('Taksi yo‘lga chiqdi'),
@@ -39,7 +40,7 @@ export const STAGE_LABEL: Record<CustomerStage, string> = {
 };
 
 export const isTerminal = (s: CustomerStage): boolean => s === 'DELIVERED' || s === 'CANCELLED' || s === 'EXPIRED';
-const PAID_STAGES: CustomerStage[] = ['PREPARING', 'READY', 'SELF_DELIVERY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
+const PAID_STAGES: CustomerStage[] = ['PREPARING', 'READY', 'SELF_DELIVERY', 'PICKUP_READY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
 const WAITING_FOR_PAYMENT: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING'];
 /** A payment that was accepted this recently still counts as "just now" when the screen is opened for the first time. */
 const JUST_NOW_MS = 2 * 60_000;
@@ -63,13 +64,13 @@ export const pollIntervalMs = (s: CustomerStage): number | null => (isTerminal(s
 export type StepState = 'done' | 'current' | 'todo' | 'bad';
 export interface Step { key: string; label: string; state: StepState; note?: string }
 
-const ORDER: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING', 'READY', 'SELF_DELIVERY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
+const ORDER: CustomerStage[] = ['PAYMENT_PENDING', 'PAYMENT_CHECKING', 'PREPARING', 'READY', 'SELF_DELIVERY', 'PICKUP_READY', 'TAXI_REQUESTED', 'TAXI_ACCEPTED', 'TAXI_SENT', 'DELIVERED'];
 
 /**
  * The tracking timeline, built only from the real stage. "Taxi accepted" and "Taxi sent" are separate steps (an accepted booking is
  * not a dispatched taxi), and nothing is shown as delivered before the operator-confirmed DELIVERED.
  */
-export function timeline(o: Pick<OrderView, 'stage'> & { deliveryMode?: 'TAXI' | 'SELF' }): Step[] {
+export function timeline(o: Pick<OrderView, 'stage'> & { deliveryMode?: 'TAXI' | 'SELF' | 'PICKUP' }): Step[] {
   const stage = o.stage;
   if (stage === 'CANCELLED' || stage === 'EXPIRED') {
     return [{ key: 'placed', label: t('Buyurtma berildi'), state: 'done' }, { key: 'end', label: t(STAGE_LABEL[stage]), state: 'bad' }];
@@ -89,10 +90,12 @@ export function timeline(o: Pick<OrderView, 'stage'> & { deliveryMode?: 'TAXI' |
     step('PAYMENT_CHECKING', t('To‘lov tasdiqlanishi')),
     step('PREPARING', t('Tayyorlanmoqda')),
     step('READY', t('Taom tayyor')),
-    ...(o.deliveryMode === 'SELF' || stage === 'SELF_DELIVERY'
+    ...(o.deliveryMode === 'PICKUP' || stage === 'PICKUP_READY'
+      ? [step('PICKUP_READY', t('Olib ketishingizni kutmoqda'))]
+      : o.deliveryMode === 'SELF' || stage === 'SELF_DELIVERY'
       ? [step('SELF_DELIVERY', t('Restoran olib bormoqda'))]
       : [step('TAXI_REQUESTED', t('Taksi so‘raldi')), step('TAXI_ACCEPTED', t('Operator qabul qildi')), step('TAXI_SENT', t('Taksi yo‘lda'))]),
-    step('DELIVERED', t('Yetkazildi')),
+    step('DELIVERED', o.deliveryMode === 'PICKUP' ? t('Olib ketildi') : t('Yetkazildi')),
   ];
   if (stage === 'NEEDS_HELP') {
     const i = steps.findIndex(s => s.key === 'TAXI_REQUESTED');
@@ -114,17 +117,18 @@ export interface HeroStep { key: HeroKey; label: string; state: 'done' | 'curren
 const HERO_DONE: Partial<Record<CustomerStage, number>> = {
   PAYMENT_PENDING: 0, PAYMENT_CHECKING: 0,
   PREPARING: 1,
-  READY: 2, SELF_DELIVERY: 2, TAXI_REQUESTED: 2, TAXI_ACCEPTED: 2, TAXI_SENT: 2,
+  READY: 2, SELF_DELIVERY: 2, PICKUP_READY: 2, TAXI_REQUESTED: 2, TAXI_ACCEPTED: 2, TAXI_SENT: 2,
   DELIVERED: 3,
 };
 
-export function heroSteps(stage: CustomerStage): HeroStep[] | null {
+/** pickup: the last step is the customer collecting the order at the restaurant. */
+export function heroSteps(stage: CustomerStage, pickup = false): HeroStep[] | null {
   const done = HERO_DONE[stage];
   if (done === undefined) return null;
   const state = (i: number): HeroStep['state'] => (i < done ? 'done' : i === done ? 'current' : 'todo');
   return [
     { key: 'PAY', label: t('To‘lov'), state: state(0) },
     { key: 'COOK', label: done > 1 ? t('Tayyor') : t('Tayyorlanmoqda'), state: state(1) },
-    { key: 'ROAD', label: done > 2 ? t('Yetkazildi') : t('Yetkazilmoqda'), state: state(2) },
+    { key: 'ROAD', label: pickup ? (done > 2 ? t('Olib ketildi') : t('Olib ketish')) : done > 2 ? t('Yetkazildi') : t('Yetkazilmoqda'), state: state(2) },
   ];
 }

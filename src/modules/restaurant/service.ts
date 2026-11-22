@@ -64,6 +64,8 @@ export async function takeStaffAction(input: StaffActor & {
     const walkOk = order.deliveryPreference === 'WALK_OK';
     const selfDelivery = input.action === 'MARK_READY' && input.delivery === 'SELF';
     if (selfDelivery && !walkOk) throw new Error('YETKAZISH_USULI_NOTOGRI');
+    // Pickup: the customer chose it at checkout (deliveryMode is already PICKUP); "Tayyor" calls no taxi and only tells the customer to come.
+    const pickup = order.deliveryMode === 'PICKUP';
     // Verify may only be requested for payment matcher, never from a photo or unchecked receipt.
     const plan = planStaffTransition(order.status, order.payment?.status ?? null, input.action, input.prepMinutes);
     const now = new Date();
@@ -85,7 +87,7 @@ export async function takeStaffAction(input: StaffActor & {
       await scheduleTaxiWhenPreparing(tx, order, input.prepMinutes!, now);
     }
     if (input.action === 'MARK_READY') {
-      if (selfDelivery) {
+      if (selfDelivery || pickup) {
         // No taxi for this order, ever (a database trigger refuses a dispatch row too). A dispatch that already exists means the state moved on.
         if (await tx.taxiDispatch.count({ where: { orderId: order.id } })) throw new Error('HOLAT_ORALIQDA_OZGARDI');
       } else if (walkOk) {
@@ -127,7 +129,7 @@ export async function takeStaffAction(input: StaffActor & {
         details: {
           channel,
           ...(input.prepMinutes ? { prepMinutes: input.prepMinutes } : {}),
-          ...(input.action === 'MARK_READY' ? { delivery: selfDelivery ? 'SELF' : 'TAXI', deliveryPreference: order.deliveryPreference } : {}),
+          ...(input.action === 'MARK_READY' ? { delivery: pickup ? 'PICKUP' : selfDelivery ? 'SELF' : 'TAXI', deliveryPreference: order.deliveryPreference } : {}),
           ...(input.action === 'VERIFY_PAYMENT' && order.payment ? {
             amountTiyin: order.payment.amountTiyin.toString(), paymentIsTest: order.payment.isTest, matchedTransactionId: order.payment.matchedTransactionId,
           } : {}),

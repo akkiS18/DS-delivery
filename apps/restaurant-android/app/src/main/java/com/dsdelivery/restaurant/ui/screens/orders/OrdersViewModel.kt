@@ -212,12 +212,17 @@ class OrdersViewModel(
         }
     }
 
-    /** Walking delivery: "Yetkazildi" (the card asks for confirmation first). Only the restaurant can complete a self-delivered order. */
+    /**
+     * Walking delivery: "Yetkazildi"; pickup: "Mijozga berildi" (the card asks for confirmation first). Only the restaurant can complete
+     * these orders.
+     */
     fun markSelfDelivered(orderId: String) {
         if (_uiState.value.readyBusyId != null) return
+        val pickup = _uiState.value.orders.firstOrNull { it.id == orderId }?.pickup == true
         _uiState.update { it.copy(readyBusyId = orderId) }
         viewModelScope.launch {
-            when (val result = repository.setSelfDelivered(orderId, "READY")) {
+            val call = if (pickup) repository.setPickedUp(orderId, "READY") else repository.setSelfDelivered(orderId, "READY")
+            when (val result = call) {
                 is Resource.Success -> _uiState.update { it.copy(readyBusyId = null, errorMessage = null) }
                 is Resource.Error -> _uiState.update { it.copy(readyBusyId = null, errorMessage = result.message) }
                 Resource.Loading -> {}

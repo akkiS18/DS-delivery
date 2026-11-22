@@ -164,8 +164,12 @@ class OrderDetailViewModel(
         }
     }
 
-    /** Walking delivery: the restaurant reports it brought the order. */
+    /** Walking delivery: the restaurant reports it brought the order. Pickup: it handed the order to the customer. */
     override fun confirmSelfDelivered() {
+        if (_uiState.value.order?.pickup == true) {
+            runAction("Mijozga berildi.") { expected -> repository.setPickedUp(orderId, expected) }
+            return
+        }
         runAction("Yetkazildi.") { expected ->
             repository.setSelfDelivered(orderId, expected)
         }
@@ -173,13 +177,13 @@ class OrderDetailViewModel(
 
     override fun confirmCancel() {
         val reason = _uiState.value.selectedCancelReason
-        runAction("Bekor qilindi. Pulni qaytaring va chekni yuklang.") { expected ->
+        runAction("Bekor qilindi. Pulni mijozga administrator qaytaradi.") { expected ->
             repository.cancelOrder(orderId, reason.code, expected)
         }
     }
 
     override fun confirmRefundApprove() {
-        runAction("Rozi bo‘ldingiz. Pulni qaytaring va chekni yuklang.") { expected ->
+        runAction("Rozi bo‘ldingiz. Pulni mijozga administrator qaytaradi.") { expected ->
             repository.approveRefund(orderId, expected)
         }
     }

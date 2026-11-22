@@ -12,7 +12,9 @@ data class RestaurantOperationsConfig(
     val isPaused: Boolean = false,
     val defaultPrepMinutes: Int = 25,
     val workingDays: List<WorkingDay> = defaultWorkingDays(),
-    val workingHoursSet: Boolean = true
+    val workingHoursSet: Boolean = true,
+    /** null = the server does not know pickup yet (switch hidden). */
+    val customerPickupEnabled: Boolean? = null
 ) {
     companion object {
         fun defaultWorkingDays(): List<WorkingDay> = listOf(

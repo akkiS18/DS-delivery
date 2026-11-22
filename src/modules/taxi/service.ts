@@ -24,6 +24,8 @@ export async function scheduleTaxiWhenPreparing(
   opts: { immediate?: boolean } = {},
 ): Promise<void> {
   if (!order.createdViaBot) return;
+  // "O‘zim olib ketaman": the customer collects the order, there is never a taxi (the dispatch trigger refuses one as well).
+  if (order.deliveryPreference === 'PICKUP') return;
   // The customer allowed walking delivery: nothing is booked while cooking. The restaurant chooses at "Tayyor": self delivery (never a taxi) or a taxi,
   // which is then requested at once (`immediate`, from the MARK_READY step).
   if (order.deliveryPreference === 'WALK_OK' && !opts.immediate) return;

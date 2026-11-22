@@ -57,6 +57,7 @@ export function registerRestaurantAdminHandlers<C extends Context>(bot: Telegraf
       '/payments — real to‘lovni yoqish / yopish',
       '/fee — xizmat haqi rejimi (tekis / foiz / pog‘onali)',
       '/cash — naqd to‘lov variantini yoqish / yopish',
+      '/pickup — «O‘zim olib ketaman» variantini yoqish / yopish',
       '/taxi — taksi qachon chaqirilishini ko‘rish (admin rejimi)',
       '/deleterestaurant — restoranni o‘chirish (tarixi bo‘lsa arxivlanadi)',
       '/newtaxi — yangi taksi kompaniyasi va uning ilova logini',

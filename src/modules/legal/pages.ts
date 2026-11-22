@@ -112,7 +112,7 @@ ${hours}`);
 <h2>Bekor qilish va pulni qaytarish</h2>
 <ul>
 <li>To‘lanmagan buyurtmani istalgan vaqt bekor qilish mumkin.</li>
-<li>To‘langan buyurtmani bekor qilish so‘rovi restoranga boradi. Restoran pulni qaytarsa, bank chekining rasmini yuklaydi va siz uni buyurtma sahifasida ko‘rasiz.</li>
+<li>To‘langan buyurtmani bekor qilish so‘rovi restoranga boradi. Restoran rozi bo‘lsa, pulni DS Delivery qaytaradi va sizdan pul kelganini tasdiqlash so‘raladi.</li>
 <li>Pul kelmagan bo‘lsa, buyurtma sahifasidan yordam so‘rang.</li>
 </ul>
 <h2>Yetkazish</h2>

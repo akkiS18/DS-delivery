@@ -2,6 +2,7 @@ import { Markup, type Context, type Telegraf } from 'telegraf';
 import { isSupportAdmin, supportAdminIds } from '../modules/support/service.js';
 import { paymentsPanel, setRealPaymentsOpen } from '../modules/platform/settings.js';
 import { cashEnabled, loadCashMaxOrderSom, setCashEnabled } from '../modules/payment/method.js';
+import { pickupOpen, setPickupOpen } from '../modules/orders/pickup.js';
 import { loadTaxiMode, setTaxiMode, type TaxiDispatchMode } from '../modules/taxi/mode.js';
 import { loadFeeConfig, setFeeMode } from '../modules/pricing/config.js';
 import { type FeeConfig, type FeeMode } from '../modules/pricing/fee.js';
@@ -76,6 +77,20 @@ export async function renderCash(): Promise<{ text: string; keyboard: ReturnType
     'O‘chirsangiz ham, allaqachon berilgan naqd buyurtmalar davom etadi.',
   ].join('\n');
   return { text, keyboard: Markup.inlineKeyboard([[on ? Markup.button.callback('⛔ O‘chirish', 'cash:set:0') : Markup.button.callback('▶️ Yoqish', 'cash:set:1')]]) };
+}
+
+export async function renderPickup(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
+  const open = await pickupOpen();
+  const off = await db.restaurant.count({ where: { isActive: true, customerPickupEnabled: false } });
+  const text = [
+    '🛍 <b>«O‘zim olib ketaman»</b> (mijoz restorandan o‘zi olib ketadi)',
+    open ? '🟢 <b>YOQILGAN</b>: mijoz bu variantni tanlay oladi.' : '🔴 <b>YOPIQ</b>: mijozga bu variant ko‘rsatilmaydi.',
+    '',
+    'Taksi chaqirilmaydi. Restoran «Tayyor», keyin «Mijozga berildi» bosadi. Karta yoki naqd (kassada) to‘lanadi.',
+    '⚠️ Faqat barcha restoran telefonlarida YANGI restoran ilovasi o‘rnatilgandan keyin yoqing: eski ilovada «Mijozga berildi» tugmasi yo‘q.',
+    off ? `O‘zi o‘chirib qo‘ygan restoranlar: ${off} ta (ularda ko‘rinmaydi).` : 'Barcha restoranlarda ruxsat berilgan (restoran sozlamada o‘chira oladi).',
+  ].join('\n');
+  return { text, keyboard: Markup.inlineKeyboard([[open ? Markup.button.callback('⛔ Yopish', 'pickup:set:0') : Markup.button.callback('▶️ Yoqish', 'pickup:set:1')]]) };
 }
 
 export async function renderTaxiMode(): Promise<{ text: string; keyboard: ReturnType<typeof Markup.inlineKeyboard> }> {
@@ -252,6 +267,21 @@ export function registerPlatformAdminHandlers<C extends Context>(bot: Telegraf<C
     if (!adminId) return;
     await setCashEnabled({ adminId, enabled: (ctx.match as unknown as [string, string])[1] === '1' });
     const v = await renderCash();
+    await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
+  });
+
+  bot.command('pickup', async ctx => {
+    if (!admin(ctx)) return;
+    const v = await renderPickup();
+    await ctx.reply(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup });
+  });
+
+  bot.action(/^pickup:set:([01])$/, async ctx => {
+    await ctx.answerCbQuery().catch(() => undefined);
+    const adminId = admin(ctx);
+    if (!adminId) return;
+    await setPickupOpen({ adminId, open: (ctx.match as unknown as [string, string])[1] === '1' });
+    const v = await renderPickup();
     await ctx.editMessageText(v.text, { parse_mode: 'HTML', reply_markup: v.keyboard.reply_markup }).catch(() => undefined);
   });
 

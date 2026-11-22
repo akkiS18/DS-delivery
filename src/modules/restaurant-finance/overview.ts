@@ -45,8 +45,20 @@ export interface SourceTotals {
 }
 const empty = (): SourceTotals => ({ orders: 0, collectedSom: 0, platformFeeSom: 0, refundsSom: 0, restaurantEarnedSom: 0, feeSettledSom: 0 });
 
+/**
+ * Owner decision 2026-11-22: the administrator sends every refund. When the customer had paid onto the restaurant's OWN card (or in cash), the restaurant
+ * kept that money while DS paid the customer back, so the restaurant owes it to DS. These are such refunds (sent by an administrator, money not on a
+ * platform card). Shown only: it is not netted automatically in the commission settlement yet; the administrator holds it back by hand.
+ */
+export const RESTAURANT_HELD_REFUND_WHERE = (restaurantId: string): Prisma.RefundRequestWhereInput => ({
+  order: { restaurantId, paymentIsTest: false },
+  status: { in: ['SENT', 'DISPUTED', 'CONFIRMED'] },
+  sentBy: { startsWith: 'admin:' },
+  NOT: { payment: { is: { method: 'CARD', card: { is: { restaurantId: null } } } } },
+});
+
 export async function financeOverview(restaurantId: string) {
-  const [rows, marks, restaurant, report, openRefunds] = await Promise.all([
+  const [rows, marks, restaurant, report, openRefunds, heldRefunds] = await Promise.all([
     db.$queryRaw<Array<{ bucket: Bucket; orders: number; collected: bigint; fee: bigint; fee_settled: bigint; refunds: bigint }>>`
       WITH d AS (${delivered(restaurantId)})
       SELECT bucket, count(*)::int AS orders, COALESCE(sum(collected), 0)::bigint AS collected, COALESCE(sum(fee), 0)::bigint AS fee,
@@ -56,6 +68,7 @@ export async function financeOverview(restaurantId: string) {
     db.restaurant.findUnique({ where: { id: restaurantId }, select: { collectsToPlatform: true } }),
     payoutReport(1, new Date(), restaurantId),
     db.refundRequest.findMany({ where: { order: { restaurantId, paymentIsTest: false }, status: { in: ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'] } }, select: { approvedAmountTiyin: true, paidAmountTiyin: true } }),
+    db.refundRequest.findMany({ where: RESTAURANT_HELD_REFUND_WHERE(restaurantId), select: { approvedAmountTiyin: true, paidAmountTiyin: true } }),
   ]);
   const by: Record<Bucket, SourceTotals> = { platform: empty(), own: empty(), cash: empty() };
   for (const r of rows) {
@@ -78,8 +91,10 @@ export async function financeOverview(restaurantId: string) {
     ownCard: { ...by.own, feeRemainingSom: by.own.platformFeeSom - by.own.feeSettledSom },
     /** Cash to the driver: shown inside the history screen only. */
     cash: { ...by.cash, feeRemainingSom: by.cash.platformFeeSom - by.cash.feeSettledSom },
-    /** Refund requests that still need an answer or a transfer (the one warning the main screen keeps). */
+    /** Refund requests that are not finished yet (the restaurant only answers REQUESTED ones; the administrator sends the money). */
     openRefunds: { count: openRefunds.length, amountSom: openRefunds.reduce((s, r) => s + Number((r.approvedAmountTiyin ?? r.paidAmountTiyin) / 100n), 0) },
+    /** Money DS returned to customers although it was on the restaurant's own card (or paid in cash): the restaurant owes it to DS (held back by hand). */
+    refundsPaidByPlatform: { count: heldRefunds.length, amountSom: heldRefunds.reduce((s, r) => s + Number((r.approvedAmountTiyin ?? r.paidAmountTiyin) / 100n), 0) },
   };
 }
 

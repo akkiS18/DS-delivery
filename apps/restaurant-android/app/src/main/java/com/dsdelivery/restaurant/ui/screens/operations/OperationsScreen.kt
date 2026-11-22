@@ -109,6 +109,7 @@ fun OperationsScreen(
         onReloadCards = { viewModel.loadOperations(); viewModel.loadCards() },
         onOpenRatings = onOpenRatings,
         onSaveSchedule = viewModel::saveShownWorkingHours,
+        onToggleCustomerPickup = viewModel::setCustomerPickup,
         reservationSection = {
             ReservationSettingsSection(
                 settings = reservations.settings,
@@ -184,6 +185,7 @@ fun OperationsContent(
     modifier: Modifier = Modifier,
     onOpenRatings: () -> Unit = {},
     onSaveSchedule: () -> Unit = {},
+    onToggleCustomerPickup: (Boolean) -> Unit = {},
     reservationSection: @Composable () -> Unit = {}
 ) {
     val scrollState = rememberScrollState()
@@ -239,6 +241,28 @@ fun OperationsContent(
                             uncheckedTrackColor = WarningOrange.copy(alpha = 0.5f)
                         )
                     )
+                }
+            }
+
+            // 1a. "O‘zim olib ketaman" (owner decision 2026-11-22: on for every restaurant, each can switch it off)
+            state.customerPickupEnabled?.let { pickupOn ->
+                SettingsSection(
+                    title = "Olib ketish",
+                    footer = "Yoqilgan bo‘lsa, mijoz buyurtmani restorandan o‘zi olib ketishni tanlay oladi: taksi chaqirilmaydi, tayyor bo‘lganda mijozga xabar boradi, berganingizda “Mijozga berildi” ni bosasiz."
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Mijoz o‘zi olib ketadi", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = pickupOn,
+                            enabled = !state.pickupBusy,
+                            onCheckedChange = onToggleCustomerPickup,
+                            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = BrandPrimary)
+                        )
+                    }
                 }
             }
 

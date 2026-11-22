@@ -5,13 +5,14 @@ import type { PaymentEngineV3 } from '../payment/engine.js';
 import { acceptOrder, rejectOrder, validateSnapshot, REJECT_REASONS, type SnapshotProblem } from '../restaurant/acceptance.js';
 import { takeStaffAction } from '../restaurant/service.js';
 import { isValidPrepMinutes } from '../restaurant/workflow.js';
-import { cancelCashOrder, decideRefund, markRefundSent, requestCancellation } from '../refunds/service.js';
+import { cancelCashOrder, decideRefund, requestCancellation } from '../refunds/service.js';
 import type { StoredReceipt } from '../refunds/receipts.js';
 import { REJECT_REASONS as REFUND_REJECT_REASONS, RESTAURANT_REASONS } from '../refunds/workflow.js';
 import { taxiStage } from '../taxi/workflow.js';
 import { beforeCursor, cursorParam, encodeCursor } from '../../lib/cursor.js';
 import { rescheduleTaxiForPrep } from '../taxi/service.js';
 import { completeSelfDelivery } from '../orders/self-delivery.js';
+import { completePickup } from '../orders/pickup.js';
 import { autoStartPreparing } from './auto.js';
 import { applyDemoAction, demoAllowedActions } from './demo.js';
 import { CARD_MANUAL, CASH_PENDING, RESTAURANT_CHECK, isPaymentCleared } from '../payment/status.js';
@@ -53,7 +54,9 @@ export const WAITING_STATUSES = ['WAITING_CUSTOMER_CONSENT', 'PAYMENT_PENDING', 
 const ATTENTION_WHERE: Prisma.OrderWhereInput = { OR: [
   { status: 'CANCELLATION_REQUESTED' },
   { status: { in: ['PREPARING', 'READY'] }, taxiDispatches: { some: { status: { in: ['NEEDS_HELP', 'CANCELLATION_PENDING', 'DECLINED'] } } } },
-  { refundRequests: { some: { status: { in: ['REQUESTED', 'APPROVED', 'DISPUTED'] } } } },
+  // Owner decision 2026-11-22: the restaurant only agrees or refuses (REQUESTED); sending the money back is the administrator's job, so an approved
+  // or disputed refund is no longer the restaurant's to look at.
+  { refundRequests: { some: { status: 'REQUESTED' } } },
 ] };
 
 function filterWhere(filter: z.output<typeof listQuerySchema>['filter']): Prisma.OrderWhereInput {
@@ -84,6 +87,7 @@ export const preparingBodySchema = z.object({ prepMinutes: prepSchema, expectedS
 /** `delivery: SELF` = the restaurant brings it itself (only when the customer allowed walking delivery); omitted = taxi, as before. */
 export const readyBodySchema = z.object({ delivery: z.enum(['TAXI', 'SELF']).optional(), expectedStatus: expected }).strict();
 export const selfDeliveredBodySchema = z.object({ expectedStatus: expected }).strict();
+export const pickedUpBodySchema = z.object({ expectedStatus: expected }).strict();
 /** Owner decision 2026-10-27: nobody is asked "ready in N minutes" any more. SET_PREP_TIME stays as the kitchen's one-tap acknowledgement of a paid order
  *  (it silences the bell and moves the order to "cooking"); `minutes` is optional and older apps may still send it. */
 export const PREP_CHOICE_MIN = 5;
@@ -100,14 +104,14 @@ export const refundReceiptQuerySchema = z.object({ expectedStatus: expected }).s
 export const orderIdSchema = idSchema;
 
 export type OrderAction = 'ACCEPT' | 'REJECT' | 'VERIFY_PAYMENT' | 'START_PREPARING' | 'MARK_READY' | 'SET_PREP_TIME'
-  | 'CANCEL_ORDER' | 'REFUND_APPROVE' | 'REFUND_REJECT' | 'REFUND_SENT' | 'SELF_DELIVERED';
+  | 'CANCEL_ORDER' | 'REFUND_APPROVE' | 'REFUND_REJECT' | 'REFUND_SENT' | 'SELF_DELIVERED' | 'PICKED_UP';
 
 const OPEN_REFUND = ['REQUESTED', 'APPROVED', 'SENT', 'DISPUTED'];
 
 const detailSelect = {
   id: true, code: true, status: true, totalSom: true, serviceFeeSom: true, createdAt: true, estimatedPrepMinutes: true, prepMinutes: true, prepChosenMinutes: true,
   addressText: true, phoneSnapshot: true, paymentIsTest: true, createdViaBot: true, isDemo: true, rejectReason: true,
-  deliveryPreference: true, deliveryMode: true, selfDeliveredAt: true, deliveryLat: true, deliveryLng: true,
+  deliveryPreference: true, deliveryMode: true, selfDeliveredAt: true, pickedUpAt: true, deliveryLat: true, deliveryLng: true,
   restaurantDeadlineAt: true, acceptedAt: true, paymentVerifiedAt: true, preparingStartedAt: true, readyAt: true,
   restaurantId: true,
   restaurant: { select: { defaultPrepMinutes: true, isPaused: true } },
@@ -145,7 +149,7 @@ type ActionInput = Pick<Row, 'status' | 'createdViaBot' | 'restaurantDeadlineAt'
   /** Optional so older callers keep compiling: an admin "sinov" order has its own two actions (restaurant-orders/demo.ts). */
   isDemo?: boolean;
   paymentStatus: string | null; paymentMethod?: string | null; refund: { status: string } | null; paymentIsTest: boolean;
-  /** Optional so older callers keep compiling: only 'SELF' matters. */
+  /** Optional so older callers keep compiling: only 'SELF' and 'PICKUP' matter. */
   deliveryMode?: string;
 };
 
@@ -177,9 +181,12 @@ export function allowedActions(o: ActionInput, extras: Pick<Extras, 'menuProblem
   } else if (o.status === 'READY' && o.deliveryMode === 'SELF' && isPaymentCleared(o.paymentStatus) && !openRefund) {
     // Self delivery: no taxi operator will ever confirm it, so the restaurant reports it delivered.
     actions.push('SELF_DELIVERED');
+  } else if (o.status === 'READY' && o.deliveryMode === 'PICKUP' && isPaymentCleared(o.paymentStatus) && !openRefund) {
+    // Pickup: the customer came for it; only the restaurant can say it was handed over ("Mijozga berildi").
+    actions.push('PICKED_UP');
   }
   if (openRefund === 'REQUESTED') actions.push('REFUND_APPROVE', 'REFUND_REJECT');
-  if (openRefund === 'APPROVED' || openRefund === 'DISPUTED') actions.push('REFUND_SENT');
+  // REFUND_SENT is never offered any more (owner decision 2026-11-22): the administrator sends every refund (admin-refunds).
   return actions;
 }
 
@@ -190,7 +197,6 @@ export function attentionCodes(o: Row, extras: Extras): string[] {
   const taxi = o.taxiDispatches[0];
   if (o.status === 'PAYMENT_MATCHED_UNVERIFIED' || (o.status === 'PAYMENT_PENDING' && o.payment?.method === CARD_MANUAL && o.payment.status === RESTAURANT_CHECK)) out.push('VERIFY_PAYMENT');
   if (o.status === 'CANCELLATION_REQUESTED' || refund?.status === 'REQUESTED') out.push('CANCELLATION_REQUESTED');
-  if (refund && ['APPROVED', 'DISPUTED'].includes(refund.status)) out.push('REFUND_PENDING');
   if (o.status === 'PAYMENT_CONFIRMED') out.push('AUTO_START_FAILED');
   if (extras.menuProblems.length) out.push('MENU_PROBLEM');
   if (taxi && taxiStage(taxi.status) === 'NEEDS_HELP' && ['PREPARING', 'READY'].includes(o.status)) out.push('TAXI_NEEDS_HELP');
@@ -239,7 +245,8 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
       // A demo order has no payment row; the app is shown a paid test payment so the card looks like a real paid order.
       ? { status: 'CONFIRMED_MANUAL', method: 'CARD', isTest: true, amountSom: o.totalSom, cardLast4: null }
       : null,
-    /** Cash on delivery: the taxi driver pays the restaurant `amountSom` (the food total) at pickup and collects it from the customer. */
+    /** Cash on delivery: the taxi driver pays the restaurant `amountSom` (the food total) at pickup and collects it from the customer.
+     *  A pickup order (delivery.mode PICKUP): the customer pays it at the restaurant's counter. */
     cash: o.payment?.method === 'CASH' ? { amountSom: o.totalSom, acceptBy: iso(o.payment.expiresAt), accepted: o.payment.status !== CASH_PENDING } : null,
     /** What the restaurant checks before confirming real money. A Gmail signal is NEVER proof of a bank credit. */
     paymentEvidence: o.payment && o.payment.method !== 'CASH' ? {
@@ -262,9 +269,10 @@ export function orderView(o: Row, extras: Extras = NO_EXTRAS, now = new Date()) 
     } : null,
     taxiCompanyName: o.taxiCompany?.name ?? null,
     /** Walking delivery. preference: what the customer allowed (TAXI | WALK_OK); mode: what happens (TAXI | SELF, fixed at "Tayyor").
-     *  Only a WALK_OK order shares the customer's map point, so the restaurant can judge the distance and walk there. */
+     *  Only a WALK_OK order shares the customer's map point, so the restaurant can judge the distance and walk there.
+     *  Pickup ("O‘zim olib ketaman"): preference and mode are both PICKUP from checkout; pickedUpAt = "Mijozga berildi". */
     delivery: {
-      preference: o.deliveryPreference, mode: o.deliveryMode, selfDeliveredAt: iso(o.selfDeliveredAt),
+      preference: o.deliveryPreference, mode: o.deliveryMode, selfDeliveredAt: iso(o.selfDeliveredAt), pickedUpAt: iso(o.pickedUpAt),
       location: o.deliveryPreference === 'WALK_OK' && o.deliveryLat !== null && o.deliveryLng !== null ? { lat: o.deliveryLat, lng: o.deliveryLng } : null,
     },
     customerName: o.customer.displayName ?? null,
@@ -482,6 +490,13 @@ export async function performOrderAction(
       const r = await completeSelfDelivery({ restaurantId, orderId, actorLabel: label });
       if (r === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
       if (r === 'STALE') return stale('INVALID_STATE');
+    } else if (action === 'PICKED_UP') {
+      const r = await completePickup({ restaurantId, orderId, actorLabel: label });
+      if (r === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
+      if (r === 'STALE') return stale('INVALID_STATE');
+    } else if (action === 'REFUND_SENT') {
+      // Owner decision 2026-11-22: the administrator sends every refund. An older app may still offer the button: it is refused, nothing changes.
+      return stale('REFUND_BY_PLATFORM');
     } else if (action === 'SET_PREP_TIME') {
       if (await setPrepTime(restaurantId, orderId, args.chosenMinutes) === 'STALE') return stale('INVALID_STATE');
     } else if (action === 'CANCEL_ORDER') {
@@ -493,14 +508,12 @@ export async function performOrderAction(
     } else {
       // refund steps address the order's latest open refund
       const open = await db.refundRequest.findFirst({
-        where: { orderId, status: { in: action === 'REFUND_SENT' ? ['APPROVED', 'DISPUTED'] : ['REQUESTED'] }, order: { restaurantId } },
+        where: { orderId, status: 'REQUESTED', order: { restaurantId } },
         orderBy: { number: 'desc' }, select: { id: true },
       });
       if (!open) return stale('NO_OPEN_REFUND');
-      const r = action === 'REFUND_SENT'
-        ? await markRefundSent({ actorTelegramId: label, restaurantId, refundId: open.id, receipt: args.receipt! })
-        : await decideRefund({ actorTelegramId: label, restaurantId, refundId: open.id, decision: action === 'REFUND_APPROVE' ? 'APPROVE' : 'REJECT',
-          ...(action === 'REFUND_REJECT' ? { rejectReason: args.rejectReason! } : {}) });
+      const r = await decideRefund({ actorTelegramId: label, restaurantId, refundId: open.id, decision: action === 'REFUND_APPROVE' ? 'APPROVE' : 'REJECT',
+        ...(action === 'REFUND_REJECT' ? { rejectReason: args.rejectReason! } : {}) });
       if (r.result === 'NOT_FOUND') return { ok: false, httpStatus: 404, error: 'NOT_FOUND' };
       if (r.result === 'STALE') return stale();
     }

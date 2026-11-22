@@ -16,7 +16,7 @@ export function ActiveOrderStrip({ go }: { go: (r: Route) => void }) {
   const active = orders.data ? groupOrders(orders.data.orders).active : [];
   const first = active[0];
   if (!first) return null;
-  const steps = heroSteps(first.stage);
+  const steps = heroSteps(first.stage, first.deliveryMode === 'PICKUP');
   const open = () => go(active.length === 1 ? { name: 'order', id: first.id } : { name: 'orders' });
   return (
     <button type="button" className="live-strip" onClick={open}

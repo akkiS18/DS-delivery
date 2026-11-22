@@ -108,11 +108,11 @@ export async function listTaxiOptions() {
 
 // ------------------------------------------------------------------------------------------------ the customer's own orders
 export type CustomerStage =
-  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'SELF_DELIVERY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
+  | 'PAYMENT_PENDING' | 'PAYMENT_CHECKING' | 'PREPARING' | 'READY' | 'SELF_DELIVERY' | 'PICKUP_READY' | 'TAXI_REQUESTED' | 'TAXI_ACCEPTED' | 'TAXI_SENT'
   | 'DELIVERED' | 'CANCELLATION_REQUESTED' | 'CANCELLED' | 'EXPIRED' | 'NEEDS_HELP';
 
 /** One honest stage per order for the tracking screen, derived only from the real order and taxi dispatch state. */
-export function customerStage(status: string, paymentStatus: string | null, taxi: TaxiStage | null, now = new Date(), selfDelivery = false): CustomerStage {
+export function customerStage(status: string, paymentStatus: string | null, taxi: TaxiStage | null, now = new Date(), selfDelivery = false, pickup = false): CustomerStage {
   void now;
   switch (status) {
     case 'COMPLETED': return 'DELIVERED';
@@ -126,6 +126,8 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
     case 'PREPARING': case 'READY': {
       // Walking delivery: the restaurant itself brings the order (it never has a taxi).
       if (status === 'READY' && selfDelivery) return 'SELF_DELIVERY';
+      // Pickup: ready and waiting at the restaurant for the customer (it never has a taxi).
+      if (pickup) return status === 'READY' ? 'PICKUP_READY' : 'PREPARING';
       if (taxi === 'NEEDS_HELP') return 'NEEDS_HELP';
       if (taxi === 'DISPATCHED') return 'TAXI_SENT';
       if (taxi === 'ACCEPTED') return 'TAXI_ACCEPTED';
@@ -137,7 +139,7 @@ export function customerStage(status: string, paymentStatus: string | null, taxi
 }
 
 const orderInclude = {
-  restaurant: { select: { id: true, name: true, defaultPrepMinutes: true, pickupPhone: true, image: { select: { version: true } }, logo: { select: { version: true } } } },
+  restaurant: { select: { id: true, name: true, defaultPrepMinutes: true, pickupPhone: true, pickupAddress: true, image: { select: { version: true } }, logo: { select: { version: true } } } },
   taxiCompany: { select: { name: true } },
   items: { where: { supersededAt: null }, select: { productId: true, name: true, unitSom: true, quantity: true, subtotalSom: true } },
   // number: the approved payee number the customer is shown (payeeNumber() needs it; without it the screen says "not configured").
@@ -198,8 +200,9 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
   const pay = o.payment;
   const taxi = o.taxiDispatches[0];
   const taxiSt = taxi ? taxiStage(taxi.status) : null;
-  const stage = customerStage(o.status, pay?.status ?? null, taxiSt, now, o.deliveryMode === 'SELF');
-  const deliveredAt = taxi?.deliveredAt ?? o.selfDeliveredAt ?? null;
+  const pickup = o.deliveryMode === 'PICKUP';
+  const stage = customerStage(o.status, pay?.status ?? null, taxiSt, now, o.deliveryMode === 'SELF', pickup);
+  const deliveredAt = taxi?.deliveredAt ?? o.selfDeliveredAt ?? o.pickedUpAt ?? null;
   const refund = o.refundRequests[0] ?? null;
   const openRefund = refund !== null && OPEN_REFUND.includes(refund.status);
   const cash = pay?.method === 'CASH';
@@ -249,11 +252,14 @@ export function customerOrderView(o: CustomerOrderRow, now = new Date()) {
     taxiCompanyName: o.taxiCompany?.name ?? null,
     deliveredAt: deliveredAt?.toISOString() ?? null, // the operator-confirmed (taxi) or restaurant-reported (self delivery) time; nothing earlier counts as delivered
     // Walking delivery: what the customer allowed at checkout and what the restaurant decided (TAXI until it presses "Tayyor").
-    deliveryPreference: o.deliveryPreference === 'WALK_OK' ? 'WALK_OK' as const : 'TAXI' as const,
-    deliveryMode: o.deliveryMode === 'SELF' ? 'SELF' as const : 'TAXI' as const,
+    // PICKUP ("O‘zim olib ketaman") is both: the customer chose it and it is what happens.
+    deliveryPreference: o.deliveryPreference === 'WALK_OK' ? 'WALK_OK' as const : pickup ? 'PICKUP' as const : 'TAXI' as const,
+    deliveryMode: o.deliveryMode === 'SELF' ? 'SELF' as const : pickup ? 'PICKUP' as const : 'TAXI' as const,
+    /** Pickup only: where the customer collects the order (the restaurant's own address). */
+    pickupAddress: pickup ? o.restaurant.pickupAddress?.trim() || null : null,
     // "Did you receive it?": asked once the taxi is on its way (or the operator says delivered). A signal only: it never changes the order status.
     receivedAt: o.customerReceivedAt?.toISOString() ?? null,
-    canConfirmReceived: o.customerReceivedAt === null && stage === 'DELIVERED',
+    canConfirmReceived: o.customerReceivedAt === null && stage === 'DELIVERED' && !pickup, // a pickup was handed over in person
     // When the payment was confirmed: the app uses it to announce "to‘lov qabul qilindi" once, right after it happens.
     paidAt: o.paymentVerifiedAt?.toISOString() ?? null,
     cancel: { allowed: cancel !== null, kind: cancel },
@@ -274,6 +280,6 @@ export async function listCustomerOrders(owner: CustomerOwner, limit = 20) {
   });
   return rows.map(r => {
     const v = customerOrderView(r);
-    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantId: r.restaurantId, reorder: reorderLines(r.items), restaurantName: v.restaurantName, restaurantImageUrl: v.restaurantImageUrl, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), itemsPreview: v.items.slice(0, 3).map(i => ({ name: i.name, quantity: i.quantity })), itemsMore: Math.max(0, v.items.length - 3), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
+    return { id: v.id, code: v.code, status: v.status, stage: v.stage, createdAt: v.createdAt, restaurantId: r.restaurantId, reorder: reorderLines(r.items), restaurantName: v.restaurantName, restaurantImageUrl: v.restaurantImageUrl, foodTotalSom: v.foodTotalSom, itemsCount: v.items.reduce((n, i) => n + i.quantity, 0), itemsPreview: v.items.slice(0, 3).map(i => ({ name: i.name, quantity: i.quantity })), itemsMore: Math.max(0, v.items.length - 3), serverNow: v.serverNow, prep: v.prep, taxi: v.taxi, method: v.payment?.method ?? 'CARD', deliveryMode: v.deliveryMode, rating: v.rating?.stars ?? null, canRate: v.canRate, rateUntil: v.rateUntil };
   });
 }

@@ -165,7 +165,17 @@ fun OrdersContent(
     var confirmReadyFor by remember { mutableStateOf<String?>(null) }
     confirmReadyFor?.let { id ->
         val target = state.orders.firstOrNull { it.id == id }
-        if (target?.walkOk == true) {
+        if (target?.pickup == true) {
+            // The customer collects it: no taxi, the customer is told to come.
+            ActionConfirmDialog(
+                title = "Buyurtma tayyor",
+                message = "Taksi chaqirilmaydi. Mijozga «Buyurtmangiz tayyor, olib keting» xabari boradi.",
+                confirmText = "Tayyor",
+                confirmButtonColor = SuccessGreen,
+                onConfirm = { confirmReadyFor = null; onMarkReady?.invoke(id, false) },
+                onDismiss = { confirmReadyFor = null }
+            )
+        } else if (target?.walkOk == true) {
             // The customer allowed walking delivery: the restaurant chooses who brings it.
             ReadyChoiceDialog(
                 order = target,
@@ -187,10 +197,12 @@ fun OrdersContent(
     // "Yetkazildi" cannot be taken back either: it completes the order and books the commission.
     var confirmDeliveredFor by remember { mutableStateOf<String?>(null) }
     confirmDeliveredFor?.let { id ->
+        val handOver = state.orders.firstOrNull { it.id == id }?.pickup == true
         ActionConfirmDialog(
-            title = "Yetkazildimi?",
-            message = "Buyurtma mijozga yetkazilganini tasdiqlaysiz. Bu qaytarilmaydi.",
-            confirmText = "Yetkazildi",
+            title = if (handOver) "Mijozga berildimi?" else "Yetkazildimi?",
+            message = if (handOver) "Buyurtmani mijozga berganingizni tasdiqlaysiz. Buyurtma yakunlanadi, bu qaytarilmaydi."
+                else "Buyurtma mijozga yetkazilganini tasdiqlaysiz. Bu qaytarilmaydi.",
+            confirmText = if (handOver) "Mijozga berildi" else "Yetkazildi",
             confirmButtonColor = SuccessGreen,
             onConfirm = { confirmDeliveredFor = null; onSelfDelivered?.invoke(id) },
             onDismiss = { confirmDeliveredFor = null }

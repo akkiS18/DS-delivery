@@ -2,6 +2,7 @@ package com.dsdelivery.restaurant.ui.screens.orders.detail
 
 import androidx.compose.ui.platform.LocalUriHandler
 import com.dsdelivery.restaurant.ui.components.WalkLine
+import com.dsdelivery.restaurant.ui.components.PickupLine
 import com.dsdelivery.restaurant.ui.components.ReadyChoiceDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -185,9 +186,9 @@ fun OrderDetailContent(
             // Sticky and always visible while the order is being cooked, so the kitchen never has to scroll for it.
             if (order != null && OrderAction.MARK_READY in order.allowedActions) {
                 StickyReadyBar(text = "Tayyor ${order.orderNumberDisplay}", busy = state.isSubmitting, onClick = { callbacks.showReadyConfirm(true) })
-            } else if (order != null && OrderAction.SELF_DELIVERED in order.allowedActions) {
-                // Walking delivery: nobody else can confirm it.
-                StickyReadyBar(text = "Yetkazildi ${order.orderNumberDisplay}", busy = state.isSubmitting, onClick = { callbacks.showSelfDeliveredConfirm(true) })
+            } else if (order != null && (OrderAction.SELF_DELIVERED in order.allowedActions || OrderAction.PICKED_UP in order.allowedActions)) {
+                // Walking delivery / pickup: nobody else can confirm it.
+                StickyReadyBar(text = (if (order.pickup) "Mijozga berildi " else "Yetkazildi ") + order.orderNumberDisplay, busy = state.isSubmitting, onClick = { callbacks.showSelfDeliveredConfirm(true) })
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -272,9 +273,6 @@ fun OrderDetailContent(
                                 ActionButton("Bekor qilishga rozi", Icons.Default.Check, !busy, Modifier.weight(1.4f)) { callbacks.showRefundApproveDialog(true) }
                             }
                         }
-                    }
-                    if (OrderAction.REFUND_SENT in allowed) {
-                        ActionButton("Pul qaytarildi (chek yuklash)", Icons.Default.Receipt, !busy, Modifier.fillMaxWidth()) { callbacks.showRefundSentDialog(true) }
                     }
                     if (OrderAction.CANCEL_ORDER in allowed) {
                         OutlinedButton(
@@ -488,14 +486,14 @@ fun OrderDetailContent(
             )
         }
 
-        // Cancel an already paid order (then the restaurant refunds the money itself)
+        // Cancel an already paid order (the administrator then refunds the customer; owner decision 2026-11-22)
         if (state.showCancelDialog) {
             AlertDialog(
                 onDismissRequest = { callbacks.showCancelDialog(false) },
                 title = { Text("Buyurtmani bekor qilish", fontWeight = FontWeight.Bold) },
                 text = {
                     Column {
-                        Text("Pulni mijozga qaytarishingiz kerak bo‘ladi. Sabab:", style = MaterialTheme.typography.bodyMedium)
+                        Text("Pulni mijozga administrator qaytaradi. Sabab:", style = MaterialTheme.typography.bodyMedium)
                         Spacer(modifier = Modifier.height(10.dp))
                         CancelReason.entries.forEach { reason ->
                             FilterChip(
@@ -519,7 +517,7 @@ fun OrderDetailContent(
         if (state.showRefundApproveDialog) {
             ActionConfirmDialog(
                 title = "Bekor qilishga rozimisiz?",
-                message = "Pulni qaytarib, chekni yuklashingiz kerak bo‘ladi.",
+                message = "Pulni mijozga administrator qaytaradi.",
                 confirmText = "Rozi",
                 onConfirm = callbacks::confirmRefundApprove,
                 onDismiss = { callbacks.showRefundApproveDialog(false) }
@@ -553,18 +551,19 @@ fun OrderDetailContent(
             )
         }
 
-        if (state.showRefundSentDialog) {
-            RefundReceiptDialog(
-                submitting = state.isSubmitting,
-                onSend = callbacks::confirmRefundSent,
-                onDismiss = { callbacks.showRefundSentDialog(false) }
-            )
-        }
-
         // Ready: the restaurant itself confirms the food is really ready (never automatic)
         if (state.showReadyConfirm) {
             val ready = state.order
-            if (ready?.walkOk == true) {
+            if (ready?.pickup == true) {
+                ActionConfirmDialog(
+                    title = "Buyurtma tayyor",
+                    message = "Taksi chaqirilmaydi. Mijozga «Buyurtmangiz tayyor, olib keting» xabari boradi.",
+                    confirmText = "Tayyor",
+                    confirmButtonColor = SuccessGreen,
+                    onConfirm = { callbacks.confirmReady(false) },
+                    onDismiss = { callbacks.showReadyConfirm(false) }
+                )
+            } else if (ready?.walkOk == true) {
                 // The customer allowed walking delivery: the restaurant chooses who brings it.
                 ReadyChoiceDialog(
                     order = ready,
@@ -584,10 +583,12 @@ fun OrderDetailContent(
             }
         }
         if (state.showSelfDeliveredConfirm) {
+            val handOver = state.order?.pickup == true
             ActionConfirmDialog(
-                title = "Yetkazildimi?",
-                message = "Buyurtma mijozga yetkazilganini tasdiqlaysiz. Bu qaytarilmaydi.",
-                confirmText = "Yetkazildi",
+                title = if (handOver) "Mijozga berildimi?" else "Yetkazildimi?",
+                message = if (handOver) "Buyurtmani mijozga berganingizni tasdiqlaysiz. Buyurtma yakunlanadi, bu qaytarilmaydi."
+                    else "Buyurtma mijozga yetkazilganini tasdiqlaysiz. Bu qaytarilmaydi.",
+                confirmText = if (handOver) "Mijozga berildi" else "Yetkazildi",
                 confirmButtonColor = SuccessGreen,
                 onConfirm = callbacks::confirmSelfDelivered,
                 onDismiss = { callbacks.showSelfDeliveredConfirm(false) }
@@ -660,9 +661,13 @@ private fun SummaryCard(order: Order, nowElapsed: State<Long>) {
             if (order.walkOk && !ended(order)) {
                 WalkLine(order, modifier = Modifier.padding(top = 8.dp))
             }
+            if (order.pickup && !ended(order)) {
+                PickupLine(order, modifier = Modifier.padding(top = 8.dp))
+            }
             if (order.paymentMethod == "CASH") {
                 Text(
-                    if (order.selfDelivery) "Naqd to‘lov: yetkazganingizda mijozdan ${som(order.cashDueSom ?: order.totalSom)} oling."
+                    if (order.pickup) "Naqd to‘lov: mijoz olib ketayotganda kassaga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi."
+                    else if (order.selfDelivery) "Naqd to‘lov: yetkazganingizda mijozdan ${som(order.cashDueSom ?: order.totalSom)} oling."
                     else if (order.paymentStatus == PaymentStatus.CASH_PENDING) "Naqd to‘lov: buyurtmani qabul qilsangiz, taksi haydovchisi restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi va mijozdan oladi."
                     else "Naqd to‘lov: taksi haydovchisi olib ketayotganda restoranga ${som(order.cashDueSom ?: order.totalSom)} to‘laydi.",
                     style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = BrandDark, modifier = Modifier.padding(top = 6.dp)
@@ -712,7 +717,9 @@ private fun TimelineCard(order: Order) {
             add(Step("Tayyorlanmoqda", when { readyOrLater -> StepState.DONE; s == OrderStatus.PREPARING -> StepState.CURRENT; else -> StepState.PENDING }, order.prep?.startedAtMillis?.let { formatClock(it) }))
             add(Step("Tayyor", if (readyOrLater) StepState.DONE else StepState.PENDING, order.readyAtMillis?.let { formatClock(it) }))
             val stage = order.taxiStage
-            if (order.selfDelivery) {
+            if (order.pickup) {
+                add(Step("Mijoz olib ketadi", when { s == OrderStatus.COMPLETED -> StepState.DONE; s == OrderStatus.READY -> StepState.CURRENT; else -> StepState.PENDING }, if (s == OrderStatus.READY) "bergach “Mijozga berildi” bosiladi" else "taksi chaqirilmaydi"))
+            } else if (order.selfDelivery) {
                 add(Step("Restoran yetkazadi", when { s == OrderStatus.COMPLETED -> StepState.DONE; s == OrderStatus.READY -> StepState.CURRENT; else -> StepState.PENDING }, if (s == OrderStatus.READY) "yetkazgach “Yetkazildi” bosiladi" else null))
             } else add(
                 Step(
@@ -726,7 +733,7 @@ private fun TimelineCard(order: Order) {
                     stage?.let { taxiStageText(it) } ?: if (order.walkOk) "taksi yoki piyoda: “Tayyor” bosilganda tanlanadi" else "o‘zi chaqiriladi"
                 )
             )
-            add(Step("Yetkazildi", if (s == OrderStatus.COMPLETED) StepState.DONE else StepState.PENDING, null))
+            add(Step(if (order.pickup) "Mijozga berildi" else "Yetkazildi", if (s == OrderStatus.COMPLETED) StepState.DONE else StepState.PENDING, null))
         }
         if (ended) add(Step(s.title, StepState.FAILED, null))
     }
@@ -862,51 +869,6 @@ private fun AttentionBanner(order: Order) {
     }
 }
 
-/** "Pul qaytarildi": the only proof asked for is ONE photo of the bank receipt. Nothing is typed. */
-@Composable
-private fun RefundReceiptDialog(submitting: Boolean, onSend: (ByteArray) -> Unit, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var photo by remember { mutableStateOf<ByteArray?>(null) }
-    var problem by remember { mutableStateOf<String?>(null) }
-    var reading by remember { mutableStateOf(false) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            reading = true
-            scope.launch {
-                val bytes = withContext(Dispatchers.IO) { ReceiptImage.compressToJpeg(context, uri) }
-                reading = false
-                if (bytes == null) problem = "Rasmni o‘qib bo‘lmadi. Boshqa rasm tanlang." else { photo = bytes; problem = null }
-            }
-        }
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Pul qaytarildi", fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                Text("Bank chekining rasmini yuklang.", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedButton(onClick = { picker.launch("image/*") }, enabled = !reading && !submitting, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (photo == null) "Chek rasmini tanlash" else "Boshqa rasm tanlash")
-                }
-                photo?.let { Text("Rasm tayyor (${it.size / 1024} KB)", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
-                if (reading) Text("Rasm tayyorlanmoqda...", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-                problem?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = ErrorRed, modifier = Modifier.padding(top = 8.dp)) }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { photo?.let(onSend) },
-                enabled = photo != null && !reading && !submitting,
-                colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
-            ) { Text("Yuborish") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Yopish") } },
-        shape = RoundedCornerShape(16.dp)
-    )
-}
-
 @Composable
 private fun PaymentEvidenceCard(order: Order) {
     val ev = order.paymentEvidence ?: return
@@ -931,9 +893,9 @@ private fun RefundCard(order: Order) {
             Spacer(modifier = Modifier.height(6.dp))
             val statusText = when (r.status) {
                 "REQUESTED" -> "Mijoz bekor qilmoqchi. Qaror kerak."
-                "APPROVED" -> "Pulni qaytaring va chekni yuklang."
-                "SENT" -> "Qaytarildi. Mijoz tasdig‘i kutilmoqda."
-                "DISPUTED" -> "Mijoz pul kelmadi, deydi. Tekshirib, chekni qayta yuklang."
+                "APPROVED" -> "Rozi bo‘ldingiz. Pulni mijozga administrator qaytaradi."
+                "SENT" -> "Administrator pulni qaytardi. Mijoz tasdig‘i kutilmoqda."
+                "DISPUTED" -> "Mijoz pul kelmadi, deydi. Administrator tekshiradi."
                 "CONFIRMED" -> "Qaytarish tasdiqlandi."
                 "REJECTED" -> "Rad etilgan"
                 else -> r.status

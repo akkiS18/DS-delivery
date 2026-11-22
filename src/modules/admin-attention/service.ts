@@ -14,7 +14,8 @@ import { taxiStage } from '../taxi/workflow.js';
  */
 export type AttentionKind =
   | 'ORDER_UNSEEN' | 'CASH_UNACCEPTED' | 'PAYMENT_UNVERIFIED' | 'TAXI_NEEDS_HELP' | 'MONEY_REVIEW' | 'GMAIL_DOWN'
-  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH' | 'REFUND_DISPUTED' | 'REFUND_POOL_DUE';
+  | 'RESTAURANT_OFFLINE' | 'READY_NO_TAXI' | 'NOT_DELIVERED' | 'CARD_PENDING' | 'SUPPORT_TICKET' | 'CARD_TURN_MID' | 'CARD_TURN_HIGH' | 'REFUND_DISPUTED' | 'REFUND_POOL_DUE'
+  | 'PICKUP_WAITING';
 export type Severity = 'CRITICAL' | 'HIGH' | 'MEDIUM';
 
 const SEVERITY: Record<AttentionKind, Severity> = {
@@ -22,6 +23,8 @@ const SEVERITY: Record<AttentionKind, Severity> = {
   RESTAURANT_OFFLINE: 'HIGH', READY_NO_TAXI: 'HIGH',
   NOT_DELIVERED: 'MEDIUM', CARD_PENDING: 'MEDIUM', SUPPORT_TICKET: 'MEDIUM',
   CARD_TURN_MID: 'MEDIUM', CARD_TURN_HIGH: 'HIGH', REFUND_DISPUTED: 'HIGH', REFUND_POOL_DUE: 'HIGH',
+  // A pickup order ready long ago and not handed over: the customer did not come, or the restaurant forgot "Mijozga berildi". Nobody is in danger: no ring.
+  PICKUP_WAITING: 'MEDIUM',
 };
 /** Listed but never rung and never announced: a heads-up, not something to wake anybody for. */
 const SILENT_KINDS: ReadonlySet<AttentionKind> = new Set<AttentionKind>(['CARD_TURN_MID']);
@@ -81,6 +84,7 @@ export function attentionConfig(env: NodeJS.ProcessEnv = process.env) {
     unverifiedSeconds: intEnv(env, 'ADMIN_ATTN_UNVERIFIED_SECONDS', 180, 10, 3600),
     readyNoTaxiSeconds: intEnv(env, 'ADMIN_ATTN_READY_NO_TAXI_SECONDS', 300, 30, 7200),
     notDeliveredSeconds: intEnv(env, 'ADMIN_ATTN_NOT_DELIVERED_SECONDS', 3600, 300, 86_400),
+    pickupWaitSeconds: intEnv(env, 'ADMIN_ATTN_PICKUP_WAIT_SECONDS', 3600, 300, 86_400),
     ticketSeconds: intEnv(env, 'ADMIN_ATTN_TICKET_SECONDS', 600, 30, 86_400),
     snoozeMinutes: intEnv(env, 'ADMIN_ATTN_SNOOZE_MINUTES', 15, 1, 720),
     lookbackHours: intEnv(env, 'ADMIN_ATTN_LOOKBACK_HOURS', 72, 1, 720),
@@ -198,6 +202,9 @@ export function evaluateOrders(rows: OrderRow[], online: ReadonlySet<string>, no
         const what = stage === null ? 'taksi çaqirilmagan' : stage === 'CANCELLED' ? 'taksi bekor qilingan' : stage === 'ACCEPTED' ? 'haydovçi yuborilmagan' : 'taksi operatori javob bermagan';
         out.push({ ...base, key: `READY_NO_TAXI:${o.id}`, kind: 'READY_NO_TAXI', title: 'Buyurtma tayyor, taksi yöq',
           detail: `#${o.code} · ${what} · ${minutes(ageSec(o.readyAt, now))} daqiqa`, since: o.readyAt });
+      } else if (o.status === 'READY' && o.deliveryMode === 'PICKUP' && o.readyAt && ageSec(o.readyAt, now) >= cfg.pickupWaitSeconds) {
+        out.push({ ...base, key: `PICKUP_WAITING:${o.id}`, kind: 'PICKUP_WAITING', title: 'Mijoz olib ketmadi (yoki «Mijozga berildi» bosilmagan)',
+          detail: `#${o.code} · ${somText(o.totalSom)} söm · ${minutes(ageSec(o.readyAt, now))} daqiqa`, since: o.readyAt });
       } else if (o.status === 'READY' && stage === 'DISPATCHED' && d?.dispatchedAt && ageSec(d.dispatchedAt, now) >= cfg.notDeliveredSeconds) {
         out.push({ ...base, key: `NOT_DELIVERED:${o.id}`, kind: 'NOT_DELIVERED', title: 'Haydovçi yuborilgan, yetkazildi deb belgilanmagan',
           detail: `#${o.code} · ${d.taxiCompany.name} · ${minutes(ageSec(d.dispatchedAt, now))} daqiqa`, since: d.dispatchedAt });
@@ -281,11 +288,11 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
     getQuietHours(),
     db.adminAttentionAck.findMany({ where: { snoozeUntil: { gt: now } } }),
     db.card.findMany({ where: { restaurantId: null, isTest: false, active: true, approvalStatus: 'APPROVED' }, select: { id: true, last4: true } }),
-    // The customer says the refunded money never arrived: the restaurant must prove it again, or an administrator checks and confirms.
+    // The customer says the refunded money never arrived: an administrator sends it again or checks and confirms.
     db.refundRequest.findMany({ where: { status: 'DISPUTED' }, orderBy: { disputedAt: 'asc' }, take: 10,
       select: { id: true, number: true, paidAmountTiyin: true, disputedAt: true, order: { select: { code: true, restaurant: { select: { id: true, name: true, pickupPhone: true } } } } } }),
-    // The customer paid onto a platform card and the restaurant approved the cancellation: the money is the platform's, so the administrator sends it back.
-    db.refundRequest.findMany({ where: { status: 'APPROVED', payment: { is: { method: 'CARD', card: { is: { restaurantId: null } } } } }, orderBy: { decidedAt: 'asc' }, take: 10,
+    // The restaurant approved the cancellation: the administrator sends the money back (owner decision 2026-11-22: every refund, whoever holds the money).
+    db.refundRequest.findMany({ where: { status: 'APPROVED' }, orderBy: { decidedAt: 'asc' }, take: 10,
       select: { id: true, number: true, approvedAmountTiyin: true, paidAmountTiyin: true, decidedAt: true, requestedAt: true, order: { select: { code: true, restaurant: { select: { id: true, name: true, pickupPhone: true } } } } } }),
   ]);
 
@@ -320,7 +327,7 @@ export async function computeAttention(now = new Date(), env: NodeJS.ProcessEnv 
       restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.disputedAt });
   }
   for (const d of poolDue) {
-    raw.push({ key: `REFUND_POOL_DUE:${d.id}`, kind: 'REFUND_POOL_DUE', title: 'Qaytariş: pul platforma kartasida — mijozga qaytaring',
+    raw.push({ key: `REFUND_POOL_DUE:${d.id}`, kind: 'REFUND_POOL_DUE', title: 'Qaytariş: mijozga pulni qaytaring',
       detail: `Qaytariş #${d.number} · buyurtma #${d.order.code} · ${somText(Number((d.approvedAmountTiyin ?? d.paidAmountTiyin) / 100n))} söm`,
       restaurant: { id: d.order.restaurant.id, name: d.order.restaurant.name, phone: d.order.restaurant.pickupPhone }, orderCode: d.order.code, since: d.decidedAt ?? d.requestedAt });
   }

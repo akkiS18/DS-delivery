@@ -274,15 +274,16 @@ test('cancellation: unpaid needs no refund; paid keeps truthful manual refund tr
   assert.equal(refund.bankReference, null);
   assert.equal(refund.sentAt, null, 'nothing is marked as sent by asking');
   assert.equal((await row(paid.id)).status, 'CANCELLATION_REQUESTED');
-  // the restaurant approves; still not "sent" - money moves only when the restaurant says so, with its own proof
+  // the restaurant approves; still not "sent" - since 2026-11-22 only the administrator sends the money (with a bank reference)
   assert.equal((await call('POST', `/orders/${paid.id}/refund/approve`, ta, {})).statusCode, 200);
   const approved = await db.refundRequest.findUniqueOrThrow({ where: { id: refund.id } });
   assert.equal(approved.status, 'APPROVED');
   assert.equal(approved.sentAt, null);
   assert.equal((await call('GET', `/orders/${paid.id}`, ta)).json().refund.status, 'APPROVED');
-  assert.equal((await upload(`/orders/${paid.id}/refund/receipt`, ta, Buffer.alloc(4000))).statusCode, 400, 'not a photo');
   assert.equal((await upload(`/orders/${paid.id}/refund/receipt`, tb, fakePng())).statusCode, 404);
-  assert.equal((await upload(`/orders/${paid.id}/refund/receipt`, ta, fakePng())).json().refund.status, 'SENT');
+  const byRestaurant = await upload(`/orders/${paid.id}/refund/receipt`, ta, fakePng());
+  assert.deepEqual([byRestaurant.statusCode, byRestaurant.json().error], [409, 'REFUND_BY_PLATFORM']);
+  assert.equal((await db.refundRequest.findUniqueOrThrow({ where: { id: refund.id } })).status, 'APPROVED');
   // the customer contract has no bank fields at all
   assert.equal(customerCancelRequestSchema.safeParse({ reasonCode: 'CHANGED_MIND' }).success, true);
   assert.equal(customerCancelRequestSchema.safeParse({}).success, true);

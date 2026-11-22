@@ -66,7 +66,7 @@ enum class TaxiStage {
 
 /** Restaurant-side order actions exposed by the backend. The server decides which are currently allowed. */
 enum class OrderAction {
-    ACCEPT, REJECT, PROPOSE_PRICE, VERIFY_PAYMENT, START_PREPARING, SET_PREP_TIME, MARK_READY, CANCEL_ORDER, REFUND_APPROVE, REFUND_REJECT, REFUND_SENT, SELF_DELIVERED;
+    ACCEPT, REJECT, PROPOSE_PRICE, VERIFY_PAYMENT, START_PREPARING, SET_PREP_TIME, MARK_READY, CANCEL_ORDER, REFUND_APPROVE, REFUND_REJECT, REFUND_SENT, SELF_DELIVERED, PICKED_UP;
 
     companion object {
         fun fromRaw(raw: String?): OrderAction? = entries.firstOrNull { it.name == raw }
@@ -217,6 +217,8 @@ data class Order(
     val walkOk: Boolean = false,
     /** The restaurant chose to deliver this order itself (no taxi); it reports "Yetkazildi" when it is done. */
     val selfDelivery: Boolean = false,
+    /** "O‘zim olib ketaman": the customer collects the order at the restaurant (no taxi); the restaurant taps "Mijozga berildi". */
+    val pickup: Boolean = false,
     /** The customer's map point; the server shares it only for a walking-delivery order. */
     val deliveryLat: Double? = null,
     val deliveryLng: Double? = null,

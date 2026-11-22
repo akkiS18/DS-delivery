@@ -8,6 +8,7 @@ import { acceptanceRequired, responseTimeoutMs } from '../restaurant/acceptance.
 import { realPaymentsGateActive, realPaymentsOpen } from '../platform/settings.js';
 import { CASH_ACCEPTED, CASH_ACTIVE_LIMIT, CASH_PENDING, cashEnabled, loadCashMaxOrderSom } from '../payment/method.js';
 import { usableCardCount } from '../payment/pool.js';
+import { PICKUP_ADDRESS_LABEL, pickupAvailable, pickupOpen } from './pickup.js';
 import { orderVerdict } from '../customer-strikes/service.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
@@ -20,7 +21,8 @@ export const orderSchema = z.object({
   customerId: z.string().min(1).max(64).optional(),
   customerName: z.string().trim().max(100).optional(),
   phone: z.string().regex(/^\+998\d{9}$/).optional(),
-  addressText: z.string().trim().min(3).max(500),
+  /** Required, except for a pickup order (the customer collects it; the server stores PICKUP_ADDRESS_LABEL). */
+  addressText: z.string().trim().min(3).max(500).optional(),
   deliveryLat: z.number().min(-90).max(90).optional(),
   deliveryLng: z.number().min(-180).max(180).optional(),
   taxiCompanyId: z.string().min(1).optional(),
@@ -33,8 +35,9 @@ export const orderSchema = z.object({
   paymentMode: z.enum(['MOCK', 'REAL']).default('MOCK'),
   /** CARD: transfer to the restaurant card (matched from the bank e-mail). CASH: the customer pays the taxi driver on delivery; the restaurant must accept the order first. */
   paymentMethod: z.enum(['CARD', 'CASH']).default('CARD'),
-  /** TAXI (default): delivered by taxi. WALK_OK: "my home is close, the restaurant may bring it on foot": only a wish, the restaurant decides at "Tayyor". */
-  deliveryPreference: z.enum(['TAXI', 'WALK_OK']).default('TAXI'),
+  /** TAXI (default): delivered by taxi. WALK_OK: "my home is close, the restaurant may bring it on foot": only a wish, the restaurant decides at "Tayyor".
+   *  PICKUP: "O‘zim olib ketaman", the customer collects it at the restaurant (no address, no taxi; see orders/pickup.ts). */
+  deliveryPreference: z.enum(['TAXI', 'WALK_OK', 'PICKUP']).default('TAXI'),
   /** What the customer saw. A mismatch refuses the order (409 NARX_OZGARGAN) instead of charging a different amount. */
   expectedTotalSom: z.number().int().min(0).max(100_000_000).optional(),
   expectedUnitPrices: z.record(z.string(), z.number().int().min(0)).optional(),
@@ -42,8 +45,12 @@ export const orderSchema = z.object({
   message: 'Xaridor aniqlanmadi.',
 }).refine(x => (x.deliveryLat === undefined) === (x.deliveryLng === undefined), {
   message: 'Lat/lng ikkalasi birga berilishi kerak.',
-}).refine(x => !x.createdViaBot || (Boolean(x.phone) && (Boolean(x.taxiCompanyId) || x.autoTaxi) && Boolean(x.checkoutKey)), {
+}).refine(x => !x.createdViaBot || (Boolean(x.phone) && (x.deliveryPreference === 'PICKUP' || Boolean(x.taxiCompanyId) || x.autoTaxi) && Boolean(x.checkoutKey)), {
   message: 'Bot buyurtmasi uchun telefon, taksi (yoki avtomatik tayinlash) va checkoutKey kerak.',
+}).refine(x => x.deliveryPreference === 'PICKUP' || x.addressText !== undefined, {
+  message: 'Manzil kerak.',
+}).refine(x => x.deliveryPreference !== 'PICKUP' || (x.taxiCompanyId === undefined && x.deliveryLat === undefined), {
+  message: 'Olib ketish buyurtmasida taksi va manzil nuqtasi bo‘lmaydi.',
 });
 
 export type PlaceOrderInput = z.input<typeof orderSchema>;
@@ -100,11 +107,11 @@ async function guestCustomer(tx: Prisma.TransactionClient, customerId: string, d
 export async function validateCheckout(tx: Tx, input: {
   restaurantId: string; items: Array<{ productId: string; quantity: number }>;
   expectedTotalSom?: number | undefined; expectedUnitPrices?: Record<string, number> | undefined;
-}): Promise<{ ok: true; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee; restaurant: { defaultPrepMinutes: number; pickupAddress: string | null; walkingDeliveryEnabled: boolean } }
+}): Promise<{ ok: true; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee; restaurant: { defaultPrepMinutes: number; pickupAddress: string | null; walkingDeliveryEnabled: boolean; customerPickupEnabled: boolean } }
   | { ok: false; issues: CheckoutIssue[]; lines: CheckoutLine[]; totalSom: number; fee: CheckoutFee }> {
   const amounts = new Map<string, number>();
   for (const i of input.items) amounts.set(i.productId, (amounts.get(i.productId) ?? 0) + i.quantity);
-  const restaurant = await tx.restaurant.findUnique({ where: { id: input.restaurantId }, select: { isActive: true, isPaused: true, defaultPrepMinutes: true, pickupAddress: true, workingHours: true, timezone: true, walkingDeliveryEnabled: true } });
+  const restaurant = await tx.restaurant.findUnique({ where: { id: input.restaurantId }, select: { isActive: true, isPaused: true, defaultPrepMinutes: true, pickupAddress: true, workingHours: true, timezone: true, walkingDeliveryEnabled: true, customerPickupEnabled: true } });
   if (!restaurant?.isActive || restaurant.isPaused) return { ok: false, issues: [{ kind: 'RESTAURANT_UNAVAILABLE' }], lines: [], totalSom: 0, fee: NO_FEE };
   // Stage 7A: new checkouts respect the configured working hours, in the restaurant's own time zone.
   const hours = openState(restaurant);
@@ -249,8 +256,10 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
   // Stage 6F: the order is created already validated; unless the legacy manual-acceptance flag is on there is no waiting
   // state. It starts as PAYMENT_PENDING with its single payment attempt, created under the payment lock. NOT paid yet.
   const isCash = data.paymentMethod === 'CASH';
+  const isPickup = data.deliveryPreference === 'PICKUP';
   const waiting = acceptanceRequired(data.paymentMode);
   if (isCash && waiting) throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409); // the legacy accept-first flow has no cash step
+  if (isPickup && waiting) throw new CheckoutError('OLIB_KETISH_MAVJUD_EMAS', 409); // nor a pickup step
   const deadline = waiting ? new Date(Date.now() + responseTimeoutMs()) : null;
   // "Shirin" mode: this restaurant checks the money itself (Restaurant.manualPaymentCheck). Real card orders only; cash and the legacy accept-first flow are unchanged.
   const manualCheck = !isCash && !waiting && data.paymentMode === 'REAL'
@@ -267,6 +276,8 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       if (!checked.ok) throw checkoutErrorFor(checked.issues, checked.lines, checked.totalSom, checked.fee.pricing);
       // Walking delivery exists only at restaurants that switched it on; the app does not offer it elsewhere, so a request for it is refused rather than silently turned into a taxi.
       if (data.deliveryPreference === 'WALK_OK' && !checked.restaurant.walkingDeliveryEnabled) throw new CheckoutError('PIYODA_YETKAZISH_MAVJUD_EMAS', 409);
+      // Pickup: only where the restaurant allows it and after the administrator opened it (/pickup); never silently turned into a taxi.
+      if (isPickup && !pickupAvailable(checked.restaurant, await pickupOpen(tx))) throw new CheckoutError('OLIB_KETISH_MAVJUD_EMAS', 409);
       if (isCash) {
         if (!(await cashEnabled(tx))) throw new CheckoutError('NAQD_TOLOV_YOPIQ', 409);
         const cashMax = await loadCashMaxOrderSom(tx);
@@ -279,7 +290,7 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       if (!isCash && data.paymentMode === 'REAL' && (await usableCardCount(tx, data.restaurantId, checked.totalSom)) === 0) {
         throw new CheckoutError('RESTORAN_TOLOV_QABUL_QILMAYDI', 409);
       }
-      if (!data.taxiCompanyId && data.autoTaxi) {
+      if (!isPickup && !data.taxiCompanyId && data.autoTaxi) {
         // Automatic assignment needs at least one company that can be booked right now, otherwise the order would stall after payment.
         if (!(await tx.taxiCompany.findFirst({ where: eligibleCompanyWhere(), select: { id: true } }))) throw new CheckoutError('TAKSI_XIZMATI_MAVJUD_EMAS', 409);
       }
@@ -321,11 +332,13 @@ export async function placeOrder(engine: PaymentEngineV3, input: PlaceOrderInput
       return tx.order.create({
         data: {
           restaurantId: data.restaurantId, customerId: customer.id,
-          addressText: data.addressText,
+          addressText: isPickup ? PICKUP_ADDRESS_LABEL : data.addressText!,
           deliveryLat: data.deliveryLat, deliveryLng: data.deliveryLng,
           phoneSnapshot: data.phone, taxiCompanyId: data.taxiCompanyId, deliveryPreference: data.deliveryPreference,
+          // A pickup order is a pickup from the start: the customer chose it, nobody decides later (database check Order_pickup_consistent).
+          ...(isPickup ? { deliveryMode: 'PICKUP' } : {}),
           checkoutKey: data.checkoutKey, createdViaBot: data.createdViaBot,
-          allowTaxiFallback: data.allowTaxiFallback || data.autoTaxi, // automatic assignment implies trying another company when one declines
+          allowTaxiFallback: !isPickup && (data.allowTaxiFallback || data.autoTaxi), // automatic assignment implies trying another company when one declines
           totalSom, status: waiting ? 'WAITING_RESTAURANT' : 'PAYMENT_PENDING',
           // A fee order keeps the restaurant's own prices next to what the customer pays, and the platform's frozen share (the commission later).
           ...(fee.ruleCode ? { baseTotalSom: fee.baseTotalSom, serviceFeeSom: fee.feeSom, feeRuleCode: fee.ruleCode } : {}),

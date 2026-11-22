@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
-import { getOperations, prepSchema, setDefaultPrep, setPaused, setTimezone, setWorkingHours, statusSchema, timezoneSchema, workingHoursSchema } from './service.js';
+import {
+  customerPickupSchema, getOperations, prepSchema, setCustomerPickup, setDefaultPrep, setPaused, setTimezone, setWorkingHours, statusSchema, timezoneSchema, workingHoursSchema,
+} from './service.js';
 
 /** The restaurant id comes from the Bearer session only; bodies are strict so a client-sent restaurantId is a 400. */
 export async function restaurantOperationsRoutes(app: FastifyInstance): Promise<void> {
@@ -30,5 +32,11 @@ export async function restaurantOperationsRoutes(app: FastifyInstance): Promise<
   app.patch('/operations/prep-time', async request => {
     const s = await requireRestaurantSession(request);
     return setDefaultPrep(s.restaurant.id, prepSchema.parse(request.body).defaultPrepMinutes);
+  });
+
+  // "Mijoz o‘zi olib ketadi": whether customers may choose to collect their order here.
+  app.patch('/operations/customer-pickup', async request => {
+    const s = await requireRestaurantSession(request);
+    return setCustomerPickup(s.restaurant.id, customerPickupSchema.parse(request.body).enabled);
   });
 }
