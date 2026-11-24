@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { RECEIPT_MAX_BYTES, RECEIPT_TYPES } from '../refunds/receipts.js';
 import type { PaymentEngineV3 } from '../payment/engine.js';
 import { requireRestaurantSession } from '../restaurant-auth/routes.js';
+import { requireFinanceUnlocked } from '../restaurant-finance/pin.js';
 import {
   acceptBodySchema, cancelBodySchema, getOrderView, listOrders, listQuerySchema, orderIdSchema, performOrderAction, prepTimeBodySchema, preparingBodySchema,
   pickedUpBodySchema, readyBodySchema, refundDecisionBodySchema, selfDeliveredBodySchema, refundReceiptQuerySchema, rejectBodySchema, verifyBodySchema,
@@ -22,7 +23,11 @@ export async function restaurantOrdersRoutes(app: FastifyInstance, engine: Payme
 
   app.get('/orders', async request => {
     const s = await requireRestaurantSession(request);
-    return listOrders(s.restaurant.id, listQuerySchema.parse(request.query));
+    const q = listQuerySchema.parse(request.query);
+    // Owner 2026-11-24: the order history (Tarix, and 'all' which contains it) opens only with the finance code. Non-strict: a restaurant
+    // that has no code yet keeps it open, as before. Locked = 423 FINANCE_LOCKED, the same answer the finance screens give.
+    if (q.filter === 'history' || q.filter === 'all') await requireFinanceUnlocked(s.sessionId, s.restaurant.id, { strict: false });
+    return listOrders(s.restaurant.id, q);
   });
 
   app.get<{ Params: { id: string } }>('/orders/:id', async (request, reply) => {

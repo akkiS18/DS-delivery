@@ -51,6 +51,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -153,9 +155,42 @@ private fun NoPinNotice(onRetry: () -> Unit) {
     }
 }
 
+/**
+ * The Tarix page of the Orders screen while it is closed (owner 2026-11-24: order history opens with the finance code). Same code, same
+ * attempts limit and same server unlock as the Moliya screen; [onOpened] shows the history once the code is accepted.
+ */
+@Composable
+fun HistoryCodeGate(viewModel: FinanceViewModel, onOpened: () -> Unit) {
+    val state by viewModel.uiState.collectAsState()
+    val opened by rememberUpdatedState(onOpened)
+    LaunchedEffect(Unit) { viewModel.refresh() }
+    // Read the live phase: a stale "open" from before a lock must not reopen the history.
+    LaunchedEffect(state.phase) { if (viewModel.uiState.value.phase == FinancePhase.OPEN) opened() }
+    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        when (state.phase) {
+            FinancePhase.LOCKED -> PinPad(
+                state = state,
+                onDigit = viewModel::onDigit,
+                onBackspace = viewModel::onBackspace,
+                title = "Tarix kod bilan ochiladi",
+                subtitle = "Moliya kodini kiriting"
+            )
+            // Tarix answered "locked", so a code exists; a stale "no code" is checked again.
+            FinancePhase.NO_PIN -> NoPinNotice(onRetry = { viewModel.refresh(); opened() })
+            else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = BrandPrimary) }
+        }
+    }
+}
+
 // ---- the 4-digit code
 @Composable
-private fun PinPad(state: FinanceUiState, onDigit: (Char) -> Unit, onBackspace: () -> Unit) {
+private fun PinPad(
+    state: FinanceUiState,
+    onDigit: (Char) -> Unit,
+    onBackspace: () -> Unit,
+    title: String = "Moliya kodi",
+    subtitle: String = "4 xonali kodni kiriting"
+) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -163,9 +198,9 @@ private fun PinPad(state: FinanceUiState, onDigit: (Char) -> Unit, onBackspace: 
     ) {
         IconBadge(Icons.Default.Lock, size = 64.dp)
         Spacer(Modifier.height(16.dp))
-        Text("Moliya kodi", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = BrandDark)
+        Text(title, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), color = BrandDark)
         Spacer(Modifier.height(4.dp))
-        Text("4 xonali kodni kiriting", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, textAlign = TextAlign.Center)
         Spacer(Modifier.height(24.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -2,7 +2,20 @@ package com.dsdelivery.restaurant.ui.screens.orders
 
 import com.dsdelivery.restaurant.ui.components.ReadyChoiceDialog
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import com.dsdelivery.restaurant.data.model.Order
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
@@ -20,7 +33,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -99,7 +111,9 @@ fun OrdersScreen(
     onDutyOn: () -> Unit = {},
     /** Reception switch in the title bar (Ochiq / Tanaffus); null hides it. */
     isPaused: Boolean = false,
-    onSetPaused: ((Boolean) -> Unit)? = null
+    onSetPaused: ((Boolean) -> Unit)? = null,
+    /** Shown on the Tarix page while it is closed (the 4-digit finance code pad); null = a plain "Tarix yopiq" notice. */
+    historyLockedContent: (@Composable () -> Unit)? = null
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -126,11 +140,12 @@ fun OrdersScreen(
         onDutyOn = onDutyOn,
         isPaused = isPaused,
         onSetPaused = onSetPaused,
+        historyLockedContent = historyLockedContent,
         modifier = modifier
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun OrdersContent(
     state: OrdersUiState,
@@ -152,7 +167,8 @@ fun OrdersContent(
     dutyOff: Boolean = false,
     onDutyOn: () -> Unit = {},
     isPaused: Boolean = false,
-    onSetPaused: ((Boolean) -> Unit)? = null
+    onSetPaused: ((Boolean) -> Unit)? = null,
+    historyLockedContent: (@Composable () -> Unit)? = null
 ) {
     // The kitchen watches this screen: it must not dim or lock while it is open.
     val view = LocalView.current
@@ -175,7 +191,7 @@ fun OrdersContent(
     // "Tayyor" cannot be taken back (the customer is told, the taxi is called), so the list asks once.
     var confirmReadyFor by remember { mutableStateOf<String?>(null) }
     confirmReadyFor?.let { id ->
-        val target = state.orders.firstOrNull { it.id == id }
+        val target = state.orders.firstOrNull { it.id == id } ?: state.ordersByFilter.values.firstNotNullOfOrNull { l -> l.firstOrNull { it.id == id } }
         if (target?.pickup == true) {
             // The customer collects it: no taxi, the customer is told to come.
             ActionConfirmDialog(
@@ -208,7 +224,7 @@ fun OrdersContent(
     // "Yetkazildi" cannot be taken back either: it completes the order and books the commission.
     var confirmDeliveredFor by remember { mutableStateOf<String?>(null) }
     confirmDeliveredFor?.let { id ->
-        val handOver = state.orders.firstOrNull { it.id == id }?.pickup == true
+        val handOver = (state.orders.firstOrNull { it.id == id } ?: state.ordersByFilter.values.firstNotNullOfOrNull { l -> l.firstOrNull { it.id == id } })?.pickup == true
         ActionConfirmDialog(
             title = if (handOver) "Mijozga berildimi?" else "Yetkazildimi?",
             message = if (handOver) "Buyurtmani mijozga berganingizni tasdiqlaysiz. Buyurtma yakunlanadi, bu qaytarilmaydi."
@@ -222,6 +238,29 @@ fun OrdersContent(
     // One ticker for the whole list: every second while something is being cooked (live countdowns), otherwise every 30 s (order ages).
     val cooking = state.orders.any { it.status == OrderStatus.PREPARING }
     val nowElapsed = rememberNowElapsed(periodMs = if (cooking) 1000L else 30_000L)
+
+    // Owner 2026-11-24: a light sideways swipe moves between Yangi / Tayyorlanmoqda / Tayyor / Kutilmoqda / Tarix, like Telegram's folders.
+    // A fifth of the width (or a quick flick) is enough to turn the page.
+    val attentionMode = state.selectedFilter == OrderFilter.ATTENTION
+    val pagerState = rememberPagerState(initialPage = SWIPE_TABS.indexOf(state.selectedFilter).coerceAtLeast(0)) { SWIPE_TABS.size }
+    val scope = rememberCoroutineScope()
+    val latestState by rememberUpdatedState(state)
+    val latestOnFilterSelected by rememberUpdatedState(onFilterSelected)
+    // The tab is selected (and its list refreshed) once the page has settled, not on every frame of the drag.
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { page ->
+            if (latestState.selectedFilter != OrderFilter.ATTENTION) latestOnFilterSelected(SWIPE_TABS[page])
+        }
+    }
+    // The tab changed without a swipe (E‘tibor kerak's "Orqaga", a chip tapped there): the pages follow.
+    LaunchedEffect(state.selectedFilter) {
+        val i = SWIPE_TABS.indexOf(state.selectedFilter)
+        if (i >= 0 && i != pagerState.settledPage && !pagerState.isScrollInProgress) pagerState.scrollToPage(i)
+    }
+    val onTabClick: (OrderFilter) -> Unit = { filter ->
+        val i = SWIPE_TABS.indexOf(filter)
+        if (attentionMode || i < 0) onFilterSelected(filter) else scope.launch { pagerState.animateScrollToPage(i) }
+    }
 
     Scaffold(
         topBar = {
@@ -329,16 +368,20 @@ fun OrdersContent(
                     }
                 }
             }
-            // Filter Chips Row
-            val filterScrollState = rememberScrollState()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(filterScrollState)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            // Tab chips: the highlighted chip is the page being shown (it follows the swipe), and the row scrolls to keep it in view.
+            val chipsState = rememberLazyListState()
+            val shownFilter = if (attentionMode) OrderFilter.ATTENTION else SWIPE_TABS[pagerState.currentPage]
+            LaunchedEffect(shownFilter) {
+                val i = SWIPE_TABS.indexOf(shownFilter)
+                if (i >= 0) chipsState.animateScrollToItem((i - 1).coerceAtLeast(0))
+            }
+            LazyRow(
+                state = chipsState,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OrderFilter.entries.filter { it != OrderFilter.ATTENTION }.forEach { filter ->
+                items(SWIPE_TABS, key = { it.name }) { filter ->
                     val count = when (filter) {
                         OrderFilter.NEW -> state.newOrdersCount
                         OrderFilter.COOKING -> state.cookingOrdersCount
@@ -348,12 +391,16 @@ fun OrdersContent(
                     }
                     val badgeCount = if (count > 0) " ($count)" else ""
                     FilterChip(
-                        selected = state.selectedFilter == filter,
-                        onClick = { onFilterSelected(filter) },
-                        label = { Text("${filter.title}$badgeCount") },
+                        selected = shownFilter == filter,
+                        onClick = { onTabClick(filter) },
+                        label = { Text("${filter.title}$badgeCount", maxLines = 1) },
+                        leadingIcon = if (filter == OrderFilter.HISTORY && state.historyLocked) {
+                            { Icon(imageVector = Icons.Default.Lock, contentDescription = "Kod bilan ochiladi", modifier = Modifier.size(16.dp)) }
+                        } else null,
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = BrandPrimary,
-                            selectedLabelColor = Color.White
+                            selectedLabelColor = Color.White,
+                            selectedLeadingIconColor = Color.White
                         )
                     )
                 }
@@ -456,74 +503,158 @@ fun OrdersContent(
                 }
             }
 
-            // Main Content: Loading / Empty / Orders List
-            when {
-                state.isLoading -> {
-                    LoadingView(message = "Yuklanmoqda...")
-                }
-                state.errorMessage != null && state.orders.isEmpty() -> {
-                    ErrorView(message = state.errorMessage, onRetry = onRefresh)
-                }
-                state.filteredOrders.isEmpty() -> {
-                    // A scrollable (empty) list, so the pull-down gesture also works when there is nothing to show yet.
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        item {
-                            EmptyView(
-                                title = when {
-                                    state.searchQuery.isNotEmpty() -> "Hech narsa topilmadi"
-                                    state.selectedFilter == OrderFilter.NEW -> "Yangi buyurtma yo‘q"
-                                    state.selectedFilter == OrderFilter.COOKING -> "Tayyorlanayotgan buyurtma yo‘q"
-                                    state.selectedFilter == OrderFilter.READY -> "Tayyor buyurtma yo‘q"
-                                    state.selectedFilter == OrderFilter.WAITING -> "Kutilayotgan buyurtma yo‘q"
-                                    else -> "Buyurtma yo‘q"
-                                },
-                                subtitle = if (state.searchQuery.isEmpty() && state.selectedFilter == OrderFilter.NEW) "Yangi to‘langan buyurtma kelsa, telefon qo‘ng‘iroq chaladi va u shu yerda paydo bo‘ladi." else null,
-                                modifier = Modifier.fillParentMaxSize()
-                            )
+            // Main content: E‘tibor kerak is a single list; the five tabs are pages side by side. The page next to the visible one shows the
+            // list it had last time (kept by the view model) and is refreshed when the swipe settles on it.
+            val readyClick: ((String) -> Unit)? = if (onMarkReady != null) ({ id -> confirmReadyFor = id }) else null
+            val deliveredClick: ((String) -> Unit)? = if (onSelfDelivered != null) ({ id -> confirmDeliveredFor = id }) else null
+            val page: @Composable (OrderFilter) -> Unit = { filter ->
+                val cached = state.ordersByFilter[filter]
+                when {
+                    filter == OrderFilter.HISTORY && state.historyLocked -> {
+                        if (historyLockedContent != null) historyLockedContent()
+                        else LazyColumn(modifier = Modifier.fillMaxSize()) {
+                            item { EmptyView(title = "Tarix yopiq", subtitle = "Moliya kodi bilan ochiladi.", modifier = Modifier.fillParentMaxSize()) }
                         }
                     }
+                    filter == state.selectedFilter -> OrdersPage(
+                        filter = filter,
+                        orders = state.filteredOrders,
+                        isLoading = state.isLoading,
+                        errorMessage = if (state.orders.isEmpty()) state.errorMessage else null,
+                        hasMore = state.hasMore && state.searchQuery.isBlank(),
+                        isLoadingMore = state.isLoadingMore,
+                        searching = state.searchQuery.isNotEmpty(),
+                        prepBusyId = state.prepBusyId,
+                        readyBusyId = state.readyBusyId,
+                        nowElapsed = nowElapsed,
+                        onRetry = onRefresh,
+                        onLoadMore = onLoadMore,
+                        onOrderClick = onOrderClick,
+                        onAcknowledge = onAcknowledge,
+                        onReady = readyClick,
+                        onDelivered = deliveredClick
+                    )
+                    else -> OrdersPage(
+                        filter = filter,
+                        orders = cached?.let(state::applySearch).orEmpty(),
+                        isLoading = cached == null,
+                        errorMessage = null,
+                        hasMore = false,
+                        isLoadingMore = false,
+                        searching = state.searchQuery.isNotEmpty(),
+                        prepBusyId = state.prepBusyId,
+                        readyBusyId = state.readyBusyId,
+                        nowElapsed = nowElapsed,
+                        onRetry = onRefresh,
+                        onLoadMore = onLoadMore,
+                        onOrderClick = onOrderClick,
+                        onAcknowledge = onAcknowledge,
+                        onReady = readyClick,
+                        onDelivered = deliveredClick
+                    )
                 }
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(
-                            items = state.filteredOrders,
-                            key = { it.id }
-                        ) { order ->
-                            OrderCard(
-                                order = order,
-                                nowElapsed = nowElapsed,
-                                onClick = { onOrderClick(order.id) },
-                                onAcknowledge = onAcknowledge?.let { f -> { f(order.id) } },
-                                prepBusy = state.prepBusyId == order.id,
-                                onReady = if (onMarkReady != null) ({ confirmReadyFor = order.id }) else null,
-                                readyBusy = state.readyBusyId == order.id,
-                                onSelfDelivered = if (onSelfDelivered != null) ({ confirmDeliveredFor = order.id }) else null
-                            )
-                        }
-                        if (state.hasMore && state.searchQuery.isBlank()) {
-                            item(key = "load-more") {
-                                OutlinedButton(
-                                    onClick = onLoadMore,
-                                    enabled = !state.isLoadingMore,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp)
-                                ) {
-                                    if (state.isLoadingMore) {
-                                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                    } else {
-                                        Text("Yana ko‘rsatish")
-                                    }
-                                }
+            }
+            if (attentionMode) {
+                page(OrderFilter.ATTENTION)
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                    beyondBoundsPageCount = 1,
+                    flingBehavior = PagerDefaults.flingBehavior(state = pagerState, snapPositionalThreshold = 0.2f),
+                    key = { SWIPE_TABS[it].name },
+                    verticalAlignment = Alignment.Top
+                ) { i -> page(SWIPE_TABS[i]) }
+            }
+        }
+        }
+    }
+}
+
+/** One tab's list: spinner, error, empty notice or the order cards with "Yana ko‘rsatish". */
+@Composable
+private fun OrdersPage(
+    filter: OrderFilter,
+    orders: List<Order>,
+    isLoading: Boolean,
+    errorMessage: String?,
+    hasMore: Boolean,
+    isLoadingMore: Boolean,
+    searching: Boolean,
+    prepBusyId: String?,
+    readyBusyId: String?,
+    nowElapsed: State<Long>,
+    onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
+    onOrderClick: (orderId: String) -> Unit,
+    onAcknowledge: ((orderId: String) -> Unit)?,
+    onReady: ((orderId: String) -> Unit)?,
+    onDelivered: ((orderId: String) -> Unit)?
+) {
+    when {
+        isLoading -> {
+            LoadingView(message = "Yuklanmoqda...")
+        }
+        errorMessage != null -> {
+            ErrorView(message = errorMessage, onRetry = onRetry)
+        }
+        orders.isEmpty() -> {
+            // A scrollable (empty) list, so the pull-down gesture also works when there is nothing to show yet.
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                item {
+                    EmptyView(
+                        title = when {
+                            searching -> "Hech narsa topilmadi"
+                            filter == OrderFilter.NEW -> "Yangi buyurtma yo‘q"
+                            filter == OrderFilter.COOKING -> "Tayyorlanayotgan buyurtma yo‘q"
+                            filter == OrderFilter.READY -> "Tayyor buyurtma yo‘q"
+                            filter == OrderFilter.WAITING -> "Kutilayotgan buyurtma yo‘q"
+                            else -> "Buyurtma yo‘q"
+                        },
+                        subtitle = if (!searching && filter == OrderFilter.NEW) "Yangi to‘langan buyurtma kelsa, telefon qo‘ng‘iroq chaladi va u shu yerda paydo bo‘ladi." else null,
+                        modifier = Modifier.fillParentMaxSize()
+                    )
+                }
+            }
+        }
+        else -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 80.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(
+                    items = orders,
+                    key = { it.id }
+                ) { order ->
+                    OrderCard(
+                        order = order,
+                        nowElapsed = nowElapsed,
+                        onClick = { onOrderClick(order.id) },
+                        onAcknowledge = onAcknowledge?.let { f -> { f(order.id) } },
+                        prepBusy = prepBusyId == order.id,
+                        onReady = onReady?.let { f -> { f(order.id) } },
+                        readyBusy = readyBusyId == order.id,
+                        onSelfDelivered = onDelivered?.let { f -> { f(order.id) } }
+                    )
+                }
+                if (hasMore) {
+                    item(key = "load-more") {
+                        OutlinedButton(
+                            onClick = onLoadMore,
+                            enabled = !isLoadingMore,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            if (isLoadingMore) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            } else {
+                                Text("Yana ko‘rsatish")
                             }
                         }
                     }
                 }
             }
-        }
         }
     }
 }

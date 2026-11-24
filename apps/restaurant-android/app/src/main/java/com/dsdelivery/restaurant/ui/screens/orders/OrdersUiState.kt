@@ -15,6 +15,9 @@ enum class OrderFilter(val title: String, val apiValue: String) {
     ATTENTION("E‘tibor kerak", "attention")
 }
 
+/** The tabs a sideways swipe moves between, in chip order (owner 2026-11-24, "like Telegram"). ATTENTION is opened from its bar only. */
+val SWIPE_TABS: List<OrderFilter> = OrderFilter.entries.filter { it != OrderFilter.ATTENTION }
+
 data class OrdersUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -41,20 +44,27 @@ data class OrdersUiState(
     /** The order whose "ready in N minutes" is being saved (one at a time). */
     val prepBusyId: String? = null,
     /** The order being marked "Tayyor" from the list (one at a time). */
-    val readyBusyId: String? = null
+    val readyBusyId: String? = null,
+    /** The last first page of each tab, so a swipe shows the next tab at once; it is refreshed silently when the swipe settles. */
+    val ordersByFilter: Map<OrderFilter, List<Order>> = emptyMap(),
+    /** Tarix opens only with the finance code (owner 2026-11-24): the server answered 423, or the code was closed again. */
+    val historyLocked: Boolean = false
 ) {
     /** `orders` is already filtered by the server; this only applies the local search box. */
     val filteredOrders: List<Order>
-        get() {
-            if (searchQuery.isBlank()) return orders
-            val q = searchQuery.trim().lowercase()
-            return orders.filter { order ->
-                order.code.lowercase().contains(q) ||
-                    (order.customerPhone?.lowercase()?.contains(q) == true) ||
-                    (order.customerName?.lowercase()?.contains(q) == true) ||
-                    order.items.any { it.name.lowercase().contains(q) }
-            }
+        get() = applySearch(orders)
+
+    /** The local search box over any list (the swiped-to tab uses its cached page). */
+    fun applySearch(list: List<Order>): List<Order> {
+        if (searchQuery.isBlank()) return list
+        val q = searchQuery.trim().lowercase()
+        return list.filter { order ->
+            order.code.lowercase().contains(q) ||
+                (order.customerPhone?.lowercase()?.contains(q) == true) ||
+                (order.customerName?.lowercase()?.contains(q) == true) ||
+                order.items.any { it.name.lowercase().contains(q) }
         }
+    }
 
     val hasMore: Boolean get() = nextCursor != null
 }

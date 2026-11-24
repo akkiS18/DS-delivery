@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dsdelivery.restaurant.ui.screens.finance.FinanceScreen
+import com.dsdelivery.restaurant.ui.screens.finance.HistoryCodeGate
 import com.dsdelivery.restaurant.ui.screens.finance.FinanceViewModel
 import com.dsdelivery.restaurant.ui.screens.operations.OperationsScreen
 import com.dsdelivery.restaurant.ui.screens.ratings.RatingsScreen
@@ -116,7 +117,13 @@ fun MainScreen(
     }
 
     // The money screens close whenever the app goes to the background (owner decision 2026-11-05: behind a 4-digit code, cashiers must not see them).
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { financeViewModel.lock() }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { financeViewModel.lock(); ordersViewModel.relockHistory() }
+
+    // Tarix closed again (swiped away, tab left, app hidden, or the server said 423): the shared code pad starts from the beginning and the
+    // server window is shut. Not while Moliya itself is on screen: there the code was just asked for.
+    LaunchedEffect(ordersState.historyLocked) {
+        if (ordersState.historyLocked && selectedTab != MainTab.FINANCE) financeViewModel.lock()
+    }
 
     // Back from the hidden Moliya page or from Baholar goes to Sozlamalar.
     BackHandler(enabled = selectedTab == MainTab.FINANCE || (selectedTab == MainTab.OPERATIONS && showRatings)) {
@@ -138,6 +145,8 @@ fun MainScreen(
         if (shownTab == selectedTab) return@LaunchedEffect
         // Leaving Moliya hides the money again; the code is asked next time.
         if (shownTab == MainTab.FINANCE) financeViewModel.lock()
+        // Leaving Buyurtmalar while Tarix is open closes it too (the code is asked next time).
+        if (shownTab == MainTab.ORDERS) ordersViewModel.relockHistory()
         shownTab = selectedTab
         when (selectedTab) {
             MainTab.ORDERS -> ordersViewModel.loadOrders(silent = true)
@@ -240,7 +249,8 @@ fun MainScreen(
                         dutyOff = !bellOn,
                         onDutyOn = { alarm.settings.setEnabled(true) },
                         isPaused = operationsState.isPaused,
-                        onSetPaused = operationsViewModel::setPaused
+                        onSetPaused = operationsViewModel::setPaused,
+                        historyLockedContent = { HistoryCodeGate(viewModel = financeViewModel, onOpened = ordersViewModel::onHistoryUnlocked) }
                     )
                 }
                 MainTab.RESERVATIONS -> {

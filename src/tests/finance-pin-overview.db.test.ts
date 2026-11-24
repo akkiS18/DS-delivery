@@ -19,7 +19,7 @@ const app = buildApp(new PaymentEngineV3(db, defaultOptions, () => {}));
 const tag = randomUUID().slice(0, 8);
 const ADMIN = `9${randomInt(100_000_000, 999_999_999)}${randomInt(100, 999)}`;
 const saved = { a1: process.env.SUPPORT_ADMIN_1_TELEGRAM_ID, a2: process.env.SUPPORT_ADMIN_2_TELEGRAM_ID };
-const ids = { pool: '', own: '', other: '', customer: '', platformCard: '', ownCard: '' };
+const ids = { pool: '', own: '', other: '', hist: '', customer: '', platformCard: '', ownCard: '' };
 const transactions: string[] = [];
 const ips: string[] = [];
 const PW = `Finance-${randomUUID()}`;
@@ -55,10 +55,12 @@ before(async () => {
   ids.platformCard = (await db.card.create({ data: { restaurantId: null, last4: last4(), holderName: 'TEST' } })).id;
   ids.ownCard = (await db.card.create({ data: { restaurantId: ids.own, last4: last4(), holderName: 'TEST' } })).id;
   await setRestaurantPassword({ slug: `fp-pool-${tag}`, password: PW });
+  ids.hist = (await db.restaurant.create({ data: { slug: `fp-hist-${tag}`, name: `FP Hist ${tag}` } })).id;
+  await setRestaurantPassword({ slug: `fp-hist-${tag}`, password: PW });
 });
 
 after(async () => {
-  const rids = [ids.pool, ids.own, ids.other];
+  const rids = [ids.pool, ids.own, ids.other, ids.hist];
   const orders = (await db.order.findMany({ where: { restaurantId: { in: rids } }, select: { id: true } })).map(o => o.id);
   await db.$transaction(async tx => {
     await tx.$executeRaw`SELECT set_config('ds.ledger_cleanup', 'on', true)`;
@@ -68,7 +70,7 @@ after(async () => {
     await tx.commissionEvent.deleteMany({ where: { entry: { restaurantId: { in: rids } } } });
     await tx.commissionEntry.deleteMany({ where: { restaurantId: { in: rids } } });
   });
-  await db.restaurantLoginAttempt.deleteMany({ where: { keyHash: { in: [attemptKey('slug', `fp-pool-${tag}`), ...ips.map(ip => attemptKey('ip', ip))] } } });
+  await db.restaurantLoginAttempt.deleteMany({ where: { keyHash: { in: [attemptKey('slug', `fp-pool-${tag}`), attemptKey('slug', `fp-hist-${tag}`), ...ips.map(ip => attemptKey('ip', ip))] } } });
   await db.payoutMark.deleteMany({ where: { restaurantId: { in: rids } } });
   await db.payment.deleteMany({ where: { orderId: { in: orders } } });
   await db.incomingTransaction.deleteMany({ where: { id: { in: transactions } } });
@@ -166,6 +168,26 @@ test('over HTTP: 401 without a session, 423 while locked, the numbers after the 
   assert.equal((await call('GET', '/ledger?from=2026-13-45')).statusCode, 400);
   assert.equal((await call('POST', '/lock')).statusCode, 204);
   assert.equal((await call('GET', '/overview')).statusCode, 423);
+});
+
+test('order history (Tarix) needs the finance code: open while the restaurant has no code, 423 once it has one, open again after the unlock', async () => {
+  const ip = `10.${randomInt(0, 255)}.${randomInt(0, 255)}.${randomInt(1, 255)}`; ips.push(ip);
+  const login = await app.inject({ method: 'POST', url: '/api/v1/restaurant/auth/login', payload: { slug: `fp-hist-${tag}`, password: PW }, remoteAddress: ip });
+  assert.equal(login.statusCode, 200);
+  const headers = { authorization: `Bearer ${login.json().accessToken}` };
+  const list = (filter?: string) => app.inject({ method: 'GET', url: `/api/v1/restaurant/orders${filter ? `?filter=${filter}` : ''}`, headers });
+  for (const f of ['history', 'all', undefined]) assert.equal((await list(f)).statusCode, 200, `no code yet: ${f} stays open`);
+  const { pin } = await issueFinancePin({ adminId: ADMIN, restaurantId: ids.hist }) as { pin: string };
+  for (const f of ['history', 'all', undefined]) {
+    const r = await list(f);
+    assert.equal(r.statusCode, 423, `locked: ${f}`);
+    assert.equal(r.json().error, 'FINANCE_LOCKED');
+  }
+  for (const f of ['new', 'cooking', 'ready', 'waiting', 'attention', 'toCook']) assert.equal((await list(f)).statusCode, 200, `working tabs never need the code: ${f}`);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/v1/restaurant/finance/unlock', headers, payload: { pin } })).statusCode, 200);
+  assert.equal((await list('history')).statusCode, 200);
+  assert.equal((await app.inject({ method: 'POST', url: '/api/v1/restaurant/finance/lock', headers })).statusCode, 204);
+  assert.equal((await list('history')).statusCode, 423, 'locking the finance screen closes the history too');
 });
 
 test('the main numbers: platform card (earned, paid out, remaining), own card (fee owed, settled), cash apart, tests never count', async () => {

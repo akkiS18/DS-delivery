@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.dsdelivery.restaurant.data.model.Order
 import com.dsdelivery.restaurant.data.model.Resource
+import com.dsdelivery.restaurant.data.model.isFinanceLocked
 import com.dsdelivery.restaurant.data.notify.AppForeground
 import com.dsdelivery.restaurant.data.repository.RestaurantRepository
 import kotlinx.coroutines.Job
@@ -36,9 +37,14 @@ class OrdersViewModel(
     private var pollJob: Job? = null
     private val knownIncoming = LinkedHashSet<String>()
     private var baselineDone = false
+    /** Background loads of the tabs next to the visible one, one per tab. */
+    private val prefetchJobs = HashMap<OrderFilter, Job>()
+    /** This restaurant has a finance code: the server refused Tarix once with 423. Leaving Tarix then closes it again. */
+    private var historyNeedsCode = false
 
     init {
         loadOrders(isRefresh = false)
+        prefetchNeighbours(OrderFilter.NEW)
         observeForeground()
     }
 
@@ -104,6 +110,12 @@ class OrdersViewModel(
     /** Reloads the first page of the selected filter. A newer call cancels an older one so results never interleave. */
     fun loadOrders(isRefresh: Boolean = false, silent: Boolean = false) {
         loadJob?.cancel()
+        val filter = _uiState.value.selectedFilter
+        // A closed Tarix is not even asked for: the code screen is shown, and entering the code calls onHistoryUnlocked().
+        if (filter == OrderFilter.HISTORY && _uiState.value.historyLocked) {
+            _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
+            return
+        }
         loadJob = viewModelScope.launch {
             // Silent refreshes (resume, pull) keep the current list visible instead of flashing a spinner.
             if (!silent) {
@@ -113,7 +125,7 @@ class OrdersViewModel(
                 }
             }
 
-            val result = repository.getOrders(_uiState.value.selectedFilter.apiValue, null)
+            val result = repository.getOrders(filter.apiValue, null)
             // A newer load (the first poll starts right after init) cancels this one; the repository turns that cancellation into
             // Resource.Error, which used to flash "Xatolik yuz berdi" until the newer load finished. Cancelled = not an error.
             ensureActive()
@@ -121,11 +133,14 @@ class OrdersViewModel(
                 is Resource.Success -> {
                     val page = result.data
                     _uiState.update {
+                        if (it.selectedFilter != filter) return@update it.copy(ordersByFilter = it.ordersByFilter + (filter to page.orders))
                         it.copy(
                             isLoading = false,
                             isRefreshing = false,
                             orders = page.orders,
                             nextCursor = page.nextCursor,
+                            ordersByFilter = it.ordersByFilter + (filter to page.orders),
+                            historyLocked = if (filter == OrderFilter.HISTORY) false else it.historyLocked,
                             newOrdersCount = page.newCount,
                             cookingOrdersCount = page.cookingCount,
                             readyOrdersCount = page.readyCount,
@@ -138,6 +153,19 @@ class OrdersViewModel(
                     }
                 }
                 is Resource.Error -> {
+                    if (filter == OrderFilter.HISTORY && isFinanceLocked(result)) {
+                        // Tarix needs the finance code (owner 2026-11-24): not an error, the code screen takes the page.
+                        historyNeedsCode = true
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false, isRefreshing = false, historyLocked = true, errorMessage = null,
+                                orders = if (it.selectedFilter == OrderFilter.HISTORY) emptyList() else it.orders,
+                                nextCursor = if (it.selectedFilter == OrderFilter.HISTORY) null else it.nextCursor,
+                                ordersByFilter = it.ordersByFilter - OrderFilter.HISTORY
+                            )
+                        }
+                        return@launch
+                    }
                     // Never fall back to sample data: a failed request keeps whatever real orders were loaded.
                     _uiState.update {
                         it.copy(isLoading = false, isRefreshing = false, errorMessage = if (silent) it.errorMessage else result.message)
@@ -190,6 +218,7 @@ class OrdersViewModel(
                         s.copy(prepBusyId = null, orders = s.orders.map { o -> if (o.id == orderId) result.data else o }, errorMessage = null)
                     }
                     loadOrders(isRefresh = true, silent = true) // acknowledged: the order leaves "Yangi" for "Tayyorlanmoqda"
+                    prefetchNeighbours(_uiState.value.selectedFilter) // ... so the next tab already shows it after a swipe
                 }
                 is Resource.Error -> {
                     _uiState.update { it.copy(prepBusyId = null, errorMessage = result.message) }
@@ -211,6 +240,7 @@ class OrdersViewModel(
                 Resource.Loading -> {}
             }
             loadOrders(isRefresh = true, silent = true) // success: the order moves to "Tayyor"; failure: it may have changed elsewhere
+            prefetchNeighbours(_uiState.value.selectedFilter)
         }
     }
 
@@ -260,10 +290,75 @@ class OrdersViewModel(
         }
     }
 
+    /**
+     * A swipe settled on [filter] or its chip was tapped. The tab's last page shows at once and is refreshed silently; leaving Tarix closes it
+     * again when the restaurant has a finance code.
+     */
     fun selectFilter(filter: OrderFilter) {
-        if (filter == _uiState.value.selectedFilter) return
-        _uiState.update { it.copy(selectedFilter = filter, orders = emptyList(), nextCursor = null) }
-        loadOrders(isRefresh = false)
+        val s = _uiState.value
+        if (filter == s.selectedFilter) return
+        val leavingHistory = s.selectedFilter == OrderFilter.HISTORY
+        val cache = if (leavingHistory && historyNeedsCode) s.ordersByFilter - OrderFilter.HISTORY else s.ordersByFilter
+        val cached = cache[filter]
+        _uiState.update {
+            it.copy(
+                selectedFilter = filter,
+                orders = cached ?: emptyList(),
+                nextCursor = null,
+                isLoading = false,
+                isRefreshing = false,
+                isLoadingMore = false,
+                errorMessage = null,
+                ordersByFilter = cache,
+                historyLocked = if (leavingHistory && historyNeedsCode) true else it.historyLocked
+            )
+        }
+        loadOrders(isRefresh = false, silent = cached != null)
+        prefetchNeighbours(filter)
+    }
+
+    /** Loads the tabs left and right of [filter] in the background, so a swipe lands on a filled list. Tarix is never fetched ahead. */
+    private fun prefetchNeighbours(filter: OrderFilter) {
+        val i = SWIPE_TABS.indexOf(filter)
+        if (i < 0) return
+        listOfNotNull(SWIPE_TABS.getOrNull(i - 1), SWIPE_TABS.getOrNull(i + 1))
+            .filter { it != OrderFilter.HISTORY && prefetchJobs[it]?.isActive != true }
+            .forEach { tab ->
+                prefetchJobs[tab] = viewModelScope.launch {
+                    val result = repository.getOrders(tab.apiValue, null)
+                    ensureActive()
+                    if (result is Resource.Success) {
+                        _uiState.update {
+                            // The visible tab is owned by loadOrders (it also keeps the cursor); only the cache is touched here.
+                            if (it.selectedFilter == tab) it else it.copy(ordersByFilter = it.ordersByFilter + (tab to result.data.orders))
+                        }
+                    }
+                }
+            }
+    }
+
+    /** The finance code was entered on the Tarix page: show the history now. */
+    fun onHistoryUnlocked() {
+        if (!_uiState.value.historyLocked) return
+        _uiState.update { it.copy(historyLocked = false) }
+        if (_uiState.value.selectedFilter == OrderFilter.HISTORY) loadOrders(isRefresh = false)
+    }
+
+    /** The Orders tab was left or the app went to the background: an open Tarix is hidden and asks for the code again. */
+    fun relockHistory() {
+        if (!historyNeedsCode) return
+        if (_uiState.value.selectedFilter == OrderFilter.HISTORY) loadJob?.cancel()
+        _uiState.update {
+            val onHistory = it.selectedFilter == OrderFilter.HISTORY
+            it.copy(
+                historyLocked = true,
+                ordersByFilter = it.ordersByFilter - OrderFilter.HISTORY,
+                orders = if (onHistory) emptyList() else it.orders,
+                nextCursor = if (onHistory) null else it.nextCursor,
+                isLoading = if (onHistory) false else it.isLoading,
+                isRefreshing = if (onHistory) false else it.isRefreshing
+            )
+        }
     }
 
     fun dismissNotice() {
