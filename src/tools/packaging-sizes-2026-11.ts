@@ -8,8 +8,8 @@ import { db } from '../lib/db.js';
  * a small one holds 3 osh (5 000 so'm), a big one holds 6 osh (10 000 so'm). The customer never adds them.
  *
  * Turns it on for ONE restaurant (default bobosher-osh), idempotent, prints the plan unless --apply is given:
- *  - the packaging the restaurant's dishes link to (exactly one is expected) becomes "Soboy idish (3 osh)", 5 000, capacity 3;
- *  - a second packaging "Soboy idish (6 osh)", 10 000, capacity 6, is created as its bigger size (or updated when it exists).
+ *  - the packaging the restaurant's dishes link to (exactly one is expected) becomes "Soboy idish", 5 000, capacity 3;
+ *  - a second packaging "Katta soboy idish", 10 000, capacity 6, is created as its bigger size (or updated when it exists).
  * Each container gets its icon (prisma/seed-assets/soboy-idish-{kichik,katta}.png, drawn by docs/icons/soboy-idish-icons.mjs): set when it has
  * no picture; a picture the restaurant set itself is kept unless --force-image.
  * --off turns it back to the old rule (capacity cleared on the base, the bigger size switched off); names and prices stay.
@@ -21,8 +21,8 @@ const OFF = process.argv.includes('--off');
 const SLUG = process.argv.slice(2).find(a => !a.startsWith('--')) ?? 'bobosher-osh';
 const ACTOR = 'owner-packaging-sizes-20261128';
 const FORCE_IMAGE = process.argv.includes('--force-image');
-const SMALL = { name: 'Soboy idish (3 osh)', priceSom: 5000, capacity: 3, icon: 'soboy-idish-kichik.png' };
-const BIG = { name: 'Soboy idish (6 osh)', priceSom: 10_000, capacity: 6, icon: 'soboy-idish-katta.png' };
+const SMALL = { name: 'Soboy idish', priceSom: 5000, capacity: 3, icon: 'soboy-idish-kichik.png' };
+const BIG = { name: 'Katta soboy idish', priceSom: 10_000, capacity: 6, icon: 'soboy-idish-katta.png' };
 const log = (msg: string): void => console.log(`${APPLY ? '[APPLY]' : '[PLAN] '} ${msg}`);
 
 type Row = { id: string; name: string; priceSom: number; isAvailable: boolean; packagingCapacity: number | null; packagingBaseId: string | null };

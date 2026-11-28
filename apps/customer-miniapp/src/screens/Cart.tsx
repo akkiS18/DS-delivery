@@ -100,7 +100,8 @@ export function Cart({ go }: { go: (r: Route) => void }) {
             {x.imageUrl && <img className="pack-icon" src={mediaUrl(x.imageUrl, 160) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
             <div className="grow">
               <div className="bold">{x.name}</div>
-              <div className="sub small">{som(x.unitSom)} • {x.sized ? t('taomlar soniga qarab avtomatik') : t('har bir taom uchun avtomatik')}</div>
+              {/* a container picked by size needs no explanation (owner 2026-11-28): only its price */}
+              <div className="sub small">{som(x.unitSom)}{!x.sized && <> • {t('har bir taom uchun avtomatik')}</>}</div>
             </div>
             <div className="bold mono">{x.quantity} × = {som(x.subtotalSom)}</div>
           </div>

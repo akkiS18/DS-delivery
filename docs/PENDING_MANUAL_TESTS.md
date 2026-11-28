@@ -198,9 +198,9 @@ Turn on (Telegram admin bot): `/restocard <slug> <card number> <NAME F.>` and ap
 4. Customer APK (not rebuilt): its payment screen still says "10 daqiqa ichida ... to'lov qiling" (the old text) though no deadline exists; the Telegram Mini App is correct. Rebuild the customer APK when convenient.
 5. Open points: no Telegram "open the app" alert for staff exists for these orders (the app bell is the only signal, like cash); /money and Moliya show the order as waiting; an order's customer limits are the normal open-unpaid-orders limit (no separate cap, no max total).
 
-## O. Soboy idish by size for Bobosher Osh (2026-11-28, committed locally, NOT deployed, not tried on a phone)
-Turn on after the deploy: `docker exec ds-prod-backend-1 node dist/src/tools/packaging-sizes-2026-11.js bobosher-osh` (plan), then add `--apply`. Back to the old rule: `--off --apply`.
-1. Telegram Mini App, Bobosher: the dish says "+ soboy idish avtomatik qo'shiladi: 3 tagacha — 5 000, 6 tagacha — 10 000". Cart with 1, 2, 3 osh -> one "Soboy idish (3 osh)" 5 000; 4-6 osh -> one "Soboy idish (6 osh)" 10 000; 7 osh -> one of each (15 000). The line has no minus/remove button.
+## O. Soboy idish by size for Bobosher Osh (2026-11-28, DEPLOYED and switched on, not tried on a phone)
+Switched on 2026-11-28 with: `docker exec ds-prod-backend-1 node dist/src/tools/packaging-sizes-2026-11.js bobosher-osh` (plan), then add `--apply`. Back to the old rule: `--off --apply`.
+1. Telegram Mini App, Bobosher: the dish says "+ soboy idish avtomatik qo'shiladi: 3 tagacha — 5 000, 6 tagacha — 10 000". Cart with 1, 2, 3 osh -> one "Soboy idish" 5 000; 4-6 osh -> one "Katta soboy idish" 10 000; 7 osh -> one of each (15 000). The line shows its icon and price only (no "(3 osh)", no explanation text; owner 2026-11-28) and has no minus/remove button.
 2. Order 7 osh by card: the payment amount = the cart total; the restaurant app order detail lists both containers as their own lines.
 3. Old customer APK (not rebuilt): the cart still shows one box per osh, but the order is accepted and costs the lower server total (the payment screen shows the real amount). Rebuild the APK so the cart shows the right containers.
 4. Xusniddin osh and every other restaurant: unchanged (one box per dish, or no box).

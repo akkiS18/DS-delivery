@@ -130,7 +130,6 @@ export const RU: Record<string, string> = {
   '{n} ta bepul': 'бесплатно: {n} шт.',
   'Bu mahsulot mavjud emas — olib tashlang.': 'Этого блюда нет в наличии — уберите его.',
   'har bir taom uchun avtomatik': 'добавляется автоматически к каждому блюду',
-  'taomlar soniga qarab avtomatik': 'добавляется автоматически по количеству блюд',
   'Tejadingiz': 'Вы экономите',
   'Aksiya (1+1)': 'Акция (1+1)',
   'Narxlarga xizmat haqi kiritilgan.': 'Сервисный сбор уже включён в цены.',
