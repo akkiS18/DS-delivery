@@ -108,11 +108,12 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
  * present only when the packaging is sold by capacity (Bobosher, 2026-11-28): the app then picks containers with the same rule as the server.
  * Null when nothing of it is on sale.
  */
-export function menuPackaging(products: Array<{ id: string; name: string; priceSom: number; isAvailable: boolean; isPackaging: boolean; packagingCapacity: number | null; packagingBaseId: string | null }>) {
+export function menuPackaging(products: Array<{ id: string; name: string; priceSom: number; isAvailable: boolean; isPackaging: boolean; packagingCapacity: number | null; packagingBaseId: string | null; image?: { version: number } | null }>) {
   const onSale = products.filter(p => p.isPackaging && p.isAvailable);
-  return (base: string): { id: string; name: string; priceSom: number; sizes?: Array<{ id: string; name: string; priceSom: number; capacity: number }> } | null => {
+  return (base: string): { id: string; name: string; priceSom: number; sizes?: Array<{ id: string; name: string; priceSom: number; capacity: number; imageUrl: string | null }> } | null => {
     const family = onSale.filter(p => p.id === base || p.packagingBaseId === base);
-    const sizes = family.map(p => ({ id: p.id, name: p.name, priceSom: p.priceSom, capacity: p.packagingCapacity ?? 1 }));
+    // imageUrl: the container's icon (the cart shows it next to the line), null when it has none.
+    const sizes = family.map(p => ({ id: p.id, name: p.name, priceSom: p.priceSom, capacity: p.packagingCapacity ?? 1, imageUrl: p.image ? `/api/v1/miniapp/products/${p.id}/image?v=${p.image.version}` : null }));
     const head = headlineSize(base, sizes);
     if (!head) return null;
     return { id: base, name: head.name, priceSom: head.priceSom, ...(sizes.some(x => x.capacity > 1) ? { sizes } : {}) };

@@ -9,6 +9,7 @@ import { api, ApiError, type CheckoutBody } from '../lib/api';
 import { cartView } from '../lib/cart';
 import { describeCheckoutError, type Described } from '../lib/checkoutErrors';
 import { newKey, som } from '../lib/format';
+import { mediaUrl } from '../lib/platform';
 import { effectiveMethod, methodChoices } from '../lib/payMethod';
 import { loadTaxiChoice, pickTaxi, saveTaxiChoice } from '../lib/taxi';
 import type { PaymentMethod, PaymentOptions, TaxiOption } from '../lib/types';
@@ -314,7 +315,7 @@ export function Checkout({ go }: { go: (r: Route, o?: { replace?: boolean }) => 
        <div className="receipt-top">
         <h2 className="co-h" style={{ fontSize: 17 }}>{cart.restaurantName}</h2>
         {view.lines.map(l => <div key={l.productId} className="row between small"><span className="grow">{l.quantity} × {l.name}{l.freeQty > 0 ? ` (${t('{n} ta bepul', { n: l.freeQty })})` : ''}</span><span className="mono">{som(l.subtotalSom)}</span></div>)}
-        {view.extras.map(x => <div key={x.productId} className="row between small"><span className="grow">{x.quantity} × {x.name}</span><span className="mono">{som(x.subtotalSom)}</span></div>)}
+        {view.extras.map(x => <div key={x.productId} className="row between small" style={{ gap: 8 }}>{x.imageUrl && <img className="pack-icon sm" src={mediaUrl(x.imageUrl, 160) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}<span className="grow">{x.quantity} × {x.name}</span><span className="mono">{som(x.subtotalSom)}</span></div>)}
         {view.dealSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya chegirmasi')}</span><span className="mono">−{som(view.dealSavedSom)}</span></div>}
         {view.promoSavedSom > 0 && <div className="row between small saved"><span>{t('Aksiya (1+1)')}</span><span className="mono">−{som(view.promoSavedSom)}</span></div>}
         <PlatformLine pricing={view.pricing} />

@@ -13,7 +13,7 @@ describe('packaging sizes (same fixtures as the server)', () => {
 
 const sized: Packaging = {
   id: 'small', name: 'Soboy idish (3 osh)', priceSom: 5000,
-  sizes: [{ id: 'small', name: 'Soboy idish (3 osh)', priceSom: 5000, capacity: 3 }, { id: 'big', name: 'Soboy idish (6 osh)', priceSom: 10_000, capacity: 6 }],
+  sizes: [{ id: 'small', name: 'Soboy idish (3 osh)', priceSom: 5000, capacity: 3, imageUrl: '/api/v1/miniapp/products/small/image?v=1' }, { id: 'big', name: 'Soboy idish (6 osh)', priceSom: 10_000, capacity: 6, imageUrl: null }],
 };
 const cart = (quantity: number, extra: CartState['lines'] = []): CartState => ({
   restaurantId: 'r', restaurantName: 'Bobosher', lines: [{ productId: 'osh', name: 'Osh', priceSom: 35_000, quantity, packaging: sized }, ...extra],
@@ -31,6 +31,7 @@ describe('cart with sized packaging', () => {
     const seven = cartView(cart(7));
     expect(Object.fromEntries(seven.extras.map(x => [x.productId, x.quantity]))).toEqual({ big: 1, small: 1 });
     expect(seven.totalSom).toBe(7 * 35_000 + 15_000);
+    expect(Object.fromEntries(seven.extras.map(x => [x.productId, x.imageUrl]))).toEqual({ big: null, small: '/api/v1/miniapp/products/small/image?v=1' });
   });
   it('dishes that share the packaging are counted together', () => {
     const v = cartView(cart(2, [{ productId: 'osh2', name: 'To‘y oshi', priceSom: 40_000, quantity: 2, packaging: sized }]));

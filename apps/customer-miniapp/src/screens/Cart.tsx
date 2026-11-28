@@ -8,6 +8,7 @@ import { cartBase, cartView, catalogAction } from '../lib/cart';
 import { describeCheckoutError } from '../lib/checkoutErrors';
 import { lineCharge } from '../lib/fee';
 import { opensText, som } from '../lib/format';
+import { mediaUrl } from '../lib/platform';
 import type { Route } from '../lib/router';
 import type { CheckoutIssue, QuoteResponse } from '../lib/types';
 import { useApp } from '../state';
@@ -95,7 +96,8 @@ export function Cart({ go }: { go: (r: Route) => void }) {
       ))}
       {view.extras.map(x => (
         <div key={x.productId} className="card">
-          <div className="row between">
+          <div className="row between" style={{ gap: 12 }}>
+            {x.imageUrl && <img className="pack-icon" src={mediaUrl(x.imageUrl, 160) ?? ''} alt="" loading="lazy" referrerPolicy="no-referrer" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />}
             <div className="grow">
               <div className="bold">{x.name}</div>
               <div className="sub small">{som(x.unitSom)} • {x.sized ? t('taomlar soniga qarab avtomatik') : t('har bir taom uchun avtomatik')}</div>

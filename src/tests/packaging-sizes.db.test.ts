@@ -114,6 +114,12 @@ test('sizes: the menu gives the dish its sizes; a switched-off size is not used;
   assert.equal(osh.priceSom, 5000);
   assert.deepEqual(osh.sizes?.map(s => [s.id, s.capacity, s.priceSom]).sort(), [[P.big, 6, 10_000], [P.small, 3, 5000]].sort());
   assert.deepEqual(menu.products.find(p => p.id === P.salad)!.packaging, { id: P.cup, name: `Kosa-${nonce}`, priceSom: 2000 });
+  assert.equal(osh.sizes?.every(x => x.imageUrl === null), true);
+  // a container with an icon carries its picture address (the cart shows it)
+  const png = Buffer.alloc(2048, 1);
+  await db.productImage.create({ data: { productId: P.big, mime: 'image/png', data: png, sha256: 'x'.repeat(64), version: 3 } });
+  const withIcon = (await restaurantMenu(restaurantId))!.products.find(p => p.id === P.osh)!.packaging!;
+  assert.equal(withIcon.sizes!.find(x => x.id === P.big)!.imageUrl, `/api/v1/miniapp/products/${P.big}/image?v=3`);
 
   await db.product.update({ where: { id: P.big }, data: { isAvailable: false } });
   try {

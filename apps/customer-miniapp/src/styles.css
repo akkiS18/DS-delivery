@@ -724,6 +724,9 @@ h1, h2, h3, p { margin: 0; }
 /* Basket: lines and the separate taxi-fare card */
 .cline { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 22px; background: var(--card); box-shadow: 0 2px 10px rgba(27, 48, 49, 0.07); }
 .cline.muted { opacity: 0.62; }
+/* The icon of an automatic packaging line ("Soboy idish"): white tile, the picture keeps its size so the small container looks smaller. */
+.pack-icon { width: 52px; height: 52px; flex: none; border-radius: 14px; background: #fff; object-fit: contain; }
+.pack-icon.sm { width: 32px; height: 32px; border-radius: 10px; }
 .cline h2 { font-size: 16px; font-weight: 700; }
 .cline-foot { margin-top: 6px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .cline-sum { font-size: 17px; font-weight: 800; color: var(--primary-text); font-variant-numeric: tabular-nums; }

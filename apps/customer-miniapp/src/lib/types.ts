@@ -242,7 +242,7 @@ export interface OrderSummary {
  * A dish's packaging. `id` is the base packaging (dishes sharing it are counted together). `sizes` (absent = one unit of this packaging per
  * dish unit) means containers hold several portions (Bobosher 2026-11-28: 3 osh = 5 000, 6 osh = 10 000) and the app picks them like the server.
  */
-export interface Packaging { id: string; name: string; priceSom: number; sizes?: Array<{ id: string; name: string; priceSom: number; capacity: number }> }
+export interface Packaging { id: string; name: string; priceSom: number; sizes?: Array<{ id: string; name: string; priceSom: number; capacity: number; /** The container's icon; null/absent = none. */ imageUrl?: string | null }> }
 export interface CartLine { productId: string; name: string; priceSom: number; quantity: number; packaging?: Packaging | null; /** What the dish is (e.g. what a set contains) and its earlier price: display only, filled from the menu. */ description?: string | null; oldPriceSom?: number | null }
 export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[]; pricing?: PublicPricing; /** 1+1 offers of the cart's restaurant (from its menu). */ promos?: Array<{ id: string; maxFreePerOrder: number | null; productIds: string[] }> }
 
