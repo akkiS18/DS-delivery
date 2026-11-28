@@ -88,12 +88,19 @@ model Product {
   updatedAt    DateTime    @updatedAt @db.Timestamptz(3)
   orderItems   OrderItem[]
   image        ProductImage?
-  /// Packaging that goes with this dish ("soboy idishi"): the server adds one packaging unit per dish unit at checkout (owner decision 2026-11-01).
+  /// Packaging that goes with this dish ("soboy idishi"): the server adds one packaging unit per dish unit at checkout (owner decision 2026-11-01), or containers by size when the packaging has a capacity (2026-11-28).
   packagingProductId String?
   packagingProduct   Product?    @relation("DishPackaging", fields: [packagingProductId], references: [id], onDelete: SetNull)
   packagedDishes     Product[]   @relation("DishPackaging")
   /// A packaging product: never listed on the customer menu on its own, only added next to its dish. Still editable (price) in the restaurant app.
   isPackaging  Boolean     @default(false)
+  /// Packaging only: how many dish portions one unit holds (owner request 2026-11-28, Bobosher: 3 osh = 5 000, 6 osh = 10 000). Null = one unit per
+  /// dish unit (the 2026-11-01 rule, every other restaurant). With a capacity the server picks the cheapest set of sizes (then the fewest containers).
+  packagingCapacity Int?
+  /// Packaging only: this is a bigger size of the base packaging the dishes link to (dishes always point at the base). Null = a base itself.
+  packagingBaseId   String?
+  packagingBase     Product?    @relation("PackagingSizes", fields: [packagingBaseId], references: [id], onDelete: SetNull)
+  packagingSizes    Product[]   @relation("PackagingSizes")
   /// Order on the customer menu inside a category (small first); equal positions fall back to the name. Set by an administrator; 0 = no preference.
   position     Int         @default(0)
   /// Display only: the earlier price, shown crossed out next to priceSom (a set offer, 2026-11-06). Never used to charge; cleared when the restaurant changes priceSom.
@@ -101,6 +108,7 @@ model Product {
   promotionProducts PromotionProduct[]
 
   @@index([restaurantId, isAvailable])
+  @@index([packagingBaseId])
 }
 
 model TaxiCompany {

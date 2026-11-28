@@ -1,6 +1,6 @@
 import { Telegraf, Markup, session } from 'telegraf';
 import { randomUUID } from 'node:crypto';
-import { CheckoutError, placeOrder, orderDetails } from '../modules/orders/service.js';
+import { CheckoutError, placeOrder, orderDetails, validateCheckout } from '../modules/orders/service.js';
 import { paymentMode, payeeNumber } from '../modules/payment/requisites.js';
 import { chatCheckoutEnabled, launcherKeyboard, LAUNCH_TEXT, miniAppUrl, registerMiniAppLauncher } from './miniapp-launch.js';
 import type { PaymentEngineV3 } from '../modules/payment/engine.js';
@@ -133,6 +133,7 @@ async function menu(ctx: ClientContext, restaurantId: string, categoryId: string
   const filter = {
     restaurantId: r.id,
     isAvailable: true,
+    isPackaging: false, // packaging ("soboy idish") is added by the server, never picked by the customer
     ...(categoryId !== 'all' ? { categoryId } : {}),
   };
   const total = await db.product.count({ where: filter });
@@ -206,6 +207,13 @@ async function addProduct(ctx: ClientContext, productId: string, categoryId: str
   await productDetails(ctx, productId, categoryId, page);
 }
 
+/** The server's checkout view of a basket (lines with packaging, total with the fee); null when it cannot be priced now (closed, unavailable...). */
+async function serverBasket(restaurantId: string, items: Array<{ productId: string; quantity: number }>) {
+  if (!items.length) return null;
+  const r = await validateCheckout(db, { restaurantId, items });
+  return r.ok ? r : null;
+}
+
 async function showCart(ctx: ClientContext): Promise<void> {
   const state = currentSession(ctx);
   if (!state.restaurantId) {
@@ -247,6 +255,12 @@ async function showCart(ctx: ClientContext): Promise<void> {
   }
   const calculated = cartTotal(state.cart, prices);
   const caveat = total !== calculated ? '\n⚠️ Mavjud bo‘lmagan mahsulotlar umumiy summaga kiritilmadi.' : '';
+  // What the order will really cost: the server adds the packaging ("soboy idish", by size for Bobosher) and the service fee. Same rule as the Mini App.
+  const server = await serverBasket(state.restaurantId, items.filter(p => p.isAvailable).map(p => ({ productId: p.id, quantity: state.cart[p.id]! })));
+  if (server) {
+    for (const l of server.lines.filter(x => x.packaging)) lines.push(`📦 <b>${escapeHtml(l.name)}</b> (avtomatik)\n   ${l.quantity} × ${som(l.unitSom)} = ${som(l.subtotalSom)}`);
+    total = server.totalSom;
+  }
   const text = `<b>🛒 Savat</b>\n\n${lines.join('\n\n')}\n\n` +
     `<b>Jami: ${som(total)}</b>${caveat}\n\n` +
     '<i>Yetkazish haqi taksi tarifi bo‘yicha alohida to‘lanadi.</i>';
@@ -373,7 +387,9 @@ async function confirmScreen(ctx: ClientContext): Promise<void> {
   if (!rest || products.length !== Object.keys(state.cart).length) {
     await ctx.reply('Mahsulot ma’lumotlari o‘zgargan. /cart orqali qayta tekshiring.'); return;
   }
-  const amountSom = products.reduce((sum, p) => sum + p.priceSom * (state.cart[p.id] ?? 0), 0);
+  // The server's own total (packaging and service fee included), so the confirmation shows what the customer will pay and the order matches it.
+  const server = await serverBasket(state.restaurantId, products.map(p => ({ productId: p.id, quantity: state.cart[p.id] ?? 0 })).filter(i => i.quantity > 0));
+  const amountSom = server?.totalSom ?? products.reduce((sum, p) => sum + p.priceSom * (state.cart[p.id] ?? 0), 0);
   check.expectedTotalSom = amountSom;
   await ctx.reply(checkoutSummary({ restaurant: rest.name, phone: check.phone,
     address: check.addressText, taxi: check.taxiCompanyName, amountSom, mock: mode() === 'MOCK' }) +

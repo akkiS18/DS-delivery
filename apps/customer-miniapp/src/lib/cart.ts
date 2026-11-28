@@ -1,5 +1,5 @@
 import { FLAT_PRICING, isPricing, priceLines, referenceUnitPrice, type PricedLine } from './fee';
-import { freeUnits, isPromoDef } from './promo';
+import { containersFor, freeUnits, isPromoDef } from './promo';
 import type { CartLine, CartState, PublicPricing } from './types';
 
 /** Pure cart logic + tolerant persistence. Prices stored here are only for display: the server re-reads every price at checkout. */
@@ -93,7 +93,8 @@ export const cartCount = (c: CartState): number => c.lines.reduce((n, l) => n + 
  */
 export interface CartView {
   lines: Array<CartLine & PricedLine & { freeQty: number; wasSom: number }>;
-  extras: Array<{ productId: string; name: string; quantity: number; unitSom: number; subtotalSom: number }>;
+  /** Packaging the server adds (the customer cannot remove it). sized = picked by the number of portions, not one per dish unit. */
+  extras: Array<{ productId: string; name: string; quantity: number; unitSom: number; subtotalSom: number; sized: boolean }>;
   baseTotalSom: number; dishesSom: number; totalSom: number; savedSom: number;
   /** Menu value of the free units (what the 1+1 offer saves the customer). */
   promoSavedSom: number;
@@ -106,12 +107,7 @@ export function cartView(c: CartState): CartView {
   const free = freeUnits(c.lines.map(l => ({ productId: l.productId, baseUnitSom: l.priceSom, quantity: l.quantity })), (c.promos ?? []).map(p => ({ ...p })));
   const freeCount = [...free.values()].reduce((n, q) => n + q, 0);
   const pricing: PublicPricing = freeCount > 0 && stored.mode === 'LINE' && !stored.lineWaived ? { ...stored, lineWaived: true } : stored;
-  const pack = new Map<string, { name: string; priceSom: number; quantity: number }>();
-  for (const l of c.lines) if (l.packaging) {
-    const cur = pack.get(l.packaging.id);
-    pack.set(l.packaging.id, { name: l.packaging.name, priceSom: l.packaging.priceSom, quantity: (cur?.quantity ?? 0) + l.quantity });
-  }
-  const packList = [...pack.entries()].map(([id, p]) => ({ id, ...p }));
+  const packList = packagingLines(c.lines);
   const paidDishes = c.lines.map(l => ({ priceSom: l.priceSom, quantity: l.quantity - (free.get(l.productId) ?? 0) }));
   const r = priceLines([...paidDishes, ...packList.map(p => ({ priceSom: p.priceSom, quantity: p.quantity }))], pricing);
   // An empty cart has no platform line (priceLines checks the number of lines it was given, which is never 0 here once the cart has lines).
@@ -122,7 +118,7 @@ export function cartView(c: CartState): CartView {
   });
   return {
     lines,
-    extras: packList.map((p, i) => ({ productId: p.id, name: p.name, quantity: p.quantity, unitSom: r.lines[c.lines.length + i]!.unitSom, subtotalSom: r.lines[c.lines.length + i]!.subtotalSom })),
+    extras: packList.map((p, i) => ({ productId: p.id, name: p.name, quantity: p.quantity, sized: p.sized, unitSom: r.lines[c.lines.length + i]!.unitSom, subtotalSom: r.lines[c.lines.length + i]!.subtotalSom })),
     baseTotalSom: r.baseTotalSom, dishesSom: r.dishesSom, totalSom: r.totalSom, savedSom: r.savedSom,
     dealSavedSom: lines.reduce((n, l) => n + (l.wasSom - Math.max(l.referenceSom, l.unitSom)) * (l.quantity - l.freeQty), 0),
     promoSavedSom: c.lines.reduce((n, l) => n + (free.get(l.productId) ?? 0) * l.priceSom, 0),
@@ -130,6 +126,28 @@ export function cartView(c: CartState): CartView {
   };
 }
 export const cartTotal = (c: CartState): number => cartView(c).totalSom;
+
+/**
+ * The packaging lines the server adds for these dishes: every dish unit is one portion of its packaging (dishes sharing a packaging are summed).
+ * Without sizes: one unit per portion. With sizes: the containers containersFor picks (the same rule and fixtures as the server).
+ */
+export function packagingLines(lines: CartLine[]): Array<{ id: string; name: string; priceSom: number; quantity: number; sized: boolean }> {
+  const groups = new Map<string, { packaging: NonNullable<CartLine['packaging']>; portions: number }>();
+  for (const l of lines) if (l.packaging) {
+    const cur = groups.get(l.packaging.id);
+    groups.set(l.packaging.id, { packaging: cur?.packaging ?? l.packaging, portions: (cur?.portions ?? 0) + l.quantity });
+  }
+  const out = new Map<string, { id: string; name: string; priceSom: number; quantity: number; sized: boolean }>();
+  const add = (id: string, name: string, priceSom: number, quantity: number, sized: boolean) => {
+    const cur = out.get(id);
+    out.set(id, { id, name, priceSom, quantity: (cur?.quantity ?? 0) + quantity, sized });
+  };
+  for (const { packaging: p, portions } of groups.values()) {
+    if (!p.sizes?.length) { add(p.id, p.name, p.priceSom, portions, false); continue; }
+    for (const [id, q] of containersFor(portions, p.sizes)) { const s = p.sizes.find(x => x.id === id)!; add(id, s.name, s.priceSom, q, true); }
+  }
+  return [...out.values()];
+}
 /** The restaurant's own prices added up (drives the progress bar). */
 export const cartBase = (c: CartState): number => c.lines.reduce((n, l) => n + l.priceSom * l.quantity, 0);
 export const qtyOf = (c: CartState, productId: string): number => c.lines.find(l => l.productId === productId)?.quantity ?? 0;
@@ -139,7 +157,9 @@ const isLine = (x: unknown): x is CartLine => {
   return !!l && typeof l.productId === 'string' && typeof l.name === 'string' && Number.isSafeInteger(l.priceSom) && l.priceSom >= 0
     && Number.isSafeInteger(l.quantity) && l.quantity >= 1 && l.quantity <= MAX_QTY
     && (l.description == null || typeof l.description === 'string') && (l.oldPriceSom == null || Number.isSafeInteger(l.oldPriceSom))
-    && (l.packaging == null || (typeof l.packaging.id === 'string' && typeof l.packaging.name === 'string' && Number.isSafeInteger(l.packaging.priceSom) && l.packaging.priceSom >= 0));
+    && (l.packaging == null || (typeof l.packaging.id === 'string' && typeof l.packaging.name === 'string' && Number.isSafeInteger(l.packaging.priceSom) && l.packaging.priceSom >= 0
+      && (l.packaging.sizes === undefined || (Array.isArray(l.packaging.sizes) && l.packaging.sizes.every(s => !!s && typeof s.id === 'string' && typeof s.name === 'string'
+        && Number.isSafeInteger(s.priceSom) && s.priceSom >= 0 && Number.isSafeInteger(s.capacity) && s.capacity >= 1)))));
 };
 
 /** Storage may be missing, full, blocked or corrupted (Telegram webviews, private mode). Anything unusable becomes an empty cart. */

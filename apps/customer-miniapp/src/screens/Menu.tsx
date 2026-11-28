@@ -15,6 +15,13 @@ import type { Product } from '../lib/types';
 import { useApp, useLoad } from '../state';
 import { t } from '../i18n';
 
+/** What the menu says under a dish about its packaging: one per unit, or (sizes) which container holds how many - the app adds them itself. */
+function packagingNote(p: NonNullable<Product['packaging']>): string {
+  if (!p.sizes?.length) return t('+ {name} {sum} (har bir dona uchun)', { name: p.name.toLowerCase(), sum: som(p.priceSom) });
+  const list = [...p.sizes].sort((a, b) => a.capacity - b.capacity).map(s => t('{n} tagacha — {sum}', { n: String(s.capacity), sum: som(s.priceSom) })).join(', ');
+  return t('+ soboy idish avtomatik qo‘shiladi: {list}', { list });
+}
+
 /** The group of dishes that has no category (shown as its own card in the grid). */
 export const OTHER_CATEGORY = 'other';
 /** The virtual first group of a restaurant that has a 1+1 offer on (owner decision 2026-11-01): the offer's dishes, whatever category they sit in. */
@@ -158,7 +165,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
             <div className="grow stack" style={{ gap: 4 }}>
               <div className="bold"><button type="button" className="dishlink" onClick={e => { e.stopPropagation(); setDetail(p.id); }} aria-haspopup="dialog">{p.name}</button>{promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}</div>
               {p.description && <div className="desc">{p.description}</div>}
-              {p.packaging && <div className="sub small">{t('+ {name} {sum} (har bir dona uchun)', { name: p.packaging.name.toLowerCase(), sum: som(p.packaging.priceSom) })}</div>}
+              {p.packaging && <div className="sub small">{packagingNote(p.packaging)}</div>}
               <div className="row between" style={{ marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                 <PriceTag unitSom={unit} referenceSom={Math.max(first, unit, p.oldPriceSom && p.oldPriceSom > p.priceSom ? referenceUnitPrice(p.oldPriceSom, pricing) : 0)} />
                 {!p.isAvailable ? <span className="badge closed">{t('Mavjud emas')}</span>
@@ -186,7 +193,7 @@ export function Menu({ id, cat, go }: { id: string; cat?: string; go?: (r: Route
                 {promoIds.has(p.id) && <span className="badge promo-badge">1+1</span>}
               </div>
               {p.description && <p className="dish-desc">{p.description}</p>}
-              {p.packaging && <div className="dish-extra"><span>{t('+ {name} {sum} (har bir dona uchun)', { name: p.packaging.name.toLowerCase(), sum: som(p.packaging.priceSom) })}</span></div>}
+              {p.packaging && <div className="dish-extra"><span>{packagingNote(p.packaging)}</span></div>}
               {!p.isAvailable && <span className="badge closed">{t('Mavjud emas')}</span>}
               {p.isAvailable && !r.isOpen && <div className="banner warn" role="status">{t('Restoran hozir yopiq')}</div>}
               {q > 0

@@ -1,0 +1,23 @@
+[
+  {"name": "Bobosher: 0 osh", "portions": 0, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {}},
+  {"name": "Bobosher: 1 osh", "portions": 1, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"small": 1}},
+  {"name": "Bobosher: 2 osh", "portions": 2, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"small": 1}},
+  {"name": "Bobosher: 3 osh", "portions": 3, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"small": 1}},
+  {"name": "Bobosher: 4 osh", "portions": 4, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 1}},
+  {"name": "Bobosher: 5 osh", "portions": 5, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 1}},
+  {"name": "Bobosher: 6 osh", "portions": 6, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 1}},
+  {"name": "Bobosher: 7 osh", "portions": 7, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 1, "small": 1}},
+  {"name": "Bobosher: 9 osh", "portions": 9, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 1, "small": 1}},
+  {"name": "Bobosher: 10 osh", "portions": 10, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 2}},
+  {"name": "Bobosher: 11 osh", "portions": 11, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 2}},
+  {"name": "Bobosher: 12 osh", "portions": 12, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 2}},
+  {"name": "Bobosher: 13 osh", "portions": 13, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 2, "small": 1}},
+  {"name": "Bobosher: 30 osh", "portions": 30, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 5}},
+  {"name": "big container off: small ones only", "portions": 7, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}], "units": {"small": 3}},
+  {"name": "small container off: big ones only", "portions": 2, "sizes": [{"id": "big", "capacity": 6, "priceSom": 10000}], "units": {"big": 1}},
+  {"name": "no size on sale: nothing", "portions": 4, "sizes": [], "units": {}},
+  {"name": "capacity 1 = one per dish unit (old rule)", "portions": 4, "sizes": [{"id": "box", "capacity": 1, "priceSom": 3000}], "units": {"box": 4}},
+  {"name": "a dear big size is not used when small ones are cheaper", "portions": 6, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 12000}], "units": {"small": 2}},
+  {"name": "a cheap big size wins even for few portions", "portions": 2, "sizes": [{"id": "small", "capacity": 3, "priceSom": 5000}, {"id": "big", "capacity": 6, "priceSom": 4000}], "units": {"big": 1}},
+  {"name": "invalid sizes are ignored", "portions": 3, "sizes": [{"id": "bad", "capacity": 0, "priceSom": 1}, {"id": "neg", "capacity": 5, "priceSom": -1}, {"id": "small", "capacity": 3, "priceSom": 5000}], "units": {"small": 1}}
+]

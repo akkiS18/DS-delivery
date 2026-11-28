@@ -18,7 +18,7 @@ describe('cart with packaging and 1+1', () => {
 
   it('adds one packaging unit per dish unit as its own line and counts it in the total', () => {
     const v = cartView(osh);
-    expect(v.extras).toEqual([{ productId: 'box', name: 'Soboy idishi', quantity: 2, unitSom: 5000, subtotalSom: 10_000 }]);
+    expect(v.extras).toEqual([{ productId: 'box', name: 'Soboy idishi', quantity: 2, unitSom: 5000, subtotalSom: 10_000, sized: false }]);
     expect(v.dishesSom).toBe(70_000 + 10_000);
     expect(v.totalSom).toBe(80_000);
   });

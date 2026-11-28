@@ -12,7 +12,7 @@ import { PICKUP_ADDRESS_LABEL, pickupAvailable, pickupOpen } from './pickup.js';
 import { orderVerdict } from '../customer-strikes/service.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { feeRuleCode, priceBasket, publicPricing, type PublicPricing } from '../pricing/fee.js';
-import { freeUnits, packagingUnits, type PromoDef } from '../promotions/rules.js';
+import { freeUnits, headlineSize, packagingUnits, type PackSize, type PromoDef } from '../promotions/rules.js';
 
 export const orderSchema = z.object({
   restaurantId: z.string().min(1),
@@ -120,15 +120,20 @@ export async function validateCheckout(tx: Tx, input: {
   const found = new Map(products.map(p => [p.id, p]));
   const issues: CheckoutIssue[] = [];
   for (const id of amounts.keys()) if (!found.has(id)) issues.push({ kind: 'PRODUCT_UNAVAILABLE', productId: id });
-  // Packaging ("soboy idishi") is never ordered on its own: whatever the client sent for it is ignored and the server adds one unit per unit of each dish that has packaging.
+  // Packaging ("soboy idishi") is never ordered on its own: whatever the client sent for it is ignored and the server adds it for each dish that has packaging:
+  // one unit per dish unit, or - when the packaging has sizes (Bobosher, 2026-11-28) - the cheapest set of containers that holds every portion.
   // A packaging product that is switched off or archived is simply not added (the dish can still be ordered).
   const dishes = products.filter(p => !p.isPackaging);
   // A basket of nothing but packaging is not an order.
   if (dishes.length === 0 && issues.length === 0) for (const id of amounts.keys()) issues.push({ kind: 'PRODUCT_UNAVAILABLE', productId: id });
-  const packNeeded = packagingUnits(dishes.map(p => ({ quantity: amounts.get(p.id)!, packagingProductId: p.packagingProductId })));
-  const packRows = packNeeded.size
-    ? await tx.product.findMany({ where: { id: { in: [...packNeeded.keys()] }, restaurantId: input.restaurantId, isAvailable: true, archivedAt: null, isPackaging: true } })
+  const packLines = dishes.map(p => ({ quantity: amounts.get(p.id)!, packagingProductId: p.packagingProductId }));
+  const bases = [...packagingUnits(packLines).keys()];
+  const packRows = bases.length
+    ? await tx.product.findMany({ where: { restaurantId: input.restaurantId, isAvailable: true, archivedAt: null, isPackaging: true, OR: [{ id: { in: bases } }, { packagingBaseId: { in: bases } }] } })
     : [];
+  const sizes = packagingSizes(bases, packRows);
+  const packNeeded = packagingUnits(packLines, sizes);
+  const packById = new Map(packRows.map(p => [p.id, p]));
   // 1+1: the cheaper unit of every pair of a promotion's products is free (a line priced 0 next to the paid one). The restaurant bears it.
   const promos = await loadActivePromotions(tx, input.restaurantId);
   const free = promos.length ? freeUnits(dishes.map(p => ({ productId: p.id, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! })), promos) : new Map<string, number>();
@@ -139,9 +144,13 @@ export async function validateCheckout(tx: Tx, input: {
   const cfg = freeCount > 0 && cfgNow.mode === 'LINE' && !cfgNow.lineWaived ? { ...cfgNow, lineWaived: true } : cfgNow;
   const paid = [
     ...dishes.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: amounts.get(p.id)! - (free.get(p.id) ?? 0), packaging: false })).filter(l => l.quantity > 0),
-    ...packRows.map(p => ({ productId: p.id, name: p.name, baseUnitSom: p.priceSom, quantity: packNeeded.get(p.id)!, packaging: true })),
+    ...[...packNeeded].map(([id, quantity]) => ({ productId: id, name: packById.get(id)!.name, baseUnitSom: packById.get(id)!.priceSom, quantity, packaging: true })),
   ];
   const priced = priceBasket(paid, cfg);
+  // An app built before packaging sizes (the customer APK until it is updated) still counts one container per dish unit and sends that total.
+  // Such an order is accepted at the server's total only when that total is not higher than what the app showed: the sizes can only make it cheaper.
+  const legacyPack = legacyPackaging(bases, packLines, sizes, packById);
+  const legacyTotalSom = legacyPack ? priceBasket([...paid.filter(l => !l.packaging), ...legacyPack], cfg).totalSom : null;
   const lines: CheckoutLine[] = priced.lines.map(l => ({ productId: l.productId, name: l.name, unitSom: l.unitSom, baseUnitSom: l.baseUnitSom, quantity: l.quantity, subtotalSom: l.subtotalSom, ...(l.packaging ? { packaging: true } : {}) }));
   let promoDiscountSom = 0;
   for (const p of dishes) {
@@ -158,10 +167,37 @@ export async function validateCheckout(tx: Tx, input: {
       issues.push({ kind: 'PRICE_CHANGED', productId: l.productId, name: l.name, expectedUnitSom: expected, currentUnitSom: l.unitSom });
     }
   }
-  if (input.expectedTotalSom !== undefined && input.expectedTotalSom !== totalSom && issues.every(i => i.kind !== 'PRODUCT_UNAVAILABLE')) {
+  const legacyMatch = legacyTotalSom !== null && input.expectedTotalSom === legacyTotalSom && totalSom <= legacyTotalSom;
+  if (input.expectedTotalSom !== undefined && input.expectedTotalSom !== totalSom && !legacyMatch && issues.every(i => i.kind !== 'PRODUCT_UNAVAILABLE')) {
     issues.push({ kind: 'TOTAL_CHANGED', expectedTotalSom: input.expectedTotalSom, currentTotalSom: totalSom });
   }
   return issues.length ? { ok: false, issues, lines, totalSom, fee } : { ok: true, lines, totalSom, fee, restaurant };
+}
+
+type PackRow = { id: string; name: string; priceSom: number; packagingCapacity: number | null; packagingBaseId: string | null };
+
+/** The sizes each base packaging can be sold in now: the base itself (when on sale) and its bigger sizes. A missing capacity = 1 portion. */
+export function packagingSizes(bases: string[], rows: PackRow[]): Map<string, PackSize[]> {
+  return new Map(bases.map(b => [b, rows.filter(r => r.id === b || r.packagingBaseId === b).map(r => ({ id: r.id, capacity: r.packagingCapacity ?? 1, priceSom: r.priceSom }))]));
+}
+
+/** True when a base packaging is sold by capacity (a size holds more than one portion), i.e. an older app would count it differently. */
+const sizedFamily = (family: PackSize[] | undefined): boolean => !!family && family.some(s => s.capacity > 1);
+
+/**
+ * The packaging lines as an app built before sizes would add them: one unit per dish unit of the packaging the menu names for the dish
+ * (the base when on sale, else its smallest size on sale; see menuPackaging). Null when no packaging of the basket has sizes.
+ */
+function legacyPackaging(bases: string[], lines: Array<{ quantity: number; packagingProductId: string | null }>, sizes: Map<string, PackSize[]>, rows: Map<string, PackRow>) {
+  if (!bases.some(b => sizedFamily(sizes.get(b)))) return null;
+  const out: Array<{ productId: string; name: string; baseUnitSom: number; quantity: number; packaging: boolean }> = [];
+  for (const b of bases) {
+    const head = headlineSize(b, sizes.get(b) ?? []);
+    if (!head) continue;
+    const quantity = lines.reduce((n, l) => n + (l.packagingProductId === b ? l.quantity : 0), 0);
+    out.push({ productId: head.id, name: rows.get(head.id)!.name, baseUnitSom: head.priceSom, quantity, packaging: true });
+  }
+  return out;
 }
 
 /** The restaurant's switched-on promotions with the products they cover. */

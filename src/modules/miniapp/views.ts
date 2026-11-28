@@ -6,6 +6,7 @@ import { isPaymentCleared } from '../payment/status.js';
 import { payeeNumber } from '../payment/requisites.js';
 import { loadFeeConfig } from '../pricing/config.js';
 import { publicPricing } from '../pricing/fee.js';
+import { headlineSize } from '../promotions/rules.js';
 import { openState } from '../restaurant-operations/hours.js';
 import { prepClock } from '../restaurant-orders/service.js';
 import { eligibleCompanyWhere } from '../taxi/assignment.js';
@@ -73,11 +74,11 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
     db.category.findMany({ where: { restaurantId: r.id }, orderBy: [{ position: 'asc' }, { name: 'asc' }], select: { id: true, name: true, image: { select: { version: true } } } }),
     db.product.findMany({
       where: { restaurantId: r.id, archivedAt: null }, orderBy: [{ position: 'asc' }, { name: 'asc' }],
-      select: { id: true, name: true, description: true, priceSom: true, oldPriceSom: true, isAvailable: true, categoryId: true, imageUrl: true, isPackaging: true, packagingProductId: true, image: { select: { version: true } } },
+      select: { id: true, name: true, description: true, priceSom: true, oldPriceSom: true, isAvailable: true, categoryId: true, imageUrl: true, isPackaging: true, packagingProductId: true, packagingCapacity: true, packagingBaseId: true, image: { select: { version: true } } },
     }),
   ]);
-  // Packaging ("soboy idishi") is not a menu item: each dish that has it says so, and the server adds one per unit at checkout.
-  const packaging = new Map(products.filter(p => p.isPackaging && p.isAvailable).map(p => [p.id, { id: p.id, name: p.name, priceSom: p.priceSom }]));
+  // Packaging ("soboy idishi") is not a menu item: each dish that has it says so, and the server adds it at checkout (one per unit, or by size).
+  const packaging = menuPackaging(products);
   const promotions = await db.promotion.findMany({
     where: { restaurantId: r.id, isActive: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     select: { id: true, title: true, kind: true, maxFreePerOrder: true, products: { select: { productId: true } } },
@@ -91,13 +92,30 @@ export async function restaurantMenu(idOrSlug: string, now = new Date()) {
     categories: categories.map(({ image, ...c }) => ({ ...c, imageUrl: image ? `/api/v1/miniapp/categories/${c.id}/image?v=${image.version}` : null })),
     products: products.filter(p => !p.isPackaging).map(({ image, isPackaging, packagingProductId, ...p }) => ({
       ...(image ? { ...p, imageUrl: `/api/v1/miniapp/products/${p.id}/image?v=${image.version}` } : p),
-      packaging: packagingProductId ? packaging.get(packagingProductId) ?? null : null,
+      packaging: packagingProductId ? packaging(packagingProductId) : null,
     })),
     // 1+1 offers that are on now: of every two units of these products the cheaper is free (the app mirrors it; the server decides at checkout).
     promotions: promotions.map(x => ({ id: x.id, title: x.title, kind: x.kind, maxFreePerOrder: x.maxFreePerOrder, productIds: x.products.map(pp => pp.productId) })),
     // The service fee is part of the customer's dish prices: the app reproduces them locally from this (the server re-prices at checkout).
     // `priceSom` stays the restaurant's own menu price.
     pricing: publicPricing(await loadFeeConfig()),
+  };
+}
+
+/**
+ * What a dish says about its packaging, by the base packaging it links to. `id` is always the base (the app groups dishes by it); name and
+ * price are the base's while it is on sale, else its smallest size's (what an app built before sizes charges per dish unit). `sizes` is
+ * present only when the packaging is sold by capacity (Bobosher, 2026-11-28): the app then picks containers with the same rule as the server.
+ * Null when nothing of it is on sale.
+ */
+export function menuPackaging(products: Array<{ id: string; name: string; priceSom: number; isAvailable: boolean; isPackaging: boolean; packagingCapacity: number | null; packagingBaseId: string | null }>) {
+  const onSale = products.filter(p => p.isPackaging && p.isAvailable);
+  return (base: string): { id: string; name: string; priceSom: number; sizes?: Array<{ id: string; name: string; priceSom: number; capacity: number }> } | null => {
+    const family = onSale.filter(p => p.id === base || p.packagingBaseId === base);
+    const sizes = family.map(p => ({ id: p.id, name: p.name, priceSom: p.priceSom, capacity: p.packagingCapacity ?? 1 }));
+    const head = headlineSize(base, sizes);
+    if (!head) return null;
+    return { id: base, name: head.name, priceSom: head.priceSom, ...(sizes.some(x => x.capacity > 1) ? { sizes } : {}) };
   };
 }
 

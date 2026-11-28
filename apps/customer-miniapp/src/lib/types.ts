@@ -38,8 +38,8 @@ export interface Product {
   isAvailable: boolean;
   categoryId: string | null;
   imageUrl: string | null;
-  /** Packaging that goes with the dish ("soboy idishi"): the server adds one per unit; the app shows it as its own cart line. Absent from an older backend. */
-  packaging?: { id: string; name: string; priceSom: number } | null;
+  /** Packaging that goes with the dish ("soboy idishi"): the server adds one per unit (or by size, see Packaging); the app shows it as its own cart line. Absent from an older backend. */
+  packaging?: Packaging | null;
 }
 
 /** A 1+1 offer that is on now (the cheaper of every two units of these products is free). */
@@ -238,7 +238,12 @@ export interface OrderSummary {
 }
 
 /** `priceSom` is the restaurant's own menu price; the customer-facing price comes from pricing (lib/fee.ts). */
-export interface CartLine { productId: string; name: string; priceSom: number; quantity: number; packaging?: { id: string; name: string; priceSom: number } | null; /** What the dish is (e.g. what a set contains) and its earlier price: display only, filled from the menu. */ description?: string | null; oldPriceSom?: number | null }
+/**
+ * A dish's packaging. `id` is the base packaging (dishes sharing it are counted together). `sizes` (absent = one unit of this packaging per
+ * dish unit) means containers hold several portions (Bobosher 2026-11-28: 3 osh = 5 000, 6 osh = 10 000) and the app picks them like the server.
+ */
+export interface Packaging { id: string; name: string; priceSom: number; sizes?: Array<{ id: string; name: string; priceSom: number; capacity: number }> }
+export interface CartLine { productId: string; name: string; priceSom: number; quantity: number; packaging?: Packaging | null; /** What the dish is (e.g. what a set contains) and its earlier price: display only, filled from the menu. */ description?: string | null; oldPriceSom?: number | null }
 export interface CartState { restaurantId: string | null; restaurantName: string | null; lines: CartLine[]; pricing?: PublicPricing; /** 1+1 offers of the cart's restaurant (from its menu). */ promos?: Array<{ id: string; maxFreePerOrder: number | null; productIds: string[] }> }
 
 /** Support chat (the customer's side; the admins answer in Telegram). `lastFrom` tells whose message is newest. */

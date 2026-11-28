@@ -98,7 +98,7 @@ export function Cart({ go }: { go: (r: Route) => void }) {
           <div className="row between">
             <div className="grow">
               <div className="bold">{x.name}</div>
-              <div className="sub small">{som(x.unitSom)} • {t('har bir taom uchun avtomatik')}</div>
+              <div className="sub small">{som(x.unitSom)} • {x.sized ? t('taomlar soniga qarab avtomatik') : t('har bir taom uchun avtomatik')}</div>
             </div>
             <div className="bold mono">{x.quantity} × = {som(x.subtotalSom)}</div>
           </div>
